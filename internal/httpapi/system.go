@@ -1,10 +1,12 @@
 package httpapi
 
 import (
+	"context"
 	"net/http"
 	"os"
 	"time"
 
+	"chatgpt2api/internal/hostupdate"
 	"chatgpt2api/internal/service"
 	"chatgpt2api/internal/util"
 	"chatgpt2api/internal/version"
@@ -113,6 +115,18 @@ func (a *App) handleAdminSystem(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		util.WriteJSON(w, http.StatusOK, info)
+	case base + "/update-status":
+		if r.Method != http.MethodGet {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		a.writeHostUpdaterStatus(w, r)
+	case base + "/update-preflight":
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		a.startHostUpdaterPreflight(w, r)
 	case base + "/update":
 		if r.Method != http.MethodPost {
 			w.WriteHeader(http.StatusMethodNotAllowed)
@@ -159,4 +173,39 @@ func (a *App) handleAdminSystem(w http.ResponseWriter, r *http.Request) {
 	default:
 		http.NotFound(w, r)
 	}
+}
+
+func (a *App) writeHostUpdaterStatus(w http.ResponseWriter, r *http.Request) {
+	if a.hostUpdater == nil {
+		util.WriteJSON(w, http.StatusOK, hostUpdaterStatusResponse{Configured: false, Connected: false, Reason: a.hostUpdaterReason})
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+	state, err := a.hostUpdater.Status(ctx)
+	if err != nil {
+		util.WriteJSON(w, http.StatusOK, hostUpdaterStatusResponse{Configured: true, Connected: false, Reason: err.Error()})
+		return
+	}
+	util.WriteJSON(w, http.StatusOK, hostUpdaterStatusResponse{Configured: true, Connected: true, State: &state})
+}
+
+func (a *App) startHostUpdaterPreflight(w http.ResponseWriter, r *http.Request) {
+	if a.hostUpdater == nil {
+		util.WriteError(w, http.StatusConflict, a.hostUpdaterReason)
+		return
+	}
+	targetVersion := version.Get()
+	if info, err := a.update.CheckUpdate(r.Context(), false); err == nil && info != nil && info.LatestVersion != "" {
+		targetVersion = info.LatestVersion
+	}
+	request := hostupdate.PreflightRequest{TargetVersion: targetVersion}
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+	result, err := a.hostUpdater.StartPreflight(ctx, request)
+	if err != nil {
+		util.WriteError(w, http.StatusBadGateway, err.Error())
+		return
+	}
+	util.WriteJSON(w, http.StatusAccepted, hostUpdaterPreflightResponse{Configured: true, Connected: true, Result: result})
 }

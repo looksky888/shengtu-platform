@@ -1,0 +1,80 @@
+package main
+
+import (
+	"context"
+	"errors"
+	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"syscall"
+	"time"
+
+	"chatgpt2api/internal/hostupdate"
+)
+
+func main() {
+	token := strings.TrimSpace(os.Getenv("SHENGTU_UPDATER_TOKEN"))
+	if len(token) < 32 {
+		log.Fatal("SHENGTU_UPDATER_TOKEN must contain at least 32 characters")
+	}
+	installDir := envOr("SHENGTU_UPDATER_INSTALL_DIR", "/workspace")
+	stateDir := envOr("SHENGTU_UPDATER_STATE_DIR", filepath.Join(installDir, "data", "host-updater"))
+	backupDir := envOr("SHENGTU_UPDATER_BACKUP_DIR", filepath.Join(installDir, "data", "update-backups"))
+	manager, err := hostupdate.NewManager(hostupdate.Options{
+		StateDir: stateDir, InstallDir: installDir, BackupDir: backupDir,
+		ComposeFiles:   splitList(envOr("SHENGTU_UPDATER_COMPOSE_FILES", "docker-compose.yml")),
+		HealthURL:      envOr("SHENGTU_UPDATER_HEALTH_URL", "http://127.0.0.1:3004/health"),
+		MinimumFree:    envUint64("SHENGTU_UPDATER_MIN_FREE_BYTES", 2<<30),
+		CommandTimeout: time.Duration(envUint64("SHENGTU_UPDATER_CHECK_TIMEOUT_SECONDS", 10)) * time.Second,
+	})
+	if err != nil {
+		log.Fatalf("initialize host updater: %v", err)
+	}
+	listener, cleanup, err := listenUpdater()
+	if err != nil {
+		log.Fatalf("listen host updater: %v", err)
+	}
+	defer cleanup()
+	server := &http.Server{Handler: hostupdate.NewHandler(manager, token), ReadHeaderTimeout: 5 * time.Second}
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-stop
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		_ = server.Shutdown(ctx)
+	}()
+	log.Printf("host updater listening on %s", listener.Addr())
+	if err := server.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		log.Fatalf("serve host updater: %v", err)
+	}
+}
+
+func envOr(name, fallback string) string {
+	if value := strings.TrimSpace(os.Getenv(name)); value != "" {
+		return value
+	}
+	return fallback
+}
+
+func envUint64(name string, fallback uint64) uint64 {
+	value, err := strconv.ParseUint(strings.TrimSpace(os.Getenv(name)), 10, 64)
+	if err != nil || value == 0 {
+		return fallback
+	}
+	return value
+}
+
+func splitList(value string) []string {
+	items := []string{}
+	for _, item := range strings.Split(value, ",") {
+		if item = strings.TrimSpace(item); item != "" {
+			items = append(items, item)
+		}
+	}
+	return items
+}

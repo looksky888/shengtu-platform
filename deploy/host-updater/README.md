@@ -1,0 +1,30 @@
+# Host Updater（P2A）
+
+Host Updater 是运行在宿主机上的独立服务。业务容器只通过带 Bearer 鉴权的 Unix Socket 读取状态和发起预检，业务容器不挂载 `/var/run/docker.sock`。
+
+当前阶段只实现持久状态与更新前预检，不拉取镜像、不停止服务、不迁移数据库。
+
+## 宿主配置
+
+将 Release 中的 `shengtu-host-updater_linux_amd64` 安装为 `/usr/local/sbin/shengtu-host-updater`，并创建仅 root 可读的 `/etc/shengtu-host-updater.env`：
+
+```dotenv
+SHENGTU_UPDATER_TOKEN=REPLACE_WITH_AT_LEAST_32_RANDOM_CHARACTERS
+SHENGTU_UPDATER_SOCKET=/run/shengtu-updater/updater.sock
+SHENGTU_UPDATER_SOCKET_GID=10001
+SHENGTU_UPDATER_INSTALL_DIR=/opt/chatgpt2api
+SHENGTU_UPDATER_STATE_DIR=/opt/chatgpt2api/data/host-updater
+SHENGTU_UPDATER_BACKUP_DIR=/opt/chatgpt2api/data/update-backups
+SHENGTU_UPDATER_COMPOSE_FILES=docker-compose.yml,docker-compose.runtime.override.yml
+SHENGTU_UPDATER_HEALTH_URL=http://127.0.0.1:3004/health
+SHENGTU_UPDATER_MIN_FREE_BYTES=2147483648
+```
+
+同一密钥写入项目 `.env` 的 `SHENGTU_UPDATER_TOKEN`，并在启动 Compose 时增加覆盖文件：
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.host-updater.yml up -d
+```
+
+生产安装时应先核对实际项目路径、Compose 文件、健康端口与 systemd 单元的 `ReadWritePaths`。
+`SHENGTU_UPDATER_SOCKET_GID` 必须与业务容器内进程的 GID 一致；当前镜像固定使用 `10001:10001`。

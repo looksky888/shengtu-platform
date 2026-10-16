@@ -1,9 +1,23 @@
 package httpapi
 
 import (
+	"chatgpt2api/internal/hostupdate"
 	"chatgpt2api/internal/service"
 	"chatgpt2api/internal/version"
 )
+
+type hostUpdaterStatusResponse struct {
+	Configured bool              `json:"configured"`
+	Connected  bool              `json:"connected"`
+	Reason     string            `json:"reason,omitempty"`
+	State      *hostupdate.State `json:"state,omitempty"`
+}
+
+type hostUpdaterPreflightResponse struct {
+	Configured bool                       `json:"configured"`
+	Connected  bool                       `json:"connected"`
+	Result     hostupdate.PreflightResult `json:"result"`
+}
 
 type healthDeployment struct {
 	SingleWriterRequired bool   `json:"single_writer_required"`

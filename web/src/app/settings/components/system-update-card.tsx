@@ -14,6 +14,7 @@ import {
   type SystemVersionResponse,
 } from "@/lib/system-update-api";
 import { SettingsCard, SettingsNotice } from "./settings-ui";
+import { HostUpdaterStatusPanel } from "./host-updater-status";
 
 function formatDate(value?: string) {
   if (!value) return "—";
@@ -126,6 +127,7 @@ export function SystemUpdateCard() {
           <SettingsNotice className={status.automatic_update_supported ? "border-emerald-200 bg-emerald-50 text-emerald-800" : undefined}>
             <div className="flex items-start gap-2"><ShieldCheck className="mt-0.5 size-4 shrink-0" /><span>{status.automatic_update_supported ? "当前部署支持二进制更新。执行更新前仍应先备份并验证。" : status.support_reason || "当前仅支持检查更新。"}</span></div>
           </SettingsNotice>
+          <HostUpdaterStatusPanel />
         </div>
       ) : null}
     </SettingsCard>

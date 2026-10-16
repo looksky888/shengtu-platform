@@ -5,8 +5,8 @@ import (
 	"chatgpt2api/internal/protocol"
 	"chatgpt2api/internal/service"
 	"chatgpt2api/internal/storage"
+	"chatgpt2api/internal/updaterclient"
 	"chatgpt2api/internal/util"
-	"chatgpt2api/internal/version"
 	"context"
 	"fmt"
 	"os"
@@ -42,44 +42,46 @@ const (
 )
 
 type App struct {
-	config        *config.Store
-	auth          *service.AuthService
-	accounts      *service.AccountService
-	logs          *service.LogService
-	logger        *service.Logger
-	proxy         *service.ProxyService
-	engine        *protocol.Engine
-	images        *service.ImageService
-	media         *service.MediaLibrary
-	mediaAdmin    *service.MediaLibrary
-	mediaKey      string
-	mediaMu       sync.Mutex
-	billingMu     sync.RWMutex
-	billingHealth creationBillingHealth
-	videos        *service.VideoAssetService
-	videoRefs     *service.VideoReferenceAssetService
-	tasks         *service.ImageTaskService
-	proxyStats    *imageProxyHealth
-	apiLimiter    *apiKeyLimiter
-	announce      *service.AnnouncementService
-	backup        *service.BackupService
-	prompts       *service.PromptFavoriteService
-	cpa           *service.CPAConfig
-	cpaImport     *service.CPAImportService
-	register      *service.RegisterService
-	credits       *service.CreditService
-	imageChannels *service.ImageChannelService
-	regQuota      *service.RegistrationQuotaService
-	email         *service.RegistrationEmailService
-	paymentAdmin  *service.PaymentAdminService
-	paymentOrders *service.PaymentService
-	update        *service.UpdateService
-	cancel        context.CancelFunc
-	rootCtx       context.Context
-	closeTasks    func(context.Context) error
-	closeUsage    func() error
-	closeLog      func() error
-	closeStorage  func() error
+	config            *config.Store
+	auth              *service.AuthService
+	accounts          *service.AccountService
+	logs              *service.LogService
+	logger            *service.Logger
+	proxy             *service.ProxyService
+	engine            *protocol.Engine
+	images            *service.ImageService
+	media             *service.MediaLibrary
+	mediaAdmin        *service.MediaLibrary
+	mediaKey          string
+	mediaMu           sync.Mutex
+	billingMu         sync.RWMutex
+	billingHealth     creationBillingHealth
+	videos            *service.VideoAssetService
+	videoRefs         *service.VideoReferenceAssetService
+	tasks             *service.ImageTaskService
+	proxyStats        *imageProxyHealth
+	apiLimiter        *apiKeyLimiter
+	announce          *service.AnnouncementService
+	backup            *service.BackupService
+	prompts           *service.PromptFavoriteService
+	cpa               *service.CPAConfig
+	cpaImport         *service.CPAImportService
+	register          *service.RegisterService
+	credits           *service.CreditService
+	imageChannels     *service.ImageChannelService
+	regQuota          *service.RegistrationQuotaService
+	email             *service.RegistrationEmailService
+	paymentAdmin      *service.PaymentAdminService
+	paymentOrders     *service.PaymentService
+	update            *service.UpdateService
+	hostUpdater       *updaterclient.Client
+	hostUpdaterReason string
+	cancel            context.CancelFunc
+	rootCtx           context.Context
+	closeTasks        func(context.Context) error
+	closeUsage        func() error
+	closeLog          func() error
+	closeStorage      func() error
 }
 
 func NewApp() (*App, error) {
@@ -175,30 +177,33 @@ func NewApp() (*App, error) {
 	}
 	images := service.NewImageService(cfg, storageBackend)
 	images.BindMediaLibrary(media)
+	hostUpdater, hostUpdaterReason := updaterclient.NewFromEnv()
 	app := &App{
 		config: cfg, auth: auth, accounts: accounts, logs: logs, logger: logger, proxy: proxy, engine: engine,
-		images:        images,
-		media:         media,
-		videos:        service.NewVideoAssetService(cfg.DataDir, storageBackend),
-		videoRefs:     service.NewVideoReferenceAssetService(cfg.DataDir, storageBackend),
-		proxyStats:    newImageProxyHealth(filepath.Join(cfg.DataDir, "image_proxy_health.json")),
-		apiLimiter:    newAPIKeyLimiter(storageBackend, logger),
-		announce:      service.NewAnnouncementService(cfg.DataDir, storageBackend),
-		backup:        service.NewBackupService(cfg.RootDir, cfg.DataDir, storageBackend),
-		prompts:       service.NewPromptFavoriteService(cfg.DataDir, storageBackend),
-		cpa:           service.NewCPAConfig(cfg.DataDir, storageBackend),
-		credits:       service.NewCreditService(cfg.DataDir, storageBackend),
-		imageChannels: imageChannels,
-		regQuota:      regQuota,
-		email:         email,
-		paymentAdmin:  payment,
-		paymentOrders: paymentOrders,
-		update:        newUpdateService(cfg),
-		cancel:        cancel,
-		rootCtx:       ctx,
-		closeUsage:    logs.Close,
-		closeLog:      logger.Close,
-		closeStorage:  closeStorage,
+		images:            images,
+		media:             media,
+		videos:            service.NewVideoAssetService(cfg.DataDir, storageBackend),
+		videoRefs:         service.NewVideoReferenceAssetService(cfg.DataDir, storageBackend),
+		proxyStats:        newImageProxyHealth(filepath.Join(cfg.DataDir, "image_proxy_health.json")),
+		apiLimiter:        newAPIKeyLimiter(storageBackend, logger),
+		announce:          service.NewAnnouncementService(cfg.DataDir, storageBackend),
+		backup:            service.NewBackupService(cfg.RootDir, cfg.DataDir, storageBackend),
+		prompts:           service.NewPromptFavoriteService(cfg.DataDir, storageBackend),
+		cpa:               service.NewCPAConfig(cfg.DataDir, storageBackend),
+		credits:           service.NewCreditService(cfg.DataDir, storageBackend),
+		imageChannels:     imageChannels,
+		regQuota:          regQuota,
+		email:             email,
+		paymentAdmin:      payment,
+		paymentOrders:     paymentOrders,
+		update:            newUpdateService(cfg),
+		hostUpdater:       hostUpdater,
+		hostUpdaterReason: hostUpdaterReason,
+		cancel:            cancel,
+		rootCtx:           ctx,
+		closeUsage:        logs.Close,
+		closeLog:          logger.Close,
+		closeStorage:      closeStorage,
 	}
 	app.cpaImport = service.NewCPAImportService(app.cpa, accounts, proxy)
 	app.paymentOrders.BindCredits(app.credits)
@@ -384,17 +389,6 @@ func (a *App) refundInterruptedCreationTasks() {
 			a.logger.Info("restart refund applied", "user_id", task.OwnerID, "task_id", task.ID, "ref_id", refID)
 		}
 	}
-}
-
-func newUpdateService(cfg *config.Store) *service.UpdateService {
-	return service.NewUpdateService(service.UpdateOptions{
-		CurrentVersion: version.Get(),
-		BuildType:      version.GetBuildType(),
-		Deployment:     version.GetDeployment(),
-		Repo:           cfg.UpdateRepo(),
-		ProxyURL:       cfg.UpdateProxyURL(),
-		GitHubToken:    cfg.UpdateGitHubToken(),
-	})
 }
 
 func (a *App) Logger() *service.Logger {
