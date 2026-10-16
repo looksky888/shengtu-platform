@@ -91,6 +91,12 @@ func TestStoreUpdateRejectsInvalidUpdateRepo(t *testing.T) {
 	}
 }
 
+func TestLegacyDefaultUpdateRepoMigratesToShengtuPlatform(t *testing.T) {
+	if got := normalizeUpdateRepo("ZyphrZero/chatgpt2api"); got != "looksky888/shengtu-platform" {
+		t.Fatalf("normalizeUpdateRepo(legacy) = %q", got)
+	}
+}
+
 func TestStoreUpdateImageCreditCostsAcceptsJSONNumbers(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("CHATGPT2API_ROOT", root)

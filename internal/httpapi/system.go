@@ -118,6 +118,10 @@ func (a *App) handleAdminSystem(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
 		}
+		if err := a.update.EnsureAutomaticUpdateSupported(); err != nil {
+			util.WriteError(w, http.StatusConflict, err.Error())
+			return
+		}
 		if err := a.update.PerformUpdate(r.Context()); err != nil {
 			util.WriteError(w, http.StatusBadGateway, err.Error())
 			return
@@ -126,6 +130,10 @@ func (a *App) handleAdminSystem(w http.ResponseWriter, r *http.Request) {
 	case base + "/rollback":
 		if r.Method != http.MethodPost {
 			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		if err := a.update.EnsureAutomaticUpdateSupported(); err != nil {
+			util.WriteError(w, http.StatusConflict, err.Error())
 			return
 		}
 		if err := a.update.Rollback(); err != nil {

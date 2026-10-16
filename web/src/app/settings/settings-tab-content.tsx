@@ -20,6 +20,7 @@ import {
   LogGovernanceCard,
   MediaStorageCard,
   RegisterClearanceCard,
+  SystemUpdateCard,
   UpstreamProxyRuntimeCard,
 } from "./settings-tab-lazy";
 import { EmailRegistrationTab } from "./email-registration-tab";
@@ -177,6 +178,9 @@ export function SettingsTabContent({
       break;
     case "backup":
       content = <BackupTab />;
+      break;
+    case "system-update":
+      content = canManageSystem ? <section className="grid gap-5 md:grid-cols-2"><SystemUpdateCard /></section> : <div className="rounded-[20px] border border-border/70 bg-card p-6 text-sm text-muted-foreground">只有管理员可以查看系统更新。</div>;
       break;
     case "maintenance":
       content = <MaintenanceTab canManageSystem={canManageSystem} />;

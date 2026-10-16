@@ -103,7 +103,7 @@ export function SettingsTabs({
         className="rounded-[22px] border border-border/70 bg-card/90 p-1.5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] backdrop-blur"
       >
         <div className="flex gap-1 overflow-x-auto" role="tablist">
-          {SETTINGS_TABS.map((tab) => {
+          {SETTINGS_TABS.filter((tab) => canManageSystem || tab.key !== "system-update").map((tab) => {
             const selected = activeTab === tab.key;
             return (
               <button

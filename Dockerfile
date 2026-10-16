@@ -1,6 +1,8 @@
 # syntax=docker/dockerfile:1.7
 
 ARG VERSION=4.5-20260925-ui-workspace
+ARG COMMIT=unknown
+ARG BUILD_DATE=unknown
 
 FROM node:22-bookworm-slim@sha256:6c74791e557ce11fc957704f6d4fe134a7bc8d6f5ca4403205b2966bd488f6b3 AS web-deps
 
@@ -32,8 +34,10 @@ COPY --from=web-build /app/internal/web/dist ./internal/web/dist
 ARG TARGETOS
 ARG TARGETARCH
 ARG VERSION=4.5-20260925-ui-workspace
+ARG COMMIT=unknown
+ARG BUILD_DATE=unknown
 # Keep cold builds inside the memory envelope of small production hosts.
-RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-amd64} go build -p=1 -trimpath -tags=embed -ldflags="-s -w -X chatgpt2api/internal/version.Version=${VERSION}" -o /out/chatgpt2api ./cmd/chatgpt2api
+RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-amd64} go build -p=1 -trimpath -tags=embed -ldflags="-s -w -X chatgpt2api/internal/version.Version=${VERSION} -X chatgpt2api/internal/version.Commit=${COMMIT} -X chatgpt2api/internal/version.Date=${BUILD_DATE} -X chatgpt2api/internal/version.BuildType=release -X chatgpt2api/internal/version.Deployment=docker" -o /out/chatgpt2api ./cmd/chatgpt2api
 
 
 FROM debian:bookworm-slim@sha256:7b140f374b289a7c2befc338f42ebe6441b7ea838a042bbd5acbfca6ec875818 AS app

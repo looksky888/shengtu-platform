@@ -80,3 +80,8 @@ export const LogGovernanceCard = lazy(() =>
     ({ LogGovernanceCard: Component }) => ({ default: Component }),
   ),
 );
+export const SystemUpdateCard = lazy(() =>
+  import("./components/system-update-card").then(
+    ({ SystemUpdateCard: Component }) => ({ default: Component }),
+  ),
+);

@@ -214,7 +214,7 @@ func TestAppAuthAndSPACompatibility(t *testing.T) {
 
 func TestAdminSystemCheckUpdates(t *testing.T) {
 	releaseAPI := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/repos/ZyphrZero/chatgpt2api/releases/latest" {
+		if r.URL.Path != "/repos/looksky888/shengtu-platform/releases/latest" {
 			http.NotFound(w, r)
 			return
 		}
@@ -248,6 +248,7 @@ func TestAdminSystemCheckUpdates(t *testing.T) {
 		APIBaseURL:     releaseAPI.URL,
 		CurrentVersion: version.Get(),
 		BuildType:      version.GetBuildType(),
+		Deployment:     "binary",
 	})
 
 	req := httptest.NewRequest(http.MethodGet, "/api/admin/system/check-updates?force=true", nil)
@@ -261,8 +262,26 @@ func TestAdminSystemCheckUpdates(t *testing.T) {
 	if err := json.Unmarshal(res.Body.Bytes(), &body); err != nil {
 		t.Fatalf("check updates json: %v", err)
 	}
-	if body["current_version"] != "1.1.0" || body["latest_version"] != "1.2.0" || body["has_update"] != true || body["build_type"] != "release" {
+	if body["current_version"] != "1.1.0" || body["latest_version"] != "1.2.0" || body["has_update"] != true || body["build_type"] != "release" || body["automatic_update_supported"] != true {
 		t.Fatalf("unexpected check updates body = %#v", body)
+	}
+}
+
+func TestAdminSystemRejectsDockerInProcessUpdate(t *testing.T) {
+	app := newTestApp(t)
+	defer app.Close()
+	app.update = service.NewUpdateService(service.UpdateOptions{
+		CurrentVersion: "4.5-20260925-ui-workspace",
+		BuildType:      "release",
+		Deployment:     "docker",
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/api/admin/system/update", nil)
+	req.Header.Set("Authorization", adminAuthHeader(t, app))
+	res := httptest.NewRecorder()
+	app.Handler().ServeHTTP(res, req)
+	if res.Code != http.StatusConflict || !strings.Contains(res.Body.String(), "Host Updater") {
+		t.Fatalf("docker update status = %d body = %s", res.Code, res.Body.String())
 	}
 }
 
