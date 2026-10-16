@@ -41,7 +41,7 @@ docker-compose-local.yml
 bootstrap-admin.txt
 **/bootstrap-admin.txt
 *.exe
-chatgpt2api
+/chatgpt2api
 chatgpt2api.exe
 
 # Git cache
