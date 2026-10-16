@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 )
@@ -76,6 +77,7 @@ type App struct {
 	update            *service.UpdateService
 	hostUpdater       *updaterclient.Client
 	hostUpdaterReason string
+	hostUpdaterToken  string
 	updateAdmission   *updateAdmissionGate
 	cancel            context.CancelFunc
 	rootCtx           context.Context
@@ -200,6 +202,7 @@ func NewApp() (*App, error) {
 		update:            newUpdateService(cfg),
 		hostUpdater:       hostUpdater,
 		hostUpdaterReason: hostUpdaterReason,
+		hostUpdaterToken:  strings.TrimSpace(os.Getenv("CHATGPT2API_HOST_UPDATER_TOKEN")),
 		updateAdmission:   newUpdateAdmissionGate(),
 		cancel:            cancel,
 		rootCtx:           ctx,

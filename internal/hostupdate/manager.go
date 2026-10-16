@@ -42,6 +42,7 @@ type Manager struct {
 	runner  commandRunner
 	client  *http.Client
 	release *releaseClient
+	app     *appControlClient
 	state   State
 }
 
@@ -78,10 +79,15 @@ func NewManager(opts Options) (*Manager, error) {
 		return nil, fmt.Errorf("create updater state directory: %w", err)
 	}
 	client := &http.Client{Timeout: opts.CommandTimeout}
+	app, err := newAppControlClient(opts.AppControlURL, opts.AppControlToken, client)
+	if err != nil {
+		return nil, err
+	}
 	m := &Manager{
 		opts: opts, runner: execRunner{},
 		client:  client,
 		release: newReleaseClient(opts, client),
+		app:     app,
 		state:   State{Status: StatusIdle, UpdatedAt: nowISO(), Checks: []Check{}},
 	}
 	if err := m.load(); err != nil {

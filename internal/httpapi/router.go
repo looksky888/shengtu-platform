@@ -169,7 +169,7 @@ func (a *App) serveHTTP(w http.ResponseWriter, r *http.Request, routes []appRout
 		return
 	}
 	if route := matchAppRoute(routes, r.Method, r.URL.Path); route != nil {
-		if isSynchronousCreationRequest(r.Method, r.URL.Path) {
+		if isUpdateSensitiveRequest(r.Method, r.URL.Path) {
 			release, err := a.updateAdmission.enter()
 			if err != nil {
 				writeCreationTaskSubmitError(w, err)

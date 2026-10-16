@@ -26,13 +26,15 @@ func main() {
 	backupDir := envOr("SHENGTU_UPDATER_BACKUP_DIR", filepath.Join(installDir, "data", "update-backups"))
 	manager, err := hostupdate.NewManager(hostupdate.Options{
 		StateDir: stateDir, InstallDir: installDir, BackupDir: backupDir,
-		ComposeFiles:   splitList(envOr("SHENGTU_UPDATER_COMPOSE_FILES", "docker-compose.yml")),
-		ReadinessURL:   envOr("SHENGTU_UPDATER_READINESS_URL", "http://127.0.0.1:3004/ready"),
-		Repository:     envOr("SHENGTU_UPDATER_REPOSITORY", "looksky888/shengtu-platform"),
-		GitHubToken:    strings.TrimSpace(os.Getenv("SHENGTU_UPDATER_GITHUB_TOKEN")),
-		Platform:       envOr("SHENGTU_UPDATER_PLATFORM", "linux/amd64"),
-		MinimumFree:    envUint64("SHENGTU_UPDATER_MIN_FREE_BYTES", 2<<30),
-		CommandTimeout: time.Duration(envUint64("SHENGTU_UPDATER_CHECK_TIMEOUT_SECONDS", 10)) * time.Second,
+		ComposeFiles:    splitList(envOr("SHENGTU_UPDATER_COMPOSE_FILES", "docker-compose.yml")),
+		ReadinessURL:    envOr("SHENGTU_UPDATER_READINESS_URL", "http://127.0.0.1:3004/ready"),
+		AppControlURL:   envOr("SHENGTU_UPDATER_APP_CONTROL_URL", "http://127.0.0.1:8092"),
+		AppControlToken: token,
+		Repository:      envOr("SHENGTU_UPDATER_REPOSITORY", "looksky888/shengtu-platform"),
+		GitHubToken:     strings.TrimSpace(os.Getenv("SHENGTU_UPDATER_GITHUB_TOKEN")),
+		Platform:        envOr("SHENGTU_UPDATER_PLATFORM", "linux/amd64"),
+		MinimumFree:     envUint64("SHENGTU_UPDATER_MIN_FREE_BYTES", 2<<30),
+		CommandTimeout:  time.Duration(envUint64("SHENGTU_UPDATER_CHECK_TIMEOUT_SECONDS", 10)) * time.Second,
 	})
 	if err != nil {
 		log.Fatalf("initialize host updater: %v", err)

@@ -39,7 +39,7 @@ func TestUpdateAdmissionGateTracksInflightAndRejectsNewRequests(t *testing.T) {
 	}
 }
 
-func TestSynchronousCreationRequestClassification(t *testing.T) {
+func TestUpdateSensitiveRequestClassification(t *testing.T) {
 	tests := []struct {
 		method string
 		path   string
@@ -51,14 +51,18 @@ func TestSynchronousCreationRequestClassification(t *testing.T) {
 		{http.MethodPost, "/v1/responses", true},
 		{http.MethodPost, "/v1/messages", true},
 		{http.MethodPost, "/v1/videos", true},
-		{http.MethodPost, "/v1/videos/task-1", false},
+		{http.MethodPost, "/v1/videos/task-1", true},
 		{http.MethodGet, "/v1/videos/task-1", false},
 		{http.MethodGet, "/v1/models", false},
-		{http.MethodPost, "/api/creation-tasks/image-generations", false},
+		{http.MethodPost, "/api/creation-tasks/image-generations", true},
+		{http.MethodPatch, "/api/settings", true},
+		{http.MethodDelete, "/api/images", true},
+		{http.MethodPost, "/api/admin/system/update-drain", false},
+		{http.MethodPost, "/api/admin/system/update-resume", false},
 	}
 	for _, test := range tests {
-		if got := isSynchronousCreationRequest(test.method, test.path); got != test.want {
-			t.Errorf("isSynchronousCreationRequest(%q, %q) = %v, want %v", test.method, test.path, got, test.want)
+		if got := isUpdateSensitiveRequest(test.method, test.path); got != test.want {
+			t.Errorf("isUpdateSensitiveRequest(%q, %q) = %v, want %v", test.method, test.path, got, test.want)
 		}
 	}
 }

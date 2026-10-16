@@ -36,7 +36,7 @@ func (g *updateAdmissionGate) enter() (func(), error) {
 	if g.draining {
 		message := strings.TrimSpace(g.reason)
 		if message == "" {
-			message = "服务更新中，暂不接收新的创作请求"
+			message = "服务更新中，暂不接收新的写入请求"
 		}
 		g.mu.Unlock()
 		return nil, service.ImageTaskAdmissionError{Code: service.ImageTaskAdmissionCodeDraining, Message: message}
@@ -99,14 +99,17 @@ func (g *updateAdmissionGate) snapshotLocked() updateRequestDrainSnapshot {
 	}
 }
 
-func isSynchronousCreationRequest(method, requestPath string) bool {
-	if method != http.MethodPost {
-		return false
-	}
-	switch requestPath {
-	case "/v1/images/generations", "/v1/images/edits", "/v1/chat/completions", "/v1/responses", "/v1/messages", "/v1/videos":
-		return true
+func isUpdateSensitiveRequest(method, requestPath string) bool {
+	switch method {
+	case http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete:
 	default:
 		return false
 	}
+	// These controls must remain callable while admission is closed, otherwise
+	// an aborted update could not inspect or reopen the service.
+	switch requestPath {
+	case "/api/admin/system/update-drain", "/api/admin/system/update-resume":
+		return false
+	}
+	return true
 }

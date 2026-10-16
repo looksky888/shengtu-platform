@@ -179,7 +179,7 @@ func (a *App) handleAdminSystem(w http.ResponseWriter, r *http.Request) {
 		requests := a.updateAdmission.snapshot()
 		tasks := a.tasks.DrainSnapshot()
 		if r.Method == http.MethodPost {
-			requests = a.updateAdmission.beginDrain("版本更新准备中，暂不接收新的创作请求")
+			requests = a.updateAdmission.beginDrain("版本更新准备中，暂不接收新的写入请求")
 			tasks = a.tasks.BeginDrain("版本更新准备中，暂不接收新的创作任务")
 			message = "已停止接收新的创作任务"
 		}

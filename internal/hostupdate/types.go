@@ -37,18 +37,47 @@ type PreflightResult struct {
 }
 
 type Options struct {
-	StateDir       string
-	InstallDir     string
-	ComposeFiles   []string
-	BackupDir      string
-	ReadinessURL   string
-	Repository     string
-	GitHubToken    string
-	GitHubAPIBase  string
-	Platform       string
-	ExpectedImage  string
-	MinimumFree    uint64
-	CommandTimeout time.Duration
+	StateDir        string
+	InstallDir      string
+	ComposeFiles    []string
+	BackupDir       string
+	ReadinessURL    string
+	AppControlURL   string
+	AppControlToken string
+	Repository      string
+	GitHubToken     string
+	GitHubAPIBase   string
+	Platform        string
+	ExpectedImage   string
+	MinimumFree     uint64
+	CommandTimeout  time.Duration
+}
+
+type AppDrainTasks struct {
+	Accepting bool   `json:"accepting"`
+	Draining  bool   `json:"draining"`
+	Drained   bool   `json:"drained"`
+	Queued    int    `json:"queued"`
+	Running   int    `json:"running"`
+	Active    int    `json:"active"`
+	Reason    string `json:"reason,omitempty"`
+	StartedAt string `json:"started_at,omitempty"`
+}
+
+type AppDrainRequests struct {
+	Accepting bool   `json:"accepting"`
+	Draining  bool   `json:"draining"`
+	Drained   bool   `json:"drained"`
+	Active    int    `json:"active"`
+	Reason    string `json:"reason,omitempty"`
+	StartedAt string `json:"started_at,omitempty"`
+}
+
+type AppDrainState struct {
+	Message  string           `json:"message"`
+	Drained  bool             `json:"drained"`
+	Tasks    AppDrainTasks    `json:"tasks"`
+	Requests AppDrainRequests `json:"requests"`
 }
 
 type ReleaseTarget struct {
