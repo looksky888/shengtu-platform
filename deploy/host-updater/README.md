@@ -16,7 +16,7 @@ SHENGTU_UPDATER_INSTALL_DIR=/opt/chatgpt2api
 SHENGTU_UPDATER_STATE_DIR=/opt/chatgpt2api/data/host-updater
 SHENGTU_UPDATER_BACKUP_DIR=/opt/chatgpt2api/data/update-backups
 SHENGTU_UPDATER_COMPOSE_FILES=docker-compose.yml,docker-compose.runtime.override.yml
-SHENGTU_UPDATER_HEALTH_URL=http://127.0.0.1:3004/health
+SHENGTU_UPDATER_READINESS_URL=http://127.0.0.1:3004/ready
 SHENGTU_UPDATER_MIN_FREE_BYTES=2147483648
 ```
 

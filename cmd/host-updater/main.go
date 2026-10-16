@@ -27,7 +27,7 @@ func main() {
 	manager, err := hostupdate.NewManager(hostupdate.Options{
 		StateDir: stateDir, InstallDir: installDir, BackupDir: backupDir,
 		ComposeFiles:   splitList(envOr("SHENGTU_UPDATER_COMPOSE_FILES", "docker-compose.yml")),
-		HealthURL:      envOr("SHENGTU_UPDATER_HEALTH_URL", "http://127.0.0.1:3004/health"),
+		ReadinessURL:   envOr("SHENGTU_UPDATER_READINESS_URL", "http://127.0.0.1:3004/ready"),
 		MinimumFree:    envUint64("SHENGTU_UPDATER_MIN_FREE_BYTES", 2<<30),
 		CommandTimeout: time.Duration(envUint64("SHENGTU_UPDATER_CHECK_TIMEOUT_SECONDS", 10)) * time.Second,
 	})

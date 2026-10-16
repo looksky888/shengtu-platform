@@ -120,6 +120,9 @@ jobs:
             -ldflags="-s -w" \
             -o dist/shengtu-host-updater_linux_amd64 ./cmd/host-updater
           updater_sha="$(sha256sum dist/shengtu-host-updater_linux_amd64 | awk '{print $1}')"
+          release_metadata="$(go run ./cmd/release-metadata)"
+          storage_schema_version="$(jq -er '.storageSchemaVersion' <<<"$release_metadata")"
+          min_source_schema_version="$(jq -er '.minSourceSchemaVersion' <<<"$release_metadata")"
           jq -n \
             --arg version "$VERSION" \
             --arg channel "$CHANNEL" \
@@ -128,6 +131,8 @@ jobs:
             --arg image "$IMAGE" \
             --arg digest "$DIGEST" \
             --arg updaterSha "$updater_sha" \
+            --argjson storageSchemaVersion "$storage_schema_version" \
+            --argjson minSourceSchemaVersion "$min_source_schema_version" \
             '{
               schemaVersion: 1,
               version: $version,
@@ -144,6 +149,10 @@ jobs:
               hostUpdater: {
                 asset: "shengtu-host-updater_linux_amd64",
                 sha256: $updaterSha
+              },
+              storage: {
+                schemaVersion: $storageSchemaVersion,
+                minSourceSchemaVersion: $minSourceSchemaVersion
               }
             }' > dist/update-manifest.json
           (

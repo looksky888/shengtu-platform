@@ -113,7 +113,7 @@ func (m *Manager) runPreflight(taskID string, request PreflightRequest) {
 		}},
 		{"Docker Compose", func(ctx context.Context) error { return m.runner.Run(ctx, "docker", "compose", "version", "--short") }},
 		{"可用磁盘", m.checkDiskSpace},
-		{"业务健康", m.checkHealth},
+		{"业务就绪", m.checkReadiness},
 	}
 	for _, item := range checks {
 		m.setPhase(taskID, item.name)
@@ -204,29 +204,29 @@ func (m *Manager) checkDiskSpace(context.Context) error {
 	return nil
 }
 
-func (m *Manager) checkHealth(ctx context.Context) error {
-	if strings.TrimSpace(m.opts.HealthURL) == "" {
-		return errors.New("未配置业务健康地址")
+func (m *Manager) checkReadiness(ctx context.Context) error {
+	if strings.TrimSpace(m.opts.ReadinessURL) == "" {
+		return errors.New("未配置业务就绪地址")
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, m.opts.HealthURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, m.opts.ReadinessURL, nil)
 	if err != nil {
 		return err
 	}
 	resp, err := m.client.Do(req)
 	if err != nil {
-		return fmt.Errorf("访问业务健康接口: %w", err)
+		return fmt.Errorf("访问业务就绪接口: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("业务健康接口返回 HTTP %d", resp.StatusCode)
+		return fmt.Errorf("业务就绪接口返回 HTTP %d", resp.StatusCode)
 	}
 	var payload struct {
 		Status string `json:"status"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
-		return fmt.Errorf("解析业务健康响应: %w", err)
+		return fmt.Errorf("解析业务就绪响应: %w", err)
 	}
-	if payload.Status != "ok" {
+	if payload.Status != "ready" {
 		return fmt.Errorf("业务状态为 %q，尚未就绪", payload.Status)
 	}
 	return nil

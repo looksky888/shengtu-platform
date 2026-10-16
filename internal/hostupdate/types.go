@@ -42,7 +42,7 @@ type Options struct {
 	InstallDir     string
 	ComposeFiles   []string
 	BackupDir      string
-	HealthURL      string
+	ReadinessURL   string
 	MinimumFree    uint64
 	CommandTimeout time.Duration
 }

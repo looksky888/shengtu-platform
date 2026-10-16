@@ -51,6 +51,7 @@ func (a *App) routes() []appRoute {
 		exact(http.MethodGet, "/auth/session", a.handleSession),
 		exact("", "/auth/providers", a.handleAuthProviders),
 		exact(http.MethodGet, "/health", a.handleHealth),
+		exact(http.MethodGet, "/ready", a.handleReadiness),
 		exact(http.MethodGet, "/version", func(w http.ResponseWriter, _ *http.Request) {
 			util.WriteJSON(w, http.StatusOK, versionResponse{Version: version.Get()})
 		}),
@@ -168,6 +169,14 @@ func (a *App) serveHTTP(w http.ResponseWriter, r *http.Request, routes []appRout
 		return
 	}
 	if route := matchAppRoute(routes, r.Method, r.URL.Path); route != nil {
+		if isSynchronousCreationRequest(r.Method, r.URL.Path) {
+			release, err := a.updateAdmission.enter()
+			if err != nil {
+				writeCreationTaskSubmitError(w, err)
+				return
+			}
+			defer release()
+		}
 		route.handler(w, r)
 		return
 	}

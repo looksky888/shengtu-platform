@@ -37,14 +37,14 @@ func TestPreflightPersistsSuccessfulState(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, "docker-compose.yml"), []byte("services: {}\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	health := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte(`{"status":"ok"}`))
+	readiness := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"status":"ready"}`))
 	}))
-	defer health.Close()
+	defer readiness.Close()
 	manager, err := NewManager(Options{
 		StateDir: filepath.Join(root, "state"), InstallDir: root,
 		ComposeFiles: []string{"docker-compose.yml"}, BackupDir: filepath.Join(root, "backups"),
-		HealthURL: health.URL, MinimumFree: 1, CommandTimeout: time.Second,
+		ReadinessURL: readiness.URL, MinimumFree: 1, CommandTimeout: time.Second,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -79,7 +79,7 @@ func TestPreflightStopsAtFirstFailure(t *testing.T) {
 	manager, err := NewManager(Options{
 		StateDir: filepath.Join(root, "state"), InstallDir: root,
 		ComposeFiles: []string{"missing.yml"}, BackupDir: filepath.Join(root, "backups"),
-		HealthURL: "http://127.0.0.1:1/health", MinimumFree: 1, CommandTimeout: time.Second,
+		ReadinessURL: "http://127.0.0.1:1/ready", MinimumFree: 1, CommandTimeout: time.Second,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -90,6 +90,34 @@ func TestPreflightStopsAtFirstFailure(t *testing.T) {
 	}
 	state := waitForTerminal(t, manager)
 	if state.Status != StatusFailed || len(state.Checks) != 2 || !strings.Contains(state.Error, "missing.yml") {
+		t.Fatalf("state = %#v", state)
+	}
+}
+
+func TestPreflightRejectsApplicationThatIsNotReady(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "docker-compose.yml"), []byte("services: {}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	readiness := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, _ = w.Write([]byte(`{"status":"not_ready"}`))
+	}))
+	defer readiness.Close()
+	manager, err := NewManager(Options{
+		StateDir: filepath.Join(root, "state"), InstallDir: root,
+		ComposeFiles: []string{"docker-compose.yml"}, BackupDir: filepath.Join(root, "backups"),
+		ReadinessURL: readiness.URL, MinimumFree: 1, CommandTimeout: time.Second,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	manager.runner = runnerStub{}
+	if _, err := manager.StartPreflight(PreflightRequest{}); err != nil {
+		t.Fatal(err)
+	}
+	state := waitForTerminal(t, manager)
+	if state.Status != StatusFailed || len(state.Checks) != 7 || !strings.Contains(state.Error, "HTTP 503") {
 		t.Fatalf("state = %#v", state)
 	}
 }

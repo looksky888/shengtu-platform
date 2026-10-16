@@ -76,6 +76,7 @@ type App struct {
 	update            *service.UpdateService
 	hostUpdater       *updaterclient.Client
 	hostUpdaterReason string
+	updateAdmission   *updateAdmissionGate
 	cancel            context.CancelFunc
 	rootCtx           context.Context
 	closeTasks        func(context.Context) error
@@ -199,6 +200,7 @@ func NewApp() (*App, error) {
 		update:            newUpdateService(cfg),
 		hostUpdater:       hostUpdater,
 		hostUpdaterReason: hostUpdaterReason,
+		updateAdmission:   newUpdateAdmissionGate(),
 		cancel:            cancel,
 		rootCtx:           ctx,
 		closeUsage:        logs.Close,

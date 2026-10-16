@@ -8,6 +8,7 @@ import (
 
 	"chatgpt2api/internal/hostupdate"
 	"chatgpt2api/internal/service"
+	"chatgpt2api/internal/storage"
 	"chatgpt2api/internal/util"
 	"chatgpt2api/internal/version"
 )
@@ -87,6 +88,44 @@ func (a *App) handleHealth(w http.ResponseWriter, _ *http.Request) {
 	util.WriteJSON(w, http.StatusOK, payload)
 }
 
+func (a *App) handleReadiness(w http.ResponseWriter, _ *http.Request) {
+	status := "ready"
+	reasons := []string{}
+	accountsReady := a.accounts != nil && a.accounts.StoreReady()
+	creditsReady := a.credits != nil && a.credits.StoreReady()
+	if !accountsReady {
+		reasons = append(reasons, "account_pool_not_ready")
+	}
+	if !creditsReady {
+		reasons = append(reasons, "credits_not_ready")
+	}
+	tasks := service.ImageTaskDrainSnapshot{Draining: true, Drained: true, Reason: "创作任务服务未初始化"}
+	if a.tasks != nil {
+		tasks = a.tasks.DrainSnapshot()
+	}
+	if !tasks.Accepting {
+		reasons = append(reasons, "task_admission_closed")
+	}
+	requests := a.updateAdmission.snapshot()
+	if !requests.Accepting {
+		reasons = append(reasons, "request_admission_closed")
+	}
+	statusCode := http.StatusOK
+	if len(reasons) > 0 {
+		status = "not_ready"
+		statusCode = http.StatusServiceUnavailable
+	}
+	util.WriteJSON(w, statusCode, applicationReadinessResponse{
+		Status:        status,
+		Version:       version.Get(),
+		SchemaVersion: storage.SchemaVersion,
+		Reasons:       reasons,
+		Storage:       healthStorage{AccountPoolReady: accountsReady, CreditsReady: creditsReady},
+		Tasks:         tasks,
+		Requests:      requests,
+	})
+}
+
 func (a *App) handleAdminSystem(w http.ResponseWriter, r *http.Request) {
 	// RBAC: GET/POST /api/admin/system (subtree)
 	if _, ok := a.requireIdentity(w, r, ""); !ok {
@@ -127,6 +166,44 @@ func (a *App) handleAdminSystem(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		a.startHostUpdaterPreflight(w, r)
+	case base + "/update-drain":
+		if r.Method != http.MethodGet && r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		if a.tasks == nil {
+			util.WriteError(w, http.StatusServiceUnavailable, "创作任务服务未初始化")
+			return
+		}
+		message := "当前创作任务排空状态"
+		requests := a.updateAdmission.snapshot()
+		tasks := a.tasks.DrainSnapshot()
+		if r.Method == http.MethodPost {
+			requests = a.updateAdmission.beginDrain("版本更新准备中，暂不接收新的创作请求")
+			tasks = a.tasks.BeginDrain("版本更新准备中，暂不接收新的创作任务")
+			message = "已停止接收新的创作任务"
+		}
+		util.WriteJSON(w, http.StatusOK, systemTaskDrainResponse{
+			Message: message, Drained: updateDrainComplete(tasks, requests), Tasks: tasks, Requests: requests,
+		})
+	case base + "/update-resume":
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		if a.tasks == nil {
+			util.WriteError(w, http.StatusServiceUnavailable, "创作任务服务未初始化")
+			return
+		}
+		tasks, err := a.tasks.ResumeAdmission()
+		if err != nil {
+			util.WriteError(w, http.StatusConflict, err.Error())
+			return
+		}
+		requests := a.updateAdmission.resume()
+		util.WriteJSON(w, http.StatusOK, systemTaskDrainResponse{
+			Message: "已恢复接收创作任务", Drained: updateDrainComplete(tasks, requests), Tasks: tasks, Requests: requests,
+		})
 	case base + "/update":
 		if r.Method != http.MethodPost {
 			w.WriteHeader(http.StatusMethodNotAllowed)
@@ -173,6 +250,10 @@ func (a *App) handleAdminSystem(w http.ResponseWriter, r *http.Request) {
 	default:
 		http.NotFound(w, r)
 	}
+}
+
+func updateDrainComplete(tasks service.ImageTaskDrainSnapshot, requests updateRequestDrainSnapshot) bool {
+	return tasks.Draining && requests.Draining && tasks.Drained && requests.Drained
 }
 
 func (a *App) writeHostUpdaterStatus(w http.ResponseWriter, r *http.Request) {
