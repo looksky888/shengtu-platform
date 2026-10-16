@@ -1,0 +1,46 @@
+import type { ReactNode, RefObject } from "react";
+
+import type { ImageAspectRatio, ImageResolution, ImageSizeMode } from "@/app/image/image-options";
+import type { ImageModel, ImageOutputFormat, ImageQuality } from "@/lib/api";
+import type { ImageModelOption } from "@/app/image/hooks/use-image-composer-derived";
+
+export type ImageComposerProps = {
+  composerMode: "chat" | "image";
+  prompt: string;
+  imageCount: string;
+  imageModel: ImageModel;
+  imageModelOptionId: string;
+  imageModelOptions: ReadonlyArray<ImageModelOption>;
+  imageSizeMode: ImageSizeMode;
+  imageAspectRatio: ImageAspectRatio;
+  imageResolution: ImageResolution;
+  imageCustomRatio: string;
+  imageCustomWidth: string;
+  imageCustomHeight: string;
+  imageQuality: ImageQuality;
+  imageQualityOptions: ReadonlyArray<{ value: ImageQuality; label: string; description: string }>;
+  imageOutputFormat: ImageOutputFormat;
+  imageOutputCompression: string;
+  imageOutputHint: ReactNode;
+  estimatedCreditCost: number;
+  estimatedCreditCostDetail: string;
+  referenceImages: Array<{ name: string; dataUrl: string }>;
+  textareaRef: RefObject<HTMLTextAreaElement | null>;
+  fileInputRef: RefObject<HTMLInputElement | null>;
+  onComposerModeChange: (mode: "chat" | "image") => void;
+  onPromptChange: (value: string) => void;
+  onImageCountChange: (value: string) => void;
+  onImageModelChange: (optionId: string) => void;
+  onImageSizeModeChange: (value: ImageSizeMode) => void;
+  onImageAspectRatioChange: (value: ImageAspectRatio) => void;
+  onImageResolutionChange: (value: ImageResolution) => void;
+  onImageCustomRatioChange: (value: string) => void;
+  onImageCustomWidthChange: (value: string) => void;
+  onImageCustomHeightChange: (value: string) => void;
+  onImageQualityChange: (value: ImageQuality) => void;
+  onImageOutputFormatChange: (value: ImageOutputFormat) => void;
+  onImageOutputCompressionChange: (value: string) => void;
+  onSubmit: () => void | Promise<void>;
+  onReferenceImageChange: (files: File[]) => void | Promise<void>;
+  onRemoveReferenceImage: (index: number) => void;
+};

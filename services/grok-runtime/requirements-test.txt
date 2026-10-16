@@ -1,0 +1,8 @@
+-r requirements.txt
+
+# Test and local audit tooling. Keep these separate from the production image.
+pytest==9.1.1
+pytest-asyncio==1.4.0
+httpx2==2.10.0
+pip-audit==2.10.1
+bandit==1.9.4

@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>创作台 · 悬浮球统计（炫酷交互稿）</title>
+  <style>
+    :root {
+      --bg0: #0b1020;
+      --bg1: #121a2f;
+      --ink: #e8eefc;
+      --muted: #93a0bf;
+      --brand: #3b82f6;
+      --brand2: #22d3ee;
+      --pink: #f472b6;
+      --ok: #34d399;
+      --bad: #fb7185;
+      --glass: rgba(18, 24, 42, 0.72);
+      --line: rgba(148, 163, 184, 0.18);
+      --shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+      --radius: 22px;
+      --ball: 64px;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 700px at 10% -10%, rgba(59, 130, 246, 0.28), transparent 55%),
+        radial-gradient(900px 600px at 100% 0%, rgba(244, 114, 182, 0.18), transparent 50%),
+        radial-gradient(800px 500px at 50% 100%, rgba(34, 211, 238, 0.12), transparent 50%),
+        linear-gradient(165deg, var(--bg0), var(--bg1));
+      overflow: hidden;
+    }
+
+    .stage {
+      position: relative;
+      width: min(1280px, 100%);
+      height: 100%;
+      margin: 0 auto;
+      padding: 28px;
+    }
+
+    .hint {
+      max-width: 420px;
+      padding: 18px 20px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.04);
+      backdrop-filter: blur(12px);
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    }
+    .hint h1 {
+      margin: 0 0 8px;
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+    .hint p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.65; }
+    .hint kbd {
+      display: inline-block;
+      padding: 1px 7px;
+      border-radius: 6px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.06);
+      font-size: 12px;
+      color: #c7d2fe;
+    }
+
+    /* ── FAB ball ── */
+    .fab-wrap {
+      position: fixed;
+      z-index: 50;
+      width: var(--ball);
+      height: var(--ball);
+      right: 28px;
+      bottom: 28px;
+      touch-action: none;
+      user-select: none;
+    }
+
+    .fab {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      border: 0;
+      border-radius: 999px;
+      cursor: grab;
+      color: white;
+      background: transparent;
+      isolation: isolate;
+      transform: translateZ(0);
+      transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .fab:active { cursor: grabbing; }
+    .fab.is-open { transform: scale(1.08); }
+    .fab.is-dragging { transition: none; cursor: grabbing; }
+
+    .fab-ring {
+      position: absolute;
+      inset: -3px;
+      border-radius: inherit;
+      background: conic-gradient(from var(--ring-angle, 0deg), #3b82f6, #22d3ee, #a78bfa, #f472b6, #3b82f6);
+      opacity: 0.95;
+      filter: blur(0.2px);
+      animation: spin 4.5s linear infinite;
+      z-index: 0;
+    }
+    .fab-ring::after {
+      content: "";
+      position: absolute;
+      inset: 2.5px;
+      border-radius: inherit;
+      background: #0f172a;
+    }
+
+    .fab-core {
+      position: absolute;
+      inset: 3px;
+      border-radius: inherit;
+      display: grid;
+      place-items: center;
+      background:
+        radial-gradient(circle at 30% 25%, rgba(255,255,255,0.35), transparent 40%),
+        linear-gradient(145deg, #2563eb 0%, #4f46e5 45%, #0ea5e9 100%);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.35),
+        0 12px 30px rgba(37, 99, 235, 0.45),
+        0 0 0 1px rgba(255,255,255,0.08);
+      z-index: 1;
+      overflow: hidden;
+    }
+    .fab-core::before {
+      content: "";
+      position: absolute;
+      inset: -40%;
+      background: conic-gradient(from 180deg, transparent, rgba(255,255,255,0.22), transparent 30%);
+      animation: shimmer 3.2s linear infinite;
+    }
+
+    .fab-progress {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      transform: rotate(-90deg);
+    }
+    .fab-progress circle {
+      fill: none;
+      stroke-width: 3;
+      stroke-linecap: round;
+    }
+    .fab-progress .track { stroke: rgba(255,255,255,0.12); }
+    .fab-progress .value {
+      stroke: url(#fabGrad);
+      stroke-dasharray: 176;
+      stroke-dashoffset: calc(176 - 176 * var(--rate, 0.86));
+      filter: drop-shadow(0 0 4px rgba(52, 211, 153, 0.7));
+      transition: stroke-dashoffset 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .fab-label {
+      position: relative;
+      z-index: 3;
+      display: grid;
+      gap: 0;
+      text-align: center;
+      line-height: 1;
+    }
+    .fab-label .pct {
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      text-shadow: 0 2px 10px rgba(0,0,0,0.35);
+    }
+    .fab-label .sub {
+      margin-top: 3px;
+      font-size: 9px;
+      font-weight: 600;
+      opacity: 0.85;
+      letter-spacing: 0.04em;
+    }
+
+    .fab-pulse {
+      position: absolute;
+      inset: -8px;
+      border-radius: inherit;
+      border: 1.5px solid rgba(56, 189, 248, 0.55);
+      animation: pulse 2.2s ease-out infinite;
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0;
+    }
+    .fab.has-live .fab-pulse { opacity: 1; }
+
+    .fab-spark {
+      position: absolute;
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: #fff;
+      box-shadow: 0 0 12px #67e8f9;
+      opacity: 0;
+      pointer-events: none;
+      z-index: 4;
+    }
+
+    /* ── Panel ── */
+    .panel {
+      position: fixed;
+      z-index: 49;
+      width: min(340px, calc(100vw - 24px));
+      transform-origin: bottom right;
+      opacity: 0;
+      pointer-events: none;
+      scale: 0.88;
+      filter: blur(6px);
+      transition:
+        opacity 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+        scale 0.36s cubic-bezier(0.22, 1, 0.36, 1),
+        filter 0.28s ease,
+        transform 0.01s linear;
+    }
+    .panel.is-open {
+      opacity: 1;
+      pointer-events: auto;
+      scale: 1;
+      filter: blur(0);
+    }
+
+    .panel-card {
+      position: relative;
+      overflow: hidden;
+      border-radius: var(--radius);
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      background:
+        linear-gradient(165deg, rgba(30, 41, 68, 0.92), rgba(15, 23, 42, 0.88));
+      box-shadow: var(--shadow), inset 0 1px 0 rgba(255,255,255,0.08);
+      backdrop-filter: blur(22px) saturate(1.35);
+    }
+    .panel-card::before {
+      content: "";
+      position: absolute;
+      inset: -1px;
+      background:
+        radial-gradient(500px 180px at 10% 0%, rgba(59,130,246,0.28), transparent 55%),
+        radial-gradient(400px 160px at 100% 0%, rgba(244,114,182,0.18), transparent 50%);
+      pointer-events: none;
+    }
+    .panel-shine {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,0.07) 48%, transparent 62%);
+      transform: translateX(-120%);
+      animation: none;
+      pointer-events: none;
+    }
+    .panel.is-open .panel-shine {
+      animation: shine 1.1s cubic-bezier(0.22, 1, 0.36, 1) 0.1s both;
+    }
+
+    .panel-head {
+      position: relative;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 16px 16px 10px;
+    }
+    .panel-head h2 {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 700;
+    }
+    .panel-head .meta {
+      margin-top: 4px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 9px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #a7f3d0;
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(52, 211, 153, 0.25);
+    }
+    .chip .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: var(--ok);
+      box-shadow: 0 0 8px var(--ok);
+      animation: blink 1.4s ease-in-out infinite;
+    }
+
+    .metrics {
+      position: relative;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      padding: 0 14px 12px;
+    }
+    .metric {
+      position: relative;
+      overflow: hidden;
+      border-radius: 16px;
+      padding: 12px 12px 11px;
+      border: 1px solid transparent;
+      transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+    }
+    .metric:hover {
+      transform: translateY(-2px);
+    }
+    .metric.ok {
+      background: linear-gradient(160deg, rgba(16,185,129,0.16), rgba(16,185,129,0.05));
+      border-color: rgba(52, 211, 153, 0.22);
+    }
+    .metric.bad {
+      background: linear-gradient(160deg, rgba(244,63,94,0.16), rgba(244,63,94,0.05));
+      border-color: rgba(251, 113, 133, 0.22);
+    }
+    .metric .k {
+      font-size: 11px;
+      font-weight: 600;
+      opacity: 0.8;
+    }
+    .metric .v {
+      margin-top: 6px;
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      font-variant-numeric: tabular-nums;
+    }
+    .metric .s {
+      margin-top: 3px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .rate-row {
+      position: relative;
+      margin: 0 14px 12px;
+      padding: 12px;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.03);
+    }
+    .rate-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 8px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .rate-top strong {
+      color: #e0e7ff;
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+    .bar {
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.08);
+      overflow: hidden;
+    }
+    .bar > i {
+      display: block;
+      height: 100%;
+      width: 0;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #22d3ee, #3b82f6 50%, #a78bfa);
+      box-shadow: 0 0 16px rgba(59, 130, 246, 0.55);
+      transition: width 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .hours {
+      position: relative;
+      margin: 0 14px 12px;
+      padding: 12px;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.03);
+    }
+    .hours-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .hours-head button {
+      border: 0;
+      background: transparent;
+      color: #93c5fd;
+      font-size: 11px;
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: 6px;
+    }
+    .hours-head button:hover { background: rgba(59,130,246,0.12); }
+    .hours-chart {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      align-items: end;
+      gap: 4px;
+      height: 56px;
+    }
+    .hours-chart span {
+      display: block;
+      border-radius: 4px 4px 2px 2px;
+      background: linear-gradient(180deg, #60a5fa, #2563eb);
+      opacity: 0.85;
+      transform-origin: bottom;
+      transform: scaleY(0);
+      transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s;
+      min-height: 4px;
+    }
+    .panel.is-open .hours-chart span { transform: scaleY(1); }
+    .hours-chart span:hover { opacity: 1; filter: brightness(1.15); }
+    .hours-chart.collapsed { display: none; }
+
+    .list {
+      position: relative;
+      padding: 0 10px 12px;
+    }
+    .list-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 4px 8px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .row {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 10px;
+      align-items: center;
+      padding: 9px 10px;
+      border-radius: 12px;
+      border: 1px solid transparent;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+    }
+    .panel.is-open .row {
+      animation: rowIn 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+    .row:hover {
+      background: rgba(255,255,255,0.04);
+      border-color: var(--line);
+      transform: translateX(2px);
+    }
+    .row .thumb {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      background:
+        linear-gradient(135deg, rgba(59,130,246,0.35), rgba(244,114,182,0.25));
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.12);
+      display: grid;
+      place-items: center;
+      font-size: 13px;
+    }
+    .row .title {
+      font-size: 12.5px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .row .sub {
+      margin-top: 2px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .badge {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 7px;
+      border-radius: 999px;
+      letter-spacing: 0.02em;
+    }
+    .badge.ok { color: #6ee7b7; background: rgba(16,185,129,0.14); }
+    .badge.bad { color: #fda4af; background: rgba(244,63,94,0.14); }
+    .badge.run { color: #93c5fd; background: rgba(59,130,246,0.16); }
+
+    .panel-foot {
+      position: relative;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px 14px;
+      border-top: 1px solid var(--line);
+    }
+    .panel-foot button {
+      border: 0;
+      border-radius: 999px;
+      padding: 7px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.15s ease, background 0.15s ease;
+    }
+    .panel-foot button:hover { transform: translateY(-1px); }
+    .btn-ghost {
+      color: var(--muted);
+      background: transparent;
+    }
+    .btn-ghost:hover { background: rgba(255,255,255,0.05); color: #e2e8f0; }
+    .btn-primary {
+      color: white;
+      background: linear-gradient(135deg, #3b82f6, #6366f1);
+      box-shadow: 0 8px 20px rgba(59,130,246,0.35);
+    }
+
+    .scrim {
+      position: fixed;
+      inset: 0;
+      z-index: 48;
+      background: rgba(2, 6, 23, 0.28);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+      backdrop-filter: blur(0px);
+    }
+    .scrim.is-open {
+      opacity: 1;
+      pointer-events: auto;
+      backdrop-filter: blur(2px);
+    }
+
+    @keyframes spin { to { --ring-angle: 360deg; transform: rotate(360deg); } }
+    @keyframes shimmer { to { transform: rotate(360deg); } }
+    @keyframes pulse {
+      0% { transform: scale(0.92); opacity: 0.7; }
+      100% { transform: scale(1.35); opacity: 0; }
+    }
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.35; }
+    }
+    @keyframes shine {
+      from { transform: translateX(-120%); }
+      to { transform: translateX(120%); }
+    }
+    @keyframes rowIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 640px) {
+      .stage { padding: 16px; }
+      .hint { max-width: 100%; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .fab-ring, .fab-core::before, .fab-pulse, .chip .dot { animation: none; }
+      .panel, .bar > i, .hours-chart span, .row { transition: none; animation: none; }
+      .panel.is-open .row { opacity: 1; transform: none; }
+      .panel.is-open .hours-chart span { transform: scaleY(1); }
+    }
+  </style>
+</head>
+<body>
+  <svg width="0" height="0" style="position:absolute">
+    <defs>
+      <linearGradient id="fabGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="#22d3ee"/>
+        <stop offset="50%" stop-color="#34d399"/>
+        <stop offset="100%" stop-color="#a78bfa"/>
+      </linearGradient>
+    </defs>
+  </svg>
+
+  <div class="stage">
+    <div class="hint">
+      <h1>悬浮球 + 弹窗 · 炫酷交互稿</h1>
+      <p>
+        拖动右下角球调整位置 · 单击展开统计 · 再点或点遮罩关闭。<br />
+        球上环形 = 今日成功率 · 有进行中任务时外圈会呼吸发光。<br />
+        快捷：<kbd>Esc</kbd> 关闭 · 双击球重置位置。
+      </p>
+    </div>
+  </div>
+
+  <div class="scrim" id="scrim"></div>
+
+  <div class="panel" id="panel" aria-hidden="true">
+    <div class="panel-card">
+      <div class="panel-shine"></div>
+      <div class="panel-head">
+        <div>
+          <h2>今日生图</h2>
+          <div class="meta" id="rangeText">2026-07-15 · 中国时间 · 后台账本</div>
+        </div>
+        <div class="chip"><span class="dot"></span>实时</div>
+      </div>
+
+      <div class="metrics">
+        <div class="metric ok">
+          <div class="k">成功图片</div>
+          <div class="v" data-count="128">0</div>
+          <div class="s">成功任务 46 个</div>
+        </div>
+        <div class="metric bad">
+          <div class="k">失败图片</div>
+          <div class="v" data-count="21">0</div>
+          <div class="s">失败任务 9 个</div>
+        </div>
+      </div>
+
+      <div class="rate-row">
+        <div class="rate-top">
+          <span>成功率</span>
+          <strong id="rateText">86%</strong>
+        </div>
+        <div class="bar"><i id="rateBar"></i></div>
+      </div>
+
+      <div class="hours">
+        <div class="hours-head">
+          <span>近 12 小时分布</span>
+          <button type="button" id="toggleHours">收起</button>
+        </div>
+        <div class="hours-chart" id="hoursChart"></div>
+      </div>
+
+      <div class="list">
+        <div class="list-head">
+          <span>最近任务</span>
+          <span>5 条</span>
+        </div>
+        <div id="recentList"></div>
+      </div>
+
+      <div class="panel-foot">
+        <button type="button" class="btn-ghost" id="btnClose">收起</button>
+        <button type="button" class="btn-primary" id="btnRefresh">刷新数据</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="fab-wrap" id="fabWrap">
+    <button type="button" class="fab has-live" id="fab" aria-label="打开今日生图统计" style="--rate: 0.86">
+      <span class="fab-pulse"></span>
+      <span class="fab-ring"></span>
+      <span class="fab-core">
+        <svg class="fab-progress" viewBox="0 0 64 64" aria-hidden="true">
+          <circle class="track" cx="32" cy="32" r="28"></circle>
+          <circle class="value" cx="32" cy="32" r="28"></circle>
+        </svg>
+        <span class="fab-label">
+          <span class="pct" id="fabPct">86%</span>
+          <span class="sub">今日</span>
+        </span>
+      </span>
+    </button>
+  </div>
+
+  <script>
+    const recent = [
+      { title: "赛博朋克雨夜街头", sub: "14:22 · 4 张", status: "ok", icon: "🌃" },
+      { title: "产品渲染·金属质感", sub: "13:58 · 2 张", status: "run", icon: "✨" },
+      { title: "古风少女·工笔", sub: "12:41 · 1 张", status: "ok", icon: "🖌️" },
+      { title: "Logo 变体批处理", sub: "11:05 · 6 张", status: "bad", icon: "⚠️" },
+      { title: "室内软装样板间", sub: "09:33 · 3 张", status: "ok", icon: "🛋️" },
+    ];
+    const hours = [8, 14, 9, 22, 31, 18, 12, 27, 40, 24, 16, 11];
+
+    const fabWrap = document.getElementById("fabWrap");
+    const fab = document.getElementById("fab");
+    const panel = document.getElementById("panel");
+    const scrim = document.getElementById("scrim");
+    const hoursChart = document.getElementById("hoursChart");
+    const recentList = document.getElementById("recentList");
+    const rateBar = document.getElementById("rateBar");
+    const STORAGE_KEY = "studio-stats-fab-pos-v1";
+
+    // seed list + chart
+    hours.forEach((h, i) => {
+      const el = document.createElement("span");
+      el.style.height = Math.max(8, (h / 40) * 100) + "%";
+      el.style.transitionDelay = 0.05 + i * 0.03 + "s";
+      el.title = `H-${11 - i}: ${h}`;
+      hoursChart.appendChild(el);
+    });
+    recent.forEach((item, i) => {
+      const row = document.createElement("div");
+      row.className = "row";
+      row.style.animationDelay = 0.12 + i * 0.045 + "s";
+      const badgeClass = item.status === "ok" ? "ok" : item.status === "bad" ? "bad" : "run";
+      const badgeText = item.status === "ok" ? "成功" : item.status === "bad" ? "失败" : "进行中";
+      row.innerHTML = `
+        <div class="thumb">${item.icon}</div>
+        <div>
+          <div class="title">${item.title}</div>
+          <div class="sub">${item.sub}</div>
+        </div>
+        <span class="badge ${badgeClass}">${badgeText}</span>`;
+      recentList.appendChild(row);
+    });
+
+    function loadPos() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return null;
+        return JSON.parse(raw);
+      } catch { return null; }
+    }
+    function savePos(x, y) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ x, y }));
+    }
+    function clamp(n, min, max) { return Math.max(min, Math.min(max, n)); }
+
+    function placeFab(x, y) {
+      const size = fabWrap.offsetWidth;
+      const maxX = window.innerWidth - size - 8;
+      const maxY = window.innerHeight - size - 8;
+      const nx = clamp(x, 8, maxX);
+      const ny = clamp(y, 8, maxY);
+      fabWrap.style.left = nx + "px";
+      fabWrap.style.top = ny + "px";
+      fabWrap.style.right = "auto";
+      fabWrap.style.bottom = "auto";
+      return { x: nx, y: ny };
+    }
+
+    function defaultPos() {
+      return {
+        x: window.innerWidth - 64 - 28,
+        y: window.innerHeight - 64 - 28,
+      };
+    }
+
+    (function initPos() {
+      const saved = loadPos();
+      const p = saved || defaultPos();
+      placeFab(p.x, p.y);
+    })();
+
+    function panelAnchor() {
+      const rect = fabWrap.getBoundingClientRect();
+      const pw = panel.offsetWidth || 340;
+      const ph = panel.offsetHeight || 480;
+      const gap = 14;
+      let left = rect.left + rect.width / 2 - pw / 2;
+      let top = rect.top - ph - gap;
+      // prefer above; if not enough room, place left/right of ball
+      if (top < 12) {
+        top = Math.min(rect.bottom + gap, window.innerHeight - ph - 12);
+      }
+      if (left < 12) left = 12;
+      if (left + pw > window.innerWidth - 12) left = window.innerWidth - pw - 12;
+      if (top + ph > window.innerHeight - 12) top = Math.max(12, window.innerHeight - ph - 12);
+      panel.style.left = left + "px";
+      panel.style.top = top + "px";
+      // transform origin toward ball
+      const ox = ((rect.left + rect.width / 2 - left) / pw) * 100;
+      const oy = ((rect.top + rect.height / 2 - top) / ph) * 100;
+      panel.style.transformOrigin = `${clamp(ox, 0, 100)}% ${clamp(oy, 0, 100)}%`;
+    }
+
+    function animateCounts() {
+      document.querySelectorAll("[data-count]").forEach((el) => {
+        const target = Number(el.getAttribute("data-count")) || 0;
+        const start = performance.now();
+        const dur = 700;
+        function tick(now) {
+          const t = Math.min(1, (now - start) / dur);
+          const eased = 1 - Math.pow(1 - t, 3);
+          el.textContent = String(Math.round(target * eased));
+          if (t < 1) requestAnimationFrame(tick);
+        }
+        requestAnimationFrame(tick);
+      });
+      rateBar.style.width = "86%";
+    }
+
+    let open = false;
+    function setOpen(next) {
+      open = next;
+      panel.classList.toggle("is-open", open);
+      scrim.classList.toggle("is-open", open);
+      fab.classList.toggle("is-open", open);
+      panel.setAttribute("aria-hidden", open ? "false" : "true");
+      if (open) {
+        panelAnchor();
+        animateCounts();
+      } else {
+        rateBar.style.width = "0%";
+      }
+    }
+
+    // drag
+    let dragging = false;
+    let moved = false;
+    let startX = 0, startY = 0, originX = 0, originY = 0;
+
+    fab.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0) return;
+      dragging = true;
+      moved = false;
+      fab.classList.add("is-dragging");
+      fab.setPointerCapture(e.pointerId);
+      const rect = fabWrap.getBoundingClientRect();
+      startX = e.clientX;
+      startY = e.clientY;
+      originX = rect.left;
+      originY = rect.top;
+    });
+    fab.addEventListener("pointermove", (e) => {
+      if (!dragging) return;
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      if (Math.hypot(dx, dy) > 4) moved = true;
+      if (moved) {
+        const p = placeFab(originX + dx, originY + dy);
+        if (open) panelAnchor();
+        savePos(p.x, p.y);
+      }
+    });
+    fab.addEventListener("pointerup", (e) => {
+      if (!dragging) return;
+      dragging = false;
+      fab.classList.remove("is-dragging");
+      try { fab.releasePointerCapture(e.pointerId); } catch {}
+      if (!moved) setOpen(!open);
+      else {
+        // soft edge snap
+        const rect = fabWrap.getBoundingClientRect();
+        const mid = rect.left + rect.width / 2;
+        const snapX = mid < window.innerWidth / 2 ? 16 : window.innerWidth - rect.width - 16;
+        const p = placeFab(snapX, rect.top);
+        savePos(p.x, p.y);
+        if (open) panelAnchor();
+        // spark
+        burst(e.clientX - rect.left, e.clientY - rect.top);
+      }
+    });
+    fab.addEventListener("dblclick", (e) => {
+      e.preventDefault();
+      const p = defaultPos();
+      placeFab(p.x, p.y);
+      savePos(p.x, p.y);
+      if (open) panelAnchor();
+    });
+
+    scrim.addEventListener("click", () => setOpen(false));
+    document.getElementById("btnClose").addEventListener("click", () => setOpen(false));
+    document.getElementById("btnRefresh").addEventListener("click", () => {
+      document.querySelectorAll("[data-count]").forEach((el) => { el.textContent = "0"; });
+      rateBar.style.width = "0%";
+      setTimeout(animateCounts, 80);
+      burst(32, 32);
+    });
+    document.getElementById("toggleHours").addEventListener("click", (e) => {
+      const collapsed = hoursChart.classList.toggle("collapsed");
+      e.currentTarget.textContent = collapsed ? "展开" : "收起";
+    });
+    window.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && open) setOpen(false);
+    });
+    window.addEventListener("resize", () => {
+      const rect = fabWrap.getBoundingClientRect();
+      placeFab(rect.left, rect.top);
+      if (open) panelAnchor();
+    });
+
+    function burst(x, y) {
+      for (let i = 0; i < 8; i++) {
+        const s = document.createElement("span");
+        s.className = "fab-spark";
+        s.style.left = x + "px";
+        s.style.top = y + "px";
+        fab.appendChild(s);
+        const ang = (Math.PI * 2 * i) / 8;
+        const dist = 18 + Math.random() * 16;
+        s.animate([
+          { opacity: 1, transform: "translate(-50%,-50%) scale(1)" },
+          { opacity: 0, transform: `translate(calc(-50% + ${Math.cos(ang) * dist}px), calc(-50% + ${Math.sin(ang) * dist}px)) scale(0)` },
+        ], { duration: 480, easing: "cubic-bezier(0.22,1,0.36,1)" }).onfinish = () => s.remove();
+      }
+    }
+
+    // demo: simulate live pulse toggle
+    setInterval(() => {
+      fab.classList.toggle("has-live");
+    }, 8000);
+  </script>
+</body>
+</html>

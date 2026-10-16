@@ -1,0 +1,384 @@
+package service
+
+import (
+	"context"
+	"encoding/json"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+
+	"chatgpt2api/internal/util"
+)
+
+func TestImageTaskServiceIdempotencyOwnerIsolationAndCompletion(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "image_tasks.json")
+	handlerCalls := make(chan map[string]any, 4)
+	handler := func(ctx context.Context, identity Identity, payload map[string]any) (map[string]any, error) {
+		handlerCalls <- payload
+		return map[string]any{"data": []map[string]any{{"url": "https://example.test/image.png"}}}, nil
+	}
+	svc := NewImageTaskService(path, handler, handler, handler, func() int { return 30 })
+
+	alice := Identity{ID: "alice", Name: "Alice", Role: "user"}
+	bob := Identity{ID: "bob", Name: "Bob", Role: "user"}
+
+	first, err := svc.SubmitGeneration(context.Background(), alice, "task-1", "draw", "gpt-image-2", "1024x1024", "high", "https://base.test", 1, nil)
+	if err != nil {
+		t.Fatalf("SubmitGeneration() error = %v", err)
+	}
+	second, err := svc.SubmitGeneration(context.Background(), alice, "task-1", "different", "gpt-image-2", "1024x1024", "high", "https://base.test", 1, nil)
+	if err != nil {
+		t.Fatalf("second SubmitGeneration() error = %v", err)
+	}
+	if first["id"] != second["id"] {
+		t.Fatalf("idempotent task id mismatch: %#v %#v", first, second)
+	}
+	waitForTaskStatus(t, svc, alice, "task-1", TaskStatusSuccess)
+	select {
+	case <-handlerCalls:
+	default:
+		t.Fatal("handler was not called")
+	}
+	if len(handlerCalls) != 0 {
+		t.Fatalf("handler calls after duplicate = %d extra, want 0", len(handlerCalls))
+	}
+	if got := svc.ListTasks(bob, []string{"task-1"}); len(got["items"].([]map[string]any)) != 0 {
+		t.Fatalf("bob can see alice task: %#v", got)
+	}
+	if got := svc.ListTasks(bob, []string{"task-1"}); len(got["missing_ids"].([]string)) != 1 {
+		t.Fatalf("bob missing ids = %#v", got)
+	}
+}
+
+func TestImageTaskServiceUsesOwnerIDAroundCredentialRotation(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "image_tasks.json")
+	handlerCalls := make(chan map[string]any, 4)
+	handler := func(ctx context.Context, identity Identity, payload map[string]any) (map[string]any, error) {
+		handlerCalls <- payload
+		return map[string]any{"data": []map[string]any{{"url": "https://example.test/image.png"}}}, nil
+	}
+	svc := NewImageTaskService(path, handler, handler, handler, func() int { return 30 })
+	ownerID := "linuxdo:123"
+	oldKey := Identity{ID: ownerID, OwnerID: ownerID, CredentialID: "key-old", Name: "Alice", Role: "user"}
+	newKey := Identity{ID: ownerID, OwnerID: ownerID, CredentialID: "key-new", Name: "Alice", Role: "user"}
+	otherOwner := Identity{ID: "linuxdo:456", OwnerID: "linuxdo:456", CredentialID: "key-other", Name: "Bob", Role: "user"}
+
+	if _, err := svc.SubmitGeneration(context.Background(), oldKey, "task-1", "draw", "gpt-image-2", "1024x1024", "high", "https://base.test", 1, nil); err != nil {
+		t.Fatalf("SubmitGeneration() error = %v", err)
+	}
+	waitForTaskStatus(t, svc, newKey, "task-1", TaskStatusSuccess)
+	if got := svc.ListTasks(newKey, []string{"task-1"}); len(got["items"].([]map[string]any)) != 1 {
+		t.Fatalf("rotated credential cannot see owner task: %#v", got)
+	}
+	if got := svc.ListTasks(otherOwner, []string{"task-1"}); len(got["items"].([]map[string]any)) != 0 || len(got["missing_ids"].([]string)) != 1 {
+		t.Fatalf("other owner should not see task: %#v", got)
+	}
+	if _, err := svc.SubmitGeneration(context.Background(), newKey, "task-1", "different", "gpt-image-2", "1024x1024", "high", "https://base.test", 1, nil); err != nil {
+		t.Fatalf("second SubmitGeneration() error = %v", err)
+	}
+	if len(handlerCalls) != 1 {
+		t.Fatalf("credential rotation should not create a duplicate task, handler calls = %d", len(handlerCalls))
+	}
+}
+
+func TestImageTaskStatsUseChinaDayAndImageCounts(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "image_tasks.json")
+	handler := func(context.Context, Identity, map[string]any) (map[string]any, error) {
+		return map[string]any{"data": []map[string]any{{"url": "https://example.test/image.png"}}}, nil
+	}
+	svc := NewImageTaskService(path, handler, handler, handler, func() int { return 30 })
+	svc.mu.Lock()
+	svc.tasks = map[string]*ImageTask{
+		"alice:success": imageTaskFromMap(map[string]any{
+			"id": "success", "owner_id": "alice", "status": TaskStatusSuccess, "mode": "generate",
+			"count": 2, "data": []map[string]any{{"url": "a"}}, "created_at": "2026-06-18 00:10:00", "updated_at": "2026-06-18 00:10:00",
+		}),
+		"alice:error": imageTaskFromMap(map[string]any{
+			"id": "error", "owner_id": "alice", "status": TaskStatusError, "mode": "generate",
+			"count": 3, "data": []map[string]any{{"url": "b"}}, "created_at": "2026-06-18 23:50:00", "updated_at": "2026-06-18 23:50:00",
+		}),
+		"alice:yesterday": imageTaskFromMap(map[string]any{
+			"id": "yesterday", "owner_id": "alice", "status": TaskStatusError, "mode": "generate",
+			"count": 1, "created_at": "2026-06-17 23:59:59", "updated_at": "2026-06-17 23:59:59",
+		}),
+	}
+	// Seed durable ledger (same path as boot backfill / finishActiveTask).
+	if svc.statsLedger == nil {
+		svc.statsLedger = emptyImageTaskStatsLedger()
+	}
+	svc.backfillStatsLedgerFromTasksLocked()
+	svc.mu.Unlock()
+	loc := imageTaskStatsLocation()
+	start := time.Date(2026, 6, 18, 0, 0, 0, 0, loc)
+	stats := svc.StatsBetween("day", start, start.AddDate(0, 0, 1))
+	if stats.SuccessTasks != 1 || stats.FailedTasks != 1 || stats.SuccessImages != 2 || stats.FailedImages != 3 {
+		t.Fatalf("stats = %#v, want success tasks/images 1/2 and failed tasks/images 1/3", stats)
+	}
+}
+
+func TestImageTaskStatsSurviveAdminClearTasks(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "image_tasks.json")
+	handler := func(context.Context, Identity, map[string]any) (map[string]any, error) {
+		return map[string]any{"data": []map[string]any{{"url": "https://example.test/image.png"}}}, nil
+	}
+	svc := NewImageTaskService(path, handler, handler, handler, func() int { return 30 })
+	svc.mu.Lock()
+	svc.tasks = map[string]*ImageTask{
+		"alice:ok": imageTaskFromMap(map[string]any{
+			"id": "ok", "owner_id": "alice", "status": TaskStatusSuccess, "mode": "generate",
+			"count": 1, "data": []map[string]any{{"url": "a"}}, "created_at": "2026-07-15 10:00:00", "updated_at": "2026-07-15 10:00:00", "finished_at": "2026-07-15 10:00:00",
+		}),
+		"alice:bad": imageTaskFromMap(map[string]any{
+			"id": "bad", "owner_id": "alice", "status": TaskStatusError, "mode": "generate",
+			"count": 1, "created_at": "2026-07-15 11:00:00", "updated_at": "2026-07-15 11:00:00", "finished_at": "2026-07-15 11:00:00",
+		}),
+	}
+	if svc.statsLedger == nil {
+		svc.statsLedger = emptyImageTaskStatsLedger()
+	}
+	svc.backfillStatsLedgerFromTasksLocked()
+	_ = svc.saveStatsLedgerLocked()
+	svc.mu.Unlock()
+
+	loc := imageTaskStatsLocation()
+	start := time.Date(2026, 7, 15, 0, 0, 0, 0, loc)
+	before := svc.StatsBetween("day", start, start.AddDate(0, 0, 1))
+	if before.SuccessTasks != 1 || before.FailedTasks != 1 {
+		t.Fatalf("before clear stats = %#v", before)
+	}
+
+	cleared, err := svc.AdminClearTasks("finished")
+	if err != nil {
+		t.Fatalf("AdminClearTasks: %v", err)
+	}
+	if util.ToInt(cleared["removed"], 0) != 2 {
+		t.Fatalf("cleared = %#v, want removed 2", cleared)
+	}
+	if remaining := util.ToInt(cleared["remaining"], -1); remaining != 0 {
+		t.Fatalf("remaining tasks = %d, want 0", remaining)
+	}
+
+	after := svc.StatsBetween("day", start, start.AddDate(0, 0, 1))
+	if after.SuccessTasks != before.SuccessTasks || after.FailedTasks != before.FailedTasks ||
+		after.SuccessImages != before.SuccessImages || after.FailedImages != before.FailedImages {
+		t.Fatalf("stats after clear = %#v, want same as before %#v", after, before)
+	}
+
+	// Ledger must reload from disk after process restart.
+	reloaded := NewImageTaskService(path, handler, handler, handler, func() int { return 30 })
+	reloadedStats := reloaded.StatsBetween("day", start, start.AddDate(0, 0, 1))
+	if reloadedStats.SuccessTasks != 1 || reloadedStats.FailedTasks != 1 {
+		t.Fatalf("reloaded stats = %#v (tasks cleared, ledger must still hold counts)", reloadedStats)
+	}
+}
+
+func TestImageTaskServiceListTasksReturnsEmptyArrays(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "image_tasks.json")
+	svc := NewImageTaskService(path, failingImageTaskHandler, failingImageTaskHandler, failingImageTaskHandler, func() int { return 30 })
+	identity := Identity{ID: "alice", Name: "Alice", Role: "user"}
+
+	for name, got := range map[string]map[string]any{
+		"empty list":   svc.ListTasks(identity, nil),
+		"missing task": svc.ListTasks(identity, []string{"missing"}),
+	} {
+		items, ok := got["items"].([]map[string]any)
+		if !ok {
+			t.Fatalf("%s items type = %T", name, got["items"])
+		}
+		if items == nil {
+			t.Fatalf("%s items is nil", name)
+		}
+		missing, ok := got["missing_ids"].([]string)
+		if !ok {
+			t.Fatalf("%s missing_ids type = %T", name, got["missing_ids"])
+		}
+		if missing == nil {
+			t.Fatalf("%s missing_ids is nil", name)
+		}
+
+		data, err := json.Marshal(got)
+		if err != nil {
+			t.Fatalf("%s Marshal() error = %v", name, err)
+		}
+		text := string(data)
+		if strings.Contains(text, `"items":null`) || strings.Contains(text, `"missing_ids":null`) {
+			t.Fatalf("%s encoded nil arrays: %s", name, text)
+		}
+	}
+}
+
+func TestImageTaskServiceRejectsBlankPromptBeforeQueueing(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "image_tasks.json")
+	svc := NewImageTaskService(path, failingImageTaskHandler, failingImageTaskHandler, failingImageTaskHandler, func() int { return 30 })
+	identity := Identity{ID: "alice", Name: "Alice", Role: "user"}
+
+	for name, submit := range map[string]func() (map[string]any, error){
+		"generation": func() (map[string]any, error) {
+			return svc.SubmitGeneration(context.Background(), identity, "task-1", "  ", "gpt-image-2", "1024x1024", "high", "https://base.test", 1, nil)
+		},
+		"edit": func() (map[string]any, error) {
+			return svc.SubmitEdit(context.Background(), identity, "task-2", "\t", "gpt-image-2", "1024x1024", "high", "https://base.test", []any{"image"}, 1, nil)
+		},
+		"chat": func() (map[string]any, error) {
+			return svc.SubmitChat(context.Background(), identity, "task-3", " ", "auto", []map[string]any{{"role": "user", "content": "hello"}})
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := submit(); err == nil || err.Error() != "请填写提示词" {
+				t.Fatalf("Submit() error = %v, want 请填写提示词", err)
+			}
+		})
+	}
+
+	got := svc.ListTasks(identity, nil)
+	if len(got["items"].([]map[string]any)) != 0 {
+		t.Fatalf("blank prompt should not queue tasks: %#v", got)
+	}
+}
+
+func TestImageTaskServicePassesMessagesToHandler(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "image_tasks.json")
+	handlerCalls := make(chan map[string]any, 1)
+	handler := func(ctx context.Context, identity Identity, payload map[string]any) (map[string]any, error) {
+		handlerCalls <- payload
+		return map[string]any{"data": []map[string]any{{"url": "https://example.test/image.png"}}}, nil
+	}
+	svc := NewImageTaskService(path, handler, handler, handler, func() int { return 30 })
+	identity := Identity{ID: "alice", Name: "Alice", Role: "user"}
+	messages := []any{
+		map[string]any{"role": "user", "content": "你好，你是什么模型？"},
+		map[string]any{"role": "assistant", "content": "I am GPT-5 Mini."},
+		map[string]any{"role": "user", "content": "我之前说了什么？"},
+	}
+
+	if _, err := svc.SubmitGeneration(context.Background(), identity, "task-1", "我之前说了什么？", "auto", "", "high", "https://base.test", 1, messages); err != nil {
+		t.Fatalf("SubmitGeneration() error = %v", err)
+	}
+
+	var payload map[string]any
+	select {
+	case payload = <-handlerCalls:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for handler payload")
+	}
+	if got := payload["messages"]; got == nil {
+		t.Fatalf("payload messages missing: %#v", payload)
+	}
+	if got := payload["prompt"]; got != "我之前说了什么？" {
+		t.Fatalf("payload prompt = %#v, want current prompt", got)
+	}
+	if got := payload["quality"]; got != "high" {
+		t.Fatalf("payload quality = %#v, want high", got)
+	}
+	waitForTaskStatus(t, svc, identity, "task-1", TaskStatusSuccess)
+}
+
+func TestImageTaskServicePassesImageRequestMetadataToHandler(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "image_tasks.json")
+	handlerCalls := make(chan map[string]any, 1)
+	handler := func(ctx context.Context, identity Identity, payload map[string]any) (map[string]any, error) {
+		handlerCalls <- payload
+		return map[string]any{"data": []map[string]any{{"url": "https://example.test/image.png"}}}, nil
+	}
+	svc := NewImageTaskService(path, handler, handler, handler, func() int { return 30 })
+	identity := Identity{ID: "alice", Name: "Alice", Role: "user"}
+
+	if _, err := svc.SubmitGenerationWithMetadata(context.Background(), identity, "task-1", "draw", "gpt-image-2", "2048x2048", "high", "https://base.test", 1, nil, map[string]any{"image_resolution": "2k", "requested_size": "2048x2048"}); err != nil {
+		t.Fatalf("SubmitGenerationWithMetadata() error = %v", err)
+	}
+
+	select {
+	case payload := <-handlerCalls:
+		if got := payload["image_resolution"]; got != "2k" {
+			t.Fatalf("payload image_resolution = %#v, want 2k in %#v", got, payload)
+		}
+		if got := payload["requested_size"]; got != "2048x2048" {
+			t.Fatalf("payload requested_size = %#v, want 2048x2048 in %#v", got, payload)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for handler payload")
+	}
+	waitForTaskStatus(t, svc, identity, "task-1", TaskStatusSuccess)
+}
+
+func TestImageTaskServiceSubmitsChatTasks(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "image_tasks.json")
+	handlerCalls := make(chan map[string]any, 1)
+	imageHandler := func(ctx context.Context, identity Identity, payload map[string]any) (map[string]any, error) {
+		return map[string]any{"data": []map[string]any{{"url": "https://example.test/image.png"}}}, nil
+	}
+	chatHandler := func(ctx context.Context, identity Identity, payload map[string]any) (map[string]any, error) {
+		handlerCalls <- payload
+		return map[string]any{"output_type": "text", "data": []map[string]any{{"text_response": "chat response"}}}, nil
+	}
+	svc := NewImageTaskService(path, imageHandler, imageHandler, chatHandler, func() int { return 30 }, func() int { return 0 })
+	identity := Identity{ID: "alice", Name: "Alice", Role: "user"}
+	messages := []map[string]any{{"role": "user", "content": "hello"}}
+
+	if _, err := svc.SubmitChat(context.Background(), identity, "chat-1", "hello", "auto", messages); err != nil {
+		t.Fatalf("SubmitChat() error = %v", err)
+	}
+	waitForTaskStatus(t, svc, identity, "chat-1", TaskStatusSuccess)
+	got := svc.ListTasks(identity, []string{"chat-1"})
+	item := got["items"].([]map[string]any)[0]
+	if item["mode"] != "chat" {
+		t.Fatalf("mode = %#v, want chat in %#v", item["mode"], item)
+	}
+	if item["output_type"] != "text" {
+		t.Fatalf("output_type = %#v, want text in %#v", item["output_type"], item)
+	}
+	data := item["data"].([]map[string]any)
+	if len(data) != 1 || data[0]["text_response"] != "chat response" {
+		t.Fatalf("text response data = %#v", data)
+	}
+	select {
+	case payload := <-handlerCalls:
+		if got := payload["messages"]; got == nil {
+			t.Fatalf("chat payload messages missing: %#v", payload)
+		}
+	default:
+		t.Fatal("chat handler was not called")
+	}
+}
+
+func TestImageTaskServiceSubmitsResponseImageTasks(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "image_tasks.json")
+	handlerCalls := make(chan map[string]any, 1)
+	imageHandler := func(ctx context.Context, identity Identity, payload map[string]any) (map[string]any, error) {
+		return map[string]any{"data": []map[string]any{{"url": "https://example.test/image.png"}}}, nil
+	}
+	responseImageHandler := func(ctx context.Context, identity Identity, payload map[string]any) (map[string]any, error) {
+		handlerCalls <- payload
+		return map[string]any{"data": []map[string]any{{"url": "https://example.test/response.png"}}}, nil
+	}
+	svc := NewImageTaskService(path, imageHandler, imageHandler, imageHandler, func() int { return 30 }, func() int { return 0 })
+	svc.SetResponseImageHandler(responseImageHandler)
+	identity := Identity{ID: "alice", Name: "Alice", Role: "user"}
+	messages := []map[string]any{{"role": "user", "content": "生成封面"}}
+	images := []any{"data:image/png;base64,cG5n"}
+
+	if _, err := svc.SubmitResponseImageGeneration(context.Background(), identity, "response-1", "生成封面", "gpt-5.5", "16:9", "high", "https://base.test", images, 1, messages); err != nil {
+		t.Fatalf("SubmitResponseImageGeneration() error = %v", err)
+	}
+	waitForTaskStatus(t, svc, identity, "response-1", TaskStatusSuccess)
+	got := svc.ListTasks(identity, []string{"response-1"})
+	item := got["items"].([]map[string]any)[0]
+	if item["mode"] != "response-image" {
+		t.Fatalf("mode = %#v, want response-image in %#v", item["mode"], item)
+	}
+	if item["model"] != "gpt-5.5" || item["quality"] != "high" {
+		t.Fatalf("model/quality = %#v/%#v in %#v", item["model"], item["quality"], item)
+	}
+	select {
+	case payload := <-handlerCalls:
+		if got := payload["images"]; got == nil {
+			t.Fatalf("response image payload missing images: %#v", payload)
+		}
+		if got := payload["messages"]; got == nil {
+			t.Fatalf("response image payload missing messages: %#v", payload)
+		}
+	default:
+		t.Fatal("response image handler was not called")
+	}
+}

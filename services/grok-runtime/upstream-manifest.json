@@ -1,0 +1,9 @@
+{
+  "source": "gptGrok2api-main",
+  "source_version": "1.2.1-go",
+  "snapshot_date": "2026-09-06",
+  "file_count": 328,
+  "content_sha256": "fabf9c11b505cf5315ae351640b20903b9b36cf8eb03cd2bdc54d75c6c39bd4b",
+  "patch_boundary": "UPSTREAM_PATCH_BOUNDARY.md",
+  "notes": "Vendored upstream snapshot; modify only for reproducible production defects or interface gaps."
+}

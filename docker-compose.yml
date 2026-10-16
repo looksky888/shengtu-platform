@@ -1,0 +1,143 @@
+services:
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:v3.5.0@sha256:139dfee1c6f89249c8d665d1333a42e8ec74ec0a86bc6bb1c8461e10d3a66a47
+    container_name: shengtu39-flaresolverr
+    restart: unless-stopped
+    environment:
+      LOG_LEVEL: ${FLARESOLVERR_LOG_LEVEL:-info}
+      TZ: ${TZ:-Asia/Shanghai}
+    ports:
+      - "127.0.0.1:${FLARESOLVERR_PORT:-8191}:8191"
+    init: true
+    mem_limit: ${FLARESOLVERR_MEMORY_LIMIT:-512m}
+    cpus: ${FLARESOLVERR_CPU_LIMIT:-1.0}
+    pids_limit: ${FLARESOLVERR_PIDS_LIMIT:-256}
+    logging:
+      options:
+        max-size: ${CONTAINER_LOG_MAX_SIZE:-20m}
+        max-file: ${CONTAINER_LOG_MAX_FILES:-3}
+
+  icloud-privacy-mail:
+    profiles: ["icloud"]
+    build:
+      context: .
+      dockerfile: deploy/icloud-privacy-mail/Dockerfile
+    image: ${ICLOUD_PRIVACY_MAIL_IMAGE:-shengtu/icloud-privacy-mail:4.5-20260925-ui-workspace}
+    container_name: shengtu39-icloud-privacy-mail
+    restart: unless-stopped
+    environment:
+      IPM_API_KEY: ${ICLOUD_PRIVACY_MAIL_API_KEY:-}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?set a strong random INTERNAL_SERVICE_TOKEN}
+      IPM_PUBLIC_BASE_URL: ${ICLOUD_PRIVACY_MAIL_PUBLIC_BASE_URL:-http://icloud-privacy-mail:8787}
+      IPM_UPDATE_ENABLED: "false"
+      HTTP_PROXY: ${ICLOUD_PRIVACY_MAIL_HTTP_PROXY:-}
+      HTTPS_PROXY: ${ICLOUD_PRIVACY_MAIL_HTTPS_PROXY:-}
+      NO_PROXY: ${ICLOUD_PRIVACY_MAIL_NO_PROXY:-127.0.0.1,localhost,icloud-privacy-mail,app,grok-runtime}
+      TZ: ${TZ:-Asia/Shanghai}
+    volumes:
+      - ./data/icloud-privacy-mail:/data
+    init: true
+    mem_limit: ${ICLOUD_MEMORY_LIMIT:-256m}
+    cpus: ${ICLOUD_CPU_LIMIT:-0.5}
+    pids_limit: ${ICLOUD_PIDS_LIMIT:-128}
+    logging:
+      options:
+        max-size: ${CONTAINER_LOG_MAX_SIZE:-20m}
+        max-file: ${CONTAINER_LOG_MAX_FILES:-3}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8787/login >/dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  grok-runtime:
+    build:
+      context: ./services/grok-runtime
+      dockerfile: Dockerfile
+    image: ${GROK_RUNTIME_IMAGE:-shengtu/grok-runtime:4.5-20260925-ui-workspace}
+    container_name: shengtu39-grok-runtime
+    restart: unless-stopped
+    environment:
+      GROK_RUNTIME_PORT: "8091"
+      GROK_RUNTIME_VERSION: ${GROK_RUNTIME_VERSION:-4.5-20260925-ui-workspace}
+      DATA_DIR: /data
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?set a strong random INTERNAL_SERVICE_TOKEN}
+      GROK_PROVIDER_CREDENTIAL_KEY: ${GROK_PROVIDER_CREDENTIAL_KEY:-}
+      ICLOUD_PRIVACY_MAIL_BASE_URL: ${ICLOUD_PRIVACY_MAIL_BASE_URL:-http://icloud-privacy-mail:8787}
+      SHENGTU_BASE_URL: ${SHENGTU_BASE_URL:-http://app:8092}
+      SHENGTU_POOL_SYNC_ENABLED: ${SHENGTU_POOL_SYNC_ENABLED:-true}
+      SHENGTU_POOL_SYNC_REFRESH: ${SHENGTU_POOL_SYNC_REFRESH:-true}
+      GROK_PROVIDER_QUOTA_WORKERS: ${GROK_PROVIDER_QUOTA_WORKERS:-3}
+      GROK_PROVIDER_DETECTION_WORKERS: ${GROK_PROVIDER_DETECTION_WORKERS:-3}
+      CHATGPT2API_PROXY: ${CHATGPT2API_PROXY:-}
+      CHATGPT2API_FLARESOLVERR_URL: ${CHATGPT2API_FLARESOLVERR_URL:-http://flaresolverr:8191}
+      TZ: ${TZ:-Asia/Shanghai}
+    volumes:
+      - ./data/grok-runtime:/data
+    init: true
+    mem_limit: ${GROK_RUNTIME_MEMORY_LIMIT:-2g}
+    cpus: ${GROK_RUNTIME_CPU_LIMIT:-2.0}
+    pids_limit: ${GROK_RUNTIME_PIDS_LIMIT:-512}
+    logging:
+      options:
+        max-size: ${CONTAINER_LOG_MAX_SIZE:-20m}
+        max-file: ${CONTAINER_LOG_MAX_FILES:-3}
+    expose:
+      - "8091"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8091/health')\" || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VERSION: "${CHATGPT2API_VERSION:-4.5-20260925-ui-workspace}"
+    image: ${CHATGPT2API_IMAGE:-shengtu:4.5-20260925-ui-workspace}
+    container_name: shengtu39-app
+    restart: unless-stopped
+    depends_on:
+      flaresolverr:
+        condition: service_started
+      grok-runtime:
+        condition: service_healthy
+    ports:
+      - "${CHATGPT2API_BIND_ADDR:-127.0.0.1}:${CHATGPT2API_PORT:-3004}:80"
+    expose:
+      - "8092"
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+    environment:
+      CHATGPT2API_SETTINGS_ENV_FILE: /app/data/settings.env
+      STORAGE_BACKEND: ${STORAGE_BACKEND:-sqlite}
+      DATABASE_URL: ${DATABASE_URL:-sqlite:////app/data/chatgpt2api.db}
+      CHATGPT2API_FLARESOLVERR_URL: ${CHATGPT2API_FLARESOLVERR_URL:-http://flaresolverr:8191}
+      CHATGPT2API_FEATURE_ICLOUD: ${CHATGPT2API_FEATURE_ICLOUD:-false}
+      CHATGPT2API_FEATURE_GROK_REGISTER: ${CHATGPT2API_FEATURE_GROK_REGISTER:-false}
+      CHATGPT2API_FEATURE_REGISTER_BACKEND: ${CHATGPT2API_FEATURE_REGISTER_BACKEND:-go}
+      ICLOUD_PRIVACY_MAIL_BASE_URL: ${ICLOUD_PRIVACY_MAIL_BASE_URL:-http://icloud-privacy-mail:8787}
+      GROK_RUNTIME_BASE_URL: ${GROK_RUNTIME_BASE_URL:-http://grok-runtime:8091}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?set a strong random INTERNAL_SERVICE_TOKEN}
+      CHATGPT2API_INTERNAL_LISTEN_ADDR: ":8092"
+      TZ: ${TZ:-Asia/Shanghai}
+    init: true
+    mem_limit: ${APP_MEMORY_LIMIT:-2g}
+    cpus: ${APP_CPU_LIMIT:-2.0}
+    pids_limit: ${APP_PIDS_LIMIT:-512}
+    logging:
+      options:
+        max-size: ${CONTAINER_LOG_MAX_SIZE:-20m}
+        max-file: ${CONTAINER_LOG_MAX_FILES:-3}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1/health >/dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s

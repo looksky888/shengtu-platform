@@ -1,0 +1,184 @@
+# WARP + Privoxy + FlareSolverr stack for shengtu-v4.5 (optional).
+# Reference: chatgpt2api-1.7.0 docker-compose.warp.yml
+#
+# Usage:
+#   cp .env.with-warp.example .env
+#   docker compose -f docker-compose.warp.yml up -d --build
+#
+# App upstream traffic uses CHATGPT2API_PROXY=http://privoxy:8118
+# FlareSolverr refreshes chatgpt.com clearance for bootstrap / image sessions.
+
+services:
+  warp-proxy:
+    image: caomingjun/warp:2026.6.836.0-2.12.0@sha256:7b2df2f0d589bdcd3d93c28ccc08cf04d54c81f193682dd1b6da82d7b39e4bb6
+    container_name: shengtu-warp-proxy
+    restart: unless-stopped
+    environment:
+      WARP_SLEEP: "2"
+      # Optional WARP+ license:
+      # WARP_LICENSE_KEY: ${WARP_LICENSE_KEY:-}
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    sysctls:
+      net.ipv6.conf.all.disable_ipv6: 0
+      net.ipv4.conf.all.src_valid_mark: 1
+    ports:
+      - "127.0.0.1:${WARP_SOCKS_PORT:-40000}:1080"
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import socket; s=socket.create_connection(('127.0.0.1', 1080), 5); s.close()\""]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+  privoxy:
+    image: vimagick/privoxy@sha256:8db03d3e5a36800e2c7e32f17b47e21e18f476bf492f0a50e2fc43073f6bb21f
+    container_name: shengtu-privoxy
+    restart: unless-stopped
+    depends_on:
+      warp-proxy:
+        condition: service_started
+    volumes:
+      - ./scripts/privoxy-warp.conf:/etc/privoxy/config:ro
+    ports:
+      - "127.0.0.1:${PRIVOXY_PORT:-40080}:8118"
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 8118 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:v3.5.0@sha256:139dfee1c6f89249c8d665d1333a42e8ec74ec0a86bc6bb1c8461e10d3a66a47
+    container_name: shengtu-flaresolverr
+    restart: unless-stopped
+    environment:
+      LOG_LEVEL: ${FLARESOLVERR_LOG_LEVEL:-info}
+      TZ: ${TZ:-Asia/Shanghai}
+    ports:
+      - "127.0.0.1:${FLARESOLVERR_PORT:-8191}:8191"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8191/ >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  icloud-privacy-mail:
+    profiles: ["icloud"]
+    build:
+      context: .
+      dockerfile: deploy/icloud-privacy-mail/Dockerfile
+    image: ${ICLOUD_PRIVACY_MAIL_IMAGE:-shengtu/icloud-privacy-mail:4.5-20260925-ui-workspace}
+    container_name: shengtu39-icloud-privacy-mail-warp
+    restart: unless-stopped
+    environment:
+      IPM_API_KEY: ${ICLOUD_PRIVACY_MAIL_API_KEY:-}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?set a strong random INTERNAL_SERVICE_TOKEN}
+      IPM_PUBLIC_BASE_URL: ${ICLOUD_PRIVACY_MAIL_PUBLIC_BASE_URL:-http://icloud-privacy-mail:8787}
+      IPM_UPDATE_ENABLED: "false"
+      HTTP_PROXY: ${ICLOUD_PRIVACY_MAIL_HTTP_PROXY:-http://privoxy:8118}
+      HTTPS_PROXY: ${ICLOUD_PRIVACY_MAIL_HTTPS_PROXY:-http://privoxy:8118}
+      NO_PROXY: ${ICLOUD_PRIVACY_MAIL_NO_PROXY:-127.0.0.1,localhost,icloud-privacy-mail,app,grok-runtime}
+      TZ: ${TZ:-Asia/Shanghai}
+    volumes:
+      - ./data/icloud-privacy-mail:/data
+    depends_on:
+      privoxy:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8787/login >/dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  grok-runtime:
+    build:
+      context: ./services/grok-runtime
+      dockerfile: Dockerfile
+    image: ${GROK_RUNTIME_IMAGE:-shengtu/grok-runtime:4.5-20260925-ui-workspace}
+    container_name: shengtu39-grok-runtime-warp
+    restart: unless-stopped
+    environment:
+      GROK_RUNTIME_PORT: "8091"
+      GROK_RUNTIME_VERSION: ${GROK_RUNTIME_VERSION:-4.5-20260925-ui-workspace}
+      DATA_DIR: /data
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?set a strong random INTERNAL_SERVICE_TOKEN}
+      GROK_PROVIDER_CREDENTIAL_KEY: ${GROK_PROVIDER_CREDENTIAL_KEY:-}
+      ICLOUD_PRIVACY_MAIL_BASE_URL: ${ICLOUD_PRIVACY_MAIL_BASE_URL:-http://icloud-privacy-mail:8787}
+      SHENGTU_BASE_URL: ${SHENGTU_BASE_URL:-http://app:8092}
+      SHENGTU_POOL_SYNC_ENABLED: ${SHENGTU_POOL_SYNC_ENABLED:-true}
+      SHENGTU_POOL_SYNC_REFRESH: ${SHENGTU_POOL_SYNC_REFRESH:-true}
+      CHATGPT2API_PROXY: ${CHATGPT2API_PROXY:-http://privoxy:8118}
+      CHATGPT2API_FLARESOLVERR_URL: ${CHATGPT2API_FLARESOLVERR_URL:-http://flaresolverr:8191}
+      TZ: ${TZ:-Asia/Shanghai}
+    volumes:
+      - ./data/grok-runtime:/data
+    expose:
+      - "8091"
+    depends_on:
+      privoxy:
+        condition: service_started
+      flaresolverr:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8091/health')\" || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VERSION: ${CHATGPT2API_VERSION:-4.5-20260925-ui-workspace-warp}
+    image: ${CHATGPT2API_WARP_IMAGE:-shengtu:4.5-20260925-ui-workspace-warp}
+    container_name: shengtu-app-warp
+    restart: unless-stopped
+    depends_on:
+      privoxy:
+        condition: service_started
+      flaresolverr:
+        condition: service_started
+      grok-runtime:
+        condition: service_healthy
+    ports:
+      - "${CHATGPT2API_BIND_ADDR:-127.0.0.1}:${CHATGPT2API_PORT:-3004}:80"
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./.env:/app/.env:rw
+    environment:
+      STORAGE_BACKEND: ${STORAGE_BACKEND:-sqlite}
+      DATABASE_URL: ${DATABASE_URL:-sqlite:////app/data/chatgpt2api.db}
+      # Prefer warp chain when env file has empty PROXY; override via .env
+      CHATGPT2API_PROXY: ${CHATGPT2API_PROXY:-http://privoxy:8118}
+      CHATGPT2API_FLARESOLVERR_URL: ${CHATGPT2API_FLARESOLVERR_URL:-http://flaresolverr:8191}
+      CHATGPT2API_UPSTREAM_CLEARANCE_ENABLED: ${CHATGPT2API_UPSTREAM_CLEARANCE_ENABLED:-true}
+      CHATGPT2API_UPSTREAM_CLEARANCE_MODE: ${CHATGPT2API_UPSTREAM_CLEARANCE_MODE:-flaresolverr}
+      CHATGPT2API_UPSTREAM_CLEARANCE_TIMEOUT_SEC: ${CHATGPT2API_UPSTREAM_CLEARANCE_TIMEOUT_SEC:-60}
+      CHATGPT2API_UPSTREAM_CLEARANCE_REFRESH_INTERVAL: ${CHATGPT2API_UPSTREAM_CLEARANCE_REFRESH_INTERVAL:-3600}
+      CHATGPT2API_IMAGE_CHALLENGE_COOLDOWN_SECONDS: ${CHATGPT2API_IMAGE_CHALLENGE_COOLDOWN_SECONDS:-900}
+      CHATGPT2API_IMAGE_ATTEMPT_TIMEOUT_SECONDS: ${CHATGPT2API_IMAGE_ATTEMPT_TIMEOUT_SECONDS:-80}
+      CHATGPT2API_FEATURE_ICLOUD: ${CHATGPT2API_FEATURE_ICLOUD:-false}
+      CHATGPT2API_FEATURE_GROK_REGISTER: ${CHATGPT2API_FEATURE_GROK_REGISTER:-false}
+      CHATGPT2API_FEATURE_REGISTER_BACKEND: ${CHATGPT2API_FEATURE_REGISTER_BACKEND:-go}
+      ICLOUD_PRIVACY_MAIL_BASE_URL: ${ICLOUD_PRIVACY_MAIL_BASE_URL:-http://icloud-privacy-mail:8787}
+      GROK_RUNTIME_BASE_URL: ${GROK_RUNTIME_BASE_URL:-http://grok-runtime:8091}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?set a strong random INTERNAL_SERVICE_TOKEN}
+      CHATGPT2API_INTERNAL_LISTEN_ADDR: ":8092"
+      TZ: ${TZ:-Asia/Shanghai}
+    expose:
+      - "8092"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1/health >/dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s

@@ -1,0 +1,49 @@
+# Generated files
+build/
+dist/
+web_dist
+chatgpt2api.exe
+.omx/
+.codex/
+.agents/
+
+.idea
+node_modules/
+web/node_modules/
+web/*.tsbuildinfo
+web/tsconfig.tsbuildinfo
+internal/web/dist/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+$cache/
+cache/
+services/grok-runtime/v/
+services/grok-runtime/BaiduNetdiskDownload生图生图测试缓存*/
+services/grok-runtime/upstream/services/checkout_protocol/logs/*.log
+data
+edit
+
+docker-compose-local.yml
+
+.claude/settings.local.json
+
+# Environment variables
+.env
+.env.local
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Runtime / bootstrap secrets
+bootstrap-admin.txt
+**/bootstrap-admin.txt
+*.exe
+chatgpt2api
+chatgpt2api.exe
+
+# Git cache
+git_cache/
+.ace-tool/

@@ -1,0 +1,51 @@
+import { cn } from "@/lib/utils";
+import type { ICloudMailboxUsage } from "@/lib/icloud-api";
+
+const options: Array<{ value: ICloudMailboxUsage; label: string }> = [
+  { value: "all", label: "全部" },
+  { value: "unused", label: "未使用" },
+  { value: "used", label: "已使用" },
+];
+
+export function ICloudMailboxUsageFilter({
+  value,
+  disabled,
+  onChange,
+}: {
+  value: ICloudMailboxUsage;
+  disabled?: boolean;
+  onChange: (value: ICloudMailboxUsage) => void;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="shrink-0 text-xs text-muted-foreground">使用状态</span>
+      <div role="tablist" aria-label="邮箱使用状态" className="inline-flex h-9 items-center rounded-full border border-border bg-muted/50 p-1">
+        {options.map((option) => {
+          const selected = value === option.value;
+          return (
+            <button
+              key={option.value}
+              type="button"
+              role="tab"
+              aria-selected={selected}
+              disabled={disabled}
+              className={cn(
+                "h-7 rounded-full px-3 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:cursor-not-allowed disabled:opacity-50",
+                selected
+                  ? option.value === "unused"
+                    ? "bg-emerald-600 text-white shadow-sm"
+                    : option.value === "used"
+                      ? "bg-violet-600 text-white shadow-sm"
+                      : "bg-[#1456f0] text-white shadow-sm"
+                  : "text-muted-foreground hover:bg-background hover:text-foreground",
+              )}
+              onClick={() => onChange(option.value)}
+            >
+              {option.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
