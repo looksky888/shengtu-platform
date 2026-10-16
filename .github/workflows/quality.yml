@@ -1,0 +1,59 @@
+name: Quality checks
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Frontend and Go
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      CGO_ENABLED: "0"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix web
+
+      - name: Test frontend
+        run: npm test --prefix web
+
+      - name: Lint frontend
+        run: npm run lint --prefix web
+
+      - name: Build and verify embedded frontend
+        run: |
+          npm run build --prefix web
+          npm run verify:dist --prefix web
+
+      - name: Test Go packages
+        run: go test -p=1 ./... -count=1
+
+      - name: Vet Go packages
+        run: go vet -p=1 ./...
+
+      - name: Build release binary
+        shell: bash
+        run: |
+          version="$(tr -d '\r\n' < VERSION.txt)"
+          go build -p=1 -trimpath -tags=embed \
+            -ldflags="-s -w -X chatgpt2api/internal/version.Version=${version}" \
+            -o "${RUNNER_TEMP}/chatgpt2api" ./cmd/chatgpt2api
