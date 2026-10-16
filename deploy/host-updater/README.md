@@ -17,8 +17,13 @@ SHENGTU_UPDATER_STATE_DIR=/opt/chatgpt2api/data/host-updater
 SHENGTU_UPDATER_BACKUP_DIR=/opt/chatgpt2api/data/update-backups
 SHENGTU_UPDATER_COMPOSE_FILES=docker-compose.yml,docker-compose.runtime.override.yml
 SHENGTU_UPDATER_READINESS_URL=http://127.0.0.1:3004/ready
+SHENGTU_UPDATER_REPOSITORY=looksky888/shengtu-platform
+SHENGTU_UPDATER_GITHUB_TOKEN=替换为仅有仓库读取权限的细粒度令牌
+SHENGTU_UPDATER_PLATFORM=linux/amd64
 SHENGTU_UPDATER_MIN_FREE_BYTES=2147483648
 ```
+
+`SHENGTU_UPDATER_GITHUB_TOKEN` 只保存在权限为 `0600` 的宿主机环境文件中，用于读取私有 Release 和 `update-manifest.json`；不要复用具备仓库写入权限的令牌。
 
 同一密钥写入项目 `.env` 的 `SHENGTU_UPDATER_TOKEN`，并在启动 Compose 时增加覆盖文件：
 

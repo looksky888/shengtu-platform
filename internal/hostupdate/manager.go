@@ -2,12 +2,9 @@ package hostupdate
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"os/exec"
@@ -18,6 +15,12 @@ import (
 )
 
 const stateFileName = "status.json"
+
+const (
+	defaultRepository    = "looksky888/shengtu-platform"
+	defaultGitHubAPIBase = "https://api.github.com"
+	defaultPlatform      = "linux/amd64"
+)
 
 type commandRunner interface {
 	Run(context.Context, string, ...string) error
@@ -34,11 +37,12 @@ func (execRunner) Run(ctx context.Context, name string, args ...string) error {
 }
 
 type Manager struct {
-	mu     sync.Mutex
-	opts   Options
-	runner commandRunner
-	client *http.Client
-	state  State
+	mu      sync.Mutex
+	opts    Options
+	runner  commandRunner
+	client  *http.Client
+	release *releaseClient
+	state   State
 }
 
 func NewManager(opts Options) (*Manager, error) {
@@ -51,13 +55,34 @@ func NewManager(opts Options) (*Manager, error) {
 	if opts.MinimumFree == 0 {
 		opts.MinimumFree = 2 << 30
 	}
+	opts.Repository = strings.TrimSpace(opts.Repository)
+	if opts.Repository == "" {
+		opts.Repository = defaultRepository
+	}
+	if !repositoryPattern.MatchString(opts.Repository) {
+		return nil, errors.New("GitHub 仓库必须使用 owner/name 格式")
+	}
+	opts.GitHubAPIBase = strings.TrimRight(strings.TrimSpace(opts.GitHubAPIBase), "/")
+	if opts.GitHubAPIBase == "" {
+		opts.GitHubAPIBase = defaultGitHubAPIBase
+	}
+	opts.Platform = strings.ToLower(strings.TrimSpace(opts.Platform))
+	if opts.Platform == "" {
+		opts.Platform = defaultPlatform
+	}
+	opts.ExpectedImage = strings.ToLower(strings.TrimSpace(opts.ExpectedImage))
+	if opts.ExpectedImage == "" {
+		opts.ExpectedImage = "ghcr.io/" + strings.ToLower(opts.Repository)
+	}
 	if err := os.MkdirAll(opts.StateDir, 0o700); err != nil {
 		return nil, fmt.Errorf("create updater state directory: %w", err)
 	}
+	client := &http.Client{Timeout: opts.CommandTimeout}
 	m := &Manager{
 		opts: opts, runner: execRunner{},
-		client: &http.Client{Timeout: opts.CommandTimeout},
-		state:  State{Status: StatusIdle, UpdatedAt: nowISO(), Checks: []Check{}},
+		client:  client,
+		release: newReleaseClient(opts, client),
+		state:   State{Status: StatusIdle, UpdatedAt: nowISO(), Checks: []Check{}},
 	}
 	if err := m.load(); err != nil {
 		return nil, err
@@ -66,6 +91,16 @@ func NewManager(opts Options) (*Manager, error) {
 		m.state.Status = StatusFailed
 		m.state.Phase = "interrupted"
 		m.state.Error = "上次更新预检因更新器重启而中断"
+		m.state.Target = nil
+		m.state.FinishedAt = nowISO()
+		m.state.UpdatedAt = m.state.FinishedAt
+		if err := m.saveLocked(); err != nil {
+			return nil, err
+		}
+	} else if m.state.Status == StatusReady && m.state.Target == nil {
+		m.state.Status = StatusFailed
+		m.state.Phase = "stale"
+		m.state.Error = "已有预检状态缺少已验证的发布目标，请重新执行预检"
 		m.state.FinishedAt = nowISO()
 		m.state.UpdatedAt = m.state.FinishedAt
 		if err := m.saveLocked(); err != nil {
@@ -82,6 +117,10 @@ func (m *Manager) State() State {
 }
 
 func (m *Manager) StartPreflight(request PreflightRequest) (PreflightResult, error) {
+	request.TargetVersion = normalizeVersion(request.TargetVersion)
+	if !versionPattern.MatchString(request.TargetVersion) {
+		return PreflightResult{}, errors.New("目标版本格式无效")
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.state.Status == StatusPreflight {
@@ -101,6 +140,7 @@ func (m *Manager) StartPreflight(request PreflightRequest) (PreflightResult, err
 }
 
 func (m *Manager) runPreflight(taskID string, request PreflightRequest) {
+	var target ReleaseTarget
 	checks := []struct {
 		name string
 		run  func(context.Context) error
@@ -113,7 +153,20 @@ func (m *Manager) runPreflight(taskID string, request PreflightRequest) {
 		}},
 		{"Docker Compose", func(ctx context.Context) error { return m.runner.Run(ctx, "docker", "compose", "version", "--short") }},
 		{"可用磁盘", m.checkDiskSpace},
-		{"业务就绪", m.checkReadiness},
+		{"发布清单", func(ctx context.Context) error {
+			resolved, err := m.release.resolve(ctx, request.TargetVersion)
+			if err == nil {
+				target = resolved
+			}
+			return err
+		}},
+		{"业务就绪", func(ctx context.Context) error {
+			currentSchema, err := m.checkReadiness(ctx)
+			if err != nil {
+				return err
+			}
+			return validateStorageUpgrade(currentSchema, target)
+		}},
 	}
 	for _, item := range checks {
 		m.setPhase(taskID, item.name)
@@ -130,9 +183,7 @@ func (m *Manager) runPreflight(taskID string, request PreflightRequest) {
 			return
 		}
 	}
-	if request.TargetVersion != "" {
-		m.appendCheck(taskID, Check{Name: "目标版本", Status: "passed", Detail: request.TargetVersion})
-	}
+	m.setTarget(taskID, target)
 	m.finish(taskID, StatusReady, "")
 }
 
@@ -204,128 +255,34 @@ func (m *Manager) checkDiskSpace(context.Context) error {
 	return nil
 }
 
-func (m *Manager) checkReadiness(ctx context.Context) error {
+func (m *Manager) checkReadiness(ctx context.Context) (int, error) {
 	if strings.TrimSpace(m.opts.ReadinessURL) == "" {
-		return errors.New("未配置业务就绪地址")
+		return 0, errors.New("未配置业务就绪地址")
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, m.opts.ReadinessURL, nil)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	resp, err := m.client.Do(req)
 	if err != nil {
-		return fmt.Errorf("访问业务就绪接口: %w", err)
+		return 0, fmt.Errorf("访问业务就绪接口: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("业务就绪接口返回 HTTP %d", resp.StatusCode)
+		return 0, fmt.Errorf("业务就绪接口返回 HTTP %d", resp.StatusCode)
 	}
 	var payload struct {
-		Status string `json:"status"`
+		Status        string `json:"status"`
+		SchemaVersion int    `json:"schema_version"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
-		return fmt.Errorf("解析业务就绪响应: %w", err)
+		return 0, fmt.Errorf("解析业务就绪响应: %w", err)
 	}
 	if payload.Status != "ready" {
-		return fmt.Errorf("业务状态为 %q，尚未就绪", payload.Status)
+		return 0, fmt.Errorf("业务状态为 %q，尚未就绪", payload.Status)
 	}
-	return nil
-}
-
-func (m *Manager) setPhase(taskID, phase string) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if m.state.TaskID != taskID || m.state.Status != StatusPreflight {
-		return
+	if payload.SchemaVersion < 1 {
+		return 0, fmt.Errorf("业务返回的存储结构版本 %d 无效", payload.SchemaVersion)
 	}
-	m.state.Phase, m.state.UpdatedAt = phase, nowISO()
-	if err := m.saveLocked(); err != nil {
-		log.Printf("host updater persist phase failed: %v", err)
-	}
-}
-
-func (m *Manager) appendCheck(taskID string, check Check) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if m.state.TaskID != taskID || m.state.Status != StatusPreflight {
-		return
-	}
-	m.state.Checks = append(m.state.Checks, check)
-	m.state.UpdatedAt = nowISO()
-	if err := m.saveLocked(); err != nil {
-		log.Printf("host updater persist check failed: %v", err)
-	}
-}
-
-func (m *Manager) finish(taskID, status, message string) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if m.state.TaskID != taskID || m.state.Status != StatusPreflight {
-		return
-	}
-	now := nowISO()
-	m.state.Status, m.state.Phase, m.state.Error = status, "completed", message
-	m.state.FinishedAt, m.state.UpdatedAt = now, now
-	if err := m.saveLocked(); err != nil {
-		log.Printf("host updater persist terminal state failed: %v", err)
-	}
-}
-
-func (m *Manager) load() error {
-	data, err := os.ReadFile(filepath.Join(m.opts.StateDir, stateFileName))
-	if errors.Is(err, os.ErrNotExist) {
-		return nil
-	}
-	if err != nil {
-		return fmt.Errorf("read updater state: %w", err)
-	}
-	if err := json.Unmarshal(data, &m.state); err != nil {
-		return fmt.Errorf("decode updater state: %w", err)
-	}
-	if m.state.Checks == nil {
-		m.state.Checks = []Check{}
-	}
-	return nil
-}
-
-func (m *Manager) saveLocked() error {
-	data, err := json.MarshalIndent(m.state, "", "  ")
-	if err != nil {
-		return err
-	}
-	tmp, err := os.CreateTemp(m.opts.StateDir, ".status-*.tmp")
-	if err != nil {
-		return err
-	}
-	name := tmp.Name()
-	defer os.Remove(name)
-	if err := tmp.Chmod(0o600); err != nil {
-		_ = tmp.Close()
-		return err
-	}
-	if _, err := tmp.Write(data); err != nil {
-		_ = tmp.Close()
-		return err
-	}
-	if err := tmp.Sync(); err != nil {
-		_ = tmp.Close()
-		return err
-	}
-	if err := tmp.Close(); err != nil {
-		return err
-	}
-	return os.Rename(name, filepath.Join(m.opts.StateDir, stateFileName))
-}
-
-func cloneState(state State) State {
-	state.Checks = append([]Check(nil), state.Checks...)
-	return state
-}
-func nowISO() string { return time.Now().UTC().Format(time.RFC3339Nano) }
-func randomID() (string, error) {
-	var data [16]byte
-	if _, err := rand.Read(data[:]); err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(data[:]), nil
+	return payload.SchemaVersion, nil
 }
