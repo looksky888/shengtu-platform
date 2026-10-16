@@ -12,6 +12,7 @@ RUN npm ci
 
 FROM web-deps AS web-build
 
+COPY VERSION.txt /app/VERSION.txt
 COPY web ./
 ARG VERSION=4.5-20260925-ui-workspace
 ENV VITE_APP_VERSION=${VERSION}
