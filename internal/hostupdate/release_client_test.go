@@ -170,4 +170,3 @@ func testManagerOptions(root, readinessURL, githubURL string) Options {
 		MinimumFree: 1, CommandTimeout: time.Second,
 	}
 }
-

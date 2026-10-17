@@ -167,4 +167,3 @@ func ensureJSONEOF(decoder *json.Decoder) error {
 	}
 	return nil
 }
-

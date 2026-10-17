@@ -277,4 +277,3 @@ func writeTestUpdateArchive(path string) error {
 	}
 	return nil
 }
-

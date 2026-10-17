@@ -61,4 +61,3 @@ func GetInfo() Info {
 		Deployment: GetDeployment(),
 	}
 }
-

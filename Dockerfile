@@ -70,4 +70,3 @@ EXPOSE 80
 
 USER 10001:10001
 CMD ["/app/chatgpt2api"]
-
