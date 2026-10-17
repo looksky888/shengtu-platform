@@ -23,7 +23,7 @@ from runtime.model_catalog import GROK_MODELS
 from runtime.request_body import read_json_object
 
 SERVICE = "grok-runtime"
-VERSION = os.getenv("GROK_RUNTIME_VERSION", "4.5-20260925-ui-workspace")
+VERSION = os.getenv("GROK_RUNTIME_VERSION", "4.5-20261017-security-remediation")
 
 _UPSTREAM = Path(__file__).resolve().parents[1] / "upstream"
 # Always put vendored reverse stack first so `import app.products` resolves to

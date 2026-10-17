@@ -22,7 +22,7 @@ services:
     build:
       context: .
       dockerfile: deploy/icloud-privacy-mail/Dockerfile
-    image: ${ICLOUD_PRIVACY_MAIL_IMAGE:-shengtu/icloud-privacy-mail:4.5-20260925-ui-workspace}
+    image: ${ICLOUD_PRIVACY_MAIL_IMAGE:-shengtu/icloud-privacy-mail:4.5-20261017-security-remediation}
     container_name: shengtu39-icloud-privacy-mail
     restart: unless-stopped
     environment:
@@ -55,12 +55,12 @@ services:
     build:
       context: ./services/grok-runtime
       dockerfile: Dockerfile
-    image: ${GROK_RUNTIME_IMAGE:-shengtu/grok-runtime:4.5-20260925-ui-workspace}
+    image: ${GROK_RUNTIME_IMAGE:-shengtu/grok-runtime:4.5-20261017-security-remediation}
     container_name: shengtu39-grok-runtime
     restart: unless-stopped
     environment:
       GROK_RUNTIME_PORT: "8091"
-      GROK_RUNTIME_VERSION: ${GROK_RUNTIME_VERSION:-4.5-20260925-ui-workspace}
+      GROK_RUNTIME_VERSION: ${GROK_RUNTIME_VERSION:-4.5-20261017-security-remediation}
       DATA_DIR: /data
       INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?set a strong random INTERNAL_SERVICE_TOKEN}
       GROK_PROVIDER_CREDENTIAL_KEY: ${GROK_PROVIDER_CREDENTIAL_KEY:-}
@@ -97,8 +97,8 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        VERSION: "${CHATGPT2API_VERSION:-4.5-20260925-ui-workspace}"
-    image: ${CHATGPT2API_IMAGE:-shengtu:4.5-20260925-ui-workspace}
+        VERSION: "${CHATGPT2API_VERSION:-4.5-20261017-security-remediation}"
+    image: ${CHATGPT2API_IMAGE:-shengtu:4.5-20261017-security-remediation}
     container_name: shengtu39-app
     restart: unless-stopped
     depends_on:

@@ -4,14 +4,14 @@
 
 ## shengtu 4.5 版本说明
 
-本目录为 **shengtu 4.5** 开发版源码（基于 4.3 稳定基线，版本标记 `4.5-20260925-ui-workspace`）。
+本目录为 **shengtu 4.5** 发布版源码（基于 4.3 稳定基线，版本标记 `4.5-20261017-security-remediation`）。
 
 - 优化与安全修复见上级 `CHANGELOG.md` 与仓库根 `OPTIMIZATION_CHECKLIST.md`。
 - 运维要点（重启、健康检查、CORS、发布包）：见 `docs/SHENGTU_3X_OPS.md`。
 - **干净部署 / 净包 / 测试隔离**：见 `docs/CLEAN_DEPLOY.md`。
 - 号池模式 vs 中转站：设置页 `image_provider` = `account_pool` / `proxy_api`。
 - 默认角色仅创作台+图片库；积分扣费见设置「积分成本」。
-- Compose 默认仅监听 `127.0.0.1:3004`，镜像标签 `shengtu:4.5-20260925-ui-workspace`。
+- Compose 默认仅监听 `127.0.0.1:3004`，镜像标签 `shengtu:4.5-20261017-security-remediation`。
 - 图片媒体支持服务器本地或 Cloudflare R2；R2 模式使用 SQL 媒体索引、私有桶临时地址和持久化上传重试。
 - Grok 默认生图模型 `grok-imagine-image` 使用 Basic/Lite 通道；质量模型使用新版 Imagine WebSocket 原生批次和兼容事件收集器。
 - 共享 429 不再触发账号轮换或重放；只有明确的 `usage_limit_reached` 才在请求内换号。
@@ -120,7 +120,7 @@ docker compose up -d --build
 默认 Compose 配置：
 
 - 服务：主应用、FlareSolverr、Grok runtime；iCloud 服务通过 `--profile icloud` 启用
-- 镜像：`shengtu:4.5-20260925-ui-workspace`
+- 镜像：`shengtu:4.5-20261017-security-remediation`
 - 端口：默认 `127.0.0.1:3004` -> 容器 `80`
 - 数据目录：`./data:/app/data`
 - 环境文件：Compose 只读取宿主机 `.env` 并注入进程，不再挂载到容器
@@ -186,7 +186,7 @@ grep -n "^CHATGPT2API_ADMIN_PASSWORD=" .env
 
 则不会生成随机密码，也不会创建 `bootstrap-admin.txt`。管理员账号已存在时，改 `.env` 中的 `CHATGPT2API_ADMIN_PASSWORD` 不会覆盖现有密码。
 
-默认 Compose 仅监听 `127.0.0.1:3004`（容器内 80），镜像标签：`shengtu:4.5-20260925-ui-workspace`。公网部署应由 TLS 反向代理转发到该地址；只有明确需要直接监听公网时，才设置 `CHATGPT2API_BIND_ADDR=0.0.0.0` 并配置防火墙。
+默认 Compose 仅监听 `127.0.0.1:3004`（容器内 80），镜像标签：`shengtu:4.5-20261017-security-remediation`。公网部署应由 TLS 反向代理转发到该地址；只有明确需要直接监听公网时，才设置 `CHATGPT2API_BIND_ADDR=0.0.0.0` 并配置防火墙。
 
 <details>
 <summary>重置本地管理员密码</summary>
