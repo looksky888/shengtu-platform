@@ -22,6 +22,15 @@ type Client struct {
 	http    *http.Client
 }
 
+type HTTPError struct {
+	StatusCode int
+	Message    string
+}
+
+func (e *HTTPError) Error() string {
+	return fmt.Sprintf("Host Updater 返回 HTTP %d: %s", e.StatusCode, e.Message)
+}
+
 func NewFromEnv() (*Client, string) {
 	token := strings.TrimSpace(os.Getenv("CHATGPT2API_HOST_UPDATER_TOKEN"))
 	if len(token) < 32 {
@@ -56,6 +65,11 @@ func (c *Client) StartPreflight(ctx context.Context, request hostupdate.Prefligh
 	return result, c.request(ctx, http.MethodPost, "/v1/preflight", request, &result)
 }
 
+func (c *Client) StartUpdate(ctx context.Context, request hostupdate.UpdateRequest) (hostupdate.UpdateResult, error) {
+	var result hostupdate.UpdateResult
+	return result, c.request(ctx, http.MethodPost, "/v1/update", request, &result)
+}
+
 func (c *Client) request(ctx context.Context, method, path string, body, target any) error {
 	var reader io.Reader
 	if body != nil {
@@ -87,10 +101,11 @@ func (c *Client) request(ctx context.Context, method, path string, body, target 
 		if payload.Error == "" {
 			payload.Error = strings.TrimSpace(string(data))
 		}
-		return fmt.Errorf("Host Updater 返回 HTTP %d: %s", resp.StatusCode, payload.Error)
+		return &HTTPError{StatusCode: resp.StatusCode, Message: payload.Error}
 	}
 	if err := json.NewDecoder(resp.Body).Decode(target); err != nil {
 		return errors.New("Host Updater 返回了无法解析的响应")
 	}
 	return nil
 }
+

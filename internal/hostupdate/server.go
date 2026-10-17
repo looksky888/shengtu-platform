@@ -3,6 +3,7 @@ package hostupdate
 import (
 	"crypto/subtle"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"strings"
@@ -28,6 +29,29 @@ func NewHandler(manager *Manager, token string) http.Handler {
 		result, err := manager.StartPreflight(request)
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return
+		}
+		writeJSON(w, http.StatusAccepted, result)
+	})
+	mux.HandleFunc("POST /v1/update", func(w http.ResponseWriter, r *http.Request) {
+		var request UpdateRequest
+		decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64<<10))
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&request); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请求体不是合法 JSON"})
+			return
+		}
+		if err := decoder.Decode(&struct{}{}); err != io.EOF {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请求体只能包含一个 JSON 对象"})
+			return
+		}
+		result, err := manager.StartUpdate(request)
+		if err != nil {
+			status := http.StatusInternalServerError
+			if errors.Is(err, ErrUpdateBusy) || errors.Is(err, ErrUpdateNotReady) || strings.Contains(err.Error(), "任务 ID") {
+				status = http.StatusConflict
+			}
+			writeJSON(w, status, map[string]string{"error": err.Error()})
 			return
 		}
 		writeJSON(w, http.StatusAccepted, result)
@@ -58,3 +82,4 @@ func writeJSON(w http.ResponseWriter, status int, value any) {
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(value)
 }
+

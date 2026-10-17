@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"os"
 	"time"
@@ -9,6 +10,7 @@ import (
 	"chatgpt2api/internal/hostupdate"
 	"chatgpt2api/internal/service"
 	"chatgpt2api/internal/storage"
+	"chatgpt2api/internal/updaterclient"
 	"chatgpt2api/internal/util"
 	"chatgpt2api/internal/version"
 )
@@ -166,6 +168,12 @@ func (a *App) handleAdminSystem(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		a.startHostUpdaterPreflight(w, r)
+	case base + "/update-apply":
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		a.startHostUpdaterUpdate(w, r)
 	case base + "/update-drain":
 		if r.Method != http.MethodGet && r.Method != http.MethodPost {
 			w.WriteHeader(http.StatusMethodNotAllowed)
@@ -290,3 +298,28 @@ func (a *App) startHostUpdaterPreflight(w http.ResponseWriter, r *http.Request) 
 	}
 	util.WriteJSON(w, http.StatusAccepted, hostUpdaterPreflightResponse{Configured: true, Connected: true, Result: result})
 }
+
+func (a *App) startHostUpdaterUpdate(w http.ResponseWriter, r *http.Request) {
+	if a.hostUpdater == nil {
+		util.WriteError(w, http.StatusConflict, a.hostUpdaterReason)
+		return
+	}
+	var request hostupdate.UpdateRequest
+	if !readJSONOr400(w, r, &request) {
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+	result, err := a.hostUpdater.StartUpdate(ctx, request)
+	if err != nil {
+		status := http.StatusBadGateway
+		var upstreamErr *updaterclient.HTTPError
+		if errors.As(err, &upstreamErr) && upstreamErr.StatusCode == http.StatusConflict {
+			status = http.StatusConflict
+		}
+		util.WriteError(w, status, err.Error())
+		return
+	}
+	util.WriteJSON(w, http.StatusAccepted, hostUpdaterUpdateResponse{Configured: true, Connected: true, Result: result})
+}
+

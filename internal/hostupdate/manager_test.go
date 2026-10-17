@@ -38,7 +38,7 @@ func TestPreflightPersistsSuccessfulState(t *testing.T) {
 		t.Fatal(err)
 	}
 	readiness := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte(`{"status":"ready","schema_version":1}`))
+		_, _ = w.Write([]byte(`{"status":"ready","version":"4.5-old","schema_version":1}`))
 	}))
 	defer readiness.Close()
 	release := newReleaseFixture(t, testReleaseManifest(testReleaseVersion, 1, 1, testReleaseDigest), false, nil)
@@ -96,7 +96,7 @@ func TestPreflightRejectsApplicationThatIsNotReady(t *testing.T) {
 	}
 	readiness := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusServiceUnavailable)
-		_, _ = w.Write([]byte(`{"status":"not_ready","schema_version":1}`))
+		_, _ = w.Write([]byte(`{"status":"not_ready","version":"4.5-old","schema_version":1}`))
 	}))
 	defer readiness.Close()
 	release := newReleaseFixture(t, testReleaseManifest(testReleaseVersion, 1, 1, testReleaseDigest), false, nil)
@@ -120,7 +120,7 @@ func TestPreflightRejectsIncompatibleStorageSchema(t *testing.T) {
 		t.Fatal(err)
 	}
 	readiness := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte(`{"status":"ready","schema_version":1}`))
+		_, _ = w.Write([]byte(`{"status":"ready","version":"4.5-old","schema_version":1}`))
 	}))
 	defer readiness.Close()
 	release := newReleaseFixture(t, testReleaseManifest(testReleaseVersion, 2, 2, testReleaseDigest), false, nil)
@@ -183,3 +183,4 @@ func waitForTerminal(t *testing.T, manager *Manager) State {
 	t.Fatal("preflight did not finish")
 	return State{}
 }
+

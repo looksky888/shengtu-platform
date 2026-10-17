@@ -134,10 +134,11 @@ func testReleaseManifest(version string, schemaVersion, minSource int, digest st
 func testManagerOptions(root, readinessURL, githubURL string) Options {
 	return Options{
 		StateDir: filepath.Join(root, "state"), InstallDir: root,
-		ComposeFiles: []string{"docker-compose.yml"}, BackupDir: filepath.Join(root, "backups"),
+		ComposeFiles: []string{"docker-compose.yml"}, BackupDir: filepath.Join(root, "backups"), DataDir: root,
 		ReadinessURL: readinessURL, Repository: "looksky888/shengtu-platform",
 		GitHubToken: testGitHubToken, GitHubAPIBase: githubURL,
 		Platform: "linux/amd64", ExpectedImage: "ghcr.io/looksky888/shengtu-platform",
 		MinimumFree: 1, CommandTimeout: time.Second,
 	}
 }
+

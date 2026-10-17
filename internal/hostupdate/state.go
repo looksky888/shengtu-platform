@@ -12,13 +12,14 @@ import (
 	"time"
 )
 
-func (m *Manager) setTarget(taskID string, target ReleaseTarget) {
+func (m *Manager) setTarget(taskID string, target ReleaseTarget, source ApplicationIdentity) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.state.TaskID != taskID || m.state.Status != StatusPreflight {
 		return
 	}
 	m.state.Target = &target
+	m.state.Source = &source
 	m.state.UpdatedAt = nowISO()
 	if err := m.saveLocked(); err != nil {
 		log.Printf("host updater persist release target failed: %v", err)
@@ -28,7 +29,7 @@ func (m *Manager) setTarget(taskID string, target ReleaseTarget) {
 func (m *Manager) setPhase(taskID, phase string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.state.TaskID != taskID || m.state.Status != StatusPreflight {
+	if m.state.TaskID != taskID || !isActiveStatus(m.state.Status) {
 		return
 	}
 	m.state.Phase, m.state.UpdatedAt = phase, nowISO()
@@ -40,7 +41,7 @@ func (m *Manager) setPhase(taskID, phase string) {
 func (m *Manager) appendCheck(taskID string, check Check) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.state.TaskID != taskID || m.state.Status != StatusPreflight {
+	if m.state.TaskID != taskID || !isActiveStatus(m.state.Status) {
 		return
 	}
 	m.state.Checks = append(m.state.Checks, check)
@@ -53,7 +54,7 @@ func (m *Manager) appendCheck(taskID string, check Check) {
 func (m *Manager) finish(taskID, status, message string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.state.TaskID != taskID || m.state.Status != StatusPreflight {
+	if m.state.TaskID != taskID {
 		return
 	}
 	now := nowISO()
@@ -62,6 +63,38 @@ func (m *Manager) finish(taskID, status, message string) {
 	if err := m.saveLocked(); err != nil {
 		log.Printf("host updater persist terminal state failed: %v", err)
 	}
+}
+
+func (m *Manager) updateTransaction(taskID string, apply func(*UpdateTransaction)) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.state.TaskID != taskID || !isActiveStatus(m.state.Status) {
+		return errors.New("更新事务状态已失效")
+	}
+	if m.state.Transaction == nil {
+		m.state.Transaction = &UpdateTransaction{}
+	}
+	apply(m.state.Transaction)
+	m.state.UpdatedAt = nowISO()
+	return m.saveLocked()
+}
+
+func (m *Manager) beginRollback(taskID, message string) (bool, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.state.TaskID != taskID || (m.state.Status != StatusUpdating && m.state.Status != StatusRollback) {
+		return false, nil
+	}
+	m.state.Status, m.state.Phase, m.state.Error = StatusRollback, "starting_rollback", message
+	m.state.UpdatedAt = nowISO()
+	if err := m.saveLocked(); err != nil {
+		return true, err
+	}
+	return true, nil
+}
+
+func isActiveStatus(status string) bool {
+	return status == StatusPreflight || status == StatusUpdating || status == StatusRollback
 }
 
 func (m *Manager) load() error {
@@ -116,6 +149,18 @@ func cloneState(state State) State {
 		target := *state.Target
 		state.Target = &target
 	}
+	if state.Source != nil {
+		source := *state.Source
+		state.Source = &source
+	}
+	if state.Transaction != nil {
+		transaction := *state.Transaction
+		if transaction.Backup != nil {
+			backup := *transaction.Backup
+			transaction.Backup = &backup
+		}
+		state.Transaction = &transaction
+	}
 	return state
 }
 
@@ -128,3 +173,4 @@ func randomID() (string, error) {
 	}
 	return hex.EncodeToString(data[:]), nil
 }
+

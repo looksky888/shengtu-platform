@@ -1,9 +1,12 @@
 package updaterclient
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"chatgpt2api/internal/hostupdate"
 )
 
 func TestClientReadsStatusWithoutExposingToken(t *testing.T) {
@@ -27,6 +30,21 @@ func TestClientReadsStatusWithoutExposingToken(t *testing.T) {
 	}
 }
 
+func TestClientPreservesUpdaterConflictStatus(t *testing.T) {
+	token := "0123456789abcdef0123456789abcdef"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusConflict)
+		_, _ = w.Write([]byte(`{"error":"preflight expired"}`))
+	}))
+	defer server.Close()
+	client := &Client{baseURL: server.URL, token: token, http: server.Client()}
+	_, err := client.StartUpdate(t.Context(), hostupdate.UpdateRequest{TaskID: "stale"})
+	var upstreamErr *HTTPError
+	if !errors.As(err, &upstreamErr) || upstreamErr.StatusCode != http.StatusConflict || upstreamErr.Message != "preflight expired" {
+		t.Fatalf("StartUpdate() error = %#v", err)
+	}
+}
+
 func TestClientRejectsRemoteHTTPURL(t *testing.T) {
 	t.Setenv("CHATGPT2API_HOST_UPDATER_TOKEN", "0123456789abcdef0123456789abcdef")
 	t.Setenv("CHATGPT2API_HOST_UPDATER_URL", "http://example.com:8080")
@@ -44,3 +62,4 @@ func TestClientRejectsLoopbackPrefixLookalike(t *testing.T) {
 		t.Fatalf("NewFromEnv() = %v, %q", client, reason)
 	}
 }
+

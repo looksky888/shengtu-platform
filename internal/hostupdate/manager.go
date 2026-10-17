@@ -43,6 +43,7 @@ type Manager struct {
 	client  *http.Client
 	release *releaseClient
 	app     *appControlClient
+	backup  backupStore
 	state   State
 }
 
@@ -52,6 +53,18 @@ func NewManager(opts Options) (*Manager, error) {
 	}
 	if opts.CommandTimeout <= 0 {
 		opts.CommandTimeout = 10 * time.Second
+	}
+	if opts.DrainTimeout <= 0 {
+		opts.DrainTimeout = 15 * time.Minute
+	}
+	if opts.UpdateTimeout <= 0 {
+		opts.UpdateTimeout = 30 * time.Minute
+	}
+	if opts.ReadinessInterval <= 0 {
+		opts.ReadinessInterval = 2 * time.Second
+	}
+	if opts.ReadinessStableCount < 1 {
+		opts.ReadinessStableCount = 3
 	}
 	if opts.MinimumFree == 0 {
 		opts.MinimumFree = 2 << 30
@@ -75,6 +88,23 @@ func NewManager(opts Options) (*Manager, error) {
 	if opts.ExpectedImage == "" {
 		opts.ExpectedImage = "ghcr.io/" + strings.ToLower(opts.Repository)
 	}
+	opts.ComposeProject = strings.TrimSpace(opts.ComposeProject)
+	if opts.ComposeProject == "" {
+		opts.ComposeProject = "shengtu"
+	}
+	opts.AppService = strings.TrimSpace(opts.AppService)
+	if opts.AppService == "" {
+		opts.AppService = "app"
+	}
+	if !versionPattern.MatchString(opts.ComposeProject) || !versionPattern.MatchString(opts.AppService) {
+		return nil, errors.New("Compose 项目名或应用服务名格式无效")
+	}
+	if strings.TrimSpace(opts.DataDir) == "" && strings.TrimSpace(opts.InstallDir) != "" {
+		opts.DataDir = filepath.Join(opts.InstallDir, "data")
+	}
+	if strings.TrimSpace(opts.ManagedOverride) == "" {
+		opts.ManagedOverride = filepath.Join(opts.StateDir, "image.override.yml")
+	}
 	if err := os.MkdirAll(opts.StateDir, 0o700); err != nil {
 		return nil, fmt.Errorf("create updater state directory: %w", err)
 	}
@@ -88,6 +118,7 @@ func NewManager(opts Options) (*Manager, error) {
 		client:  client,
 		release: newReleaseClient(opts, client),
 		app:     app,
+		backup:  newColdBackupStore(opts),
 		state:   State{Status: StatusIdle, UpdatedAt: nowISO(), Checks: []Check{}},
 	}
 	if err := m.load(); err != nil {
@@ -103,10 +134,10 @@ func NewManager(opts Options) (*Manager, error) {
 		if err := m.saveLocked(); err != nil {
 			return nil, err
 		}
-	} else if m.state.Status == StatusReady && m.state.Target == nil {
+	} else if m.state.Status == StatusReady && (m.state.Target == nil || m.state.Source == nil) {
 		m.state.Status = StatusFailed
 		m.state.Phase = "stale"
-		m.state.Error = "已有预检状态缺少已验证的发布目标，请重新执行预检"
+		m.state.Error = "已有预检状态缺少已验证的来源或发布目标，请重新执行预检"
 		m.state.FinishedAt = nowISO()
 		m.state.UpdatedAt = m.state.FinishedAt
 		if err := m.saveLocked(); err != nil {
@@ -132,6 +163,9 @@ func (m *Manager) StartPreflight(request PreflightRequest) (PreflightResult, err
 	if m.state.Status == StatusPreflight {
 		return PreflightResult{State: cloneState(m.state), Started: false}, nil
 	}
+	if m.state.Status == StatusUpdating || m.state.Status == StatusRollback {
+		return PreflightResult{}, ErrUpdateBusy
+	}
 	taskID, err := randomID()
 	if err != nil {
 		return PreflightResult{}, err
@@ -147,6 +181,7 @@ func (m *Manager) StartPreflight(request PreflightRequest) (PreflightResult, err
 
 func (m *Manager) runPreflight(taskID string, request PreflightRequest) {
 	var target ReleaseTarget
+	var source ApplicationIdentity
 	checks := []struct {
 		name string
 		run  func(context.Context) error
@@ -167,11 +202,12 @@ func (m *Manager) runPreflight(taskID string, request PreflightRequest) {
 			return err
 		}},
 		{"业务就绪", func(ctx context.Context) error {
-			currentSchema, err := m.checkReadiness(ctx)
+			current, err := m.checkReadiness(ctx)
 			if err != nil {
 				return err
 			}
-			return validateStorageUpgrade(currentSchema, target)
+			source = current
+			return validateStorageUpgrade(current.SchemaVersion, target)
 		}},
 	}
 	for _, item := range checks {
@@ -189,7 +225,7 @@ func (m *Manager) runPreflight(taskID string, request PreflightRequest) {
 			return
 		}
 	}
-	m.setTarget(taskID, target)
+	m.setTarget(taskID, target, source)
 	m.finish(taskID, StatusReady, "")
 }
 
@@ -208,7 +244,7 @@ func (m *Manager) checkInstallDir(context.Context) error {
 	return nil
 }
 
-func (m *Manager) checkComposeFiles(context.Context) error {
+func (m *Manager) checkComposeFiles(ctx context.Context) error {
 	if len(m.opts.ComposeFiles) == 0 {
 		return errors.New("未配置 Compose 文件")
 	}
@@ -224,6 +260,9 @@ func (m *Manager) checkComposeFiles(context.Context) error {
 		if info.IsDir() {
 			return fmt.Errorf("Compose 路径是目录: %s", path)
 		}
+	}
+	if err := m.runner.Run(ctx, "docker", m.composeArgs("config", "--quiet")...); err != nil {
+		return fmt.Errorf("渲染 Compose 配置: %w", err)
 	}
 	return nil
 }
@@ -247,6 +286,20 @@ func (m *Manager) checkWritableDirs(context.Context) error {
 			return fmt.Errorf("清理目录写入检查 %s: %w", dir, err)
 		}
 	}
+	dataDir := filepath.Clean(strings.TrimSpace(m.opts.DataDir))
+	if !filepath.IsAbs(dataDir) {
+		return errors.New("数据目录必须是绝对路径")
+	}
+	info, err := os.Stat(dataDir)
+	if err != nil {
+		return fmt.Errorf("读取数据目录: %w", err)
+	}
+	if !info.IsDir() {
+		return errors.New("数据目录不是文件夹")
+	}
+	if _, err := safeRelative(m.opts.StateDir, m.opts.ManagedOverride); err != nil {
+		return errors.New("托管 Compose 覆盖文件必须位于更新器状态目录")
+	}
 	return nil
 }
 
@@ -261,34 +314,40 @@ func (m *Manager) checkDiskSpace(context.Context) error {
 	return nil
 }
 
-func (m *Manager) checkReadiness(ctx context.Context) (int, error) {
+func (m *Manager) checkReadiness(ctx context.Context) (ApplicationIdentity, error) {
 	if strings.TrimSpace(m.opts.ReadinessURL) == "" {
-		return 0, errors.New("未配置业务就绪地址")
+		return ApplicationIdentity{}, errors.New("未配置业务就绪地址")
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, m.opts.ReadinessURL, nil)
 	if err != nil {
-		return 0, err
+		return ApplicationIdentity{}, err
 	}
 	resp, err := m.client.Do(req)
 	if err != nil {
-		return 0, fmt.Errorf("访问业务就绪接口: %w", err)
+		return ApplicationIdentity{}, fmt.Errorf("访问业务就绪接口: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return 0, fmt.Errorf("业务就绪接口返回 HTTP %d", resp.StatusCode)
+		return ApplicationIdentity{}, fmt.Errorf("业务就绪接口返回 HTTP %d", resp.StatusCode)
 	}
 	var payload struct {
 		Status        string `json:"status"`
+		Version       string `json:"version"`
 		SchemaVersion int    `json:"schema_version"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
-		return 0, fmt.Errorf("解析业务就绪响应: %w", err)
+		return ApplicationIdentity{}, fmt.Errorf("解析业务就绪响应: %w", err)
 	}
 	if payload.Status != "ready" {
-		return 0, fmt.Errorf("业务状态为 %q，尚未就绪", payload.Status)
+		return ApplicationIdentity{}, fmt.Errorf("业务状态为 %q，尚未就绪", payload.Status)
 	}
 	if payload.SchemaVersion < 1 {
-		return 0, fmt.Errorf("业务返回的存储结构版本 %d 无效", payload.SchemaVersion)
+		return ApplicationIdentity{}, fmt.Errorf("业务返回的存储结构版本 %d 无效", payload.SchemaVersion)
 	}
-	return payload.SchemaVersion, nil
+	runningVersion := normalizeVersion(payload.Version)
+	if runningVersion == "" {
+		return ApplicationIdentity{}, errors.New("业务就绪接口未返回运行版本")
+	}
+	return ApplicationIdentity{Version: runningVersion, SchemaVersion: payload.SchemaVersion}, nil
 }
+

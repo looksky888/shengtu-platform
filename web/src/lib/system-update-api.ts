@@ -42,13 +42,16 @@ export type HostUpdaterCheck = {
 
 export type HostUpdaterState = {
   task_id?: string;
-  status: "idle" | "preflight" | "ready" | "failed";
+  status: "idle" | "preflight" | "ready" | "updating" | "succeeded" | "rolling_back" | "rolled_back" | "failed";
   phase?: string;
   started_at?: string;
   finished_at?: string;
   updated_at: string;
   error?: string;
   checks: HostUpdaterCheck[];
+  source?: { version: string; schema_version: number };
+  target?: { version: string; channel: string; platform: string; image: string; digest: string; storage_schema_version: number };
+  transaction?: { backup?: { path: string; sha256: string; size: number; created_at: string }; override_prepared: boolean; stop_initiated: boolean; app_stopped: boolean; override_switched: boolean };
 };
 
 export type HostUpdaterStatus = {
@@ -59,6 +62,12 @@ export type HostUpdaterStatus = {
 };
 
 export type HostUpdaterPreflight = {
+  configured: boolean;
+  connected: boolean;
+  result: { state: HostUpdaterState; started: boolean };
+};
+
+export type HostUpdaterUpdate = {
   configured: boolean;
   connected: boolean;
   result: { state: HostUpdaterState; started: boolean };
@@ -79,3 +88,11 @@ export function fetchHostUpdaterStatus(signal?: AbortSignal) {
 export function startHostUpdaterPreflight() {
   return httpRequest<HostUpdaterPreflight>("/api/admin/system/update-preflight", { method: "POST" });
 }
+
+export function startHostUpdaterUpdate(taskId: string) {
+  return httpRequest<HostUpdaterUpdate>("/api/admin/system/update-apply", {
+    method: "POST",
+    body: JSON.stringify({ task_id: taskId }),
+  });
+}
+

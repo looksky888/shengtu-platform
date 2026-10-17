@@ -26,19 +26,28 @@ func main() {
 	backupDir := envOr("SHENGTU_UPDATER_BACKUP_DIR", filepath.Join(installDir, "data", "update-backups"))
 	manager, err := hostupdate.NewManager(hostupdate.Options{
 		StateDir: stateDir, InstallDir: installDir, BackupDir: backupDir,
-		ComposeFiles:    splitList(envOr("SHENGTU_UPDATER_COMPOSE_FILES", "docker-compose.yml")),
-		ReadinessURL:    envOr("SHENGTU_UPDATER_READINESS_URL", "http://127.0.0.1:3004/ready"),
-		AppControlURL:   envOr("SHENGTU_UPDATER_APP_CONTROL_URL", "http://127.0.0.1:8092"),
-		AppControlToken: token,
-		Repository:      envOr("SHENGTU_UPDATER_REPOSITORY", "looksky888/shengtu-platform"),
-		GitHubToken:     strings.TrimSpace(os.Getenv("SHENGTU_UPDATER_GITHUB_TOKEN")),
-		Platform:        envOr("SHENGTU_UPDATER_PLATFORM", "linux/amd64"),
-		MinimumFree:     envUint64("SHENGTU_UPDATER_MIN_FREE_BYTES", 2<<30),
-		CommandTimeout:  time.Duration(envUint64("SHENGTU_UPDATER_CHECK_TIMEOUT_SECONDS", 10)) * time.Second,
+		ComposeFiles:         splitList(envOr("SHENGTU_UPDATER_COMPOSE_FILES", "docker-compose.yml")),
+		ReadinessURL:         envOr("SHENGTU_UPDATER_READINESS_URL", "http://127.0.0.1:3004/ready"),
+		AppControlURL:        envOr("SHENGTU_UPDATER_APP_CONTROL_URL", "http://127.0.0.1:8092"),
+		AppControlToken:      token,
+		DataDir:              envOr("SHENGTU_UPDATER_DATA_DIR", filepath.Join(installDir, "data")),
+		ComposeProject:       envOr("SHENGTU_UPDATER_COMPOSE_PROJECT", "shengtu"),
+		AppService:           envOr("SHENGTU_UPDATER_APP_SERVICE", "app"),
+		ManagedOverride:      strings.TrimSpace(os.Getenv("SHENGTU_UPDATER_MANAGED_OVERRIDE")),
+		Repository:           envOr("SHENGTU_UPDATER_REPOSITORY", "looksky888/shengtu-platform"),
+		GitHubToken:          strings.TrimSpace(os.Getenv("SHENGTU_UPDATER_GITHUB_TOKEN")),
+		Platform:             envOr("SHENGTU_UPDATER_PLATFORM", "linux/amd64"),
+		MinimumFree:          envUint64("SHENGTU_UPDATER_MIN_FREE_BYTES", 2<<30),
+		CommandTimeout:       time.Duration(envUint64("SHENGTU_UPDATER_CHECK_TIMEOUT_SECONDS", 10)) * time.Second,
+		DrainTimeout:         time.Duration(envUint64("SHENGTU_UPDATER_DRAIN_TIMEOUT_SECONDS", 900)) * time.Second,
+		UpdateTimeout:        time.Duration(envUint64("SHENGTU_UPDATER_UPDATE_TIMEOUT_SECONDS", 1800)) * time.Second,
+		ReadinessInterval:    time.Duration(envUint64("SHENGTU_UPDATER_READINESS_INTERVAL_SECONDS", 2)) * time.Second,
+		ReadinessStableCount: int(envUint64("SHENGTU_UPDATER_READINESS_STABLE_COUNT", 3)),
 	})
 	if err != nil {
 		log.Fatalf("initialize host updater: %v", err)
 	}
+	manager.RecoverInterrupted()
 	listener, cleanup, err := listenUpdater()
 	if err != nil {
 		log.Fatalf("listen host updater: %v", err)
@@ -83,3 +92,4 @@ func splitList(value string) []string {
 	}
 	return items
 }
+

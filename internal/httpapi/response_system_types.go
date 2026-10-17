@@ -19,6 +19,12 @@ type hostUpdaterPreflightResponse struct {
 	Result     hostupdate.PreflightResult `json:"result"`
 }
 
+type hostUpdaterUpdateResponse struct {
+	Configured bool                    `json:"configured"`
+	Connected  bool                    `json:"connected"`
+	Result     hostupdate.UpdateResult `json:"result"`
+}
+
 type healthDeployment struct {
 	SingleWriterRequired bool   `json:"single_writer_required"`
 	Note                 string `json:"note"`
@@ -107,3 +113,4 @@ type iCloudBridgeStatusResponse struct {
 	StatusCode *int   `json:"status_code,omitempty"`
 	Error      string `json:"error"`
 }
+
