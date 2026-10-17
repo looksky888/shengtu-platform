@@ -104,6 +104,17 @@ func (m *Manager) runUpdate(taskID string) {
 		m.rollbackUpdate(taskID, err)
 		return
 	}
+	// Backup retention is cleanup-only. A cleanup failure is visible in the
+	// update checks but must not roll back an already healthy target version.
+	current := m.State()
+	if current.Transaction == nil || current.Transaction.Backup == nil {
+		m.appendCheck(taskID, Check{Name: "清理旧更新备份", Status: "failed", Detail: "缺少本次更新备份元数据"})
+	} else {
+		backup := *current.Transaction.Backup
+		_ = m.updateStep(ctx, taskID, "清理旧更新备份", func(ctx context.Context) error {
+			return m.backup.Prune(ctx, backup)
+		})
+	}
 	m.finish(taskID, StatusSucceeded, "")
 }
 

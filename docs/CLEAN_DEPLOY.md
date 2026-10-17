@@ -6,8 +6,8 @@
 
 | 项 | 值 |
 |----|-----|
-| 版本标记 | `4.5-20261017-security-remediation` |
-| Compose 镜像 | `shengtu:4.5-20261017-security-remediation` |
+| 版本标记 | `4.5.1-20261017-backup-retention` |
+| Compose 镜像 | `shengtu:4.5.1-20261017-backup-retention` |
 | 宿主端口 | `127.0.0.1:3004` → 容器 `80` |
 | 配置模板 | `.env.example`（不要提交真实 `.env`） |
 

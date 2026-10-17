@@ -9,7 +9,7 @@ import (
 // Version is overridden by builds with:
 //
 //	go build -tags=embed -ldflags "-X chatgpt2api/internal/version.Version=1.2.3"
-var Version = "4.5-20261017-security-remediation"
+var Version = "4.5.1-20261017-backup-retention"
 
 // Commit, Date, and BuildType are overridden by release builds.
 var (

@@ -15,6 +15,7 @@ import (
 type backupStore interface {
 	Create(context.Context, string) (BackupArtifact, error)
 	Restore(context.Context, BackupArtifact) error
+	Prune(context.Context, BackupArtifact) error
 }
 
 type coldBackupStore struct {
@@ -83,6 +84,66 @@ func (s *coldBackupStore) Create(ctx context.Context, taskID string) (BackupArti
 		return BackupArtifact{}, err
 	}
 	return BackupArtifact{Path: finalPath, SHA256: hash, Size: size, CreatedAt: nowISO()}, nil
+}
+
+// Prune keeps the backup created for the successful update and removes only
+// older archives created by this updater. Manual archives, temporary files,
+// directories, and symbolic links are deliberately left untouched.
+func (s *coldBackupStore) Prune(ctx context.Context, keep BackupArtifact) error {
+	backupDir, err := filepath.Abs(s.backupDir)
+	if err != nil {
+		return fmt.Errorf("解析更新备份目录: %w", err)
+	}
+	keepPath, err := filepath.Abs(keep.Path)
+	if err != nil {
+		return fmt.Errorf("解析保留备份路径: %w", err)
+	}
+	keepRel, err := safeRelative(backupDir, keepPath)
+	if err != nil || filepath.Dir(keepRel) != "." || !updaterBackupName(filepath.Base(keepRel)) {
+		return errors.New("保留备份不属于更新器备份目录")
+	}
+	keepInfo, err := os.Lstat(keepPath)
+	if err != nil {
+		return fmt.Errorf("读取保留备份: %w", err)
+	}
+	if keepInfo.Mode()&os.ModeSymlink != 0 || !keepInfo.Mode().IsRegular() {
+		return errors.New("保留备份不是普通文件")
+	}
+
+	entries, err := os.ReadDir(backupDir)
+	if err != nil {
+		return fmt.Errorf("读取更新备份目录: %w", err)
+	}
+	for _, entry := range entries {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if entry.Name() == filepath.Base(keepPath) || !updaterBackupName(entry.Name()) {
+			continue
+		}
+		if entry.Type()&os.ModeSymlink != 0 {
+			continue
+		}
+		info, err := entry.Info()
+		if err != nil {
+			return fmt.Errorf("读取旧更新备份 %s: %w", entry.Name(), err)
+		}
+		if !info.Mode().IsRegular() {
+			continue
+		}
+		if err := os.Remove(filepath.Join(backupDir, entry.Name())); err != nil {
+			return fmt.Errorf("清理旧更新备份 %s: %w", entry.Name(), err)
+		}
+	}
+	return nil
+}
+
+func updaterBackupName(name string) bool {
+	if !strings.HasPrefix(name, "update-") || !strings.HasSuffix(name, ".zip") {
+		return false
+	}
+	taskID := strings.TrimSuffix(strings.TrimPrefix(name, "update-"), ".zip")
+	return versionPattern.MatchString(taskID)
 }
 
 func (s *coldBackupStore) addDeploymentFiles(add func(string, string) error) error {

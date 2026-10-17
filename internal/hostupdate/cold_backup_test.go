@@ -3,6 +3,7 @@ package hostupdate
 import (
 	"archive/zip"
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"slices"
@@ -98,6 +99,51 @@ func TestColdBackupRejectsTamperedArchiveAndTraversal(t *testing.T) {
 	}
 	if _, _, err := store.restoreTarget("data/../../outside"); err == nil {
 		t.Fatal("restoreTarget accepted traversal path")
+	}
+}
+
+func TestColdBackupPruneKeepsOnlyCurrentUpdaterArchive(t *testing.T) {
+	root := t.TempDir()
+	backupDir := filepath.Join(root, "backups")
+	if err := os.MkdirAll(filepath.Join(backupDir, "update-directory.zip"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	keep := filepath.Join(backupDir, "update-2222222222222222.zip")
+	old := filepath.Join(backupDir, "update-1111111111111111.zip")
+	manual := filepath.Join(backupDir, "manual-backup.zip")
+	temporary := filepath.Join(backupDir, ".update-work.zip.tmp")
+	for _, path := range []string{keep, old, manual, temporary} {
+		writeTestFile(t, path, filepath.Base(path))
+	}
+
+	store := newColdBackupStore(Options{BackupDir: backupDir})
+	if err := store.Prune(context.Background(), BackupArtifact{Path: keep}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(old); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("old updater backup still exists: %v", err)
+	}
+	for _, path := range []string{keep, manual, temporary, filepath.Join(backupDir, "update-directory.zip")} {
+		if _, err := os.Stat(path); err != nil {
+			t.Fatalf("preserved path %s: %v", path, err)
+		}
+	}
+}
+
+func TestColdBackupPruneRejectsKeeperOutsideBackupDirectory(t *testing.T) {
+	root := t.TempDir()
+	backupDir := filepath.Join(root, "backups")
+	old := filepath.Join(backupDir, "update-1111111111111111.zip")
+	outside := filepath.Join(root, "update-2222222222222222.zip")
+	writeTestFile(t, old, "old")
+	writeTestFile(t, outside, "outside")
+
+	store := newColdBackupStore(Options{BackupDir: backupDir})
+	if err := store.Prune(context.Background(), BackupArtifact{Path: outside}); err == nil {
+		t.Fatal("Prune() accepted keeper outside backup directory")
+	}
+	if _, err := os.Stat(old); err != nil {
+		t.Fatalf("old updater backup changed after rejected prune: %v", err)
 	}
 }
 

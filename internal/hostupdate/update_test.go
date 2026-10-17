@@ -51,6 +51,8 @@ type backupStub struct {
 	artifact BackupArtifact
 	created  atomic.Int32
 	restored atomic.Int32
+	pruned   atomic.Int32
+	pruneErr error
 }
 
 func (b *backupStub) Create(context.Context, string) (BackupArtifact, error) {
@@ -61,6 +63,11 @@ func (b *backupStub) Create(context.Context, string) (BackupArtifact, error) {
 func (b *backupStub) Restore(context.Context, BackupArtifact) error {
 	b.restored.Add(1)
 	return nil
+}
+
+func (b *backupStub) Prune(context.Context, BackupArtifact) error {
+	b.pruned.Add(1)
+	return b.pruneErr
 }
 
 func TestUpdateTransactionSucceedsWithExactImageAndStableReadiness(t *testing.T) {
@@ -82,8 +89,8 @@ func TestUpdateTransactionSucceedsWithExactImageAndStableReadiness(t *testing.T)
 	if state.Status != StatusSucceeded || state.Transaction == nil || !state.Transaction.OverrideSwitched {
 		t.Fatalf("state = %#v", state)
 	}
-	if backup.created.Load() != 1 || backup.restored.Load() != 0 {
-		t.Fatalf("backup create=%d restore=%d", backup.created.Load(), backup.restored.Load())
+	if backup.created.Load() != 1 || backup.restored.Load() != 0 || backup.pruned.Load() != 1 {
+		t.Fatalf("backup create=%d restore=%d prune=%d", backup.created.Load(), backup.restored.Load(), backup.pruned.Load())
 	}
 	commands := runner.joined()
 	wantImage := "ghcr.io/looksky888/shengtu-platform@" + testReleaseDigest
@@ -93,6 +100,34 @@ func TestUpdateTransactionSucceedsWithExactImageAndStableReadiness(t *testing.T)
 	override, err := os.ReadFile(manager.opts.ManagedOverride)
 	if err != nil || !strings.Contains(string(override), wantImage) {
 		t.Fatalf("managed override = %q, %v", override, err)
+	}
+}
+
+func TestUpdateBackupPruneFailureDoesNotRollbackHealthyTarget(t *testing.T) {
+	identity := atomic.Value{}
+	identity.Store(ApplicationIdentity{Version: "4.5-old", SchemaVersion: 1})
+	manager, runner, backup, cleanup := newUpdateFixture(t, &identity)
+	defer cleanup()
+	backup.pruneErr = errors.New("cleanup unavailable")
+	runner.onUp = func(int) {
+		identity.Store(ApplicationIdentity{Version: testReleaseVersion, SchemaVersion: 1})
+	}
+
+	if _, err := manager.StartUpdate(UpdateRequest{TaskID: manager.State().TaskID}); err != nil {
+		t.Fatal(err)
+	}
+	state := waitForUpdateTerminal(t, manager)
+	if state.Status != StatusSucceeded || backup.restored.Load() != 0 || backup.pruned.Load() != 1 {
+		t.Fatalf("state=%#v restore=%d prune=%d", state, backup.restored.Load(), backup.pruned.Load())
+	}
+	found := false
+	for _, check := range state.Checks {
+		if check.Name == "清理旧更新备份" && check.Status == "failed" && strings.Contains(check.Detail, "cleanup unavailable") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("cleanup failure check missing: %#v", state.Checks)
 	}
 }
 
@@ -118,8 +153,8 @@ func TestUpdateFailureRestoresBackupOverrideAndSourceVersion(t *testing.T) {
 	if state.Status != StatusRolledBack || !strings.Contains(state.Error, "已自动回滚") {
 		t.Fatalf("state = %#v", state)
 	}
-	if backup.created.Load() != 1 || backup.restored.Load() != 1 {
-		t.Fatalf("backup create=%d restore=%d", backup.created.Load(), backup.restored.Load())
+	if backup.created.Load() != 1 || backup.restored.Load() != 1 || backup.pruned.Load() != 0 {
+		t.Fatalf("backup create=%d restore=%d prune=%d", backup.created.Load(), backup.restored.Load(), backup.pruned.Load())
 	}
 	assertTestFile(t, manager.opts.ManagedOverride, oldOverride)
 	if count := strings.Count(runner.joined(), " up -d --no-deps app"); count != 2 {
@@ -219,7 +254,7 @@ func newUpdateFixture(t *testing.T, identity *atomic.Value) (*Manager, *updateRu
 		ComposeFiles: []string{"docker-compose.yml"}, BackupDir: filepath.Join(root, "backups"),
 		ManagedOverride: filepath.Join(root, "state", "image.override.yml"), ComposeProject: "shengtu", AppService: "app",
 		ReadinessURL: readiness.URL, AppControlURL: control.URL, AppControlToken: testControlToken,
-		CommandTimeout: time.Second, DrainTimeout: time.Second, UpdateTimeout: 120 * time.Millisecond,
+		CommandTimeout: time.Second, DrainTimeout: time.Second, UpdateTimeout: time.Second,
 		ReadinessInterval: 5 * time.Millisecond, ReadinessStableCount: 2,
 	}
 	manager, err := NewManager(opts)

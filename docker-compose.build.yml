@@ -4,6 +4,6 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        VERSION: ${CHATGPT2API_VERSION:-4.5-20261017-security-remediation}
+        VERSION: ${CHATGPT2API_VERSION:-4.5.1-20261017-backup-retention}
     image: ${CHATGPT2API_LOCAL_IMAGE:-chatgpt2api:local}
     pull_policy: build
