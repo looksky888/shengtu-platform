@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"os"
 	"time"
 
 	"chatgpt2api/internal/hostupdate"
@@ -245,19 +244,28 @@ func (a *App) handleAdminSystem(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
 		}
-		// Process exits after responding; a process manager must restart it
-		// (Docker restart: unless-stopped, systemd Restart=on-success/always, etc.).
-		go func() {
-			time.Sleep(100 * time.Millisecond)
-			os.Exit(0)
-		}()
 		util.WriteJSON(w, http.StatusOK, systemActionResponse{
-			Message:     "已发起服务重启，请确保进程管理器会重新拉起二进制",
-			NeedRestart: false, Note: "os.Exit(0) 依赖外部守护（Docker/systemd）",
+			Message:     "已发起服务重启，服务将先完成连接关闭与数据持久化",
+			NeedRestart: false, Note: "依赖 Docker/systemd 等进程管理器重新拉起服务",
 		})
+		a.requestShutdown()
 	default:
 		http.NotFound(w, r)
 	}
+}
+
+func (a *App) requestShutdown() {
+	if a == nil || a.shutdownRequested == nil {
+		return
+	}
+	a.shutdownOnce.Do(func() { close(a.shutdownRequested) })
+}
+
+func (a *App) ShutdownRequested() <-chan struct{} {
+	if a == nil {
+		return nil
+	}
+	return a.shutdownRequested
 }
 
 func updateDrainComplete(tasks service.ImageTaskDrainSnapshot, requests updateRequestDrainSnapshot) bool {

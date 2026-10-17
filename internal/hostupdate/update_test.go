@@ -3,6 +3,7 @@ package hostupdate
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -163,6 +164,32 @@ func TestRecoverInterruptedStopIntentRestartsSourceVersion(t *testing.T) {
 		t.Fatalf("commands:\n%s", runner.joined())
 	}
 	assertTestFile(t, manager.opts.ManagedOverride, oldOverride)
+}
+
+func TestFailedPreparationReportsResumeFailure(t *testing.T) {
+	identity := atomic.Value{}
+	identity.Store(ApplicationIdentity{Version: "4.5-old", SchemaVersion: 1})
+	manager, _, _, cleanup := newUpdateFixture(t, &identity)
+	defer cleanup()
+	failingControl := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == appResumePath {
+			http.Error(w, "resume unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(AppDrainState{Drained: true})
+	}))
+	defer failingControl.Close()
+	client, err := newAppControlClient(failingControl.URL, testControlToken, failingControl.Client())
+	if err != nil {
+		t.Fatal(err)
+	}
+	manager.app = client
+
+	manager.failAndResume(manager.State().TaskID, errors.New("prepare failed"))
+	state := manager.State()
+	if state.Status != StatusFailed || !strings.Contains(state.Error, "prepare failed") || !strings.Contains(state.Error, "resume unavailable") {
+		t.Fatalf("state = %#v", state)
+	}
 }
 
 func newUpdateFixture(t *testing.T, identity *atomic.Value) (*Manager, *updateRunner, *backupStub, func()) {

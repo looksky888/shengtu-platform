@@ -79,6 +79,8 @@ type App struct {
 	hostUpdaterReason string
 	hostUpdaterToken  string
 	updateAdmission   *updateAdmissionGate
+	shutdownRequested chan struct{}
+	shutdownOnce      sync.Once
 	cancel            context.CancelFunc
 	rootCtx           context.Context
 	closeTasks        func(context.Context) error
@@ -204,6 +206,7 @@ func NewApp() (*App, error) {
 		hostUpdaterReason: hostUpdaterReason,
 		hostUpdaterToken:  strings.TrimSpace(os.Getenv("CHATGPT2API_HOST_UPDATER_TOKEN")),
 		updateAdmission:   newUpdateAdmissionGate(),
+		shutdownRequested: make(chan struct{}),
 		cancel:            cancel,
 		rootCtx:           ctx,
 		closeUsage:        logs.Close,

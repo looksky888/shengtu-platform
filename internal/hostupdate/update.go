@@ -57,15 +57,13 @@ func (m *Manager) runUpdate(taskID string) {
 		return
 	}
 	if err := m.updateStep(ctx, taskID, "排空写入与创作任务", m.drainApplication); err != nil {
-		_ = m.resumeApplication(context.Background())
-		m.finish(taskID, StatusFailed, err.Error())
+		m.failAndResume(taskID, err)
 		return
 	}
 	if err := m.updateStep(ctx, taskID, "记录当前镜像覆盖", func(context.Context) error {
 		return m.prepareManagedOverride(taskID)
 	}); err != nil {
-		_ = m.resumeApplication(context.Background())
-		m.finish(taskID, StatusFailed, err.Error())
+		m.failAndResume(taskID, err)
 		return
 	}
 	if err := m.updateStep(ctx, taskID, "停止应用服务", func(ctx context.Context) error {
@@ -107,6 +105,13 @@ func (m *Manager) runUpdate(taskID string) {
 		return
 	}
 	m.finish(taskID, StatusSucceeded, "")
+}
+
+func (m *Manager) failAndResume(taskID string, cause error) {
+	if err := m.updateStep(context.Background(), taskID, "恢复应用接单", m.resumeApplication); err != nil {
+		cause = errors.Join(cause, err)
+	}
+	m.finish(taskID, StatusFailed, cleanError(cause))
 }
 
 func (m *Manager) updateStep(ctx context.Context, taskID, name string, run func(context.Context) error) error {
@@ -230,7 +235,12 @@ func (m *Manager) RecoverInterrupted() {
 		return
 	}
 	if state.Transaction == nil || (!state.Transaction.StopInitiated && !state.Transaction.AppStopped && !state.Transaction.OverrideSwitched) {
-		_ = m.resumeApplication(context.Background())
+		cause := errors.New("更新器重启中断了更新")
+		if err := m.updateStep(context.Background(), state.TaskID, "恢复应用接单", m.resumeApplication); err != nil {
+			cause = errors.Join(cause, err)
+			m.finish(state.TaskID, StatusFailed, cleanError(cause))
+			return
+		}
 		m.finish(state.TaskID, StatusFailed, "更新器重启中断了更新，应用写入已恢复，请重新预检")
 		return
 	}

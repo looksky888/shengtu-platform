@@ -163,7 +163,7 @@ func captureAuditRequestArgs(r *http.Request) any {
 	if isICloudPublicMailboxCodeRequest(r) {
 		return nil
 	}
-	if strings.HasPrefix(r.URL.Path, "/api/payment/wechat/notify/") {
+	if isPaymentCallbackRequest(r) {
 		return nil
 	}
 	if strings.Contains(strings.ToLower(r.Header.Get("Content-Type")), "multipart/form-data") {
@@ -200,6 +200,15 @@ func captureAuditRequestArgs(r *http.Request) any {
 		payload[key] = items
 	}
 	return service.SanitizeLogValue(payload)
+}
+
+func isPaymentCallbackRequest(r *http.Request) bool {
+	if r == nil || r.URL == nil || r.Method != http.MethodPost {
+		return false
+	}
+	path := strings.TrimSuffix(r.URL.Path, "/")
+	return path == "/api/payment/wechat/notify" || strings.HasPrefix(path, "/api/payment/wechat/notify/") ||
+		path == "/api/payment/alipay/notify" || strings.HasPrefix(path, "/api/payment/alipay/notify/")
 }
 
 func normalizeAuditPayload(raw []byte) any {

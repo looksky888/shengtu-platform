@@ -144,7 +144,11 @@ func makeSafeParent(root, parent string) error {
 }
 
 func replaceFile(source, target string) error {
-	if err := os.Rename(source, target); err == nil {
+	return replaceFileWithRename(source, target, os.Rename)
+}
+
+func replaceFileWithRename(source, target string, rename func(string, string) error) error {
+	if err := rename(source, target); err == nil {
 		return nil
 	} else if _, statErr := os.Lstat(target); statErr != nil {
 		return err
@@ -160,11 +164,13 @@ func replaceFile(source, target string) error {
 	if err := os.Remove(oldPath); err != nil {
 		return err
 	}
-	if err := os.Rename(target, oldPath); err != nil {
+	if err := rename(target, oldPath); err != nil {
 		return err
 	}
-	if err := os.Rename(source, target); err != nil {
-		_ = os.Rename(oldPath, target)
+	if err := rename(source, target); err != nil {
+		if restoreErr := rename(oldPath, target); restoreErr != nil {
+			return errors.Join(err, fmt.Errorf("恢复原文件失败: %w", restoreErr))
+		}
 		return err
 	}
 	return os.Remove(oldPath)
