@@ -44,9 +44,6 @@ func newReleaseClient(opts Options, client *http.Client) *releaseClient {
 }
 
 func (c *releaseClient) resolve(ctx context.Context, requestedVersion string) (ReleaseTarget, error) {
-	if strings.TrimSpace(c.token) == "" {
-		return ReleaseTarget{}, errors.New("未配置 Host Updater 的只读 GitHub Token")
-	}
 	tag := "v" + normalizeVersion(requestedVersion)
 	var release githubRelease
 	path := "/repos/" + c.repository + "/releases/tags/" + url.PathEscape(tag)
@@ -140,7 +137,9 @@ func (c *releaseClient) request(ctx context.Context, path string) (*http.Request
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", "Bearer "+c.token)
+	if strings.TrimSpace(c.token) != "" {
+		req.Header.Set("Authorization", "Bearer "+c.token)
+	}
 	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
 	req.Header.Set("User-Agent", "shengtu-host-updater")
 	return req, nil
@@ -168,3 +167,4 @@ func ensureJSONEOF(decoder *json.Decoder) error {
 	}
 	return nil
 }
+

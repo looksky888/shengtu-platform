@@ -41,6 +41,27 @@ func TestReleaseClientResolvesPrivateManifest(t *testing.T) {
 	}
 }
 
+func TestReleaseClientResolvesPublicManifestWithoutToken(t *testing.T) {
+	manifest := testReleaseManifest(testReleaseVersion, 1, 1, testReleaseDigest)
+	var requests atomic.Int32
+	server := newReleaseFixtureWithToken(t, manifest, false, "", &requests)
+	client := newReleaseClient(Options{
+		Repository:    "looksky888/shengtu-platform",
+		GitHubAPIBase: server.URL, Platform: "linux/amd64",
+		ExpectedImage: "ghcr.io/looksky888/shengtu-platform",
+	}, server.Client())
+	target, err := client.resolve(context.Background(), testReleaseVersion)
+	if err != nil {
+		t.Fatalf("resolve() error = %v", err)
+	}
+	if target.Version != testReleaseVersion || target.Digest != testReleaseDigest {
+		t.Fatalf("resolve() = %#v", target)
+	}
+	if requests.Load() != 2 {
+		t.Fatalf("GitHub request count = %d, want 2", requests.Load())
+	}
+}
+
 func TestReleaseClientRejectsInvalidDigest(t *testing.T) {
 	manifest := testReleaseManifest(testReleaseVersion, 1, 1, "latest")
 	server := newReleaseFixture(t, manifest, false, nil)
@@ -94,13 +115,21 @@ func TestValidateStorageUpgradeRejectsSkippedAndDowngradeSchemas(t *testing.T) {
 }
 
 func newReleaseFixture(t *testing.T, manifest string, prerelease bool, requests *atomic.Int32) *httptest.Server {
+	return newReleaseFixtureWithToken(t, manifest, prerelease, testGitHubToken, requests)
+}
+
+func newReleaseFixtureWithToken(t *testing.T, manifest string, prerelease bool, token string, requests *atomic.Int32) *httptest.Server {
 	t.Helper()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if requests != nil {
 			requests.Add(1)
 		}
-		if r.Header.Get("Authorization") != "Bearer "+testGitHubToken {
-			t.Errorf("authorization = %q", r.Header.Get("Authorization"))
+		wantAuthorization := ""
+		if token != "" {
+			wantAuthorization = "Bearer " + token
+		}
+		if r.Header.Get("Authorization") != wantAuthorization {
+			t.Errorf("authorization = %q, want %q", r.Header.Get("Authorization"), wantAuthorization)
 		}
 		switch r.URL.Path {
 		case "/repos/looksky888/shengtu-platform/releases/tags/v" + testReleaseVersion:
@@ -141,3 +170,4 @@ func testManagerOptions(root, readinessURL, githubURL string) Options {
 		MinimumFree: 1, CommandTimeout: time.Second,
 	}
 }
+

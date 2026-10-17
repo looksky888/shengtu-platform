@@ -30,6 +30,7 @@ func TestCompareVersions(t *testing.T) {
 		{name: "newer dated build", current: "4.5-20261016-update-center", latest: "4.5-20260925-ui-workspace", want: 1},
 		{name: "same dated build", current: "v4.5-20260925-ui-workspace", latest: "4.5-20260925-ui-workspace", want: 0},
 		{name: "patch release after dated build", current: "4.5-20261017-security-remediation", latest: "4.5.1-20261017-backup-retention", want: -1},
+		{name: "newer patch release", current: "4.5.1-20261017-backup-retention", latest: "4.5.2-20261017-public-updater", want: -1},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			got := compareVersions(tc.current, tc.latest)
@@ -276,3 +277,4 @@ func writeTestUpdateArchive(path string) error {
 	}
 	return nil
 }
+

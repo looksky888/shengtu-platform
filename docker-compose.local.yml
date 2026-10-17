@@ -4,7 +4,7 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        VERSION: ${CHATGPT2API_VERSION:-4.5.1-20261017-backup-retention}
+        VERSION: ${CHATGPT2API_VERSION:-4.5.2-20261017-public-updater}
     image: chatgpt2api:local
     container_name: chatgpt2api-local
     ports:
@@ -34,6 +34,7 @@ services:
 
     # 在线更新代理 (可选，未设置时复用 CHATGPT2API_PROXY)
     #   CHATGPT2API_UPDATE_PROXY_URL: http://127.0.0.1:7890
+
 
 
 

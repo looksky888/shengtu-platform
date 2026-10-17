@@ -23,7 +23,8 @@ SHENGTU_UPDATER_MANAGED_OVERRIDE=/opt/chatgpt2api/data/host-updater/image.overri
 SHENGTU_UPDATER_READINESS_URL=http://127.0.0.1:3004/ready
 SHENGTU_UPDATER_APP_CONTROL_URL=http://127.0.0.1:8092
 SHENGTU_UPDATER_REPOSITORY=looksky888/shengtu-platform
-SHENGTU_UPDATER_GITHUB_TOKEN=替换为仅有仓库读取权限的细粒度令牌
+# 公开 Release 留空；私有 Release 填写仅有仓库读取权限的细粒度令牌。
+SHENGTU_UPDATER_GITHUB_TOKEN=
 SHENGTU_UPDATER_PLATFORM=linux/amd64
 SHENGTU_UPDATER_MIN_FREE_BYTES=2147483648
 SHENGTU_UPDATER_CHECK_TIMEOUT_SECONDS=10
@@ -33,7 +34,7 @@ SHENGTU_UPDATER_READINESS_INTERVAL_SECONDS=2
 SHENGTU_UPDATER_READINESS_STABLE_COUNT=3
 ```
 
-`SHENGTU_UPDATER_GITHUB_TOKEN` 只保存在权限为 `0600` 的宿主机环境文件中，用于读取私有 Release 和 `update-manifest.json`；不要复用具备仓库写入权限的令牌。
+公开 Release 与公开 GHCR 镜像不需要配置 `SHENGTU_UPDATER_GITHUB_TOKEN`，更新器会使用匿名 GitHub API 请求。私有 Release 才需要填写该变量；令牌只保存在权限为 `0600` 的宿主机环境文件中，并且不要复用具备仓库写入权限的令牌。无论 Release 是否公开，目标镜像必须能由宿主机的 Docker 守护进程读取；私有 GHCR 镜像仍需单独执行 `docker login ghcr.io`。
 
 同一密钥写入项目 `.env` 的 `SHENGTU_UPDATER_TOKEN`，并在启动 Compose 时增加覆盖文件：
 
@@ -56,3 +57,4 @@ docker compose -f docker-compose.yml -f docker-compose.host-updater.yml up -d
 - 更新器重启后会识别未完成事务；若应用尚未停止则恢复接单并结束任务，否则自动进入回滚。
 
 更新开始后管理页面会短暂失联，这是应用容器停止和替换期间的预期行为。前端保留任务状态并持续轮询；只有目标版本和存储结构版本连续满足配置次数，任务才标记为成功。
+

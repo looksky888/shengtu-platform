@@ -97,8 +97,8 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        VERSION: "${CHATGPT2API_VERSION:-4.5.1-20261017-backup-retention}"
-    image: ${CHATGPT2API_IMAGE:-shengtu:4.5.1-20261017-backup-retention}
+        VERSION: "${CHATGPT2API_VERSION:-4.5.2-20261017-public-updater}"
+    image: ${CHATGPT2API_IMAGE:-shengtu:4.5.2-20261017-public-updater}
     container_name: shengtu39-app
     restart: unless-stopped
     depends_on:
@@ -141,3 +141,4 @@ services:
       timeout: 5s
       retries: 10
       start_period: 20s
+
