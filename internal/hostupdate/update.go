@@ -236,4 +236,3 @@ func (m *Manager) RecoverInterrupted() {
 	}
 	go m.rollbackUpdate(state.TaskID, errors.New("更新器重启中断了更新"))
 }
-

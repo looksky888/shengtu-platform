@@ -135,4 +135,3 @@ type ReleaseTarget struct {
 	StorageSchemaVersion   int    `json:"storage_schema_version"`
 	MinSourceSchemaVersion int    `json:"min_source_schema_version"`
 }
-

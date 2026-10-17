@@ -350,4 +350,3 @@ func (m *Manager) checkReadiness(ctx context.Context) (ApplicationIdentity, erro
 	}
 	return ApplicationIdentity{Version: runningVersion, SchemaVersion: payload.SchemaVersion}, nil
 }
-

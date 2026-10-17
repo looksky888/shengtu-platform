@@ -183,4 +183,3 @@ func hashFile(path string) (string, int64, error) {
 	}
 	return hex.EncodeToString(hash.Sum(nil)), size, nil
 }
-

@@ -108,4 +108,3 @@ func (c *Client) request(ctx context.Context, method, path string, body, target 
 	}
 	return nil
 }
-

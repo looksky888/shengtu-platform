@@ -52,4 +52,3 @@ func TestUpdateEndpointReturnsConflictWhenPreflightIsNotReady(t *testing.T) {
 		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
 	}
 }
-

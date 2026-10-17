@@ -121,4 +121,3 @@ func assertTestFile(t *testing.T, path, expected string) {
 		t.Fatalf("%s = %q, want %q", path, data, expected)
 	}
 }
-

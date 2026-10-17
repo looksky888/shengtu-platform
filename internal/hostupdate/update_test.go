@@ -226,4 +226,3 @@ func waitForUpdateTerminal(t *testing.T, manager *Manager) State {
 	t.Fatal("update did not finish")
 	return State{}
 }
-

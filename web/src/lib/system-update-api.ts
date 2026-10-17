@@ -95,4 +95,3 @@ export function startHostUpdaterUpdate(taskId: string) {
     body: JSON.stringify({ task_id: taskId }),
   });
 }
-

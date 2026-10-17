@@ -62,4 +62,3 @@ func TestClientRejectsLoopbackPrefixLookalike(t *testing.T) {
 		t.Fatalf("NewFromEnv() = %v, %q", client, reason)
 	}
 }
-

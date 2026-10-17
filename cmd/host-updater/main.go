@@ -92,4 +92,3 @@ func splitList(value string) []string {
 	}
 	return items
 }
-

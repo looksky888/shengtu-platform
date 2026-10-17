@@ -322,4 +322,3 @@ func (a *App) startHostUpdaterUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 	util.WriteJSON(w, http.StatusAccepted, hostUpdaterUpdateResponse{Configured: true, Connected: true, Result: result})
 }
-

@@ -113,4 +113,3 @@ type iCloudBridgeStatusResponse struct {
 	StatusCode *int   `json:"status_code,omitempty"`
 	Error      string `json:"error"`
 }
-

@@ -183,4 +183,3 @@ func waitForTerminal(t *testing.T, manager *Manager) State {
 	t.Fatal("preflight did not finish")
 	return State{}
 }
-

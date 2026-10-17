@@ -122,4 +122,3 @@ func cleanError(err error) string {
 	}
 	return strings.TrimSpace(err.Error())
 }
-
