@@ -35,44 +35,56 @@ export function ImageLightboxToolbar({
   return (
     <div className="absolute top-3 right-3 left-3 z-20 flex flex-wrap items-center justify-end gap-2 sm:top-4 sm:right-4 sm:left-auto">
       <ImageMetaBadge current={current} imageCount={imageCount} currentIndex={currentIndex} />
-      <div className="flex items-center rounded-full bg-black/50 text-white/90">
-        <ToolbarButton onClick={onZoomOut} disabled={!canZoomOut} className="rounded-l-full" label={"\u7f29\u5c0f\u56fe\u7247"}>
+      <div className="flex items-center rounded-full border border-white/15 bg-black/55 text-white/95 backdrop-blur-md">
+        <ToolbarButton onClick={onZoomOut} disabled={!canZoomOut} className="rounded-l-full" label="缩小图片">
           <ZoomOut className="size-4" />
         </ToolbarButton>
         <span className="min-w-12 text-center text-xs font-medium tabular-nums">{zoomPercent}%</span>
-        <ToolbarButton onClick={onZoomIn} disabled={!canZoomIn} label={"\u653e\u5927\u56fe\u7247"}>
+        <ToolbarButton onClick={onZoomIn} disabled={!canZoomIn} label="放大图片">
           <ZoomIn className="size-4" />
         </ToolbarButton>
-        <ToolbarButton onClick={onResetZoom} disabled={!canReset} className="rounded-r-full" label={"\u91cd\u7f6e\u7f29\u653e"}>
+        <ToolbarButton onClick={onResetZoom} disabled={!canReset} className="rounded-r-full" label="重置缩放">
           <RotateCcw className="size-4" />
         </ToolbarButton>
       </div>
       <button
         type="button"
         onClick={onDownload}
-        className="inline-flex size-9 items-center justify-center rounded-full bg-black/50 text-white/90 transition hover:bg-black/70"
-        aria-label={"\u4e0b\u8f7d\u56fe\u7247"}
+        className="inline-flex size-9 items-center justify-center rounded-full border border-white/15 bg-black/55 text-white/95 backdrop-blur-md transition hover:bg-black/75"
+        aria-label="下载图片"
+        title="下载图片"
       >
         <Download className="size-4" />
       </button>
-      <DialogPrimitive.Close className="inline-flex size-9 items-center justify-center rounded-full bg-black/50 text-white/90 transition hover:bg-black/70">
+      <DialogPrimitive.Close
+        className="inline-flex size-9 items-center justify-center rounded-full border border-white/15 bg-black/55 text-white/95 backdrop-blur-md transition hover:bg-black/75"
+        title="关闭预览 (Esc)"
+      >
         <X className="size-4" />
-        <span className="sr-only">{"\u5173\u95ed"}</span>
+        <span className="sr-only">关闭</span>
       </DialogPrimitive.Close>
     </div>
   );
 }
 
-function ImageMetaBadge({ current, imageCount, currentIndex }: { current: LightboxImage; imageCount: number; currentIndex: number }) {
+function ImageMetaBadge({
+  current,
+  imageCount,
+  currentIndex,
+}: {
+  current: LightboxImage;
+  imageCount: number;
+  currentIndex: number;
+}) {
   return (
     <>
       {current.sizeLabel || current.dimensions ? (
-        <span className="max-w-[calc(100vw-2rem)] truncate rounded-full bg-black/50 px-3 py-1.5 text-xs font-medium text-white/90 sm:max-w-[42vw]">
-          {[current.sizeLabel, current.dimensions].filter(Boolean).join(" ? ")}
+        <span className="max-w-[calc(100vw-2rem)] truncate rounded-full border border-white/15 bg-black/55 px-3 py-1.5 text-xs font-medium text-white/90 backdrop-blur-md sm:max-w-[42vw]">
+          {[current.dimensions, current.sizeLabel].filter(Boolean).join(" · ")}
         </span>
       ) : null}
       {imageCount > 1 && (
-        <span className="rounded-full bg-black/50 px-3 py-1.5 text-xs font-medium text-white/90">
+        <span className="rounded-full border border-white/15 bg-black/55 px-3 py-1.5 text-xs font-medium text-white/90 backdrop-blur-md tabular-nums">
           {currentIndex + 1} / {imageCount}
         </span>
       )}
@@ -98,7 +110,7 @@ function ToolbarButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`inline-flex size-9 items-center justify-center transition hover:bg-black/40 disabled:cursor-not-allowed disabled:opacity-40 ${className}`}
+      className={`inline-flex size-9 items-center justify-center transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-40 ${className}`}
       aria-label={label}
       title={label}
     >

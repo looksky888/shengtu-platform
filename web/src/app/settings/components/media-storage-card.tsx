@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { Database, LoaderCircle, Play, Save, ShieldCheck, TestTube2, Trash2 } from "lucide-react";
 
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -20,6 +22,7 @@ export function MediaStorageCard() {
   const saveConfigSection = useSettingsStore((state) => state.saveConfigSection);
   const setField = useSettingsStore((state) => state.setMediaStorageField);
   const storage = useMediaStorage(config);
+  const [confirmCleanupOpen, setConfirmCleanupOpen] = useState(false);
 
   if (isLoadingConfig || !config || storage.isLoading) {
     return (
@@ -49,7 +52,7 @@ export function MediaStorageCard() {
       className="md:col-span-2"
       meta={<Badge variant={restartRequired ? "secondary" : healthOK ? "default" : "secondary"}>{restartRequired ? "需要重启" : healthOK ? "R2 正常" : provider === "local" ? "本地模式" : "待检查"}</Badge>}
       action={
-        <Button type="button" className="h-9 rounded-xl" onClick={() => void saveConfigSection(["media_storage_provider", "media_auto_cleanup_enabled", "media_r2_account_id", "media_r2_access_key_id", "media_r2_secret_access_key", "media_r2_bucket", "media_r2_prefix", "media_r2_presign_ttl_seconds"])} disabled={isSavingConfig || running || cleanupRunning}>
+        <Button type="button" variant="brand" onClick={() => void saveConfigSection(["media_storage_provider", "media_auto_cleanup_enabled", "media_r2_account_id", "media_r2_access_key_id", "media_r2_secret_access_key", "media_r2_bucket", "media_r2_prefix", "media_r2_presign_ttl_seconds"])} disabled={isSavingConfig || running || cleanupRunning}>
           {isSavingConfig ? <LoaderCircle className="size-4 animate-spin" /> : <Save className="size-4" />}保存配置
         </Button>
       }
@@ -69,7 +72,7 @@ export function MediaStorageCard() {
           </label>
         </div>
 
-        <div className="grid gap-4 rounded-[18px] border border-border/80 bg-muted/25 p-4 md:grid-cols-2">
+        <div className="grid gap-4 rounded-[18px] border border-border/80 bg-surface-muted/40 p-4 md:grid-cols-2">
           <Field><FieldLabel htmlFor="media-r2-account">Account ID</FieldLabel><Input id="media-r2-account" value={String(config.media_r2_account_id || "")} onChange={(e) => setField({ media_r2_account_id: e.target.value })} className={settingsInputClassName} /></Field>
           <Field><FieldLabel htmlFor="media-r2-bucket">Bucket</FieldLabel><Input id="media-r2-bucket" value={String(config.media_r2_bucket || "")} onChange={(e) => setField({ media_r2_bucket: e.target.value })} className={settingsInputClassName} /></Field>
           <Field><FieldLabel htmlFor="media-r2-access">Access Key ID</FieldLabel><Input id="media-r2-access" value={String(config.media_r2_access_key_id || "")} onChange={(e) => setField({ media_r2_access_key_id: e.target.value })} className={settingsInputClassName} /></Field>
@@ -79,36 +82,34 @@ export function MediaStorageCard() {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="outline" className="rounded-xl" onClick={() => void storage.testConnection()} disabled={storage.isTesting || running || cleanupRunning}>
+          <Button type="button" variant="outline" onClick={() => void storage.testConnection()} disabled={storage.isTesting || running || cleanupRunning}>
             {storage.isTesting ? <LoaderCircle className="size-4 animate-spin" /> : <TestTube2 className="size-4" />}测试连接
           </Button>
-          <Button type="button" variant="outline" className="rounded-xl" onClick={() => void storage.startMigration(() => saveConfigSection(["media_storage_provider", "media_auto_cleanup_enabled", "media_r2_account_id", "media_r2_access_key_id", "media_r2_secret_access_key", "media_r2_bucket", "media_r2_prefix", "media_r2_presign_ttl_seconds"]).then(Boolean))} disabled={storage.isStarting || running || cleanupRunning}>
+          <Button type="button" variant="outline" onClick={() => void storage.startMigration(() => saveConfigSection(["media_storage_provider", "media_auto_cleanup_enabled", "media_r2_account_id", "media_r2_access_key_id", "media_r2_secret_access_key", "media_r2_bucket", "media_r2_prefix", "media_r2_presign_ttl_seconds"]).then(Boolean))} disabled={storage.isStarting || running || cleanupRunning}>
             {storage.isStarting || running ? <LoaderCircle className="size-4 animate-spin" /> : <Play className="size-4" />}{running ? `迁移中 ${progress}%` : "迁移旧图片"}
           </Button>
-          <Button type="button" variant="outline" className="rounded-xl" onClick={() => void storage.startCleanup("verify")} disabled={provider !== "r2" || !healthOK || storage.isStartingCleanup || running || cleanupRunning}>
+          <Button type="button" variant="outline" onClick={() => void storage.startCleanup("verify")} disabled={provider !== "r2" || !healthOK || storage.isStartingCleanup || running || cleanupRunning}>
             {cleanupRunning && storage.cleanup.mode === "verify" ? <LoaderCircle className="size-4 animate-spin" /> : <ShieldCheck className="size-4" />}{cleanupRunning && storage.cleanup.mode === "verify" ? `验证中 ${cleanupProgress}%` : "验证 R2 副本"}
           </Button>
-          <Button type="button" variant="outline" className="rounded-xl text-rose-600 hover:text-rose-700" onClick={() => {
-            if (window.confirm(`将删除 ${storage.cleanup.eligible} 个已通过 R2 校验的本地媒体副本，图片库记录和 R2 文件会保留。是否继续？`)) void storage.startCleanup("delete");
-          }} disabled={restartRequired || storage.cleanup.state !== "succeeded" || storage.cleanup.mode !== "verify" || storage.cleanup.eligible < 1 || !storage.cleanup.confirmation_token || storage.isStartingCleanup || running || cleanupRunning}>
+          <Button type="button" variant="destructive-outline" onClick={() => setConfirmCleanupOpen(true)} disabled={restartRequired || storage.cleanup.state !== "succeeded" || storage.cleanup.mode !== "verify" || storage.cleanup.eligible < 1 || !storage.cleanup.confirmation_token || storage.isStartingCleanup || running || cleanupRunning}>
             {cleanupRunning && storage.cleanup.mode === "delete" ? <LoaderCircle className="size-4 animate-spin" /> : <Trash2 className="size-4" />}{cleanupRunning && storage.cleanup.mode === "delete" ? `清理中 ${cleanupProgress}%` : "清理已验证副本"}
           </Button>
         </div>
 
         {storage.migration.state !== "idle" ? (
-          <div className="grid gap-2 rounded-[16px] border border-border/70 bg-background p-4">
+          <div className="grid gap-2 rounded-[16px] border border-border/70 bg-surface p-4">
             <div className="flex justify-between text-sm"><span>迁移进度</span><span>{storage.migration.processed} / {storage.migration.total}</span></div>
-            <div className="h-2 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-[#1456f0] transition-[width]" style={{ width: `${progress}%` }} /></div>
+            <div className="h-2 overflow-hidden rounded-full bg-surface-muted"><div className="h-full rounded-full bg-brand transition-[width]" style={{ width: `${progress}%` }} /></div>
             <div className="text-xs text-muted-foreground">已迁移 {storage.migration.migrated}，跳过 {storage.migration.skipped}，待重试 {storage.migration.pending}，失败 {storage.migration.failed}</div>
           </div>
         ) : null}
 
         {storage.cleanup.state !== "idle" ? (
-          <div className={`grid gap-2 rounded-[16px] border p-4 ${storage.cleanup.failed > 0 || storage.cleanup.state === "failed" ? "border-amber-200 bg-amber-50/60" : "border-emerald-200/70 bg-emerald-50/40"}`}>
+          <div className={`grid gap-2 rounded-[16px] border p-4 ${storage.cleanup.failed > 0 || storage.cleanup.state === "failed" ? "border-amber-500/30 bg-amber-500/10" : "border-emerald-500/30 bg-emerald-500/10"}`}>
             <div className="flex flex-wrap justify-between gap-2 text-sm"><span>{storage.cleanup.mode === "delete" ? "本地副本清理" : "R2 副本验证"}</span><span className="font-mono tabular-nums">{storage.cleanup.processed} / {storage.cleanup.total}</span></div>
-            <div className="h-2 overflow-hidden rounded-full bg-white/80"><div className="h-full rounded-full bg-[#1456f0] transition-[width]" style={{ width: `${cleanupProgress}%` }} /></div>
+            <div className="h-2 overflow-hidden rounded-full bg-surface"><div className="h-full rounded-full bg-brand transition-[width]" style={{ width: `${cleanupProgress}%` }} /></div>
             <div className="text-xs text-muted-foreground">通过 {storage.cleanup.verified}，可清理 {storage.cleanup.eligible}，跳过 {storage.cleanup.skipped}，异常 {storage.cleanup.failed}；{storage.cleanup.mode === "delete" ? `已释放 ${formatBytes(storage.cleanup.freed_bytes)}` : `预计释放 ${formatBytes(storage.cleanup.reclaimable_bytes)}`}</div>
-            {storage.cleanup.error ? <div className="break-all text-xs text-amber-800">最后异常：{storage.cleanup.error}</div> : null}
+            {storage.cleanup.error ? <div className="break-all text-xs text-amber-800 dark:text-amber-300">最后异常：{storage.cleanup.error}</div> : null}
           </div>
         ) : null}
 
@@ -118,6 +119,19 @@ export function MediaStorageCard() {
           <SettingsNotice>建议保持“服务器本地”，保存并测试 R2，完成旧图片迁移后再切换为 R2。需要释放服务器空间时，先执行“验证 R2 副本”，确认通过数量后再清理；图片库记录和 R2 对象不会被删除。</SettingsNotice>
         )}
       </div>
+
+      <ConfirmDialog
+        open={confirmCleanupOpen}
+        title="确认清理已验证的本地媒体副本？"
+        description={`将删除 ${storage.cleanup.eligible} 个已通过 R2 校验的本地媒体副本（预计释放 ${formatBytes(storage.cleanup.reclaimable_bytes)}），图片库记录和 R2 对象会保留。`}
+        confirmLabel="确认清理"
+        destructive
+        onClose={() => setConfirmCleanupOpen(false)}
+        onConfirm={() => {
+          setConfirmCleanupOpen(false);
+          void storage.startCleanup("delete");
+        }}
+      />
     </SettingsCard>
   );
 }

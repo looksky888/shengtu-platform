@@ -119,22 +119,25 @@ export function ComposerSettingsPopover(props: ComposerSettingsPopoverProps) {
         <button
           type="button"
           className={cn(
-            "inline-flex size-9 shrink-0 items-center justify-center gap-1.5 rounded-full text-[#686b73] transition hover:bg-black/[0.05] dark:text-muted-foreground dark:hover:bg-accent/60 dark:hover:text-foreground sm:h-8 sm:w-auto sm:border sm:border-[#e5e7eb] sm:bg-white sm:px-3 sm:text-xs sm:font-medium sm:text-[#45515e] sm:dark:border-border sm:dark:bg-background/70 sm:dark:text-muted-foreground",
-            isOpen && "bg-[#eef4ff] text-[#1456f0] dark:bg-sky-950/30 dark:text-sky-300 sm:border-[#bfdbfe] sm:bg-[#eef4ff] sm:text-[#1456f0] sm:dark:border-sky-900/70 sm:dark:bg-sky-950/30 sm:dark:text-sky-300",
+            "inline-flex size-9 shrink-0 items-center justify-center gap-1.5 rounded-full text-muted-foreground transition hover:bg-surface-hover hover:text-foreground sm:h-8 sm:w-auto sm:border sm:border-border/80 sm:bg-surface sm:px-3 sm:text-xs sm:font-medium",
+            isOpen && "bg-brand-soft text-brand sm:border-brand-border sm:bg-brand-soft sm:text-brand",
           )}
           aria-label={isOpen ? "收起参数设置" : "显示更多参数设置"}
           aria-expanded={isOpen}
           title={isOpen ? "收起参数" : "更多参数"}
         >
-          <SlidersHorizontal className="size-5 sm:size-3.5" />
+          <SlidersHorizontal className="size-4.5 sm:size-3.5" />
           <span className="hidden sm:inline">参数</span>
+          <span className="hidden rounded-full bg-surface-muted px-1.5 py-0.5 font-mono text-[10px] font-semibold text-foreground/80 tabular-nums md:inline">
+            {sizePreviewLabel} · {imageCount}张
+          </span>
         </button>
       </PopoverTrigger>
       <PopoverContent
         align="start"
         side="top"
         sideOffset={8}
-        className="z-[70] max-h-[min(calc(100dvh-2rem),34rem)] w-[min(calc(100vw-1rem),28rem)] overflow-y-auto overflow-x-hidden rounded-[20px] border-[#e5e7eb] bg-white p-2.5 shadow-[0_24px_80px_-32px_rgba(15,23,42,0.35)] dark:border-border dark:bg-card dark:shadow-[0_24px_80px_-28px_rgba(0,0,0,0.72)] sm:w-[min(calc(100vw-2rem),28rem)] sm:overflow-visible"
+        className="z-[70] max-h-[min(calc(100dvh-2rem),34rem)] w-[min(calc(100vw-1rem),28rem)] overflow-y-auto overflow-x-hidden rounded-[20px] border-border bg-surface-raised p-2.5 shadow-xl sm:w-[min(calc(100vw-2rem),28rem)] sm:overflow-visible"
         onOpenAutoFocus={(event) => event.preventDefault()}
       >
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -159,9 +162,15 @@ export function ComposerSettingsPopover(props: ComposerSettingsPopoverProps) {
             sizePreviewLabel={sizePreviewLabel}
             sizePreviewDetail={sizePreviewDetail}
           />
-          {imageSizeMode === "custom" ? (
+          {imageSizeMode === "custom" || imageSizeMode === "auto" ? (
             <ComposerSettingsInfoCard title="计算后分辨率" value={sizePreviewLabel} detail={sizePreviewDetail} />
           ) : null}
+          <ComposerSettingsInfoCard
+            title="预计积分"
+            value={`${estimatedCreditCost} 积分`}
+            detail={estimatedCreditCostDetail}
+            variant="credit"
+          />
           <ComposerQualitySettings
             {...props}
             supportsQuality={supportsQuality}

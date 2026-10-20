@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 
-ARG VERSION=4.6-20261015-sentinel
+ARG VERSION=4.7-20261020-workbench
 
 FROM node:22-bookworm-slim@sha256:6c74791e557ce11fc957704f6d4fe134a7bc8d6f5ca4403205b2966bd488f6b3 AS web-deps
 
@@ -13,7 +13,7 @@ RUN npm ci
 FROM web-deps AS web-build
 
 COPY web ./
-ARG VERSION=4.6-20261015-sentinel
+ARG VERSION=4.7-20261020-workbench
 ENV VITE_APP_VERSION=${VERSION}
 RUN npm run build && npm run verify:dist
 
@@ -30,7 +30,7 @@ COPY internal ./internal
 COPY --from=web-build /app/internal/web/dist ./internal/web/dist
 ARG TARGETOS
 ARG TARGETARCH
-ARG VERSION=4.6-20261015-sentinel
+ARG VERSION=4.7-20261020-workbench
 # Keep cold builds inside the memory envelope of small production hosts.
 RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-amd64} go build -p=1 -trimpath -tags=embed -ldflags="-s -w -X chatgpt2api/internal/version.Version=${VERSION}" -o /out/chatgpt2api ./cmd/chatgpt2api
 

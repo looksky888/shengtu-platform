@@ -2,6 +2,7 @@ import { useState } from "react";
 import { AlertTriangle, LoaderCircle, Play, RotateCcw, Save, Square, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { clearCheckoutHistory, stopCheckoutRetries } from "@/lib/register-cpa-proxy-api";
@@ -29,6 +30,7 @@ function CheckoutTasksPanel({ state }: { state: RegisterCardState }) {
   const { config } = state;
   const setRegisterConfig = useSettingsStore((s) => s.setRegisterConfig);
   const [clearing, setClearing] = useState(false);
+  const [confirmClearOpen, setConfirmClearOpen] = useState(false);
   const [stopping, setStopping] = useState(false);
   if (!config) return null;
 
@@ -44,11 +46,25 @@ function CheckoutTasksPanel({ state }: { state: RegisterCardState }) {
   const target = String(config.target || "openai").toLowerCase();
   if (target === "grok" && tasks.length === 0) return null;
 
+  const handleConfirmClear = async () => {
+    setClearing(true);
+    try {
+      const data = await clearCheckoutHistory();
+      if (data.register) setRegisterConfig(normalizeRegisterConfig(data.register));
+      toast.success("已清空提链历史");
+      setConfirmClearOpen(false);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "清空提链历史失败");
+    } finally {
+      setClearing(false);
+    }
+  };
+
   return (
     <div className="mt-4 space-y-3 border-t border-border pt-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h3 className="text-sm font-semibold text-stone-900">提链任务</h3>
+          <h3 className="text-sm font-semibold text-foreground">提链任务</h3>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="secondary" className="rounded-md">{tasks.length} 个任务</Badge>
@@ -56,7 +72,7 @@ function CheckoutTasksPanel({ state }: { state: RegisterCardState }) {
             <Button
               size="sm"
               variant="outline"
-              className="h-8 rounded-lg text-xs"
+              loading={stopping}
               disabled={stopping}
               onClick={() => {
                 void (async () => {
@@ -73,7 +89,7 @@ function CheckoutTasksPanel({ state }: { state: RegisterCardState }) {
                 })();
               }}
             >
-              {stopping ? <LoaderCircle className="size-3.5 animate-spin" /> : <Square className="size-3.5" />}
+              <Square className="size-3.5" />
               结束提链
             </Button>
           ) : null}
@@ -81,25 +97,11 @@ function CheckoutTasksPanel({ state }: { state: RegisterCardState }) {
             <Button
               size="sm"
               variant="outline"
-              className="h-8 rounded-lg text-xs"
+              loading={clearing}
               disabled={clearing}
-              onClick={() => {
-                if (!window.confirm(`将删除 ${clearable} 条已成功、已失败或已取消的提链记录，不影响运行中任务。`)) return;
-                void (async () => {
-                  setClearing(true);
-                  try {
-                    const data = await clearCheckoutHistory();
-                    if (data.register) setRegisterConfig(normalizeRegisterConfig(data.register));
-                    toast.success("已清空提链历史");
-                  } catch (e) {
-                    toast.error(e instanceof Error ? e.message : "清空提链历史失败");
-                  } finally {
-                    setClearing(false);
-                  }
-                })();
-              }}
+              onClick={() => setConfirmClearOpen(true)}
             >
-              {clearing ? <LoaderCircle className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
+              <Trash2 className="size-3.5" />
               清空历史
             </Button>
           ) : null}
@@ -112,6 +114,16 @@ function CheckoutTasksPanel({ state }: { state: RegisterCardState }) {
             .then(() => toast.success("已复制支付链接"))
             .catch(() => toast.error("复制失败"));
         }}
+      />
+      <ConfirmDialog
+        open={confirmClearOpen}
+        title="确认清空提链历史？"
+        description={`将删除 ${clearable} 条已成功、已失败或已取消的提链记录，不影响运行中任务。`}
+        confirmLabel="确认清空"
+        destructive
+        pending={clearing}
+        onClose={() => setConfirmClearOpen(false)}
+        onConfirm={() => void handleConfirmClear()}
       />
     </div>
   );
@@ -141,22 +153,22 @@ function RegisterRunSummary({ state }: { state: RegisterCardState }) {
         ].map(([label, value], index) => <RegisterStatCard key={label} label={String(label)} value={value} featured={index === 0} />)}
       </div>
       <div className="grid grid-cols-3 gap-2">
-        <Button className="h-10 rounded-xl bg-stone-950 px-3 text-white hover:bg-stone-800" onClick={() => void state.toggle()} disabled={state.isSaving}>
+        <Button variant="brand" onClick={() => void state.toggle()} disabled={state.isSaving}>
           {state.isSaving ? <LoaderCircle className="size-4 animate-spin" /> : config.enabled ? <Square className="size-4" /> : <Play className="size-4" />}{config.enabled ? "停止" : "启动"}
         </Button>
-        <Button variant="outline" className="h-10 rounded-xl border-stone-200 bg-white px-3 text-stone-700" onClick={() => void state.reset()} disabled={state.isSaving || config.enabled}><RotateCcw className="size-4" />重置</Button>
-        <Button variant="outline" className="h-10 rounded-xl border-stone-200 bg-white px-3 text-stone-700" onClick={() => void state.save()} disabled={state.isSaving || config.enabled}><Save className="size-4" />保存</Button>
+        <Button variant="outline" onClick={() => void state.reset()} disabled={state.isSaving || config.enabled}><RotateCcw className="size-4" />重置</Button>
+        <Button variant="outline" onClick={() => void state.save()} disabled={state.isSaving || config.enabled}><Save className="size-4" />保存</Button>
       </div>
-      <div className="flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800"><AlertTriangle className="size-4 shrink-0" />启动之前注意先保存配置。</div>
+      <div className="flex items-center gap-2 rounded-xl border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-300"><AlertTriangle className="size-4 shrink-0" />启动之前注意先保存配置。</div>
     </div>
   );
 }
 
 function RegisterStatCard({ label, value, featured }: { label: string; value: unknown; featured: boolean }) {
   return (
-    <div className={`rounded-[16px] border px-3 py-2 shadow-[0_4px_6px_rgba(0,0,0,0.08)] ${featured ? "border-transparent bg-[linear-gradient(135deg,#1456f0,#3daeff)] text-white" : "border-[#f2f3f5] bg-white text-[#222222]"}`}>
-      <div className={`text-xs ${featured ? "text-white/78" : "text-muted-foreground"}`}>{label}</div>
-      <div className="mt-1 font-display text-base font-semibold">{String(value)}</div>
+    <div className={`rounded-2xl border px-3 py-2 shadow-2xs ${featured ? "border-brand-border bg-brand-soft text-brand" : "border-border/80 bg-surface text-foreground"}`}>
+      <div className={`text-xs ${featured ? "text-brand/80" : "text-muted-foreground"}`}>{label}</div>
+      <div className="mt-1 font-display text-base font-semibold tabular-nums">{String(value)}</div>
     </div>
   );
 }
@@ -166,13 +178,13 @@ function RegisterLogPanel({ state }: { state: RegisterCardState }) {
   return (
     <div className="mt-4 flex min-h-0 flex-1 flex-col space-y-3 overflow-hidden border-t border-border pt-4">
       <div className="flex items-center justify-between">
-        <div><h3 className="text-sm font-semibold text-stone-900">实时日志</h3></div>
+        <div><h3 className="text-sm font-semibold text-foreground">实时日志</h3></div>
         <Badge variant="secondary" className="rounded-md">{logs.length}</Badge>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto rounded-md border border-border bg-muted/35 p-3 font-mono text-xs leading-6">
-        {logs.length === 0 ? <div className="text-stone-500">暂无日志</div> : logs.slice().reverse().map((item, index) => (
-          <div key={`${item.time}-${index}`} className={item.level === "red" ? "text-rose-600" : item.level === "green" ? "text-emerald-700" : item.level === "yellow" ? "text-amber-700" : "text-stone-700"}>
-            <span className="text-stone-400">{new Date(item.time).toLocaleTimeString()}</span><span className="pl-2">{item.text}</span>
+      <div className="thin-scrollbar min-h-0 flex-1 overflow-y-auto rounded-xl border border-border bg-surface-muted/40 p-3 font-mono text-xs leading-6">
+        {logs.length === 0 ? <div className="text-muted-foreground">暂无日志</div> : logs.slice().reverse().map((item, index) => (
+          <div key={`${item.time}-${index}`} className={item.level === "red" ? "text-rose-600 dark:text-rose-400" : item.level === "green" ? "text-emerald-700 dark:text-emerald-400" : item.level === "yellow" ? "text-amber-700 dark:text-amber-400" : "text-foreground"}>
+            <span className="text-muted-foreground">{new Date(item.time).toLocaleTimeString()}</span><span className="pl-2">{item.text}</span>
           </div>
         ))}
       </div>

@@ -1,5 +1,5 @@
 import type { RefObject } from "react";
-import { ArrowUp, ImagePlus, Plus } from "lucide-react";
+import { ArrowUp, Coins, ImagePlus, Plus } from "lucide-react";
 
 import { ComposerModeSwitch } from "@/app/image/components/composer-mode-switch";
 import { ComposerModelMenu } from "@/app/image/components/composer-model-menu";
@@ -120,25 +120,34 @@ export function ComposerToolbar(props: ComposerToolbarProps) {
         {props.composerMode === "image" ? <ComposerSettingsPopover {...buildSettingsProps(props)} /> : null}
       </div>
       <div className="flex shrink-0 items-center gap-2">
+        {props.composerMode === "image" && props.estimatedCreditCost > 0 ? (
+          <span
+            className="hidden items-center gap-1 rounded-full border border-brand-border bg-brand-soft px-2.5 py-1 text-[11px] font-medium text-brand tabular-nums sm:inline-flex"
+            title={props.estimatedCreditCostDetail}
+          >
+            <Coins className="size-3" />
+            <span>{props.estimatedCreditCost} 积分</span>
+          </span>
+        ) : null}
         <button
           type="button"
           onClick={props.onPickReferenceImage}
-          className="inline-flex size-11 items-center justify-center rounded-full text-[#686b73] transition hover:bg-black/[0.05] dark:text-muted-foreground dark:hover:bg-accent/60 dark:hover:text-foreground sm:size-10 sm:border sm:border-[#e5e7eb] sm:bg-white sm:text-[#45515e] sm:dark:border-border sm:dark:bg-background/70 sm:dark:text-muted-foreground"
+          className="inline-flex size-10 items-center justify-center rounded-full text-muted-foreground transition hover:bg-surface-hover hover:text-foreground sm:size-9 sm:border sm:border-border/80 sm:bg-surface"
           aria-label="上传参考图"
           title="上传参考图"
         >
-          <Plus className="size-6 sm:hidden" />
+          <Plus className="size-5 sm:hidden" />
           <ImagePlus className="hidden size-4 sm:block" />
         </button>
         <button
           type="button"
           onClick={() => void props.onSubmit()}
           disabled={!props.prompt.trim() || paidSizeUnavailable}
-          className="inline-flex size-11 shrink-0 items-center justify-center rounded-full bg-[#181e25] text-white shadow-[0_4px_10px_rgba(24,30,37,0.12)] transition hover:bg-[#2a323d] disabled:cursor-not-allowed disabled:bg-[#e1e2e4] disabled:text-[#73777f] dark:bg-foreground dark:text-background dark:hover:bg-foreground/90 dark:disabled:bg-muted dark:disabled:text-muted-foreground sm:size-10"
+          className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-brand text-white shadow-sm transition hover:bg-brand/90 active:scale-[0.97] disabled:cursor-not-allowed disabled:bg-surface-active disabled:text-muted-foreground sm:size-9"
           aria-label={submitLabel}
           title={submitTitle}
         >
-          <ArrowUp className="size-5 sm:size-4" />
+          <ArrowUp className="size-4.5 sm:size-4" />
         </button>
       </div>
     </div>

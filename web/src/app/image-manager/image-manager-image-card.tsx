@@ -10,9 +10,14 @@ import {
   managedImageKey,
 } from "@/app/image-manager/image-manager-utils";
 import type { ImageVisibility, ManagedImage } from "@/lib/api";
-import { blurFocusedElementInContainer, imageVisibilityActionClass, imageVisibilityLabel, imageVisibilityPillClass } from "@/lib/image-card-utils";
+import {
+  imageVisibilityActionClass,
+  imageVisibilityLabel,
+  imageVisibilityPillClass,
+} from "@/lib/image-card-utils";
 import type { ImageGalleryView } from "@/lib/image-manager-cache";
 import { formatImageFileSize } from "@/lib/image-size";
+import { cn } from "@/lib/utils";
 
 type ImageManagerImageCardProps = {
   item: ManagedImage;
@@ -54,25 +59,26 @@ export function ImageManagerImageCard({
   const ratioLabel = getManagedImageAspectRatio(item);
   const megapixelsLabel = formatManagedImageMegapixels(item);
   const sizeLabel = formatImageFileSize(item.size);
-  const imageMeta = [dimensions, ratioLabel, megapixelsLabel, sizeLabel].filter(Boolean).join(" | ");
+  const imageMeta = [dimensions, ratioLabel, megapixelsLabel, sizeLabel].filter(Boolean).join(" · ");
   const ownerLabel = imageOwnerLabel(item);
   const canUpdateVisibility = galleryView === "mine";
   // Admins see visibility badge on public/all listings; only "mine" can toggle it.
   const showVisibilityStatus = canUpdateVisibility || (isAdmin && (galleryView === "public" || galleryView === "all"));
 
   const toggleSelection = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
     if (!window.matchMedia("(hover: hover)").matches) {
       onFocusPathChange(selected ? null : imageKey);
     }
     onToggleSelection(item);
-    if (window.matchMedia("(hover: hover)").matches) {
-      event.currentTarget.blur();
-    }
   };
 
   return (
     <figure
-      className={`group relative w-full overflow-hidden rounded-[22px] bg-background shadow-[0_0_15px_rgba(44,30,116,0.16)] ${selected ? "ring-2 ring-[#1456f0]/80 ring-offset-2" : ""}`}
+      className={cn(
+        "group relative w-full overflow-hidden rounded-[20px] border border-border/60 bg-surface-muted shadow-sm transition-shadow hover:shadow-md",
+        selected && "ring-2 ring-brand ring-offset-2 ring-offset-background",
+      )}
       style={{
         contentVisibility: "auto",
         containIntrinsicSize: (() => {
@@ -82,14 +88,19 @@ export function ImageManagerImageCard({
           return `${Math.min(360, w)}px ${Math.min(480, h)}px`;
         })(),
       }}
-      onMouseLeave={(event) => blurFocusedElementInContainer(event.currentTarget)}
       onBlurCapture={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget)) {
           onFocusPathChange(focused ? null : imageKey);
         }
       }}
     >
-      <button type="button" onClick={toggleSelection} className="block w-full cursor-pointer overflow-hidden text-left" onFocus={() => onFocusPathChange(imageKey)} aria-label={selected ? "取消选择图片" : "选择图片"}>
+      <button
+        type="button"
+        onClick={() => onOpenLightbox(index)}
+        className="block w-full cursor-zoom-in overflow-hidden text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand"
+        onFocus={() => onFocusPathChange(imageKey)}
+        aria-label={`预览图片 ${item.name}`}
+      >
         <img
           src={item.thumbnail_url || item.url}
           alt={item.name}
@@ -98,10 +109,21 @@ export function ImageManagerImageCard({
           loading="lazy"
           decoding="async"
           sizes="(min-width: 1280px) 25vw, (min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
-          className="block h-auto w-full transition duration-200 group-hover:brightness-95"
+          className="block h-auto w-full transition duration-200 group-hover:scale-[1.01] group-hover:brightness-95"
         />
       </button>
-      <button type="button" onClick={toggleSelection} className={`absolute top-2 left-2 z-10 inline-flex size-6 items-center justify-center rounded-full border transition duration-150 ${selected ? "border-[#1456f0] bg-[#1456f0] text-white opacity-100 shadow-sm" : "pointer-events-none border-white/90 bg-black/20 text-transparent opacity-0 shadow-sm group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 hover:bg-black/30"}`} aria-label={selected ? "取消选择图片" : "选择图片"}>
+      <button
+        type="button"
+        onClick={toggleSelection}
+        className={cn(
+          "absolute top-2.5 left-2.5 z-10 inline-flex size-7 items-center justify-center rounded-full border transition duration-150 focus-visible:pointer-events-auto focus-visible:opacity-100",
+          selected
+            ? "border-brand bg-brand text-white opacity-100 shadow-sm"
+            : "pointer-events-none border-white/90 bg-black/30 text-transparent opacity-0 shadow-sm group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100 hover:bg-black/45",
+        )}
+        aria-label={selected ? "取消选择图片" : "选择图片"}
+        title={selected ? "取消选择" : "选择图片"}
+      >
         {selected ? <Check className="size-3.5" /> : null}
       </button>
       <ImageCardTopActions
@@ -115,8 +137,11 @@ export function ImageManagerImageCard({
         onOpenLightbox={onOpenLightbox}
         onDelete={onDelete}
       />
-      <div className="absolute right-2 bottom-2 left-2 z-20 flex items-center justify-between gap-2">
-        <div className="pointer-events-none inline-flex h-7 min-w-0 max-w-[min(58%,13rem)] items-center rounded-full bg-white/15 px-2.5 text-[11px] font-medium text-white shadow-sm ring-1 ring-white/25 backdrop-blur-md" title={`作者：${ownerLabel}`}>
+      <div className="absolute right-2.5 bottom-2.5 left-2.5 z-20 flex items-center justify-between gap-2">
+        <div
+          className="pointer-events-none inline-flex h-7 min-w-0 max-w-[min(58%,13rem)] items-center rounded-full bg-black/45 px-2.5 text-[11px] font-medium text-white shadow-sm ring-1 ring-white/20 backdrop-blur-md"
+          title={`作者：${ownerLabel}`}
+        >
           <span className="min-w-0 truncate">{ownerLabel}</span>
         </div>
         {showVisibilityStatus ? (
@@ -130,7 +155,12 @@ export function ImageManagerImageCard({
           />
         ) : null}
       </div>
-      <div className={`pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 via-black/25 to-transparent px-2.5 pt-8 pb-11 transition duration-150 ${focused ? "opacity-100" : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"}`}>
+      <div
+        className={cn(
+          "pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/65 via-black/25 to-transparent px-3 pt-8 pb-11 transition duration-150",
+          focused ? "opacity-100" : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100",
+        )}
+      >
         <div className="text-left text-white drop-shadow-sm">
           <div className="text-[10px] font-bold tracking-wide">{getManagedImageFormatLabel(item)}</div>
           <div className="mt-0.5 truncate text-[11px] text-white/90">{item.created_at}</div>
@@ -141,38 +171,134 @@ export function ImageManagerImageCard({
   );
 }
 
-function ImageCardTopActions({ item, index, focused, galleryView, canDeleteImages, isDeleting, isDeletingItem, onOpenLightbox, onDelete }: {
-  item: ManagedImage; index: number; focused: boolean; galleryView: ImageGalleryView; canDeleteImages: boolean; isDeleting: boolean; isDeletingItem: boolean; onOpenLightbox: (index: number) => void; onDelete: (items: ManagedImage[]) => void;
+function ImageCardTopActions({
+  item,
+  index,
+  focused,
+  galleryView,
+  canDeleteImages,
+  isDeleting,
+  isDeletingItem,
+  onOpenLightbox,
+  onDelete,
+}: {
+  item: ManagedImage;
+  index: number;
+  focused: boolean;
+  galleryView: ImageGalleryView;
+  canDeleteImages: boolean;
+  isDeleting: boolean;
+  isDeletingItem: boolean;
+  onOpenLightbox: (index: number) => void;
+  onDelete: (items: ManagedImage[]) => void;
 }) {
   return (
-    <div className={`absolute top-2 right-2 z-10 flex items-center gap-1 transition duration-150 ${focused ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100"}`}>
-      <button type="button" onClick={(event) => { event.currentTarget.blur(); onOpenLightbox(index); }} className="inline-flex h-7 items-center gap-1 rounded-full bg-white/95 px-2 text-[11px] font-medium text-stone-800 shadow-sm transition hover:bg-white hover:text-stone-950" aria-label="View Original" title="View Original">
-        <Eye className="size-3" />View Original
+    <div
+      className={cn(
+        "absolute top-2.5 right-2.5 z-10 flex items-center gap-1 transition duration-150 [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100",
+        focused
+          ? "pointer-events-auto opacity-100"
+          : "pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100",
+      )}
+    >
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          onOpenLightbox(index);
+        }}
+        className="inline-flex h-7 items-center gap-1 rounded-full bg-black/65 px-2.5 text-[11px] font-medium text-white shadow-sm backdrop-blur-md transition hover:bg-black/80"
+        aria-label="查看原图"
+        title="查看原图"
+      >
+        <Eye className="size-3" />
+        <span>查看原图</span>
       </button>
       {galleryView !== "mine" ? (
-        <button type="button" onClick={(event) => { event.currentTarget.blur(); void navigator.clipboard.writeText(item.url); toast.success("图片地址已复制"); }} className="inline-flex size-7 items-center justify-center rounded-full bg-white/95 text-stone-800 shadow-sm transition hover:bg-white hover:text-stone-950" aria-label="复制图片地址" title="复制图片地址">
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            void navigator.clipboard.writeText(item.url);
+            toast.success("图片地址已复制");
+          }}
+          className="inline-flex size-7 items-center justify-center rounded-full bg-black/65 text-white shadow-sm backdrop-blur-md transition hover:bg-black/80"
+          aria-label="复制图片地址"
+          title="复制图片地址"
+        >
           <Copy className="size-3.5" />
         </button>
       ) : null}
       {canDeleteImages ? (
-        <button type="button" onClick={(event) => { event.currentTarget.blur(); onDelete([item]); }} disabled={isDeleting} className="inline-flex size-7 items-center justify-center rounded-full bg-white/95 text-rose-600 shadow-sm transition hover:bg-rose-50 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-60" aria-label="删除图片" title="删除图片">
-          {isDeleting && isDeletingItem ? <LoaderCircle className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onDelete([item]);
+          }}
+          disabled={isDeleting}
+          className="inline-flex size-7 items-center justify-center rounded-full bg-white/95 text-rose-600 shadow-sm transition hover:bg-rose-50 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+          aria-label="删除图片"
+          title="删除图片"
+        >
+          {isDeleting && isDeletingItem ? (
+            <LoaderCircle className="size-3.5 animate-spin" />
+          ) : (
+            <Trash2 className="size-3.5" />
+          )}
         </button>
       ) : null}
     </div>
   );
 }
 
-function ImageCardVisibility({ item, focused, canUpdateVisibility, visibilityMutatingPath, isDeleting, onVisibilityChange }: { item: ManagedImage; focused: boolean; canUpdateVisibility: boolean; visibilityMutatingPath: string | null; isDeleting: boolean; onVisibilityChange: (item: ManagedImage, visibility: ImageVisibility) => void }) {
+function ImageCardVisibility({
+  item,
+  focused,
+  canUpdateVisibility,
+  visibilityMutatingPath,
+  isDeleting,
+  onVisibilityChange,
+}: {
+  item: ManagedImage;
+  focused: boolean;
+  canUpdateVisibility: boolean;
+  visibilityMutatingPath: string | null;
+  isDeleting: boolean;
+  onVisibilityChange: (item: ManagedImage, visibility: ImageVisibility) => void;
+}) {
   return (
     <div className="flex shrink-0 items-center gap-1">
       {canUpdateVisibility ? (
-        <button type="button" onClick={(event) => { event.stopPropagation(); event.currentTarget.blur(); onVisibilityChange(item, item.visibility === "public" ? "private" : "public"); }} disabled={visibilityMutatingPath !== null || isDeleting} className={`inline-flex h-7 items-center gap-1.5 rounded-full px-2.5 text-[11px] font-medium shadow-sm transition disabled:cursor-not-allowed disabled:opacity-70 ${focused ? "opacity-100" : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"} ${imageVisibilityActionClass(item.visibility)}`}>
-          {visibilityMutatingPath === item.path ? <LoaderCircle className="size-3 animate-spin" /> : item.visibility === "public" ? <Lock className="size-3" /> : <Globe2 className="size-3" />}
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onVisibilityChange(item, item.visibility === "public" ? "private" : "public");
+          }}
+          disabled={visibilityMutatingPath !== null || isDeleting}
+          className={cn(
+            "inline-flex h-7 items-center gap-1.5 rounded-full px-2.5 text-[11px] font-medium shadow-sm transition disabled:cursor-not-allowed disabled:opacity-70 [@media(hover:none)]:opacity-100",
+            focused ? "opacity-100" : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100",
+            imageVisibilityActionClass(item.visibility),
+          )}
+        >
+          {visibilityMutatingPath === item.path ? (
+            <LoaderCircle className="size-3 animate-spin" />
+          ) : item.visibility === "public" ? (
+            <Lock className="size-3" />
+          ) : (
+            <Globe2 className="size-3" />
+          )}
           {item.visibility === "public" ? "取消公开" : "公开"}
         </button>
       ) : null}
-      <div className={`pointer-events-none inline-flex h-7 items-center gap-1 rounded-full px-2 text-[11px] font-medium shadow-sm backdrop-blur-sm ${imageVisibilityPillClass(item.visibility)}`}>
+      <div
+        className={cn(
+          "pointer-events-none inline-flex h-7 items-center gap-1 rounded-full px-2 text-[11px] font-medium shadow-sm backdrop-blur-sm",
+          imageVisibilityPillClass(item.visibility),
+        )}
+      >
         {item.visibility === "public" ? <Globe2 className="size-3" /> : <Lock className="size-3" />}
         {imageVisibilityLabel(item.visibility)}
       </div>

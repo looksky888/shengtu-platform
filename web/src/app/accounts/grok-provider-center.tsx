@@ -1,4 +1,4 @@
-import { AlertCircle, CheckCircle2, ServerCog } from "lucide-react";
+import { AlertCircle, CheckCircle2, ServerCog, X } from "lucide-react";
 import { useState } from "react";
 
 import { GrokProviderConfigDialog, type GrokConfigDialogKind } from "@/app/accounts/grok-provider-config-dialog";
@@ -28,19 +28,36 @@ export function GrokProviderCenter({ session }: { session: StoredAuthSession }) 
   const openConfig = (kind: GrokConfigDialogKind, account?: GrokProviderRow) => { setActionAccount(account || null); setConfigKind(kind); };
   const openDelete = (account?: GrokProviderRow) => { setActionAccount(account || null); setDeleteOpen(true); };
   return (
-    <section className="overflow-hidden rounded-[24px] border border-[#1456f0]/15 bg-white shadow-[0_14px_38px_-24px_rgba(44,30,116,0.38)] dark:bg-card">
-      <header className="flex flex-wrap items-start justify-between gap-3 border-b border-border/70 px-5 py-5 lg:px-6">
+    <section className="overflow-hidden rounded-[22px] border border-border/80 bg-surface shadow-xs">
+      <header className="flex flex-wrap items-start justify-between gap-3 border-b border-border/70 px-5 py-4 lg:px-6">
         <div>
-          <div className="flex flex-wrap items-center gap-2"><ServerCog className="size-5 text-[#1456f0]" /><h2 className="text-xl font-semibold tracking-tight">上游账号</h2></div>
-          <p className="mt-1.5 max-w-3xl text-sm text-muted-foreground">管理 Grok 账号、额度与健康状态。</p>
+          <div className="flex flex-wrap items-center gap-2"><ServerCog className="size-5 text-brand" /><h2 className="text-lg font-semibold tracking-tight">上游账号</h2></div>
+          <p className="mt-1 max-w-3xl text-xs text-muted-foreground sm:text-sm">管理 Grok 账号、额度与健康状态。</p>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
-          {task ? <GrokProviderTaskProgress task={task} /> : null}
-          {controller.data ? <div className="inline-flex items-center gap-2 rounded-full border border-border px-3 py-1.5 text-xs text-muted-foreground">{controller.data.projection.status === "success" ? <CheckCircle2 className="size-3.5 text-emerald-600" /> : <AlertCircle className="size-3.5 text-rose-600" />}投影{controller.data.projection.status === "success" ? "正常" : "异常"}</div> : null}
+          {task ? <GrokProviderTaskProgress task={task} defaultOpen={controller.taskAutoOpen} /> : null}
+          {controller.data ? <div className="inline-flex items-center gap-1.5 rounded-full border border-border/80 bg-surface-muted/60 px-3 py-1 text-xs text-muted-foreground">{controller.data.projection.status === "success" ? <CheckCircle2 className="size-3.5 text-emerald-600" /> : <AlertCircle className="size-3.5 text-rose-600" />}投影{controller.data.projection.status === "success" ? "正常" : "异常"}</div> : null}
         </div>
       </header>
 
       <GrokProviderSummary summary={summary} />
+
+      {controller.actionError ? (
+        <div className="mx-5 mt-3 flex items-center justify-between gap-3 rounded-xl border border-rose-500/25 bg-rose-500/10 px-3.5 py-2.5 text-xs text-rose-700 dark:text-rose-300 lg:mx-6">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="size-4 shrink-0" />
+            <span>{controller.actionError}</span>
+          </div>
+          <button
+            type="button"
+            onClick={controller.clearActionError}
+            className="inline-flex size-6 items-center justify-center rounded-lg hover:bg-rose-500/15"
+            aria-label="关闭错误提示"
+          >
+            <X className="size-3.5" />
+          </button>
+        </div>
+      ) : null}
 
       <GrokProviderToolbar
         controller={controller}
@@ -52,7 +69,22 @@ export function GrokProviderCenter({ session }: { session: StoredAuthSession }) 
         onDelete={() => openDelete()}
       />
 
-      {controller.error ? <GrokProviderTableError message={controller.error} loading={controller.loading} onRetry={() => void controller.load()} /> : controller.loading && !controller.data ? <GrokProviderTableSkeleton /> : controller.data?.items.length === 0 ? <GrokProviderTableEmpty filtered={filtered} canWrite={canWrite} onImport={() => setImportOpen(true)} /> : <GrokProviderTable controller={controller} canWrite={canWrite} canDelete={canDelete} isAdmin={session.role === "admin"} onConfigure={openConfig} onDelete={openDelete} />}
+      {controller.error && !controller.data ? (
+        <GrokProviderTableError message={controller.error} loading={controller.loading} onRetry={() => void controller.load()} />
+      ) : controller.loading && !controller.data ? (
+        <GrokProviderTableSkeleton />
+      ) : controller.data?.items.length === 0 ? (
+        <GrokProviderTableEmpty filtered={filtered} canWrite={canWrite} onImport={() => setImportOpen(true)} />
+      ) : (
+        <GrokProviderTable
+          controller={controller}
+          canWrite={canWrite}
+          canDelete={canDelete}
+          isAdmin={session.role === "admin"}
+          onConfigure={openConfig}
+          onDelete={openDelete}
+        />
+      )}
 
       <GrokProviderImportDialog open={importOpen} busy={controller.busy} onOpenChange={setImportOpen} onSubmit={controller.importAccounts} />
       <GrokProviderConfigDialog

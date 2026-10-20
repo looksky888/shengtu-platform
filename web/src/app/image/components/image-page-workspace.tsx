@@ -1,8 +1,12 @@
-import type { CSSProperties, ReactNode, RefObject } from "react";
-import { History, Plus, Trash2 } from "lucide-react";
+"use client";
+
+import { useState, type CSSProperties, type ReactNode, type RefObject } from "react";
+import { History, PanelLeftOpen, Plus, Trash2 } from "lucide-react";
 
 import { ImageSidebar } from "@/app/image/components/image-sidebar";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import type { ImageConversation } from "@/store/image-conversations";
 
 type ImagePageWorkspaceProps = {
@@ -40,24 +44,60 @@ export function ImagePageWorkspace({
   results,
   composer,
 }: ImagePageWorkspaceProps) {
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
   return (
-    <section className="mx-auto grid h-[calc(100dvh-6.25rem)] min-h-0 w-full max-w-[1380px] grid-cols-1 gap-2 px-0 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] sm:h-[calc(100dvh-5rem)] sm:gap-3 sm:px-3 sm:pb-6 lg:grid-cols-[240px_minmax(0,1fr)]">
-      <div className="hidden h-full min-h-0 border-r border-[#f2f3f5] pr-3 lg:block">
-        <ImageSidebar
-          conversations={conversations}
-          isLoadingHistory={isLoadingHistory}
-          selectedConversationId={selectedConversationId}
-          onCreateDraft={onCreateDraft}
-          onClearHistory={onClearHistory}
-          onSelectConversation={onSelectConversation}
-          onDeleteConversation={onDeleteConversation}
-          formatConversationTime={formatConversationTime}
-        />
-      </div>
+    <section
+      className={cn(
+        "mx-auto grid h-[calc(100dvh-5rem)] min-h-0 w-full max-w-[1400px] grid-cols-1 gap-2 px-0 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] sm:h-[calc(100dvh-4.75rem)] sm:gap-3 sm:px-2 sm:pb-4",
+        sidebarCollapsed
+          ? "lg:grid-cols-[minmax(0,1fr)]"
+          : "lg:grid-cols-[248px_minmax(0,1fr)]"
+      )}
+    >
+      {!sidebarCollapsed ? (
+        <div className="hidden h-full min-h-0 rounded-2xl border border-border/75 bg-surface/85 px-3 py-1.5 shadow-2xs lg:block">
+          <ImageSidebar
+            conversations={conversations}
+            isLoadingHistory={isLoadingHistory}
+            selectedConversationId={selectedConversationId}
+            onCreateDraft={onCreateDraft}
+            onClearHistory={onClearHistory}
+            onSelectConversation={onSelectConversation}
+            onDeleteConversation={onDeleteConversation}
+            formatConversationTime={formatConversationTime}
+            onCollapse={() => setSidebarCollapsed(true)}
+          />
+        </div>
+      ) : null}
 
       {overlays}
 
-      <div className="relative flex min-h-0 flex-col gap-2 sm:gap-4">
+      <div className="relative flex min-h-0 flex-col gap-2 rounded-2xl lg:border lg:border-border/70 lg:bg-surface/65 lg:p-2">
+        {sidebarCollapsed ? (
+          <div className="hidden items-center gap-2 px-2 pt-1 lg:flex">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setSidebarCollapsed(false)}
+              title="展开会话列表"
+            >
+              <PanelLeftOpen className="size-4" />
+              <span>会话列表 ({conversations.length})</span>
+            </Button>
+            <Button
+              type="button"
+              variant="brand"
+              size="sm"
+              onClick={onCreateDraft}
+            >
+              <Plus className="size-4" />
+              <span>新建对话</span>
+            </Button>
+          </div>
+        ) : null}
+
         <MobileToolbar
           conversationsCount={conversations.length}
           onOpenHistory={onOpenHistory}
@@ -67,8 +107,12 @@ export function ImagePageWorkspace({
 
         <div
           ref={resultsViewportRef}
-          className="hide-scrollbar min-h-0 flex-1 overflow-y-auto px-1 pt-2 pb-[14rem] sm:px-4 sm:pt-4 sm:pb-[15rem]"
-          style={composerDockHeight > 0 ? { paddingBottom: composerDockHeight + 24 } : undefined}
+          className="hide-scrollbar min-h-0 flex-1 overflow-y-auto px-1 pt-2 pb-[14rem] sm:px-4 sm:pt-3 sm:pb-[15rem]"
+          style={
+            composerDockHeight > 0
+              ? { paddingBottom: composerDockHeight + 24 }
+              : undefined
+          }
         >
           {results}
         </div>
@@ -82,7 +126,9 @@ export function ImagePageWorkspace({
             } as CSSProperties
           }
         >
-          <div className="pointer-events-auto mx-auto w-full max-w-[900px]">{composer}</div>
+          <div className="pointer-events-auto mx-auto w-full max-w-[900px]">
+            {composer}
+          </div>
         </div>
       </div>
     </section>
@@ -100,32 +146,60 @@ function MobileToolbar({
   onCreateDraft: () => void;
   onClearHistory: () => void | Promise<void>;
 }) {
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [clearing, setClearing] = useState(false);
+
+  const handleConfirmClear = async () => {
+    setClearing(true);
+    try {
+      await onClearHistory();
+      setConfirmOpen(false);
+    } finally {
+      setClearing(false);
+    }
+  };
+
   return (
-    <div className="flex items-center justify-between gap-2 px-1 sm:px-4">
-      <div className="flex min-w-0 flex-1 items-center gap-2 lg:hidden">
+    <div className="flex items-center justify-between gap-2 px-1 sm:px-4 lg:hidden">
+      <div className="flex min-w-0 flex-1 items-center gap-2">
         <Button
           variant="outline"
-          className="h-10 min-w-0 flex-1 shrink rounded-full border-[#e5e7eb] bg-white text-[#45515e] shadow-sm"
+          className="h-9 min-w-0 flex-1 shrink rounded-xl shadow-2xs"
           onClick={onOpenHistory}
         >
           <History className="size-4" />
-          <span className="truncate">历史记录 ({conversationsCount})</span>
+          <span className="truncate">历史会话 ({conversationsCount})</span>
         </Button>
-        <Button className="h-10 rounded-full shadow-sm" onClick={onCreateDraft}>
+        <Button
+          variant="brand"
+          className="h-9 rounded-xl shadow-2xs"
+          onClick={onCreateDraft}
+        >
           <Plus className="size-4" />
-          新建
+          <span>新建</span>
         </Button>
         <Button
           variant="outline"
+          size="icon"
           aria-label="清空历史记录"
           title="清空历史记录"
-          className="h-10 rounded-full border-[#e5e7eb] bg-white px-3 text-[#45515e] shadow-sm"
-          onClick={() => void onClearHistory()}
+          className="size-9 rounded-xl shadow-2xs hover:text-destructive"
+          onClick={() => setConfirmOpen(true)}
           disabled={conversationsCount === 0}
         >
           <Trash2 className="size-4" />
         </Button>
       </div>
+      <ConfirmDialog
+        open={confirmOpen}
+        title="确认清空全部创作会话？"
+        description={`将移除当前账号下的全部 ${conversationsCount} 条会话记录。此操作不可恢复。`}
+        confirmLabel="确认清空"
+        destructive
+        pending={clearing}
+        onClose={() => setConfirmOpen(false)}
+        onConfirm={() => void handleConfirmClear()}
+      />
     </div>
   );
 }

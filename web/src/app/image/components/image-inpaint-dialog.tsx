@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { Brush, Eraser, FlipHorizontal2, LoaderCircle, ScanEye, SquareDashed, Undo2 } from "lucide-react";
+import { Brush, Eraser, FlipHorizontal2, ScanEye, SquareDashed, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { isImeComposing } from "@/lib/keyboard";
 import type { StoredImage } from "@/store/image-conversations";
 import {
   drawInpaintOverlay,
@@ -175,25 +177,37 @@ export function ImageInpaintDialog({ source, onClose, onSubmit }: ImageInpaintDi
           <DialogTitle>局部修改</DialogTitle>
           <DialogDescription>用矩形或画笔标出需要修改的区域，蓝色标记只用于说明范围。</DialogDescription>
         </DialogHeader>
-        <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto bg-muted/20 p-4 md:grid-cols-[190px_minmax(0,1fr)]">
+        <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto bg-surface-muted/40 p-4 md:grid-cols-[190px_minmax(0,1fr)]">
           <aside className="flex flex-row flex-wrap content-start gap-2 md:flex-col">
             <Button size="sm" variant={tool === "rect" ? "default" : "outline"} onClick={() => setTool("rect")}><SquareDashed />矩形</Button>
             <Button size="sm" variant={tool === "brush" ? "default" : "outline"} onClick={() => setTool("brush")}><Brush />画笔</Button>
-            <label className="grid gap-1 text-xs text-muted-foreground">画笔 {brushSize}px<input type="range" min="8" max="160" step="2" value={brushSize} onChange={(event) => setBrushSize(Number(event.target.value))} /></label>
-            <label className="grid gap-1 text-xs text-muted-foreground">羽化 {feather}px<input type="range" min="0" max="96" step="2" value={feather} onChange={(event) => setFeather(Number(event.target.value))} /></label>
+            <label className="grid gap-1 text-xs text-muted-foreground">画笔 {brushSize}px<input type="range" min="8" max="160" step="2" value={brushSize} onChange={(event) => setBrushSize(Number(event.target.value))} className="accent-brand" /></label>
+            <label className="grid gap-1 text-xs text-muted-foreground">羽化 {feather}px<input type="range" min="0" max="96" step="2" value={feather} onChange={(event) => setFeather(Number(event.target.value))} className="accent-brand" /></label>
             <Button size="sm" variant={invert ? "default" : "outline"} onClick={() => setInvert((value) => !value)}><FlipHorizontal2 />反选</Button>
             <Button size="sm" variant={showOverlay ? "default" : "outline"} onClick={() => setShowOverlay((value) => !value)}><ScanEye />{showOverlay ? "隐藏" : "显示"}</Button>
             <Button size="sm" variant="outline" disabled={!marks.length} onClick={() => setMarks((current) => current.slice(0, -1))}><Undo2 />撤销</Button>
             <Button size="sm" variant="outline" disabled={!marks.length} onClick={() => setMarks([])}><Eraser />清空</Button>
           </aside>
-          <div className="flex min-h-[280px] items-center justify-center overflow-auto rounded-2xl border border-border bg-background p-3">
+          <div className="flex min-h-[280px] items-center justify-center overflow-auto rounded-2xl border border-border bg-surface p-3">
             {source ? <div className="relative inline-block max-w-full overflow-hidden rounded-xl"><img ref={imageRef} src={source.src} alt={source.name} crossOrigin="anonymous" draggable={false} className="block max-h-[58vh] max-w-full select-none" onLoad={() => draw()} onError={() => toast.error("原图加载失败，请检查图片地址或跨域配置")} /><canvas ref={canvasRef} className="absolute inset-0 h-full w-full cursor-crosshair touch-none" onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={finishPointer} onPointerCancel={finishPointer} /></div> : null}
           </div>
         </div>
         <DialogFooter className="flex-row items-center border-t border-border px-5 py-4">
-          <input value={prompt} onChange={(event) => setPrompt(event.target.value)} onKeyDown={(event) => event.key === "Enter" && void submit()} placeholder="描述局部修改要求" className="h-10 min-w-0 flex-1 rounded-lg border border-input bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring/30" />
+          <Input
+            value={prompt}
+            onChange={(event) => setPrompt(event.target.value)}
+            onKeyDown={(event) => {
+              if (isImeComposing(event)) return;
+              if (event.key === "Enter") {
+                event.preventDefault();
+                void submit();
+              }
+            }}
+            placeholder="描述局部修改要求（Enter 提交）"
+            className="min-w-0 flex-1"
+          />
           <Button variant="outline" disabled={!marks.length} onClick={() => setMarks([])}>清空选区</Button>
-          <Button disabled={!prompt.trim() || !marks.length || submitting} onClick={() => void submit()}>{submitting ? <LoaderCircle className="animate-spin" /> : null}提交修改</Button>
+          <Button loading={submitting} disabled={!prompt.trim() || !marks.length || submitting} onClick={() => void submit()}>提交修改</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

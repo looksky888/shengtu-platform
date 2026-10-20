@@ -208,8 +208,6 @@ export function useTaskQueueLive(enabled: boolean, session: StoredAuthSession) {
 
   const clearDone = async (scope: "failed" | "finished") => {
     if (!canManageTasks) return toast.error("没有清理任务权限");
-    const label = scope === "failed" ? "失败任务" : "已完成任务（成功/失败/已取消）";
-    if (!window.confirm(`确定清理队列中的${label}？\n运行中/排队中的任务不会被删除。`)) return;
     setClearing(true);
     try {
       const result = await clearAdminImageTasks(scope);

@@ -49,7 +49,9 @@ export function useGrokProviderCenter() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [actionError, setActionError] = useState("");
   const [task, setTask] = useState<GrokProviderConversionTask | null>(null);
+  const [taskAutoOpen, setTaskAutoOpen] = useState(false);
   const handledTask = useRef("");
   const successMessages = useRef(new Map<string, string>());
 
@@ -76,10 +78,15 @@ export function useGrokProviderCenter() {
     listActiveGrokProviderConversionTasks(controller.signal)
       .then(({ items }) => {
         const latest = [...items].sort((left, right) => right.created_at.localeCompare(left.created_at))[0];
-        if (latest) setTask(latest);
+        if (latest) {
+          setTaskAutoOpen(false);
+          setTask(latest);
+        }
       })
       .catch((reason) => {
-        if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "恢复账号任务失败");
+        if (!controller.signal.aborted) {
+          setActionError(reason instanceof Error ? reason.message : "恢复账号任务失败");
+        }
       });
     return () => controller.abort();
   }, []);
@@ -100,7 +107,7 @@ export function useGrokProviderCenter() {
         void load();
       } else {
         const message = taskFailureMessage(task);
-        setError(message);
+        setActionError(message);
         toast.error(message);
       }
       successMessages.current.delete(task.id);
@@ -111,7 +118,9 @@ export function useGrokProviderCenter() {
       getGrokProviderConversionTask(task.id, controller.signal)
         .then(({ task: next }) => setTask(next))
         .catch((reason) => {
-          if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "刷新账号任务失败");
+          if (!controller.signal.aborted) {
+            setActionError(reason instanceof Error ? reason.message : "刷新账号任务失败");
+          }
         });
     }, 900);
     return () => { controller.abort(); window.clearTimeout(timer); };
@@ -147,16 +156,17 @@ export function useGrokProviderCenter() {
     successMessage: string,
   ) {
     setBusy(true);
-    setError("");
+    setActionError("");
     try {
       const current = (await request).task;
       successMessages.current.set(current.id, successMessage);
       handledTask.current = "";
+      setTaskAutoOpen(true);
       setTask(current);
       return true;
     } catch (reason) {
       const message = reason instanceof Error ? reason.message : "账号任务执行失败";
-      setError(message);
+      setActionError(message);
       toast.error(message);
       setBusy(false);
       return false;
@@ -222,7 +232,8 @@ export function useGrokProviderCenter() {
 
   return {
     provider, status, keyword, page, pageSize, data, selected, selectedAccounts, selectedProvider,
-    loading, busy, error, task, allPageSelected, pageSelectionState, pageCount, setSelected, load,
+    loading, busy, error, actionError, clearActionError: () => setActionError(""),
+    task, taskAutoOpen, allPageSelected, pageSelectionState, pageCount, setSelected, load,
     setPage: (value: number) => { setPage(value); setSelected([]); },
     setPageSize: (value: number) => resetView(() => setPageSize(value)),
     setProvider: (value: GrokProviderFilter) => resetView(() => setProvider(value)),

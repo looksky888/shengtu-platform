@@ -32,7 +32,7 @@ function DialogOverlay({
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
       className={cn(
-        "data-[state=open]:animate-in fixed inset-0 z-50 bg-black/30 backdrop-blur-[2px]",
+        "fixed inset-0 z-50 bg-black/45 backdrop-blur-[2px] data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
         className,
       )}
       {...props}
@@ -54,16 +54,19 @@ function DialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          "fixed top-[50%] left-[50%] z-50 grid w-[min(92vw,560px)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-[24px] border border-border bg-background p-6 shadow-[0_32px_110px_-38px_rgba(15,23,42,0.45)] duration-200 data-[state=open]:animate-in",
+          "fixed top-[50%] left-[50%] z-50 grid max-h-[calc(100dvh-2rem)] w-[min(92vw,560px)] translate-x-[-50%] translate-y-[-50%] gap-4 overflow-y-auto rounded-2xl border border-border bg-surface-raised p-6 text-foreground shadow-2xl duration-200 outline-none data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
           className,
         )}
         {...props}
       >
         {children}
         {showCloseButton ? (
-          <DialogPrimitive.Close className="ring-offset-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-4 right-4 rounded-full p-1 opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:outline-none disabled:pointer-events-none">
+          <DialogPrimitive.Close
+            aria-label="关闭弹窗"
+            className="ring-offset-background focus:ring-ring absolute top-4 right-4 inline-flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground focus:ring-2 focus:outline-none disabled:pointer-events-none"
+          >
             <X className="size-4" />
-            <span className="sr-only">Close</span>
+            <span className="sr-only">关闭</span>
           </DialogPrimitive.Close>
         ) : null}
       </DialogPrimitive.Content>
@@ -75,7 +78,7 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="dialog-header"
-      className={cn("flex flex-col gap-2 text-left", className)}
+      className={cn("flex flex-col gap-1.5 pr-6 text-left", className)}
       {...props}
     />
   );
@@ -86,7 +89,7 @@ function DialogFooter({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="dialog-footer"
       className={cn(
-        "flex flex-col-reverse gap-2 sm:flex-row sm:justify-end",
+        "flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end",
         className,
       )}
       {...props}
@@ -101,7 +104,7 @@ function DialogTitle({
   return (
     <DialogPrimitive.Title
       data-slot="dialog-title"
-      className={cn("font-display text-xl leading-none font-semibold", className)}
+      className={cn("text-lg leading-snug font-semibold text-foreground", className)}
       {...props}
     />
   );
@@ -114,7 +117,7 @@ function DialogDescription({
   return (
     <DialogPrimitive.Description
       data-slot="dialog-description"
-      className={cn("text-muted-foreground text-sm", className)}
+      className={cn("text-muted-foreground text-sm leading-relaxed", className)}
       {...props}
     />
   );

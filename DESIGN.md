@@ -234,6 +234,19 @@ What makes MiniMax distinctive is its pill-button geometry (9999px radius) for n
 
 ## 9. Agent Prompt Guide
 
+### 4.7 Workbench Design System Additions (Inspired by Open-AI-Canvas)
+
+- **Layered Surface Tokens**: Use `--surface-canvas`, `--surface-panel`, `--surface-raised`, `--surface-hover`, `--surface-active`, `--border-subtle`, `--border-strong`, and `--brand` / `--brand-soft` / `--brand-border` so light and dark themes share consistent depth.
+- **Navigation & Command Palette**:
+  - Top navigation (`h-13`) uses primary creation/asset tabs + grouped `"管理与运维"` mega-menu (`MoreNavMenu`) + global `Ctrl/⌘ + K` modal Command Palette (`NavSearchMenu`) with settings deep-links.
+  - Secondary navigation uses the unified `<SubNav>` component (`pill`, `segmented`, `underline`, and `sidebar` variants) with Spring `layoutId` indicators and optional count badges.
+  - System Settings (`/settings`) uses a sticky grouped left sidebar on desktop and horizontal pill bar on mobile, paired with a sticky bottom unsaved-changes bar.
+- **Interactive Controls & Safety**:
+  - `<Button>` includes built-in `loading`, `leftIcon`, `rightIcon`, tactile press feedback (`active:scale-[0.98]`), and unified heights (`xs=28px`, `sm=32px`, `default=36px`, `lg=40px`).
+  - Destructive operations must use `<ConfirmDialog>` instead of native `window.confirm`.
+  - Form selects must use Radix `<Select>` instead of native `<select>`.
+  - Keyboard Enter handlers on `<input>` / `<textarea>` must guard against Chinese IME composition via `isImeComposing(event)`.
+
 ### Product Copy Rules
 
 - Page headers use an eyebrow and title by default. Do not add a paragraph that merely repeats the page purpose.

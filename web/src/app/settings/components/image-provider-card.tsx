@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { LoaderCircle, Network, Plus, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import {
   createImageChannel,
@@ -28,6 +29,8 @@ export function ImageProviderCard() {
   const [modelsDialogOpen, setModelsDialogOpen] = useState(false);
   const [editingChannel, setEditingChannel] = useState<ImageChannel | null>(null);
   const [modelsChannel, setModelsChannel] = useState<ImageChannel | null>(null);
+  const [deletingChannel, setDeletingChannel] = useState<ImageChannel | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -59,15 +62,19 @@ export function ImageProviderCard() {
     }
   };
 
-  const remove = async (channel: ImageChannel) => {
-    if (!window.confirm(`确定删除渠道“${channel.name}”及其全部模型？`)) return;
+  const confirmRemove = async () => {
+    if (!deletingChannel) return;
+    setDeleting(true);
     try {
-      await deleteImageChannel(channel.id);
+      await deleteImageChannel(deletingChannel.id);
       toast.success("渠道已删除");
+      setDeletingChannel(null);
       resetPublicModelChannelCache();
       await load();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "删除渠道失败");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -78,11 +85,11 @@ export function ImageProviderCard() {
         title="生图渠道"
         tone="blue"
         className="md:col-span-2"
-        meta={<span className="rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground">{channels.filter((item) => item.enabled).length} / {channels.length} 运行中</span>}
+        meta={<span className="rounded-full bg-surface-muted px-3 py-1 text-xs text-muted-foreground">{channels.filter((item) => item.enabled).length} / {channels.length} 运行中</span>}
         action={
           <div className="flex gap-2">
             <Button type="button" variant="outline" size="icon" aria-label="刷新渠道" disabled={loading} onClick={() => void load()}>{loading ? <LoaderCircle className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}</Button>
-            <Button type="button" onClick={() => { setEditingChannel(null); setChannelDialogOpen(true); }}><Plus className="size-4" />新增渠道</Button>
+            <Button type="button" variant="brand" onClick={() => { setEditingChannel(null); setChannelDialogOpen(true); }}><Plus className="size-4" />新增渠道</Button>
           </div>
         }
       >
@@ -98,7 +105,7 @@ export function ImageProviderCard() {
                 channel={channel}
                 onEdit={() => { setEditingChannel(channel); setChannelDialogOpen(true); }}
                 onModels={() => { setModelsChannel(channel); setModelsDialogOpen(true); }}
-                onDelete={() => void remove(channel)}
+                onDelete={() => setDeletingChannel(channel)}
               />
             ))}
           </div>
@@ -107,6 +114,16 @@ export function ImageProviderCard() {
 
       <ImageChannelDialog channel={editingChannel} open={channelDialogOpen} saving={saving} onOpenChange={setChannelDialogOpen} onSave={save} />
       <ImageChannelModelsDialog channel={modelsChannel} open={modelsDialogOpen} onOpenChange={setModelsDialogOpen} onChanged={load} />
+      <ConfirmDialog
+        open={Boolean(deletingChannel)}
+        title="确认删除生图渠道？"
+        description={deletingChannel ? `将永久删除渠道“${deletingChannel.name}”及其绑定的全部模型配置。` : ""}
+        confirmLabel="确认删除"
+        destructive
+        pending={deleting}
+        onClose={() => setDeletingChannel(null)}
+        onConfirm={() => void confirmRemove()}
+      />
     </>
   );
 }

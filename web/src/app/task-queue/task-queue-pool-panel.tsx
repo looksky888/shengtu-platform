@@ -4,6 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { formatMailboxAPICopyText } from "@/app/icloud/icloud-mailbox-copy";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import {
   purgePermanentQuarantineAccount,
   purgeAllPermanentQuarantineAccounts,
@@ -36,6 +37,7 @@ export function TaskQueuePoolPanel({
 }: TaskQueuePoolPanelProps) {
   const [busyHash, setBusyHash] = useState<string | null>(null);
   const [confirmPurge, setConfirmPurge] = useState<QuarantineItem | null>(null);
+  const [confirmPurgeAllOpen, setConfirmPurgeAllOpen] = useState(false);
   const [matchingICloudAPIs, setMatchingICloudAPIs] = useState(false);
   const [iCloudMatchResult, setICloudMatchResult] = useState<Awaited<ReturnType<typeof matchPermanentQuarantineMailboxAPIs>> | null>(null);
   const [purgingAll, setPurgingAll] = useState(false);
@@ -102,10 +104,10 @@ export function TaskQueuePoolPanel({
 
   const handlePurgeAllPermanent = async () => {
     if (purgingAll || permanentCount === 0) return;
-    if (!window.confirm(`确定删除全部 ${permanentCount} 条永久隔离记录？\n此操作不可恢复，也不会重新导入号池。`)) return;
     setPurgingAll(true);
     try {
       const result = await purgeAllPermanentQuarantineAccounts();
+      setConfirmPurgeAllOpen(false);
       if (result.errors?.length && result.purged === 0) {
         toast.error(`批量删除失败：${result.errors[0]}`);
         onChanged();
@@ -148,8 +150,18 @@ export function TaskQueuePoolPanel({
         open={Boolean(iCloudMatchResult)}
         result={iCloudMatchResult}
         busy={purgingAll}
-        onPurgeAll={() => void handlePurgeAllPermanent()}
+        onPurgeAll={() => setConfirmPurgeAllOpen(true)}
         onClose={() => setICloudMatchResult(null)}
+      />
+      <ConfirmDialog
+        open={confirmPurgeAllOpen}
+        title={`确认删除全部 ${permanentCount} 条永久隔离记录？`}
+        description="此操作不可恢复，也不会将这些账号重新导入号池。"
+        confirmLabel="确认删除全部"
+        destructive
+        pending={purgingAll}
+        onClose={() => setConfirmPurgeAllOpen(false)}
+        onConfirm={() => void handlePurgeAllPermanent()}
       />
     </div>
   );

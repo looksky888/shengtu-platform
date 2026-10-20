@@ -3,33 +3,52 @@ import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 type PageHeaderProps = {
-  eyebrow: string;
+  eyebrow?: string;
   title: string;
+  badge?: ReactNode;
   description?: string;
   actions?: ReactNode;
   className?: string;
 };
 
-export function PageHeader({ eyebrow, title, description, actions, className }: PageHeaderProps) {
+export function PageHeader({
+  eyebrow,
+  title,
+  badge,
+  description,
+  actions,
+  className,
+}: PageHeaderProps) {
   return (
     <section
       className={cn(
-        "flex flex-col lg:flex-row lg:items-end lg:justify-between",
-        className,
+        "flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between lg:gap-4",
+        className
       )}
     >
-      <div className="flex max-w-3xl flex-col gap-1.5">
-        <div className="font-mid text-[11px] font-medium tracking-[0.08em] text-[#8e8e93]">
-          {eyebrow}
+      <div className="flex max-w-3xl flex-col gap-1">
+        {eyebrow ? (
+          <div className="font-mid text-[11px] font-medium tracking-[0.06em] text-muted-foreground">
+            {eyebrow}
+          </div>
+        ) : null}
+        <div className="flex flex-wrap items-center gap-2.5">
+          <h1 className="font-display text-xl leading-tight font-semibold tracking-tight text-foreground sm:text-2xl">
+            {title}
+          </h1>
+          {badge}
         </div>
-        <h1 className="font-display text-[2rem] leading-[1.15] font-semibold text-foreground sm:text-[2.35rem]">
-          {title}
-        </h1>
         {description ? (
-          <p className="text-sm leading-6 text-muted-foreground">{description}</p>
+          <p className="text-xs leading-5 text-muted-foreground sm:text-sm sm:leading-6">
+            {description}
+          </p>
         ) : null}
       </div>
-      {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
+      {actions ? (
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          {actions}
+        </div>
+      ) : null}
     </section>
   );
 }

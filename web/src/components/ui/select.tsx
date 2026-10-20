@@ -1,3 +1,5 @@
+"use client";
+
 import * as React from "react";
 import * as SelectPrimitive from "@radix-ui/react-select";
 import { Check, ChevronDown, ChevronUp } from "lucide-react";
@@ -22,21 +24,26 @@ function SelectValue(
 
 function SelectTrigger({
   className,
+  size = "default",
   children,
   ...props
-}: React.ComponentProps<typeof SelectPrimitive.Trigger>) {
+}: React.ComponentProps<typeof SelectPrimitive.Trigger> & {
+  size?: "sm" | "default";
+}) {
   return (
     <SelectPrimitive.Trigger
       data-slot="select-trigger"
+      data-size={size}
       className={cn(
-        "flex h-10 w-full items-center justify-between gap-2 rounded-[13px] border border-input bg-background px-3 py-2 text-sm whitespace-nowrap shadow-[0_2px_4px_rgba(0,0,0,0.03)] outline-none data-[placeholder]:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/20 [&>span]:line-clamp-1",
+        "flex w-full items-center justify-between gap-2 rounded-lg border border-input bg-surface whitespace-nowrap shadow-2xs outline-none transition-[border-color,box-shadow,background-color] duration-150 hover:border-border-strong data-[placeholder]:text-subtle-foreground disabled:cursor-not-allowed disabled:opacity-50 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/20 [&>span]:line-clamp-1",
+        size === "sm" ? "h-8 px-2.5 py-1 text-xs" : "h-9 px-3 py-1.5 text-sm",
         className,
       )}
       {...props}
     >
       {children}
       <SelectPrimitive.Icon asChild>
-        <ChevronDown className="size-4 opacity-60" />
+        <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
       </SelectPrimitive.Icon>
     </SelectPrimitive.Trigger>
   );
@@ -89,7 +96,7 @@ function SelectContent({
       <SelectPrimitive.Content
         data-slot="select-content"
         className={cn(
-          "relative z-50 max-h-96 min-w-[8rem] overflow-x-hidden overflow-y-auto rounded-[16px] border border-border bg-popover text-popover-foreground shadow-[0_20px_60px_-30px_rgba(15,23,42,0.35)] data-[state=closed]:animate-out data-[state=open]:animate-in",
+          "relative z-50 max-h-96 min-w-[8rem] overflow-x-hidden overflow-y-auto rounded-xl border border-border bg-surface-raised text-popover-foreground shadow-lg data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
           position === "popper" &&
             "data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1",
           className,
@@ -120,7 +127,7 @@ function SelectLabel({
   return (
     <SelectPrimitive.Label
       data-slot="select-label"
-      className={cn("px-2 py-1.5 text-xs font-medium", className)}
+      className={cn("px-2.5 py-1.5 text-xs font-medium text-muted-foreground", className)}
       {...props}
     />
   );
@@ -135,14 +142,14 @@ function SelectItem({
     <SelectPrimitive.Item
       data-slot="select-item"
       className={cn(
-        "relative flex w-full cursor-default items-center gap-2 rounded-lg py-2 pr-8 pl-3 text-sm outline-none select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 focus:bg-accent focus:text-accent-foreground",
+        "relative flex w-full cursor-default items-center gap-2 rounded-md py-2 pr-8 pl-2.5 text-sm outline-none select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 focus:bg-surface-hover focus:text-foreground data-[state=checked]:font-medium",
         className,
       )}
       {...props}
     >
       <span className="absolute right-2 flex size-4 items-center justify-center">
         <SelectPrimitive.ItemIndicator>
-          <Check className="size-4" />
+          <Check className="size-4 text-brand" />
         </SelectPrimitive.ItemIndicator>
       </span>
       <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
@@ -157,7 +164,7 @@ function SelectSeparator({
   return (
     <SelectPrimitive.Separator
       data-slot="select-separator"
-      className={cn("bg-muted -mx-1 my-1 h-px", className)}
+      className={cn("bg-border -mx-1 my-1 h-px", className)}
       {...props}
     />
   );

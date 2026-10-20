@@ -289,9 +289,6 @@ export function useVideoCreation(session: StoredAuthSession | null | undefined) 
       resolution: resolutionName,
     });
     if (taskStorageKey) window.localStorage.removeItem(taskStorageKey);
-    setTask(null);
-    setTaskScope({ storageKey: taskStorageKey, taskID: "" });
-    setPollError("");
   }
 
   function closePreview() {

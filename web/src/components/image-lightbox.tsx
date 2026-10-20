@@ -25,7 +25,9 @@ type ImageLightboxProps = {
   onIndexChange: (index: number) => void;
 };
 
-const MIN_ZOOM = 1; const MAX_ZOOM = 4; const ZOOM_STEP = 0.25;
+const MIN_ZOOM = 1;
+const MAX_ZOOM = 4;
+const ZOOM_STEP = 0.25;
 
 export function ImageLightbox({
   images,
@@ -35,10 +37,17 @@ export function ImageLightbox({
   onIndexChange,
 }: ImageLightboxProps) {
   const current = images[currentIndex];
-  const hasPrev = currentIndex > 0; const hasNext = currentIndex < images.length - 1;
+  const hasPrev = currentIndex > 0;
+  const hasNext = currentIndex < images.length - 1;
   const [zoom, setZoom] = useState(MIN_ZOOM);
   const [pan, setPan] = useState({ x: 0, y: 0 });
-  const dragRef = useRef<{ pointerId: number; startX: number; startY: number; panX: number; panY: number } | null>(null);
+  const dragRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    panX: number;
+    panY: number;
+  } | null>(null);
   const zoomPercent = Math.round(zoom * 100);
 
   const resetZoom = useCallback(() => {
@@ -58,6 +67,21 @@ export function ImageLightbox({
       }
       return next;
     });
+  }, []);
+
+  const handleWheel = useCallback((event: React.WheelEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    if (event.deltaY < 0) {
+      setZoom((value) => Math.min(MAX_ZOOM, Number((value + ZOOM_STEP).toFixed(2))));
+    } else if (event.deltaY > 0) {
+      setZoom((value) => {
+        const next = Math.max(MIN_ZOOM, Number((value - ZOOM_STEP).toFixed(2)));
+        if (next === MIN_ZOOM) {
+          setPan({ x: 0, y: 0 });
+        }
+        return next;
+      });
+    }
   }, []);
 
   const goPrev = useCallback(() => {
@@ -102,7 +126,10 @@ export function ImageLightbox({
 
   const handleDownload = useCallback(() => {
     if (!current) return;
-    triggerImageDownload(current.src, current.downloadName || imageDownloadFileName(current.src, current.id));
+    triggerImageDownload(
+      current.src,
+      current.downloadName || imageDownloadFileName(current.src, current.id)
+    );
   }, [current]);
 
   const handleImagePointerDown = useCallback(
@@ -120,33 +147,39 @@ export function ImageLightbox({
         panY: pan.y,
       };
     },
-    [pan.x, pan.y, zoom],
+    [pan.x, pan.y, zoom]
   );
 
-  const handleImagePointerMove = useCallback((event: React.PointerEvent<HTMLImageElement>) => {
-    const drag = dragRef.current;
-    if (!drag || drag.pointerId !== event.pointerId) {
-      return;
-    }
-    event.preventDefault();
-    setPan({
-      x: drag.panX + event.clientX - drag.startX,
-      y: drag.panY + event.clientY - drag.startY,
-    });
-  }, []);
+  const handleImagePointerMove = useCallback(
+    (event: React.PointerEvent<HTMLImageElement>) => {
+      const drag = dragRef.current;
+      if (!drag || drag.pointerId !== event.pointerId) {
+        return;
+      }
+      event.preventDefault();
+      setPan({
+        x: drag.panX + event.clientX - drag.startX,
+        y: drag.panY + event.clientY - drag.startY,
+      });
+    },
+    []
+  );
 
-  const handleImagePointerEnd = useCallback((event: React.PointerEvent<HTMLImageElement>) => {
-    if (dragRef.current?.pointerId === event.pointerId) {
-      dragRef.current = null;
-    }
-  }, []);
+  const handleImagePointerEnd = useCallback(
+    (event: React.PointerEvent<HTMLImageElement>) => {
+      if (dragRef.current?.pointerId === event.pointerId) {
+        dragRef.current = null;
+      }
+    },
+    []
+  );
 
   if (!current) return null;
 
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
         <DialogPrimitive.Content
           className="fixed inset-0 z-50 flex items-center justify-center outline-none"
           onPointerDownOutside={(e) => e.preventDefault()}
@@ -174,8 +207,9 @@ export function ImageLightbox({
             <button
               type="button"
               onClick={goPrev}
-              className="absolute left-4 z-10 inline-flex size-10 items-center justify-center rounded-full bg-black/40 text-white/90 transition hover:bg-black/60"
+              className="absolute left-4 z-10 inline-flex size-10 items-center justify-center rounded-full border border-white/15 bg-black/45 text-white/95 backdrop-blur-md transition hover:bg-black/70"
               aria-label="上一张"
+              title="上一张 (←)"
             >
               <ChevronLeft className="size-5" />
             </button>
@@ -184,19 +218,32 @@ export function ImageLightbox({
           <div
             className="flex h-full w-full items-center justify-center overflow-hidden p-4 pt-24 sm:p-8 sm:pt-20"
             onClick={() => onOpenChange(false)}
+            onWheel={handleWheel}
           >
             <img
               src={current.src}
               alt=""
               className={cn(
                 "max-h-[90vh] max-w-[90vw] rounded-lg object-contain transition-transform duration-100",
-                zoom > MIN_ZOOM ? "cursor-grab touch-none active:cursor-grabbing" : "cursor-zoom-in",
+                zoom > MIN_ZOOM
+                  ? "cursor-grab touch-none active:cursor-grabbing"
+                  : "cursor-zoom-in"
               )}
-              style={{ transform: `translate3d(${pan.x}px, ${pan.y}px, 0) scale(${zoom})` }}
+              style={{
+                transform: `translate3d(${pan.x}px, ${pan.y}px, 0) scale(${zoom})`,
+              }}
               onClick={(event) => {
                 event.stopPropagation();
                 if (zoom === MIN_ZOOM) {
                   zoomIn();
+                }
+              }}
+              onDoubleClick={(event) => {
+                event.stopPropagation();
+                if (zoom > MIN_ZOOM) {
+                  resetZoom();
+                } else {
+                  setZoom(2);
                 }
               }}
               onPointerDown={handleImagePointerDown}
@@ -211,8 +258,9 @@ export function ImageLightbox({
             <button
               type="button"
               onClick={goNext}
-              className="absolute right-4 z-10 inline-flex size-10 items-center justify-center rounded-full bg-black/40 text-white/90 transition hover:bg-black/60"
+              className="absolute right-4 z-10 inline-flex size-10 items-center justify-center rounded-full border border-white/15 bg-black/45 text-white/95 backdrop-blur-md transition hover:bg-black/70"
               aria-label="下一张"
+              title="下一张 (→)"
             >
               <ChevronRight className="size-5" />
             </button>
@@ -222,4 +270,3 @@ export function ImageLightbox({
     </DialogPrimitive.Root>
   );
 }
-

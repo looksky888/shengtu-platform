@@ -62,8 +62,6 @@ export function ComposerRatioResolutionSettings({
   isCustomRatioInvalid,
   sizePreviewLabel,
   sizePreviewDetail,
-  estimatedCreditCost,
-  estimatedCreditCostDetail,
   aspectRatioMenuRef,
   resolutionMenuRef,
   isAspectRatioMenuOpen,
@@ -151,28 +149,22 @@ export function ComposerRatioResolutionSettings({
       {imageAspectRatio === CUSTOM_IMAGE_ASPECT_RATIO && !grokMode ? (
         <div
           className={cn(
-            "col-span-2 flex min-w-0 items-center justify-between gap-2 rounded-2xl border bg-white px-3 py-2 dark:bg-background/70 sm:col-span-3",
-            isCustomRatioInvalid ? "border-red-300 dark:border-red-500/60" : "border-[#e5e7eb] dark:border-border",
+            "col-span-2 flex min-w-0 items-center justify-between gap-2 rounded-2xl border bg-surface px-3 py-2 sm:col-span-3",
+            isCustomRatioInvalid ? "border-red-300 dark:border-red-500/60" : "border-border",
           )}
         >
-          <span className="shrink-0 text-[11px] font-medium text-[#45515e] dark:text-muted-foreground">自定义比例</span>
+          <span className="shrink-0 text-[11px] font-medium text-muted-foreground">自定义比例</span>
           <Input
             aria-label="自定义图片比例"
             value={imageCustomRatio}
             onChange={(event) => onImageCustomRatioChange(event.target.value)}
             placeholder="例如 5:4 / 2.39:1"
             aria-invalid={isCustomRatioInvalid}
-            className="h-8 min-w-0 border-0 bg-transparent px-0 text-right text-xs font-semibold text-[#18181b] shadow-none focus-visible:ring-0 dark:text-foreground"
+            className="h-8 min-w-0 border-0 bg-transparent px-0 text-right text-xs font-semibold text-foreground shadow-none focus-visible:ring-0"
           />
         </div>
       ) : null}
       <ComposerSettingsInfoCard title="计算后分辨率" value={sizePreviewLabel} detail={sizePreviewDetail} />
-      <ComposerSettingsInfoCard
-        title="预计积分"
-        value={`${estimatedCreditCost} 积分`}
-        detail={estimatedCreditCostDetail}
-        variant="credit"
-      />
     </>
   );
 }

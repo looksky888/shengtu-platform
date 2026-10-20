@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Boxes, LoaderCircle, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -40,6 +41,8 @@ export function ImageChannelModelsDialog({
 }) {
   const [models, setModels] = useState<ImageChannelModel[]>([]);
   const [editing, setEditing] = useState<ImageChannelModel | null | undefined>();
+  const [deletingModel, setDeletingModel] = useState<ImageChannelModel | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [suggestionForForm, setSuggestionForForm] = useState("");
   const [loading, setLoading] = useState(false);
@@ -62,6 +65,7 @@ export function ImageChannelModelsDialog({
   useEffect(() => {
     if (open) {
       setEditing(undefined);
+      setDeletingModel(null);
       setSuggestions([]);
       setSuggestionForForm("");
       void load();
@@ -102,15 +106,19 @@ export function ImageChannelModelsDialog({
     }
   };
 
-  const remove = async (model: ImageChannelModel) => {
-    if (!channel || !window.confirm(`确定删除模型“${model.display_name}”？`)) return;
+  const confirmRemove = async () => {
+    if (!channel || !deletingModel) return;
+    setDeleting(true);
     try {
-      await deleteImageChannelModel(channel.id, model.id);
+      await deleteImageChannelModel(channel.id, deletingModel.id);
       toast.success("模型已删除");
+      setDeletingModel(null);
       resetPublicModelChannelCache();
       await Promise.all([load(), onChanged()]);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "删除模型失败");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -123,10 +131,10 @@ export function ImageChannelModelsDialog({
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex gap-2">
-            <Button type="button" onClick={() => { setSuggestionForForm(""); setEditing(null); }}><Plus className="size-4" />新增模型</Button>
+            <Button type="button" variant="brand" onClick={() => { setSuggestionForForm(""); setEditing(null); }}><Plus className="size-4" />新增模型</Button>
             {channel?.type === "openai_compatible" ? (
-              <Button type="button" variant="outline" disabled={discovering} onClick={() => void discover()}>
-                {discovering ? <LoaderCircle className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}拉取模型
+              <Button type="button" variant="outline" loading={discovering} disabled={discovering} onClick={() => void discover()}>
+                <RefreshCw className="size-4" />拉取模型
               </Button>
             ) : null}
           </div>
@@ -134,7 +142,7 @@ export function ImageChannelModelsDialog({
         </div>
 
         {suggestions.length > 0 ? (
-          <div className="rounded-[16px] border border-dashed border-border bg-muted/20 p-3">
+          <div className="rounded-[16px] border border-dashed border-border bg-surface-muted/40 p-3">
             <div className="mb-2 text-xs font-medium text-muted-foreground">已发现的上游模型（点击后填入表单，保存后才会出现在创作台）</div>
             <div className="flex flex-wrap gap-2">
               {suggestions.map((suggestion) => (
@@ -170,12 +178,23 @@ export function ImageChannelModelsDialog({
                   <TableCell className="text-xs text-muted-foreground">{model.capabilities.map((item) => item === "edit" ? "编辑" : "生成").join(" · ")}</TableCell>
                   <TableCell className="text-xs">{modelPrice(model)}</TableCell>
                   <TableCell><Badge variant={model.enabled ? "success" : "secondary"}>{model.enabled ? "启用" : "停用"}</Badge></TableCell>
-                  <TableCell><div className="flex justify-end gap-1"><Button type="button" size="icon" variant="ghost" aria-label="编辑模型" onClick={() => setEditing(model)}><Pencil className="size-4" /></Button><Button type="button" size="icon" variant="ghost" aria-label="删除模型" className="text-destructive" onClick={() => void remove(model)}><Trash2 className="size-4" /></Button></div></TableCell>
+                  <TableCell><div className="flex justify-end gap-1"><Button type="button" size="icon-sm" variant="ghost" aria-label="编辑模型" onClick={() => setEditing(model)}><Pencil className="size-4" /></Button><Button type="button" size="icon-sm" variant="ghost" aria-label="删除模型" className="text-destructive" onClick={() => setDeletingModel(model)}><Trash2 className="size-4" /></Button></div></TableCell>
                 </TableRow>
               ))}</TableBody>
             </Table>
           </div>
         )}
+
+        <ConfirmDialog
+          open={Boolean(deletingModel)}
+          title="确认删除模型？"
+          description={deletingModel ? `将从渠道“${channel?.name ?? ""}”中移除模型“${deletingModel.display_name}”。` : ""}
+          confirmLabel="确认删除"
+          destructive
+          pending={deleting}
+          onClose={() => setDeletingModel(null)}
+          onConfirm={() => void confirmRemove()}
+        />
       </DialogContent>
     </Dialog>
   );

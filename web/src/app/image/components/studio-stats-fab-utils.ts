@@ -69,9 +69,12 @@ export function saveFabPosition(pos: FabPosition) {
 
 export function defaultFabPosition(size = 64, margin = 24): FabPosition {
   if (typeof window === "undefined") return { x: margin, y: margin };
+  const isMobile = window.innerWidth < 640;
+  // Offset vertically above the bottom composer dock so the FAB never blocks the send button
+  const bottomClearance = isMobile ? 210 : 148;
   return {
     x: Math.max(margin, window.innerWidth - size - margin),
-    y: Math.max(margin, window.innerHeight - size - margin),
+    y: Math.max(margin, window.innerHeight - size - bottomClearance),
   };
 }
 
