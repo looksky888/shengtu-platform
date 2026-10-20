@@ -1,10 +1,12 @@
 "use client";
 
-import { LoaderCircle, RefreshCw } from "lucide-react";
+import { useState } from "react";
+import { LoaderCircle, Mail, RefreshCw, ShieldCheck } from "lucide-react";
 
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { SubNav, type SubNavItem } from "@/components/ui/sub-nav";
 import { useAuthGuard } from "@/lib/use-auth-guard";
 
 import { MetricCard } from "./icloud-cards";
@@ -14,9 +16,12 @@ import { ICloudMailboxesPanel } from "./icloud-mailboxes-panel";
 import { ICloudSessionsPanel } from "./icloud-sessions-panel";
 import { useICloudPage } from "./use-icloud-page";
 
+type ICloudTab = "mailboxes" | "sessions";
+
 export default function ICloudPage() {
   const { isCheckingAuth, session } = useAuthGuard(undefined, "/icloud");
   const controller = useICloudPage(Boolean(session));
+  const [activeTab, setActiveTab] = useState<ICloudTab>("mailboxes");
 
   if (isCheckingAuth || !session) {
     return (
@@ -26,14 +31,30 @@ export default function ICloudPage() {
     );
   }
 
-  const { loading, bridge, selectedAccountIds, pageError, notice, metrics, refreshAll } = controller;
+  const { loading, bridge, selectedAccountIds, pageError, notice, metrics, refreshAll, mailboxSummary, sessions } = controller;
+
+  const tabs: readonly SubNavItem<ICloudTab>[] = [
+    {
+      value: "mailboxes",
+      label: "隐私邮箱池与取码",
+      icon: Mail,
+      badge: mailboxSummary.total,
+    },
+    {
+      value: "sessions",
+      label: "Apple 账号与批量生成",
+      icon: ShieldCheck,
+      badge: sessions.length,
+    },
+  ];
+
   return (
     <div className="mx-auto flex w-full max-w-[1180px] flex-col gap-5 pb-8">
       <PageHeader
         eyebrow="邮箱"
         title="iCloud 隐私邮箱"
         actions={
-          <Button variant="outline" className="h-10 rounded-xl" onClick={() => void refreshAll()} disabled={loading}>
+          <Button variant="outline" size="sm" onClick={() => void refreshAll()} disabled={loading}>
             <RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} />
             刷新
           </Button>
@@ -71,14 +92,34 @@ export default function ICloudPage() {
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {metrics.map((metric) => <MetricCard key={metric.label} {...metric} />)}
       </div>
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(22rem,.9fr)]">
-        <ICloudSessionsPanel controller={controller} />
-        <div className="space-y-5">
-          <ICloudLoginPanels controller={controller} />
-          <ICloudCreatePanels controller={controller} />
-        </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <SubNav
+          items={tabs}
+          value={activeTab}
+          onValueChange={setActiveTab}
+          variant="pill"
+          ariaLabel="iCloud 隐私邮箱栏目切换"
+          layoutId="icloud-subnav"
+        />
+        <span className="text-xs text-muted-foreground">
+          {activeTab === "mailboxes"
+            ? "实时检索隐私邮箱库存、同步邮件并提取平台验证码"
+            : "管理 Apple 会话、配置 IMAP 密码并执行批量或定时创建"}
+        </span>
       </div>
-      <ICloudMailboxesPanel controller={controller} />
+
+      {activeTab === "mailboxes" ? (
+        <ICloudMailboxesPanel controller={controller} />
+      ) : (
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(22rem,.9fr)]">
+          <ICloudSessionsPanel controller={controller} />
+          <div className="space-y-5">
+            <ICloudLoginPanels controller={controller} />
+            <ICloudCreatePanels controller={controller} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

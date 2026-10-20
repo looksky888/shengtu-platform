@@ -18,10 +18,14 @@ func (a *App) handleProfileAPIKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	base := "/api/profile/api-key"
+	limits := a.profileRateLimits(identity)
 	if r.URL.Path == base {
 		switch r.Method {
 		case http.MethodGet:
-			util.WriteJSON(w, http.StatusOK, itemsResponse[service.AuthKeyPublic]{Items: a.auth.ListPersonalAPIKeyTyped(identity)})
+			util.WriteJSON(w, http.StatusOK, profileAPIKeyListResponse{
+				Items:      a.auth.ListPersonalAPIKeyTyped(identity),
+				RateLimits: limits,
+			})
 		case http.MethodPost:
 			body, ok := readJSONMapOr400(w, r)
 			if !ok {
@@ -32,10 +36,11 @@ func (a *App) handleProfileAPIKey(w http.ResponseWriter, r *http.Request) {
 				util.WriteError(w, http.StatusBadRequest, err.Error())
 				return
 			}
-			util.WriteJSON(w, http.StatusOK, itemKeyListResponse[service.AuthKeyPublic]{
-				Item:  item,
-				Key:   raw,
-				Items: a.auth.ListPersonalAPIKeyTyped(identity),
+			util.WriteJSON(w, http.StatusOK, profileAPIKeyMutateResponse{
+				Item:       item,
+				Key:        raw,
+				Items:      a.auth.ListPersonalAPIKeyTyped(identity),
+				RateLimits: limits,
 			})
 		default:
 			w.WriteHeader(http.StatusMethodNotAllowed)
@@ -85,9 +90,10 @@ func (a *App) handleProfileAPIKey(w http.ResponseWriter, r *http.Request) {
 			util.WriteError(w, http.StatusNotFound, "个人 API Key 不存在")
 			return
 		}
-		util.WriteJSON(w, http.StatusOK, itemListResponse[service.AuthKeyPublic]{
-			Item:  item,
-			Items: a.auth.ListPersonalAPIKeyTyped(identity),
+		util.WriteJSON(w, http.StatusOK, profileAPIKeyMutateResponse{
+			Item:       item,
+			Items:      a.auth.ListPersonalAPIKeyTyped(identity),
+			RateLimits: limits,
 		})
 	case http.MethodDelete:
 		okDel, err := a.auth.DeleteKey(keyID, filter)
@@ -99,9 +105,24 @@ func (a *App) handleProfileAPIKey(w http.ResponseWriter, r *http.Request) {
 			util.WriteError(w, http.StatusNotFound, "个人 API Key 不存在")
 			return
 		}
-		util.WriteJSON(w, http.StatusOK, itemsResponse[service.AuthKeyPublic]{Items: a.auth.ListPersonalAPIKeyTyped(identity)})
+		util.WriteJSON(w, http.StatusOK, profileAPIKeyListResponse{
+			Items:      a.auth.ListPersonalAPIKeyTyped(identity),
+			RateLimits: limits,
+		})
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
+}
+
+func (a *App) profileRateLimits(identity service.Identity) profileAPIKeyRateLimits {
+	if a == nil || a.config == nil {
+		return profileAPIKeyRateLimits{Unlimited: identity.Role == service.AuthRoleAdmin}
+	}
+	return profileAPIKeyRateLimits{
+		RPMLimit:        max(a.config.APIKeyDefaultRPMLimit(), 0),
+		ConcurrentLimit: max(a.config.APIKeyDefaultConcurrentLimit(), 0),
+		DailyLimit:      max(a.config.APIKeyDailyRequestLimit(), 0),
+		Unlimited:       identity.Role == service.AuthRoleAdmin,
 	}
 }
 

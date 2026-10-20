@@ -1,6 +1,6 @@
 "use client";
 
-import { LoaderCircle, Plus, RefreshCw, Save } from "lucide-react";
+import { AlertTriangle, LoaderCircle, Plus, RefreshCw, RotateCcw, Save } from "lucide-react";
 
 import { RBACCreateRoleDialog, RBACDeleteRoleDialog } from "@/app/rbac/rbac-role-dialogs";
 import { RBACRoleEditorCard } from "@/app/rbac/rbac-role-editor-card";
@@ -14,23 +14,23 @@ import { cn } from "@/lib/utils";
 function RBACContent() {
   const rbac = useRBACManagement();
   return (
-    <section className="flex flex-col gap-5">
+    <section className="flex flex-col gap-5 pb-16">
       <PageHeader
         eyebrow="权限"
-        title={"\u89d2\u8272\u6743\u9650"}
+        title="角色权限"
         actions={
           <>
-            <Button variant="outline" onClick={() => void rbac.loadRBAC()} disabled={rbac.isLoading} className="h-10 rounded-lg">
+            <Button variant="outline" size="sm" onClick={() => void rbac.loadRBAC()} disabled={rbac.isLoading}>
               <RefreshCw className={cn("size-4", rbac.isLoading ? "animate-spin" : "")} />
-              {"\u5237\u65b0"}
+              刷新
             </Button>
-            <Button onClick={() => rbac.setIsCreateDialogOpen(true)} disabled={rbac.isLoading} className="h-10 rounded-lg">
+            <Button variant="outline" size="sm" onClick={() => rbac.setIsCreateDialogOpen(true)} disabled={rbac.isLoading}>
               <Plus className="size-4" />
-              {"\u65b0\u5efa\u89d2\u8272"}
+              新建角色
             </Button>
-            <Button onClick={() => void rbac.handleSave()} disabled={!rbac.selectedRole || !rbac.isDirty || rbac.isSaving || rbac.isLoading} className="h-10 rounded-lg">
+            <Button size="sm" onClick={() => void rbac.handleSave()} disabled={!rbac.selectedRole || !rbac.isDirty || rbac.isSaving || rbac.isLoading}>
               {rbac.isSaving ? <LoaderCircle className="size-4 animate-spin" /> : <Save className="size-4" />}
-              {"\u4fdd\u5b58"}
+              保存
             </Button>
           </>
         }
@@ -61,6 +61,39 @@ function RBACContent() {
           onDeleteRole={rbac.setDeletingRole}
         />
       </div>
+
+      {rbac.isDirty && rbac.selectedRole ? (
+        <div className="sticky bottom-4 z-30 mx-auto flex w-full max-w-3xl flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-500/40 bg-background/95 px-4 py-3 shadow-lg backdrop-blur-md">
+          <div className="flex items-center gap-2.5 text-sm">
+            <AlertTriangle className="size-4 shrink-0 text-amber-500" />
+            <span className="font-medium text-foreground">
+              角色「{rbac.selectedRole.name}」有未保存的权限修改
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={rbac.isSaving}
+              onClick={() => rbac.applySelectedRole(rbac.selectedRole)}
+            >
+              <RotateCcw className="size-3.5" />
+              放弃更改
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              disabled={rbac.isSaving || rbac.isLoading}
+              onClick={() => void rbac.handleSave()}
+            >
+              {rbac.isSaving ? <LoaderCircle className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
+              保存角色权限
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
       <RBACCreateRoleDialog
         open={rbac.isCreateDialogOpen}
         createName={rbac.createName}

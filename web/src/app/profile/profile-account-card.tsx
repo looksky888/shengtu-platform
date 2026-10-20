@@ -1,8 +1,19 @@
 import { LoaderCircle, Save, UserPen } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import type { StoredAuthSession } from "@/store/auth";
 
@@ -27,12 +38,14 @@ export function ProfileAccountCard({
     <Card>
       <CardHeader>
         <div className="flex min-w-0 items-center gap-3">
-          <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-[#edf4ff] text-[#1456f0] dark:bg-sky-950/30 dark:text-sky-300">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-brand-border bg-brand-soft text-brand">
             <UserPen className="size-5" />
           </div>
           <div className="min-w-0">
-            <CardTitle className="text-lg">账号资料</CardTitle>
-            <CardDescription className="truncate">{session.subjectId || "—"}</CardDescription>
+            <CardTitle className="text-base font-semibold">账号资料</CardTitle>
+            <CardDescription className="truncate">
+              {session.subjectId || "—"}
+            </CardDescription>
           </div>
         </div>
       </CardHeader>
@@ -41,13 +54,29 @@ export function ProfileAccountCard({
           <Field>
             <FieldLabel htmlFor="profile-display-name">昵称</FieldLabel>
             <div className="flex flex-col gap-2 sm:flex-row">
-              <Input id="profile-display-name" value={profileName} onChange={(event) => onProfileNameChange(event.target.value)} placeholder="昵称" className="h-10 rounded-lg" />
-              <Button type="button" variant="outline" className="h-10 rounded-lg" onClick={onSaveProfile} disabled={!isProfileNameDirty || isSavingProfile}>
-                {isSavingProfile ? <LoaderCircle className="size-4 animate-spin" /> : <Save className="size-4" />}
+              <Input
+                id="profile-display-name"
+                value={profileName}
+                onChange={(event) => onProfileNameChange(event.target.value)}
+                placeholder="昵称"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onSaveProfile}
+                disabled={!isProfileNameDirty || isSavingProfile}
+              >
+                {isSavingProfile ? (
+                  <LoaderCircle className="size-4 animate-spin" />
+                ) : (
+                  <Save className="size-4" />
+                )}
                 保存
               </Button>
             </div>
-            <FieldDescription>昵称会显示在导航栏和接口调用记录中。</FieldDescription>
+            <FieldDescription>
+              昵称会显示在导航栏和接口调用记录中。
+            </FieldDescription>
           </Field>
         </FieldGroup>
       </CardContent>

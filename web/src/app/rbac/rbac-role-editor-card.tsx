@@ -47,26 +47,27 @@ export function RBACRoleEditorCard({
               <div className="flex min-w-0 items-center gap-2">
                 <ShieldCheck className="size-5 shrink-0 text-[#1456f0]" />
                 <h2 className="truncate text-base font-semibold text-foreground">
-                  {selectedRole?.name || "\u672a\u9009\u62e9\u89d2\u8272"}
+                  {selectedRole?.name || "未选择角色"}
                 </h2>
               </div>
               <code className="mt-1 block truncate font-mono text-xs text-muted-foreground">{selectedRole?.id || "-"}</code>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               {isDirty ? (
-                <Badge variant="warning" className="w-fit rounded-md">{"\u672a\u4fdd\u5b58"}</Badge>
+                <Badge variant="warning" className="w-fit rounded-md">未保存</Badge>
               ) : (
-                <Badge variant="secondary" className="w-fit rounded-md">{"\u5df2\u540c\u6b65"}</Badge>
+                <Badge variant="secondary" className="w-fit rounded-md">已同步</Badge>
               )}
               <Button
                 type="button"
                 variant="outline"
-                className="h-9 rounded-lg border-rose-200 px-3 text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+                size="sm"
+                className="border-rose-200 px-3 text-rose-600 hover:bg-rose-50 hover:text-rose-700"
                 disabled={!selectedRole || Boolean(selectedRole.builtin) || Boolean(selectedRole.user_count)}
                 onClick={() => selectedRole ? onDeleteRole(selectedRole) : null}
               >
                 <Trash2 className="size-4" />
-                {"\u5220\u9664"}
+                删除
               </Button>
             </div>
           </div>
@@ -75,7 +76,7 @@ export function RBACRoleEditorCard({
               aria-label="角色名称"
               value={roleName}
               onChange={(event) => onRoleNameChange(event.target.value)}
-              placeholder={"\u89d2\u8272\u540d\u79f0"}
+              placeholder="角色名称"
               disabled={!selectedRole || isLoading}
               className="h-10 rounded-lg"
             />
@@ -83,7 +84,7 @@ export function RBACRoleEditorCard({
               aria-label="角色描述"
               value={roleDescription}
               onChange={(event) => onRoleDescriptionChange(event.target.value)}
-              placeholder={"\u89d2\u8272\u63cf\u8ff0"}
+              placeholder="角色描述"
               disabled={!selectedRole || isLoading}
               className="h-10 rounded-lg"
             />
@@ -106,7 +107,7 @@ export function RBACRoleEditorCard({
             />
           ) : (
             <div className="flex min-h-[420px] items-center justify-center text-sm text-muted-foreground">
-              {"\u6682\u65e0\u89d2\u8272"}
+              暂无角色
             </div>
           )}
         </div>

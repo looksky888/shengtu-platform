@@ -18,6 +18,7 @@ type AuthKey struct {
 	Username       string   `json:"username,omitempty"`
 	Key            string   `json:"key,omitempty"` // legacy plaintext; empty for hash-only credentials
 	KeyHash        string   `json:"key_hash"`
+	KeyHint        string   `json:"key_hint,omitempty"`
 	Enabled        bool     `json:"enabled"`
 	CreatedAt      string   `json:"created_at"`
 	ExpiresAt      string   `json:"expires_at,omitempty"`
@@ -37,6 +38,10 @@ func authKeyFromMap(raw map[string]any) (AuthKey, bool) {
 	}
 	key := util.Clean(raw["key"])
 	hash := util.Clean(raw["key_hash"])
+	keyHint := util.Clean(raw["key_hint"])
+	if keyHint == "" && key != "" {
+		keyHint = maskAPIKeyHint(key)
+	}
 	// Accept hash-only credentials (new). Legacy rows may still carry plaintext key.
 	if hash == "" && key != "" {
 		hash = util.SHA256Hex(key)
@@ -81,6 +86,7 @@ func authKeyFromMap(raw map[string]any) (AuthKey, bool) {
 		// hash-only on boot (see eraseLegacyPlaintextKeys).
 		Key:        "",
 		KeyHash:    hash,
+		KeyHint:    keyHint,
 		Enabled:    util.ToBool(util.ValueOr(raw["enabled"], true)),
 		CreatedAt:  created,
 		ExpiresAt:  util.Clean(raw["expires_at"]),
@@ -127,6 +133,9 @@ func (k AuthKey) toMap() map[string]any {
 		"created_at":      k.CreatedAt,
 		"menu_paths":      append([]string(nil), k.MenuPaths...),
 		"api_permissions": append([]string(nil), k.APIPermissions...),
+	}
+	if k.KeyHint != "" {
+		out["key_hint"] = k.KeyHint
 	}
 	if k.RoleID != "" {
 		out["role_id"] = k.RoleID
@@ -190,6 +199,15 @@ func (k *AuthKey) storeSecret(raw string) {
 	}
 	k.Key = ""
 	k.KeyHash = util.SHA256Hex(raw)
+	k.KeyHint = maskAPIKeyHint(raw)
+}
+
+func maskAPIKeyHint(raw string) string {
+	trimmed := util.Clean(raw)
+	if len(trimmed) < 12 {
+		return ""
+	}
+	return trimmed[:7] + "••••••••" + trimmed[len(trimmed)-4:]
 }
 
 // authKeyPlaintextCount reports how many stored rows still carry a plaintext

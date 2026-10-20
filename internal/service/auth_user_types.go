@@ -76,6 +76,7 @@ type AuthKeyPublic struct {
 	Provider       string   `json:"provider,omitempty"`
 	OwnerID        string   `json:"owner_id,omitempty"`
 	OwnerName      string   `json:"owner_name,omitempty"`
+	KeyHint        string   `json:"key_hint,omitempty"`
 	Enabled        bool     `json:"enabled"`
 	CreatedAt      string   `json:"created_at,omitempty"`
 	ExpiresAt      string   `json:"expires_at,omitempty"`
@@ -96,6 +97,7 @@ func AuthKeyPublicFromRecord(item AuthKey) AuthKeyPublic {
 		Provider:       item.Provider,
 		OwnerID:        item.OwnerID,
 		OwnerName:      item.OwnerName,
+		KeyHint:        item.KeyHint,
 		Enabled:        item.Enabled,
 		CreatedAt:      item.CreatedAt,
 		ExpiresAt:      item.ExpiresAt,

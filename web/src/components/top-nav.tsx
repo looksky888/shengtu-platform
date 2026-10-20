@@ -255,33 +255,45 @@ function NavBrandButton({
   label: string;
   onToggle: () => void;
 }) {
+  const navigate = useNavigate();
   return (
-    <Button
-      type="button"
-      variant="ghost"
-      className={cn(
-        "font-display h-8 min-w-0 max-w-[148px] justify-start gap-2 rounded-lg px-1.5 pr-2 text-sm font-semibold text-foreground shadow-none hover:bg-surface-hover sm:max-w-[190px] lg:max-w-none",
-        collapsed && "bg-surface-muted text-brand"
-      )}
-      aria-controls={PRIMARY_NAV_ID}
-      aria-expanded={!collapsed}
-      aria-label={label}
-      title={label}
-      onClick={onToggle}
-    >
-      <img
-        src="/logo-mark.svg"
-        alt=""
-        aria-hidden="true"
-        className="size-6 rounded-lg shadow-xs"
-      />
-      <span className="truncate">{brandTitle}</span>
-      {collapsed ? (
-        <ChevronDown className="size-3.5 text-muted-foreground" aria-hidden="true" />
-      ) : (
-        <ChevronUp className="size-3.5 text-muted-foreground lg:hidden" aria-hidden="true" />
-      )}
-    </Button>
+    <div className="flex min-w-0 items-center gap-1">
+      <Button
+        type="button"
+        variant="ghost"
+        className="font-display h-8 min-w-0 max-w-[148px] justify-start gap-2 rounded-lg px-1.5 pr-2 text-sm font-semibold text-foreground shadow-none hover:bg-surface-hover sm:max-w-[190px] lg:max-w-none"
+        title="返回创作工作台"
+        onClick={() => navigate("/image")}
+      >
+        <img
+          src="/logo-mark.svg"
+          alt=""
+          aria-hidden="true"
+          className="size-6 rounded-lg shadow-xs"
+        />
+        <span className="truncate">{brandTitle}</span>
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-xs"
+        className={cn(
+          "lg:hidden",
+          collapsed && "bg-surface-muted text-brand"
+        )}
+        aria-controls={PRIMARY_NAV_ID}
+        aria-expanded={!collapsed}
+        aria-label={label}
+        title={label}
+        onClick={onToggle}
+      >
+        {collapsed ? (
+          <ChevronDown className="size-3.5 text-muted-foreground" aria-hidden="true" />
+        ) : (
+          <ChevronUp className="size-3.5 text-muted-foreground" aria-hidden="true" />
+        )}
+      </Button>
+    </div>
   );
 }
 

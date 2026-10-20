@@ -1,12 +1,13 @@
 import * as React from "react";
 import {
+  BookOpen,
   ChevronDown,
   Coins,
   ExternalLink,
-  KeyRound,
   LayoutGrid,
   LogOut,
   MoonStar,
+  ShieldCheck,
   Sun,
   UserCircle2,
 } from "lucide-react";
@@ -313,7 +314,23 @@ export function AccountMenu({
               )}
             >
               <UserCircle2 className="size-4 text-muted-foreground" />
-              <span>个人中心</span>
+              <span>个人中心 · 账号概览</span>
+            </Link>
+            <Link
+              to="/profile?tab=api"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium text-foreground transition hover:bg-surface-hover"
+            >
+              <BookOpen className="size-4 text-brand" />
+              <span>接口密钥与 API 文档</span>
+            </Link>
+            <Link
+              to="/profile?tab=credits"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium text-foreground transition hover:bg-surface-hover"
+            >
+              <Coins className="size-4 text-amber-500" />
+              <span>积分中心与流水</span>
             </Link>
             {session.role === "admin" ? (
               <Link
@@ -321,7 +338,7 @@ export function AccountMenu({
                 onClick={() => setOpen(false)}
                 className="flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium text-foreground transition hover:bg-surface-hover"
               >
-                <KeyRound className="size-4 text-muted-foreground" />
+                <ShieldCheck className="size-4 text-muted-foreground" />
                 <span>角色与权限</span>
               </Link>
             ) : null}

@@ -62,7 +62,7 @@ export function useRBACManagement() {
       const currentID = selectedRoleIdRef.current;
       applySelectedRole(nextRoles.find((role) => role.id === currentID) || nextRoles[0] || null);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "\u52a0\u8f7d\u89d2\u8272\u6743\u9650\u5931\u8d25");
+      toast.error(error instanceof Error ? error.message : "加载角色权限失败");
     } finally {
       setIsLoading(false);
     }
@@ -88,7 +88,7 @@ export function useRBACManagement() {
     if (!selectedRole || isSaving) return;
     const nextName = roleName.trim();
     if (!nextName) {
-      toast.error("\u89d2\u8272\u540d\u79f0\u4e0d\u80fd\u4e3a\u7a7a");
+      toast.error("角色名称不能为空");
       return;
     }
     setIsSaving(true);
@@ -102,9 +102,9 @@ export function useRBACManagement() {
       const nextRoles = normalizeManagedRoles(data.items);
       setRoles(nextRoles);
       applySelectedRole(nextRoles.find((role) => role.id === data.item.id) || data.item);
-      toast.success("\u89d2\u8272\u5df2\u4fdd\u5b58");
+      toast.success("角色已保存");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "\u4fdd\u5b58\u89d2\u8272\u5931\u8d25");
+      toast.error(error instanceof Error ? error.message : "保存角色失败");
     } finally {
       setIsSaving(false);
     }
@@ -113,7 +113,7 @@ export function useRBACManagement() {
   const handleCreate = async () => {
     const nextName = createName.trim();
     if (!nextName) {
-      toast.error("\u89d2\u8272\u540d\u79f0\u4e0d\u80fd\u4e3a\u7a7a");
+      toast.error("角色名称不能为空");
       return;
     }
     setIsCreating(true);
@@ -125,9 +125,9 @@ export function useRBACManagement() {
       setCreateName("");
       setCreateDescription("");
       setIsCreateDialogOpen(false);
-      toast.success("\u89d2\u8272\u5df2\u521b\u5efa");
+      toast.success("角色已创建");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "\u521b\u5efa\u89d2\u8272\u5931\u8d25");
+      toast.error(error instanceof Error ? error.message : "创建角色失败");
     } finally {
       setIsCreating(false);
     }
@@ -142,9 +142,9 @@ export function useRBACManagement() {
       setRoles(nextRoles);
       applySelectedRole(nextRoles.find((role) => role.id === selectedRoleId) || nextRoles[0] || null);
       setDeletingRole(null);
-      toast.success("\u89d2\u8272\u5df2\u5220\u9664");
+      toast.success("角色已删除");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "\u5220\u9664\u89d2\u8272\u5931\u8d25");
+      toast.error(error instanceof Error ? error.message : "删除角色失败");
     } finally {
       setIsDeleting(false);
     }

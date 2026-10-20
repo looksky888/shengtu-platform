@@ -31,7 +31,7 @@ export function RBACRoleList({
       <CardContent className="p-0">
         <div className="border-b border-border px-5 py-4">
           <div className="mb-3 flex items-center justify-between text-sm text-muted-foreground">
-            <span>{"\u89d2\u8272 "}{filteredRoles.length}{" / "}{roles.length}</span>
+            <span>角色 {filteredRoles.length} / {roles.length}</span>
             <ShieldCheck className="size-4" />
           </div>
           <div className="relative">
@@ -40,7 +40,7 @@ export function RBACRoleList({
               aria-label="搜索角色"
               value={searchText}
               onChange={(event) => onSearchTextChange(event.target.value)}
-              placeholder={"\u641c\u7d22\u89d2\u8272\u540d\u79f0\u6216\u63cf\u8ff0"}
+              placeholder="搜索角色名称或描述"
               className="h-10 rounded-lg pl-9"
             />
           </div>
@@ -52,7 +52,7 @@ export function RBACRoleList({
             </div>
           ) : null}
           {!isLoading && filteredRoles.length === 0 ? (
-            <div className="px-5 py-12 text-center text-sm text-muted-foreground">{"\u6682\u65e0\u89d2\u8272"}</div>
+            <div className="px-5 py-12 text-center text-sm text-muted-foreground">暂无角色</div>
           ) : null}
           {!isLoading ? filteredRoles.map((role) => (
             <button
@@ -69,11 +69,11 @@ export function RBACRoleList({
                   <div className="truncate text-sm font-semibold text-foreground">{role.name}</div>
                   <code className="mt-1 block truncate font-mono text-xs text-muted-foreground">{role.id}</code>
                 </div>
-                {role.builtin ? <Badge variant="secondary" className="shrink-0 rounded-md">{"\u5185\u7f6e"}</Badge> : null}
+                {role.builtin ? <Badge variant="secondary" className="shrink-0 rounded-md">内置</Badge> : null}
               </div>
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 <span className="rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">{permissionCountLabel(role)}</span>
-                <span className="rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">{role.user_count || 0}{" \u7528\u6237"}</span>
+                <span className="rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">{role.user_count || 0} 用户</span>
               </div>
             </button>
           )) : null}

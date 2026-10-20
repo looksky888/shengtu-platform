@@ -285,8 +285,12 @@ func TestProfileAPIKeyIsPersonalAndPermissionIndependent(t *testing.T) {
 	item, _ := created["item"].(map[string]any)
 	firstID, _ := item["id"].(string)
 	firstKey, _ := created["key"].(string)
-	if firstID == "" || firstKey == "" || item["owner_id"] != user.ID || item["role"] != service.AuthRoleUser {
+	firstHint, _ := item["key_hint"].(string)
+	if firstID == "" || firstKey == "" || firstHint == "" || item["owner_id"] != user.ID || item["role"] != service.AuthRoleUser {
 		t.Fatalf("profile key create body = %#v", created)
+	}
+	if _, ok := created["rate_limits"].(map[string]any); !ok {
+		t.Fatalf("profile key create missing rate_limits: %#v", created)
 	}
 
 	req = httptest.NewRequest(http.MethodPost, "/api/profile/api-key", strings.NewReader(`{"name":"Alice API rotated"}`))

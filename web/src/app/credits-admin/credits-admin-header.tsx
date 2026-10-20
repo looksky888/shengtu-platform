@@ -14,11 +14,11 @@ export function CreditsAdminHeader({ state }: { state: CreditsAdminState }) {
         title="积分管理"
         actions={
           <>
-            <Button variant="outline" onClick={() => void state.loadData()} disabled={state.isLoading} className="h-10 rounded-lg">
+            <Button variant="outline" size="sm" onClick={() => void state.loadData()} disabled={state.isLoading}>
               <RefreshCw className={`size-4 ${state.isLoading ? "animate-spin" : ""}`} />刷新
             </Button>
             {state.permissions.canManageCredits ? (
-              <Button onClick={() => state.setIsGenerateDialogOpen(true)} className="h-10 rounded-lg">
+              <Button size="sm" onClick={() => state.setIsGenerateDialogOpen(true)}>
                 <Plus className="size-4" />生成卡密
               </Button>
             ) : null}

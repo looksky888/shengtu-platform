@@ -93,11 +93,19 @@ export type UserKey = {
   provider?: "local" | string;
   owner_id?: string;
   owner_name?: string;
+  key_hint?: string;
   enabled: boolean;
   created_at: string | null;
   last_used_at: string | null;
   menu_paths?: string[];
   api_permissions?: string[];
+};
+
+export type ProfileApiKeyRateLimits = {
+  rpm_limit: number;
+  concurrent_limit: number;
+  daily_limit: number;
+  unlimited: boolean;
 };
 
 export type ManagedUser = {

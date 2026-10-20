@@ -34,8 +34,15 @@ export function sessionRoleLabel(session: StoredAuthSession) {
   return session.roleName || "普通用户";
 }
 
-export function maskKey(hasKey: boolean) {
-  return hasKey ? "sk-••••••••••••••••••••••••••••••••" : "未生成";
+export function maskKey(hasKey: boolean, keyHint?: string | null) {
+  if (!hasKey) {
+    return "尚未生成密钥";
+  }
+  const hint = typeof keyHint === "string" ? keyHint.trim() : "";
+  if (hint) {
+    return hint;
+  }
+  return "sk-••••••••••••••••••••••••••••••••";
 }
 
 export function sortCreditLedgerDesc(items: CreditLedgerEntry[]) {

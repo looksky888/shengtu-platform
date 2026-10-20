@@ -10,6 +10,8 @@ import {
 } from "react";
 import {
   ArrowRight,
+  BookOpen,
+  Coins,
   CornerDownLeft,
   MoonStar,
   Search,
@@ -173,9 +175,42 @@ export function NavSearchMenu({
       subtitle: profileNavItem.description,
       badge: "/profile",
       icon: UserCircle2,
-      keywords: ["profile", "account", "user", "个人中心", "账号", "密码"],
+      keywords: ["profile", "account", "user", "个人中心", "账号", "密码", "签到"],
       active: isActivePath(pathname, "/profile"),
       onSelect: () => navigate("/profile"),
+    });
+
+    entries.push({
+      id: "nav:/profile?tab=api",
+      groupLabel: "快捷操作",
+      label: "接口密钥与 API 文档",
+      subtitle: "生成/管理个人 sk- 密钥、测试连通性并查阅 OpenAI / 视频接口文档",
+      badge: "/profile?tab=api",
+      icon: BookOpen,
+      keywords: [
+        "api",
+        "key",
+        "token",
+        "docs",
+        "openai",
+        "sdk",
+        "接口",
+        "密钥",
+        "文档",
+        "对接",
+      ],
+      onSelect: () => navigate("/profile?tab=api"),
+    });
+
+    entries.push({
+      id: "nav:/profile?tab=credits",
+      groupLabel: "快捷操作",
+      label: "个人积分中心与流水",
+      subtitle: "查看当前算力积分余额、签到状态与消费退费明细",
+      badge: "/profile?tab=credits",
+      icon: Coins,
+      keywords: ["credits", "ledger", "balance", "积分", "流水", "余额"],
+      onSelect: () => navigate("/profile?tab=credits"),
     });
 
     if (onToggleTheme) {

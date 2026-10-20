@@ -30,3 +30,22 @@ type loginResponse struct {
 	APIPermissions []string                 `json:"api_permissions"`
 	Menus          []service.MenuPermission `json:"menus"`
 }
+
+type profileAPIKeyRateLimits struct {
+	RPMLimit        int  `json:"rpm_limit"`
+	ConcurrentLimit int  `json:"concurrent_limit"`
+	DailyLimit      int  `json:"daily_limit"`
+	Unlimited       bool `json:"unlimited"`
+}
+
+type profileAPIKeyListResponse struct {
+	Items      []service.AuthKeyPublic `json:"items"`
+	RateLimits profileAPIKeyRateLimits `json:"rate_limits"`
+}
+
+type profileAPIKeyMutateResponse struct {
+	Item       service.AuthKeyPublic   `json:"item"`
+	Key        string                  `json:"key,omitempty"`
+	Items      []service.AuthKeyPublic `json:"items"`
+	RateLimits profileAPIKeyRateLimits `json:"rate_limits"`
+}
