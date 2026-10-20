@@ -37,20 +37,21 @@ func (s *RegistrationQuotaService) checkRiskLocked(input RegistrationRiskInput, 
 		return riskBlockError(blocked, now)
 	}
 
-	deviceCount := s.successCountLocked(now.AddDate(0, 0, -s.policy.DeviceWindowDays), func(event RegistrationQuotaEvent) bool {
+	deviceCutoff := s.riskUnblockCutoffLocked(riskBlockDevice, input.DeviceID, now.AddDate(0, 0, -s.policy.DeviceWindowDays))
+	deviceCount := s.successCountLocked(deviceCutoff, func(event RegistrationQuotaEvent) bool {
 		return input.DeviceID != "" && event.DeviceID == input.DeviceID
 	})
 	if deviceCount >= s.policy.DeviceSuccessLimit {
 		return s.denyWithBlockLocked(riskBlockDevice, input.DeviceID, "device_limit", "此设备注册账号过多，已临时封禁", time.Duration(s.policy.DeviceBlockHours)*time.Hour, now, mutate)
 	}
-	devicePending := s.pendingCountLocked(now.AddDate(0, 0, -s.policy.DeviceWindowDays), func(event RegistrationQuotaEvent) bool {
+	devicePending := s.pendingCountLocked(deviceCutoff, func(event RegistrationQuotaEvent) bool {
 		return input.DeviceID != "" && event.DeviceID == input.DeviceID
 	})
 	if deviceCount+devicePending >= s.policy.DeviceSuccessLimit {
 		return &RegistrationRiskError{Code: "device_capacity_pending", Message: "此设备有注册请求处理中，请稍后再试", RetryAfter: staleReserveTTL}
 	}
 
-	ipCutoff := now.Add(-time.Duration(s.policy.IPWindowHours) * time.Hour)
+	ipCutoff := s.riskUnblockCutoffLocked(riskBlockIP, input.ClientIP, now.Add(-time.Duration(s.policy.IPWindowHours)*time.Hour))
 	ipCount, pendingIPCount := 0, 0
 	successDevices, activeDevices := map[string]struct{}{}, map[string]struct{}{}
 	for _, event := range s.state.Events {
@@ -101,7 +102,7 @@ func (s *RegistrationQuotaService) recordAttemptAndCheckLocked(input Registratio
 		Email: input.Email, CreatedAt: now.UTC().Format(time.RFC3339Nano),
 	}
 	s.state.Attempts = append(s.state.Attempts, attempt)
-	pairCutoff := now.Add(-time.Duration(s.policy.PairAttemptWindowMinutes) * time.Minute)
+	pairCutoff := s.riskUnblockCutoffLocked(riskBlockPair, riskPairKey(input.ClientIP, input.DeviceID), now.Add(-time.Duration(s.policy.PairAttemptWindowMinutes)*time.Minute))
 	pairCount := 0
 	for _, item := range s.state.Attempts {
 		if parseRegistrationQuotaTime(item.CreatedAt).After(pairCutoff) && item.ClientIP == input.ClientIP && item.DeviceID == input.DeviceID {

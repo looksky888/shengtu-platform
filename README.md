@@ -2,16 +2,16 @@
 
 
 
-## shengtu 4.5 版本说明
+## shengtu 4.6 版本说明
 
-本目录为 **shengtu 4.5** 发布版源码（基于 4.3 稳定基线，版本标记 `4.5.2-20261017-public-updater`）。
+本目录为 **shengtu 4.6** 源码（版本标记 `4.6-20261015-sentinel`）。4.6 在 4.5 基础上只调整 ChatGPT 网页号池链路：图片握手改由私有 sentinel-solver 提供浏览器上下文，见 `docs/v4.6-sentinel-recovery.md`。没有数据库迁移。
 
 - 优化与安全修复见上级 `CHANGELOG.md` 与仓库根 `OPTIMIZATION_CHECKLIST.md`。
 - 运维要点（重启、健康检查、CORS、发布包）：见 `docs/SHENGTU_3X_OPS.md`。
 - **干净部署 / 净包 / 测试隔离**：见 `docs/CLEAN_DEPLOY.md`。
 - 号池模式 vs 中转站：设置页 `image_provider` = `account_pool` / `proxy_api`。
 - 默认角色仅创作台+图片库；积分扣费见设置「积分成本」。
-- Compose 默认仅监听 `127.0.0.1:3004`，镜像标签 `shengtu:4.5.2-20261017-public-updater`。
+- Compose 默认仅监听 `127.0.0.1:3004`，镜像标签 `shengtu:4.6-20261015-sentinel`。
 - 图片媒体支持服务器本地或 Cloudflare R2；R2 模式使用 SQL 媒体索引、私有桶临时地址和持久化上传重试。
 - Grok 默认生图模型 `grok-imagine-image` 使用 Basic/Lite 通道；质量模型使用新版 Imagine WebSocket 原生批次和兼容事件收集器。
 - 共享 429 不再触发账号轮换或重放；只有明确的 `usage_limit_reached` 才在请求内换号。
@@ -73,7 +73,7 @@
 - 面向图片工具调用场景的 Responses：`POST /v1/responses`。
 - Anthropic Messages 风格入口：`POST /v1/messages`。
 - 异步创作任务资源：`/api/creation-tasks`。
-- 支持 `gpt-image-2`、`grok-imagine-image*`、`auto` 和多个 `gpt-5*` 文本/图片场景模型选项。
+- 支持 `gpt-image-2`、`gpt-image-2.5`（flare 别名）、`gpt-image-2.5-flare`、`gpt-image-2.5-sunburst`、`grok-imagine-image*`、`auto` 和多个 `gpt-5*` 文本/图片场景模型选项。
 
 ### 账号池与导入
 
@@ -119,8 +119,8 @@ docker compose up -d --build
 
 默认 Compose 配置：
 
-- 服务：主应用、FlareSolverr、Grok runtime；iCloud 服务通过 `--profile icloud` 启用
-- 镜像：`shengtu:4.5.2-20261017-public-updater`
+- 服务：主应用、sentinel-solver、FlareSolverr、Grok runtime；iCloud 服务通过 `--profile icloud` 启用
+- 镜像：`shengtu:4.6-20261015-sentinel`
 - 端口：默认 `127.0.0.1:3004` -> 容器 `80`
 - 数据目录：`./data:/app/data`
 - 环境文件：Compose 只读取宿主机 `.env` 并注入进程，不再挂载到容器
@@ -186,7 +186,7 @@ grep -n "^CHATGPT2API_ADMIN_PASSWORD=" .env
 
 则不会生成随机密码，也不会创建 `bootstrap-admin.txt`。管理员账号已存在时，改 `.env` 中的 `CHATGPT2API_ADMIN_PASSWORD` 不会覆盖现有密码。
 
-默认 Compose 仅监听 `127.0.0.1:3004`（容器内 80），镜像标签：`shengtu:4.5.2-20261017-public-updater`。公网部署应由 TLS 反向代理转发到该地址；只有明确需要直接监听公网时，才设置 `CHATGPT2API_BIND_ADDR=0.0.0.0` 并配置防火墙。
+默认 Compose 仅监听 `127.0.0.1:3004`（容器内 80），镜像标签：`shengtu:4.6-20261015-sentinel`。公网部署应由 TLS 反向代理转发到该地址；只有明确需要直接监听公网时，才把 `CHATGPT2API_BIND_ADDR` 设为 `0.0.0.0`（Compose 用它做端口映射）并配置防火墙。直接运行二进制时请显式设置 `PORT` 与 `CHATGPT2API_BIND_ADDR`，见 `.env.example`。
 
 <details>
 <summary>重置本地管理员密码</summary>
@@ -531,7 +531,7 @@ curl http://localhost:3000/v1/images/generations \
 
 | 字段 | 说明 |
 | --- | --- |
-| `model` | 图片模型，支持 `auto`、`gpt-image-2`、`grok-imagine-image*` |
+| `model` | 图片模型，支持 `auto`、`gpt-image-2`、`gpt-image-2.5`、`gpt-image-2.5-flare`、`gpt-image-2.5-sunburst`、`grok-imagine-image*` |
 | `prompt` | 图片生成提示词 |
 | `n` | 生成数量，当前限制为 `1-4` |
 | `response_format` | 默认 `b64_json` |
@@ -551,7 +551,7 @@ curl http://localhost:3000/v1/images/edits \
 
 | 字段 | 说明 |
 | --- | --- |
-| `model` | 图片模型，支持 `auto`、`gpt-image-2`、`grok-imagine-image*` |
+| `model` | 图片模型，支持 `auto`、`gpt-image-2`、`gpt-image-2.5`、`gpt-image-2.5-flare`、`gpt-image-2.5-sunburst`、`grok-imagine-image*` |
 | `prompt` | 图片编辑提示词 |
 | `n` | 生成数量，当前限制为 `1-4` |
 | `image` | 参考图片，使用 multipart/form-data 上传 |

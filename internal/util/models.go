@@ -6,8 +6,8 @@ const (
 	ImageModelAuto = "auto"
 	// ImageModelGPT is the legacy public alias retained for existing clients.
 	ImageModelGPT = "gpt-image-2"
-	// ImageModelGPT25 is the upstream-compatible 2.5 alias.  The Web route
-	// selects the active 2.5 engine through the internal auto slug.
+	// ImageModelGPT25 is the compatibility alias for the current Web image
+	// route. It resolves to ImageModelGPT25Flare on the upstream wire.
 	ImageModelGPT25         = "gpt-image-2.5"
 	ImageModelGPT25Flare    = "gpt-image-2.5-flare"
 	ImageModelGPT25Sunburst = "gpt-image-2.5-sunburst"
@@ -155,6 +155,22 @@ func IsGPTImageModel(model string) bool {
 		return true
 	default:
 		return false
+	}
+}
+
+// CanonicalImage25Model returns the exact Web image model slug to send to
+// prepare and conversation. The bare 2.5 alias intentionally resolves to
+// flare, while explicit flare and sunburst selections remain distinct.
+func CanonicalImage25Model(model string) (string, bool) {
+	switch strings.TrimSpace(strings.ToLower(model)) {
+	case ImageModelGPT25:
+		return ImageModelGPT25Flare, true
+	case ImageModelGPT25Flare:
+		return ImageModelGPT25Flare, true
+	case ImageModelGPT25Sunburst:
+		return ImageModelGPT25Sunburst, true
+	default:
+		return "", false
 	}
 }
 

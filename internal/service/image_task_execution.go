@@ -3,6 +3,7 @@ package service
 import (
 	"chatgpt2api/internal/util"
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"runtime/debug"
@@ -56,18 +57,33 @@ func (s *ImageTaskService) runTask(ctx context.Context, key, mode string, identi
 		payload["model"] = effectiveModel
 	}
 
+	// The task deadline starts before the channel slot queue. Waiting with the
+	// submission-time context (no deadline) let a saturated channel park a worker
+	// indefinitely, so a queued task now times out like any other phase.
+	runCtx, cancel := context.WithTimeout(ctx, s.taskTimeoutForPayload(mode, payload))
+	defer cancel()
+
 	if isImageTaskMode(mode) {
 		channel := firstNonEmpty(util.Clean(payload["effective_channel"]), imageTaskChannel(util.Clean(payload["model"])))
 		waitMsg := "等待 " + channel + " 渠道并发槽位"
 		s.transitionTaskStage(key, "slot_wait")
 		s.bumpTaskProgress(key, 18, "正在获取令牌", waitMsg, 2, nil)
 		s.appendTaskEvent(key, "slot_wait", waitMsg, map[string]any{"channel": channel})
-		slots, ok := s.acquireImageSlots(ctx, s.imageTaskSlotRequest(payload, channel), channel, util.ToInt(payload["channel_max_concurrency"], 0))
+		slots, ok := s.acquireImageSlots(runCtx, s.imageTaskSlotRequest(payload, channel), channel, util.ToInt(payload["channel_max_concurrency"], 0))
 		if !ok {
-			s.finishActiveTask(key, map[string]any{
+			updates := map[string]any{
 				"status": TaskStatusCancelled, "error": "任务已终止", "data": []any{},
 				"progress": 100, "progress_stage": "已取消", "progress_message": "任务已终止",
-			})
+			}
+			// A deadline that expired while queued is a timeout, not a user cancel.
+			if ctx.Err() == nil && errors.Is(runCtx.Err(), context.DeadlineExceeded) {
+				message := "等待渠道并发槽位超时，请稍后重试"
+				updates = map[string]any{
+					"status": TaskStatusError, "error": message, "error_code": "slot_wait_timeout",
+					"data": []any{}, "progress": 100, "progress_stage": "失败", "progress_message": message,
+				}
+			}
+			s.finishActiveTask(key, updates)
 			return
 		}
 		defer s.releaseImageSlots(slots, channel)
@@ -81,8 +97,6 @@ func (s *ImageTaskService) runTask(ctx context.Context, key, mode string, identi
 	}
 	s.transitionTaskStage(key, "account_wait")
 	s.appendTaskEvent(key, "account_alloc", "开始分配账号", nil)
-	runCtx, cancel := context.WithTimeout(ctx, s.taskTimeoutForPayload(mode, payload))
-	defer cancel()
 
 	handler := s.generation
 	if mode == "edit" {

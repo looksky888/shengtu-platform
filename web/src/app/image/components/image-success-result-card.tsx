@@ -2,14 +2,11 @@ import { Check, Eye, Globe2, LoaderCircle, Lock, Plus, WandSparkles } from "luci
 
 import type { ImageLightboxItem } from "@/app/image/components/image-results-types";
 import {
-  blurFocusedElementInContainer,
   getImageFormatLabel,
   imageResolutionLabel,
-  imageVisibilityActionClass,
-  imageVisibilityLabel,
-  imageVisibilityPillClass,
 } from "@/app/image/components/image-results-utils";
 import type { ImageVisibility } from "@/lib/api";
+import { blurFocusedElementInContainer, imageVisibilityActionClass, imageVisibilityLabel, imageVisibilityPillClass } from "@/lib/image-card-utils";
 import { formatBase64ImageFileSize } from "@/lib/image-size";
 import { cn } from "@/lib/utils";
 import type { StoredImage, StoredReferenceImage } from "@/store/image-conversations";

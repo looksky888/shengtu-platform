@@ -26,6 +26,8 @@ type AccountPublic struct {
 	DefaultModelSlug  string                 `json:"default_model_slug,omitempty"`
 	RestoreAt         string                 `json:"restoreAt,omitempty"`
 	LastUsedAt        string                 `json:"lastUsedAt,omitempty"`
+	ProxyConfigured   bool                   `json:"proxy_configured"`
+	ProxyTimezone     string                 `json:"proxy_timezone,omitempty"`
 	LimitsProgress    []AccountLimitProgress `json:"limits_progress,omitempty"`
 }
 
@@ -50,6 +52,8 @@ func AccountPublicFromRecord(account Account) AccountPublic {
 		DefaultModelSlug:  account.DefaultModelSlug,
 		RestoreAt:         account.RestoreAt,
 		LastUsedAt:        account.LastUsedAt,
+		ProxyConfigured:   account.ProxyURL != "",
+		ProxyTimezone:     account.ProxyTimezone,
 		LimitsProgress:    accountLimitsPublic(account.LimitsProgress),
 	}
 }

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
+import { downloadBlob } from "@/lib/image-download";
 import {
   createGrokProviderConcurrencyTask,
   createGrokProviderConversionTask,
@@ -34,12 +35,7 @@ function taskFailureMessage(task: GrokProviderConversionTask) {
 }
 
 function downloadJson(value: unknown, filename: string) {
-  const url = URL.createObjectURL(new Blob([JSON.stringify(value, null, 2)], { type: "application/json" }));
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = filename;
-  anchor.click();
-  URL.revokeObjectURL(url);
+  downloadBlob(new Blob([JSON.stringify(value, null, 2)], { type: "application/json" }), filename);
 }
 
 export function useGrokProviderCenter() {

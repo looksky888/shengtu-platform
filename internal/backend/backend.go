@@ -23,16 +23,16 @@ const (
 	responsesUpstreamUserAgent  = "codex-tui/0.128.0 (Mac OS 26.3.1; arm64) iTerm.app/3.6.9 (codex-tui; 0.128.0)"
 	responsesUpstreamOriginator = "codex-tui"
 
-	browserUserAgent              = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
-	browserSecCHUA                = `"Not:A-Brand";v="99", "Google Chrome";v="145", "Chromium";v="145"`
-	browserSecCHUAFullVersion     = `"145.0.0.0"`
-	browserSecCHUAFullVersionList = `"Not:A-Brand";v="99.0.0.0", "Google Chrome";v="145.0.0.0", "Chromium";v="145.0.0.0"`
+	browserUserAgent              = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+	browserSecCHUA                = `"Chromium";v="146", "Google Chrome";v="146", "Not/A)Brand";v="99"`
+	browserSecCHUAFullVersion     = `"146.0.0.0"`
+	browserSecCHUAFullVersionList = `"Chromium";v="146.0.0.0", "Google Chrome";v="146.0.0.0", "Not/A)Brand";v="99.0.0.0"`
 	browserSecCHUAMobile          = "?0"
 	browserSecCHUAPlatform        = `"Windows"`
 	browserSecCHUAPlatformVersion = `"19.0.0"`
 	browserSecCHUAArch            = `"x86"`
 	browserSecCHUABitness         = `"64"`
-	browserImpersonationProfile   = "chrome145"
+	browserImpersonationProfile   = "chrome146"
 )
 
 type AccountLookup interface {
@@ -45,16 +45,19 @@ type Client struct {
 	ClientBuildNumber string
 	AccessToken       string
 
-	lookup       AccountLookup
-	proxy        *service.ProxyService
-	httpClient   *http.Client
-	fp           map[string]string
-	userAgent    string
-	deviceID     string
-	sessionID    string
-	powSources   []string
-	powDataBuild string
-	logger       *service.Logger
+	lookup        AccountLookup
+	proxy         *service.ProxyService
+	proxyURL      string
+	proxyTimezone string
+	httpClient    *http.Client
+	fp            map[string]string
+	userAgent     string
+	deviceID      string
+	sessionID     string
+	powSources    []string
+	powDataBuild  string
+	logger        *service.Logger
+	sentinel      *sentinelContext
 }
 
 // SetLogger attaches the application logger for redacted upstream diagnostics.
@@ -91,15 +94,12 @@ func NewClient(accessToken string, lookup AccountLookup, proxy *service.ProxySer
 		proxy:             proxy,
 	}
 	c.fp = c.buildFingerprint()
+	c.proxyURL, c.proxyTimezone = c.accountEgress()
 	c.applyBrowserFingerprint()
 	c.userAgent = c.fp["user-agent"]
 	c.deviceID = c.fp["oai-device-id"]
 	c.sessionID = c.fp["oai-session-id"]
-	if proxy != nil {
-		c.httpClient = proxy.BrowserHTTPClientWithProfile(c.fp["impersonate"], 300*time.Second)
-	} else {
-		c.httpClient = service.HTTPClientForProxy("", 300*time.Second)
-	}
+	c.httpClient = service.BrowserHTTPClientForProxyWithProfile(c.proxyURL, c.fp["impersonate"], 300*time.Second)
 	return c
 }
 
@@ -164,6 +164,10 @@ func (c *Client) StreamConversation(ctx context.Context, messages []map[string]a
 		} else if len(messages) == 0 {
 			messages = []map[string]any{{"role": "user", "content": prompt}}
 		}
+		if err := c.prepareSentinelContext(ctx); err != nil {
+			errCh <- err
+			return
+		}
 		if err := c.bootstrap(ctx); err != nil {
 			errCh <- err
 			return
@@ -174,6 +178,9 @@ func (c *Client) StreamConversation(ctx context.Context, messages []map[string]a
 			return
 		}
 		path, timezoneName := c.chatTarget()
+		if c.sentinel != nil {
+			timezoneName = c.sentinel.Timezone
+		}
 		payload := c.conversationPayload(messages, model, timezoneName, systemHints)
 		resp, err := c.postJSON(ctx, path, payload, c.conversationHeaders(path, reqs), true)
 		if err != nil {
@@ -224,6 +231,10 @@ func (c *Client) chatTarget() (string, string) {
 }
 
 func (c *Client) conversationPayload(messages []map[string]any, model, timezoneName string, systemHintsValues ...[]string) map[string]any {
+	timezoneOffset := -480
+	if c.sentinel != nil {
+		timezoneName, timezoneOffset = c.sentinel.Timezone, c.sentinel.Offset
+	}
 	conversationMessages := []map[string]any{conversationUserMessage(conversationPrompt(messages))}
 	var systemHints []any
 	if len(systemHintsValues) > 0 {
@@ -239,7 +250,7 @@ func (c *Client) conversationPayload(messages []map[string]any, model, timezoneN
 		"force_paragen": false, "force_paragen_model_slug": "", "force_rate_limit": false, "force_use_sse": true,
 		"history_and_training_disabled": true, "reset_rate_limits": false, "suggestions": []any{}, "supported_encodings": []any{"v1"},
 		"enable_message_followups": true, "supports_buffering": true,
-		"system_hints": systemHints, "timezone": timezoneName, "timezone_offset_min": -480,
+		"system_hints": systemHints, "timezone": timezoneName, "timezone_offset_min": timezoneOffset,
 		"variant_purpose": "comparison_implicit", "websocket_request_id": util.NewUUID(),
 		"client_contextual_info": map[string]any{"is_dark_mode": false, "time_since_loaded": 120, "page_height": 900, "page_width": 1400, "pixel_ratio": 2, "screen_height": 1440, "screen_width": 2560},
 	}

@@ -1,6 +1,6 @@
 module icloud-privacy-mail
 
-go 1.26.9
+go 1.26.6
 
 require modernc.org/sqlite v1.40.1
 

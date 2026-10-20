@@ -76,6 +76,9 @@ export function AccountsPageContent({ session }: { session: StoredAuthSession })
         editStatus={accounts.editStatus}
         editType={accounts.editType}
         editQuota={accounts.editQuota}
+        editProxyUrl={accounts.editProxyUrl}
+        editProxyTimezone={accounts.editProxyTimezone}
+        clearProxy={accounts.clearProxy}
         isUpdating={accounts.isUpdating}
         canUpdateAccount={canUpdateAccount}
         onOpenChange={(open) => {
@@ -84,6 +87,9 @@ export function AccountsPageContent({ session }: { session: StoredAuthSession })
         onStatusChange={accounts.setEditStatus}
         onTypeChange={accounts.setEditType}
         onQuotaChange={accounts.setEditQuota}
+        onProxyUrlChange={accounts.setEditProxyUrl}
+        onProxyTimezoneChange={accounts.setEditProxyTimezone}
+        onClearProxyChange={accounts.setClearProxy}
         onSave={() => void accounts.handleUpdateAccount()}
       />
 

@@ -12,7 +12,18 @@ import (
 
 type tradeBillRow struct {
 	OutTradeNo, TransactionID, Status, Currency string
-	AmountFen                                   int64
+	// RefundStatus/RefundAmountFen are only populated by the REFUND bill
+	// schema (退款状态 / 退款金额). Empty on the SUCCESS bill.
+	RefundStatus    string
+	AmountFen       int64
+	RefundAmountFen int64
+}
+
+// tradeBillRefundSucceeded reports a completed provider-side refund. Without
+// the refund column we cannot prove a refund finished, so nothing is reported:
+// a missing column must never be read as "refunded".
+func tradeBillRefundSucceeded(row tradeBillRow) bool {
+	return strings.EqualFold(strings.TrimSpace(row.RefundStatus), "SUCCESS")
 }
 
 func parseTradeBillFile(path string) ([]tradeBillRow, error) {
@@ -48,7 +59,15 @@ func parseTradeBillFile(path string) ([]tradeBillRow, error) {
 	if !okCurrency {
 		currencyIndex = -1
 	}
-	amountIndex, ok := firstIndex(indexes, "订单金额", "总金额", "应结订单金额")
+	refundStatusIndex, okRefundStatus := firstIndex(indexes, "退款状态")
+	if !okRefundStatus {
+		refundStatusIndex = -1
+	}
+	refundAmountIndex, okRefundAmount := firstIndex(indexes, "退款金额", "申请退款金额")
+	if !okRefundAmount {
+		refundAmountIndex = -1
+	}
+	amountIndex, ok := firstIndex(indexes, tradeBillAmountFields...)
 	if !ok {
 		return nil, errors.New("微信交易账单缺少金额字段")
 	}
@@ -61,7 +80,7 @@ func parseTradeBillFile(path string) ([]tradeBillRow, error) {
 		if readErr != nil {
 			return nil, readErr
 		}
-		if len(record) == 0 || strings.HasPrefix(normalizeTradeBillCell(record[0]), "总交易单数") {
+		if len(record) == 0 || isTradeBillSummaryRow(record[0]) {
 			break
 		}
 		get := func(index int) string {
@@ -78,13 +97,25 @@ func parseTradeBillFile(path string) ([]tradeBillRow, error) {
 		if err != nil {
 			return nil, fmt.Errorf("账单订单 %s 金额无效: %w", orderNo, err)
 		}
-		rows = append(rows, tradeBillRow{OutTradeNo: orderNo, TransactionID: get(transactionIndex), Status: get(statusIndex), Currency: get(currencyIndex), AmountFen: amount})
+		row := tradeBillRow{OutTradeNo: orderNo, TransactionID: get(transactionIndex), Status: get(statusIndex), Currency: get(currencyIndex), RefundStatus: get(refundStatusIndex), AmountFen: amount}
+		if refundAmountIndex >= 0 {
+			refundAmount, refundErr := parseYuanToFen(get(refundAmountIndex))
+			if refundErr != nil {
+				return nil, fmt.Errorf("账单订单 %s 退款金额无效: %w", orderNo, refundErr)
+			}
+			row.RefundAmountFen = refundAmount
+		}
+		rows = append(rows, row)
 	}
 	if len(rows) == maxReconciliationBillRows {
 		return nil, errors.New("微信交易账单超过 1000000 行限制")
 	}
 	return rows, nil
 }
+
+// tradeBillAmountFields lists the amount columns shared by the SUCCESS and
+// REFUND bill schemas; header detection accepts any of them.
+var tradeBillAmountFields = []string{"订单金额", "总金额", "应结订单金额", "退款金额", "申请退款金额"}
 
 func findTradeBillHeader(reader *csv.Reader) ([]string, error) {
 	const maxHeaderRows = 10
@@ -104,7 +135,7 @@ func findTradeBillHeader(reader *csv.Reader) ([]string, error) {
 			indexes[value] = i
 		}
 		_, hasOrder := firstIndex(indexes, "商户订单号")
-		_, hasAmount := firstIndex(indexes, "订单金额", "总金额", "应结订单金额")
+		_, hasAmount := firstIndex(indexes, tradeBillAmountFields...)
 		if hasOrder && hasAmount {
 			return append([]string(nil), record...), nil
 		}
@@ -123,6 +154,13 @@ func firstIndex(indexes map[string]int, names ...string) (int, bool) {
 
 func normalizeTradeBillCell(value string) string {
 	return strings.Trim(strings.TrimSpace(strings.TrimPrefix(value, "\ufeff")), "`")
+}
+
+// isTradeBillSummaryRow reports the trailing summary line of a trade bill. The
+// refund bill labels its own summary differently from the payment bill.
+func isTradeBillSummaryRow(value string) bool {
+	cell := normalizeTradeBillCell(value)
+	return strings.HasPrefix(cell, "总交易单数") || strings.HasPrefix(cell, "总退款单数")
 }
 
 func parseYuanToFen(value string) (int64, error) {

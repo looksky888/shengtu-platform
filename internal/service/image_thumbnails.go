@@ -57,6 +57,10 @@ func (s *ImageService) ensureThumbnailForRef(ref imageFileRef) map[string]any {
 	})
 }
 
+// thumbnailJobWaitTimeout bounds how long a caller waits for an in-flight
+// thumbnail generation before doing the work itself.
+const thumbnailJobWaitTimeout = 30 * time.Second
+
 func (s *ImageService) withThumbnailJob(rel string, run func() map[string]any) map[string]any {
 	s.thumbnailMu.Lock()
 	if s.thumbnailJobs == nil {
@@ -65,19 +69,30 @@ func (s *ImageService) withThumbnailJob(rel string, run func() map[string]any) m
 	if job, ok := s.thumbnailJobs[rel]; ok {
 		done := job.done
 		s.thumbnailMu.Unlock()
-		<-done
-		return job.result
+		select {
+		case <-done:
+			return job.result
+		case <-time.After(thumbnailJobWaitTimeout):
+			// The in-flight job is wedged. Generate here instead of blocking this
+			// caller — inside a task worker that would pin the whole worker.
+			return run()
+		}
 	}
 	job := &thumbnailJob{done: make(chan struct{})}
 	s.thumbnailJobs[rel] = job
 	s.thumbnailMu.Unlock()
 
+	// Cleanup must not depend on run() returning normally: a panic used to leave
+	// the entry in the map and done unclosed, so every later caller for the same
+	// image blocked on <-done forever. The panic itself still propagates to the
+	// existing recovery layers.
+	defer func() {
+		s.thumbnailMu.Lock()
+		delete(s.thumbnailJobs, rel)
+		close(job.done)
+		s.thumbnailMu.Unlock()
+	}()
 	job.result = run()
-
-	s.thumbnailMu.Lock()
-	delete(s.thumbnailJobs, rel)
-	close(job.done)
-	s.thumbnailMu.Unlock()
 	return job.result
 }
 

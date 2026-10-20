@@ -17,7 +17,6 @@ import shutil
 from pathlib import Path
 
 
-_DEFAULT_ASCII_CERT_DIR = r"D:\BaiduNetdiskDownload\gptgrok2api-certs"
 _applied = False
 
 
@@ -27,6 +26,20 @@ def _is_ascii_path(path: str) -> bool:
         return True
     except UnicodeEncodeError:
         return False
+
+
+def _default_ascii_cert_dir() -> Path:
+    """Pick a writable ASCII-only directory without hardcoding one machine.
+
+    The previous default was an absolute path from the original developer's
+    Windows box; on any other host it either failed or silently created a bogus
+    relative directory (the caller swallows the exception).
+    """
+    for key in ("LOCALAPPDATA", "XDG_CACHE_HOME", "TMPDIR", "TEMP", "TMP"):
+        candidate = os.environ.get(key)
+        if candidate and _is_ascii_path(candidate):
+            return Path(candidate) / "gptgrok2api-certs"
+    return Path(os.path.expanduser("~")) / ".cache" / "gptgrok2api-certs"
 
 
 def ensure_ascii_ssl_cert() -> str | None:
@@ -53,11 +66,10 @@ def ensure_ascii_ssl_cert() -> str | None:
             dest_root = Path(
                 os.environ.get("GPTGROK_CERT_DIR")
                 or os.environ.get("CHATGPT2API_CERT_DIR")
-                or _DEFAULT_ASCII_CERT_DIR
+                or _default_ascii_cert_dir()
             )
             if not _is_ascii_path(str(dest_root)):
-                # Last resort: user profile is usually ASCII on this machine.
-                dest_root = Path(os.environ.get("LOCALAPPDATA") or os.path.expanduser("~")) / "gptgrok2api-certs"
+                dest_root = _default_ascii_cert_dir()
             dest_root.mkdir(parents=True, exist_ok=True)
             dest = dest_root / "cacert.pem"
             need_copy = True

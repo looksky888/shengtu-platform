@@ -14,6 +14,7 @@ import (
 func emptyRegistrationQuotaState() registrationQuotaState {
 	return registrationQuotaState{
 		Events: []RegistrationQuotaEvent{}, Attempts: []RegistrationAttempt{}, Blocks: []RegistrationRiskBlock{},
+		Unblocks: []RegistrationRiskUnblock{},
 	}
 }
 
@@ -74,6 +75,9 @@ func normalizeRegistrationQuotaState(state *registrationQuotaState) {
 	if state.Blocks == nil {
 		state.Blocks = []RegistrationRiskBlock{}
 	}
+	if state.Unblocks == nil {
+		state.Unblocks = []RegistrationRiskUnblock{}
+	}
 }
 
 func (s *RegistrationQuotaService) saveLocked() error {
@@ -105,6 +109,7 @@ func (s *RegistrationQuotaService) pruneStateLocked(now time.Time) int {
 	removed := s.pruneQuotaEventsLocked(now)
 	removed += s.pruneRegistrationAttemptsLocked(now)
 	removed += s.pruneRegistrationBlocksLocked(now)
+	removed += s.pruneRegistrationUnblocksLocked(now)
 	return removed
 }
 
@@ -172,6 +177,39 @@ func (s *RegistrationQuotaService) pruneRegistrationBlocksLocked(now time.Time) 
 		next = next[len(next)-s.maxEvents:]
 	}
 	s.state.Blocks = next
+	return removed
+}
+
+// pruneRegistrationUnblocksLocked drops manual-unblock markers once no ledger row they
+// could suppress is retained any more (they only move a counting window start).
+func (s *RegistrationQuotaService) pruneRegistrationUnblocksLocked(now time.Time) int {
+	retention := time.Duration(s.policy.DeviceWindowDays) * 24 * time.Hour
+	if value := time.Duration(s.policy.IPWindowHours) * time.Hour; value > retention {
+		retention = value
+	}
+	if value := time.Duration(s.policy.SubnetWindowHours) * time.Hour; value > retention {
+		retention = value
+	}
+	if value := time.Duration(s.policy.PairAttemptWindowMinutes) * time.Minute; value > retention {
+		retention = value
+	}
+	if retention < 24*time.Hour {
+		retention = 24 * time.Hour
+	}
+	cutoff := now.Add(-retention)
+	next := make([]RegistrationRiskUnblock, 0, len(s.state.Unblocks))
+	for _, unblock := range s.state.Unblocks {
+		createdAt := parseRegistrationQuotaTime(unblock.CreatedAt)
+		if !createdAt.IsZero() && !createdAt.Before(cutoff) {
+			next = append(next, unblock)
+		}
+	}
+	removed := len(s.state.Unblocks) - len(next)
+	if len(next) > s.maxEvents {
+		removed += len(next) - s.maxEvents
+		next = next[len(next)-s.maxEvents:]
+	}
+	s.state.Unblocks = next
 	return removed
 }
 

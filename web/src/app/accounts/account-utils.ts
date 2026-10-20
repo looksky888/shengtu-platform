@@ -4,6 +4,7 @@ import { Ban, CheckCircle2, CircleAlert, CircleOff, RefreshCw, UserRound } from 
 import { Badge } from "@/components/ui/badge";
 import type { Account, AccountStatus, AccountType } from "@/lib/api";
 import { formatDateTime, parseDateTime } from "@/lib/datetime";
+import { downloadBlob } from "@/lib/image-download";
 
 export const accountTypeOptions: { label: string; value: AccountType | "all" }[] = [
   { label: "全部类型", value: "all" },
@@ -104,13 +105,7 @@ export function maskToken(token?: string) {
 
 export function downloadTokenFile(tokens: string[]) {
   const content = `${tokens.join("\n")}\n`;
-  const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `accounts-${Date.now()}.txt`;
-  link.click();
-  URL.revokeObjectURL(url);
+  downloadBlob(new Blob([content], { type: "text/plain;charset=utf-8" }), `accounts-${Date.now()}.txt`);
 }
 
 export function normalizeAccounts(items: Account[] | null | undefined): Account[] {

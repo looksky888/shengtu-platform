@@ -9,12 +9,12 @@ import {
   imageOutputCompressionForFormat,
   imageQualityForModel,
   isInvalidCustomRatioSelection,
-  isTurnInProgress,
   normalizeRequestedImageCount,
   usesReferenceImages,
 } from "@/app/image/lib/image-turn-utils";
 import { serializeImageSizeSelection } from "@/app/image/lib/image-storage-utils";
 import { buildConversationTitle, createId } from "@/app/image/lib/reference-image-utils";
+import { isTurnBusy } from "@/lib/image-turn-state";
 import type { ImageConversation } from "@/store/image-conversations";
 
 type UpdateConversation = (
@@ -58,7 +58,7 @@ export function useSaveEditingTurn({
         toast.error("未找到对应的对话轮次");
         return;
       }
-      if (isTurnInProgress(targetTurn)) {
+      if (isTurnBusy(targetTurn)) {
         toast.error("当前轮次正在处理，稍后再编辑");
         return;
       }

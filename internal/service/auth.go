@@ -97,6 +97,9 @@ type AuthService struct {
 	storeReady         bool
 	roleStoreReady     bool
 	passwordStoreReady bool
+	// legacyPlaintextKeys counts credentials whose stored row still carried a
+	// plaintext "key" field at load time; boot rewrites them hash-only.
+	legacyPlaintextKeys int
 	// keyIndex maps key_hash -> first index in items for O(1) Authenticate.
 	keyIndex map[string]int
 }
@@ -114,6 +117,7 @@ func NewAuthService(backend storage.Backend) *AuthService {
 	s.syncPasswordAccountsToItems()
 	s.applyRolesToItems()
 	s.rebuildKeyIndexLocked()
+	s.eraseLegacyPlaintextKeys()
 	return s
 }
 

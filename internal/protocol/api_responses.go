@@ -244,6 +244,7 @@ func StreamImageResponse(outputs <-chan ImageOutput, prompt, model string) (<-ch
 		responseID := "resp_" + util.NewHex(32)
 		created := time.Now().Unix()
 		out <- ResponseCreated(responseID, model, created)
+		items := make([]map[string]any, 0, MaxImageCount)
 		for output := range outputs {
 			if output.Kind == "message" {
 				item := TextOutputItem(output.Text, "", "completed")
@@ -257,16 +258,27 @@ func StreamImageResponse(outputs <-chan ImageOutput, prompt, model string) (<-ch
 			if output.Kind != "result" {
 				continue
 			}
-			items := ImageOutputItems(prompt, output.Data, "")
-			if len(items) > 0 {
-				item := items[0]
-				out <- map[string]any{"type": "response.output_item.done", "output_index": 0, "item": item}
-				out <- ResponseCompleted(responseID, model, created, []map[string]any{item})
-				errCh <- nil
-				return
+			// Emit every generated image instead of only the first one: the caller
+			// asked for n images and each already cost an upstream generation.
+			for _, item := range ImageOutputItems(prompt, output.Data, "") {
+				if len(items) >= MaxImageCount {
+					break // keep draining the channel, but never grow without bound
+				}
+				index := len(items)
+				// Item ids must be unique across the whole response, so they cannot
+				// come from the per-output numbering inside ImageOutputItems.
+				item["id"] = fmt.Sprintf("ig_%d", index+1)
+				out <- map[string]any{"type": "response.output_item.added", "output_index": index, "item": item}
+				out <- map[string]any{"type": "response.output_item.done", "output_index": index, "item": item}
+				items = append(items, item)
 			}
 		}
-		errCh <- fmt.Errorf("image generation failed")
+		if len(items) == 0 {
+			errCh <- fmt.Errorf("image generation failed")
+			return
+		}
+		out <- ResponseCompleted(responseID, model, created, items)
+		errCh <- nil
 	}()
 	return out, errCh
 }

@@ -21,6 +21,8 @@ type Account struct {
 	LastUsedAt        string         `json:"last_used_at,omitempty"`
 	FP                map[string]any `json:"fp,omitempty"`
 	Impersonate       string         `json:"impersonate,omitempty"`
+	ProxyURL          string         `json:"proxy_url,omitempty"`
+	ProxyTimezone     string         `json:"proxy_timezone,omitempty"`
 }
 
 func accountFromMap(item map[string]any) (Account, bool) {
@@ -50,6 +52,8 @@ func accountFromMap(item map[string]any) (Account, bool) {
 		Fail:              util.ToInt(item["fail"], 0),
 		LastUsedAt:        util.Clean(item["last_used_at"]),
 		Impersonate:       util.Clean(item["impersonate"]),
+		ProxyURL:          util.Clean(item["proxy_url"]),
+		ProxyTimezone:     util.Clean(item["proxy_timezone"]),
 	}
 	if raw, ok := item["fp"].(map[string]any); ok && len(raw) > 0 {
 		acc.FP = util.CopyMap(raw)
@@ -100,6 +104,12 @@ func (a Account) toMap() map[string]any {
 	}
 	if a.Impersonate != "" {
 		out["impersonate"] = a.Impersonate
+	}
+	if a.ProxyURL != "" {
+		out["proxy_url"] = a.ProxyURL
+	}
+	if a.ProxyTimezone != "" {
+		out["proxy_timezone"] = a.ProxyTimezone
 	}
 	return out
 }

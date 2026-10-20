@@ -68,15 +68,18 @@ func authKeyFromMap(raw map[string]any) (AuthKey, bool) {
 		created = util.NowISO()
 	}
 	item := AuthKey{
-		ID:         id,
-		Name:       name,
-		Role:       role,
-		Kind:       kind,
-		Provider:   provider,
-		OwnerID:    util.Clean(raw["owner_id"]),
-		OwnerName:  util.Clean(raw["owner_name"]),
-		Username:   util.Clean(raw["username"]),
-		Key:        key,
+		ID:        id,
+		Name:      name,
+		Role:      role,
+		Kind:      kind,
+		Provider:  provider,
+		OwnerID:   util.Clean(raw["owner_id"]),
+		OwnerName: util.Clean(raw["owner_name"]),
+		Username:  util.Clean(raw["username"]),
+		// Plaintext never enters memory or storage: a legacy row's "key" is only
+		// used above to derive/verify key_hash. AuthService rewrites such rows
+		// hash-only on boot (see eraseLegacyPlaintextKeys).
+		Key:        "",
 		KeyHash:    hash,
 		Enabled:    util.ToBool(util.ValueOr(raw["enabled"], true)),
 		CreatedAt:  created,
@@ -119,7 +122,6 @@ func (k AuthKey) toMap() map[string]any {
 		"provider":        k.Provider,
 		"owner_id":        k.OwnerID,
 		"owner_name":      k.OwnerName,
-		"key":             k.Key,
 		"key_hash":        k.KeyHash,
 		"enabled":         k.Enabled,
 		"created_at":      k.CreatedAt,
@@ -188,4 +190,16 @@ func (k *AuthKey) storeSecret(raw string) {
 	}
 	k.Key = ""
 	k.KeyHash = util.SHA256Hex(raw)
+}
+
+// authKeyPlaintextCount reports how many stored rows still carry a plaintext
+// "key" field. Used once at boot to decide whether a hash-only rewrite is needed.
+func authKeyPlaintextCount(raw []map[string]any) int {
+	count := 0
+	for _, item := range raw {
+		if util.Clean(item["key"]) != "" {
+			count++
+		}
+	}
+	return count
 }

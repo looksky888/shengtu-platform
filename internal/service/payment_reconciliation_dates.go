@@ -32,8 +32,13 @@ func validateBillDateForNow(value string, now time.Time) error {
 	return nil
 }
 
+// billDateRange returns the [start, end) window of a CST (UTC+8) bill date.
+// paid_at is persisted as UTC RFC3339Nano and the window is compared with SQL
+// string operators, so both bounds must be rendered in UTC: a "+08:00" bound
+// sorts after every "Z" timestamp of the same instant and would push the
+// 00:00-08:00 orders of a day into the neighbouring day's window.
 func billDateRange(value string) (string, string) {
 	location := time.FixedZone("CST", 8*60*60)
 	parsed, _ := time.ParseInLocation("2006-01-02", value, location)
-	return parsed.Format(time.RFC3339), parsed.AddDate(0, 0, 1).Format(time.RFC3339)
+	return parsed.UTC().Format(time.RFC3339), parsed.AddDate(0, 0, 1).UTC().Format(time.RFC3339)
 }

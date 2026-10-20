@@ -1,4 +1,4 @@
-﻿import type {
+import type {
   ImageModel,
   ImageOutputFormat,
   ImageQuality,
@@ -67,7 +67,7 @@ export type ImageTurn = {
 };
 
 /** Bump when the stored conversation shape changes; readers normalize older payloads. */
-export const IMAGE_CONVERSATION_SCHEMA_VERSION = 4 as const;
+export const IMAGE_CONVERSATION_SCHEMA_VERSION = 5 as const;
 
 export type ImageConversation = {
   /** Present on newly written conversations (v2+). Missing means legacy v1 payload. */
@@ -76,6 +76,8 @@ export type ImageConversation = {
   title: string;
   createdAt: string;
   updatedAt: string;
+  /** Monotonic write version used for merge arbitration (see image-conversation-revision). */
+  revision: number;
   turns: ImageTurn[];
 };
 

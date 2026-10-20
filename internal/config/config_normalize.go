@@ -14,8 +14,8 @@ import (
 
 func normalizeUpdateRepo(value any) string {
 	repo := strings.Trim(strings.TrimSpace(fmt.Sprint(value)), "/")
-	if repo == "" || strings.EqualFold(repo, "ZyphrZero/chatgpt2api") {
-		return "looksky888/shengtu-platform"
+	if repo == "" {
+		return "ZyphrZero/chatgpt2api"
 	}
 	return repo
 }

@@ -18,6 +18,7 @@ import { buildConversationTitle, createId } from "@/app/image/lib/reference-imag
 import type { ImageModel, ImageOutputFormat, ImageQuality, ImageVisibility } from "@/lib/api";
 import type { ImageChannelType } from "@/lib/image-channel-api";
 import { fetchPublicPoolFreeSlots, isChatModel, isGrokImageModel, isImageCreationModel } from "@/lib/api";
+import { touchConversation } from "@/store/image-conversation-revision";
 import {
   getImageConversationStats,
   type ImageConversation,
@@ -189,19 +190,25 @@ export function useSubmitImageTurn({
         status: "queued",
       };
       const baseConversation: ImageConversation = targetConversation
-        ? {
-            ...targetConversation,
-            title: targetConversation.turns.length === 0 ? buildConversationTitle(prompt) : targetConversation.title,
-            updatedAt: now,
-            turns: [...targetConversation.turns, draftTurn],
-          }
-        : {
-            id: conversationId,
-            title: buildConversationTitle(prompt),
-            createdAt: now,
-            updatedAt: now,
-            turns: [draftTurn],
-          };
+        ? touchConversation(
+            targetConversation,
+            {
+              title: targetConversation.turns.length === 0 ? buildConversationTitle(prompt) : targetConversation.title,
+              turns: [...targetConversation.turns, draftTurn],
+            },
+            now,
+          )
+        : touchConversation(
+            {
+              id: conversationId,
+              title: buildConversationTitle(prompt),
+              createdAt: now,
+              updatedAt: now,
+              turns: [draftTurn],
+            },
+            {},
+            now,
+          );
 
       draftProgressTarget = { conversationId, turnId };
       updateTurnProgress(conversationId, turnId, {

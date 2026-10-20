@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from runtime.provider_accounts.account_locks import AccountLockRegistry
+from runtime.provider_accounts.account_locks import AccountLockRegistry, shared_account_locks
 from runtime.provider_accounts.build_repository import ManagedBuildRepository
 from runtime.provider_accounts.credential_cipher import ProviderCredentialCipher
 from runtime.provider_accounts.identity import source_fingerprint, web_account_id
@@ -143,6 +143,27 @@ async def test_concurrent_missing_conversion_uses_one_account_flow_and_releases_
     assert sorted((first.skipped, second.skipped)) == [0, 1]
     assert flow.calls == 1
     assert await locks.size() == 0
+
+
+@pytest.mark.asyncio
+async def test_task_scoped_services_share_one_account_lock(tmp_path: Path) -> None:
+    """Every background task assembles its own service; the account lock must be process-wide."""
+    flow = _BuildFlow(delay=0.03)
+    _, first_service = _setup(tmp_path, ["fixture-web-sso"], flow)
+    _, second_service = _setup(tmp_path, ["fixture-web-sso"], flow)
+
+    assert first_service._locks is shared_account_locks()
+    assert second_service._locks is first_service._locks
+
+    results = await asyncio.gather(
+        first_service.convert(strategy="missing"),
+        second_service.convert(strategy="missing"),
+    )
+
+    assert sorted(result.created for result in results) == [0, 1]
+    assert sorted(result.skipped for result in results) == [0, 1]
+    assert flow.calls == 1
+    assert await shared_account_locks().size() == 0
 
 
 @pytest.mark.asyncio

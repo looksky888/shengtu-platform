@@ -31,6 +31,9 @@ export function useAccountsManagement(session: StoredAuthSession) {
   const [editType, setEditType] = useState<AccountType>("Free");
   const [editStatus, setEditStatus] = useState<AccountStatus>("正常");
   const [editQuota, setEditQuota] = useState("0");
+  const [editProxyUrl, setEditProxyUrl] = useState("");
+  const [editProxyTimezone, setEditProxyTimezone] = useState("");
+  const [clearProxy, setClearProxy] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -255,13 +258,23 @@ export function useAccountsManagement(session: StoredAuthSession) {
     setEditType(account.type);
     setEditStatus(account.status);
     setEditQuota(String(account.quota));
+    setEditProxyUrl("");
+    setEditProxyTimezone(account.proxy_timezone || "");
+    setClearProxy(false);
   };
 
   const handleUpdateAccount = async () => {
     if (!editingAccount || !permissions.canUpdateAccount) return;
     setIsUpdating(true);
     try {
-      await updateAccount(editingAccount.id, { type: editType, status: editStatus, quota: Number(editQuota || 0) });
+      await updateAccount(editingAccount.id, {
+        type: editType,
+        status: editStatus,
+        quota: Number(editQuota || 0),
+        proxy_url: clearProxy ? undefined : editProxyUrl.trim() || undefined,
+        proxy_timezone: clearProxy ? undefined : editProxyTimezone.trim() || undefined,
+        clear_proxy: clearProxy || undefined,
+      });
       setEditingAccount(null);
       toast.success("账号信息已更新");
       void loadAccounts(true);
@@ -290,10 +303,12 @@ export function useAccountsManagement(session: StoredAuthSession) {
 
   return {
     accounts, selectedIds, query, typeFilter, statusFilter, pageSize, editingAccount, editType, editStatus, editQuota,
+    editProxyUrl, editProxyTimezone, clearProxy,
     isLoading, isRefreshing, isDeleting, isUpdating, isExporting, permissions, filteredAccounts, filteredCount, pageCount, safePage,
     startIndex, currentRows, allCurrentSelected, showInitialEmptyState, showFilteredEmptyState, summary,
     selectedAccountIds, abnormalAccountIds, paginationItems, setQuery, setTypeFilter, setStatusFilter, setPage,
-    setPageSize, setSelectedIds, setEditingAccount, setEditType, setEditStatus, setEditQuota, loadAccounts, loadAccountsSummary,
+    setPageSize, setSelectedIds, setEditingAccount, setEditType, setEditStatus, setEditQuota,
+    setEditProxyUrl, setEditProxyTimezone, setClearProxy, loadAccounts, loadAccountsSummary,
     handleDeleteAccounts, handleRefreshAccounts, handleRefreshAllAccounts, handleExportTokens, openEditDialog, handleUpdateAccount,
     toggleSelectAll, handleImported,
   };

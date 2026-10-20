@@ -19,6 +19,7 @@ import type {
   StoredReferenceImage,
 } from "@/store/image-conversation-types";
 import { IMAGE_CONVERSATION_SCHEMA_VERSION } from "@/store/image-conversation-types";
+import { conversationRevision } from "@/store/image-conversation-revision";
 import { resolveImageModel } from "@/app/image/lib/image-model-selection";
 
 function normalizeStoredImage(image: StoredImage): StoredImage {
@@ -252,19 +253,11 @@ export function normalizeConversation(conversation: ImageConversation & Record<s
     title: String(conversation.title || ""),
     createdAt: String(conversation.createdAt || lastTurn?.createdAt || new Date().toISOString()),
     updatedAt: String(conversation.updatedAt || lastTurn?.createdAt || new Date().toISOString()),
+    revision: conversationRevision(conversation),
     turns,
   };
 }
 
 export function sortImageConversations(conversations: ImageConversation[]): ImageConversation[] {
   return [...conversations].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-}
-
-function getTimestamp(value: string) {
-  const time = new Date(value).getTime();
-  return Number.isFinite(time) ? time : 0;
-}
-
-export function pickLatestConversation(current: ImageConversation, next: ImageConversation) {
-  return getTimestamp(next.updatedAt) >= getTimestamp(current.updatedAt) ? next : current;
 }

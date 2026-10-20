@@ -7,7 +7,6 @@ export const SETTINGS_TABS = [
   { key: "imports", label: "账号导入" },
   { key: "announcement", label: "公告" },
   { key: "backup", label: "备份" },
-  { key: "system-update", label: "系统更新" },
   { key: "maintenance", label: "维护与日志" },
 ] as const;
 

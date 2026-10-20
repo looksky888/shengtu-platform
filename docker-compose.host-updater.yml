@@ -1,9 +1,0 @@
-services:
-  app:
-    ports:
-      - "127.0.0.1:${CHATGPT2API_INTERNAL_HOST_PORT:-8092}:8092"
-    environment:
-      CHATGPT2API_HOST_UPDATER_SOCKET: /run/shengtu-updater/updater.sock
-      CHATGPT2API_HOST_UPDATER_TOKEN: ${SHENGTU_UPDATER_TOKEN:?set a strong random SHENGTU_UPDATER_TOKEN}
-    volumes:
-      - ${SHENGTU_UPDATER_SOCKET_DIR:-/run/shengtu-updater}:/run/shengtu-updater:ro

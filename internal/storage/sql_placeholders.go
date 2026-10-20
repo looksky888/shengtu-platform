@@ -15,3 +15,19 @@ func (b *DatabaseBackend) boundPlaceholders(start, count int) string {
 	}
 	return strings.Join(values, ",")
 }
+
+// likeEscapeClause is the single shared LIKE escape declaration for every
+// dialect (SQLite, MySQL and Postgres all accept a one-character ESCAPE).
+// Keyword searches must append it, otherwise user input is read as wildcards.
+const likeEscapeClause = ` ESCAPE '!'`
+
+// escapeLikePattern neutralises the LIKE metacharacters in user input so a
+// literal '%' or '_' matches itself instead of the whole table.
+func escapeLikePattern(value string) string {
+	return strings.NewReplacer(`!`, `!!`, `%`, `!%`, `_`, `!_`).Replace(value)
+}
+
+// likeContainsPattern renders a "contains" LIKE pattern for one search term.
+func likeContainsPattern(value string) string {
+	return "%" + escapeLikePattern(value) + "%"
+}

@@ -24,15 +24,26 @@ func (s imageRoutingConfigStub) ImageFallbackModelSlugs() []string {
 	return append([]string(nil), s.fallbackModels...)
 }
 
-func TestApplyPictureModelRoutingForcesImages25Auto(t *testing.T) {
+func TestApplyPictureModelRoutingPreservesImages25Slug(t *testing.T) {
 	engine := &Engine{Config: imageRoutingConfigStub{fallbackEnabled: true, fallbackModels: []string{"gpt-5-3"}}}
-	request := &ConversationRequest{Model: util.ImageModelGPT25Flare}
-	engine.applyPictureModelRouting(request)
-	if request.UpstreamModel != util.ImageModelAuto {
-		t.Fatalf("UpstreamModel = %q, want %q", request.UpstreamModel, util.ImageModelAuto)
-	}
-	if len(request.FallbackModels) != 0 {
-		t.Fatalf("FallbackModels = %#v, want no model switching for Images 2.5", request.FallbackModels)
+	for _, tc := range []struct {
+		requested string
+		want      string
+	}{
+		{requested: util.ImageModelGPT25, want: util.ImageModelGPT25Flare},
+		{requested: util.ImageModelGPT25Flare, want: util.ImageModelGPT25Flare},
+		{requested: util.ImageModelGPT25Sunburst, want: util.ImageModelGPT25Sunburst},
+	} {
+		t.Run(tc.requested, func(t *testing.T) {
+			request := &ConversationRequest{Model: tc.requested}
+			engine.applyPictureModelRouting(request)
+			if request.UpstreamModel != tc.want {
+				t.Fatalf("UpstreamModel = %q, want %q", request.UpstreamModel, tc.want)
+			}
+			if len(request.FallbackModels) != 0 {
+				t.Fatalf("FallbackModels = %#v, want no model switching for Images 2.5", request.FallbackModels)
+			}
+		})
 	}
 }
 

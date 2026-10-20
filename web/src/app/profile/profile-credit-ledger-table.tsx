@@ -1,5 +1,4 @@
 import {
-  creditReasonLabel,
   formatCreditBalance,
   formatDateTime,
   formatSignedCreditDelta,
@@ -8,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { CreditLedgerEntry } from "@/lib/api";
+import { creditReasonLabel } from "@/lib/credit-labels";
 
 export type ProfileCreditLedgerTableProps = {
   creditLedger: CreditLedgerEntry[];

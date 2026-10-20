@@ -1,4 +1,4 @@
-﻿import { useCallback, useState } from "react";
+import { useCallback, useState } from "react";
 import { toast } from "sonner";
 
 import {
@@ -12,8 +12,9 @@ import {
   type EditingTurnDraft,
 } from "@/app/image/lib/image-page-types";
 import { restoreImageSizeSelection } from "@/app/image/lib/image-storage-utils";
-import { isTurnInProgress, normalizeRequestedImageCount } from "@/app/image/lib/image-turn-utils";
+import { normalizeRequestedImageCount } from "@/app/image/lib/image-turn-utils";
 import { isChatModel, isImageCreationModel, type ImageModel } from "@/lib/api";
+import { isTurnBusy } from "@/lib/image-turn-state";
 import type { ImageConversation } from "@/store/image-conversations";
 
 type UseImageEditDialogStateParams = {
@@ -37,7 +38,7 @@ export function useImageEditDialogState({
         toast.error("未找到对应的对话轮次");
         return;
       }
-      if (isTurnInProgress(targetTurn)) {
+      if (isTurnBusy(targetTurn)) {
         toast.error("当前轮次正在处理，稍后再编辑");
         return;
       }

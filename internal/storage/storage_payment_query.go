@@ -59,15 +59,17 @@ func (b *DatabaseBackend) paymentOrderFilterWhere(filter PaymentOrderFilter) (st
 		clauses = append(clauses, fmt.Sprintf(format, b.placeholder(len(args))))
 	}
 	if filter.Keyword != "" {
-		pattern := "%" + filter.Keyword + "%"
+		pattern := likeContainsPattern(filter.Keyword)
 		placeholders := make([]string, 0, 5)
 		for range 5 {
 			args = append(args, pattern)
 			placeholders = append(placeholders, b.placeholder(len(args)))
 		}
-		clauses = append(clauses, `(LOWER(id) LIKE `+placeholders[0]+` OR LOWER(out_trade_no) LIKE `+placeholders[1]+
-			` OR LOWER(user_id) LIKE `+placeholders[2]+` OR LOWER(COALESCE(transaction_id, '')) LIKE `+placeholders[3]+
-			` OR LOWER(product_name_snapshot) LIKE `+placeholders[4]+`)`)
+		clauses = append(clauses, `(LOWER(id) LIKE `+placeholders[0]+likeEscapeClause+
+			` OR LOWER(out_trade_no) LIKE `+placeholders[1]+likeEscapeClause+
+			` OR LOWER(user_id) LIKE `+placeholders[2]+likeEscapeClause+
+			` OR LOWER(COALESCE(transaction_id, '')) LIKE `+placeholders[3]+likeEscapeClause+
+			` OR LOWER(product_name_snapshot) LIKE `+placeholders[4]+likeEscapeClause+`)`)
 	}
 	if filter.Status != "" {
 		add(`status = %s`, filter.Status)

@@ -2,7 +2,7 @@ import { useCallback, type RefObject } from "react";
 import { toast } from "sonner";
 
 import { removeImageTurn } from "@/app/image/lib/image-conversation-mutations";
-import { isTurnInProgress } from "@/app/image/lib/image-turn-utils";
+import { isTurnBusy } from "@/lib/image-turn-state";
 import type { ImageConversation } from "@/store/image-conversations";
 
 type UpdateConversation = (
@@ -31,7 +31,7 @@ export function useImageTurnDeleteAction({
         toast.error("未找到对应的对话轮次");
         return;
       }
-      if (isTurnInProgress(targetTurn)) {
+      if (isTurnBusy(targetTurn)) {
         toast.error("当前轮次正在处理，请先终止任务后再删除");
         return;
       }
@@ -44,7 +44,7 @@ export function useImageTurnDeleteAction({
           if (!latestTurn) {
             throw new Error("未找到对应的对话轮次");
           }
-          if (isTurnInProgress(latestTurn)) {
+          if (isTurnBusy(latestTurn)) {
             throw new Error("当前轮次正在处理，请先终止任务后再删除");
           }
           const nextConversation = removeImageTurn(conversation, turnId);

@@ -1,12 +1,12 @@
-﻿"use client";
+"use client";
 
 import localforage from "localforage";
 
 import {
   normalizeConversation,
-  pickLatestConversation,
   sortImageConversations,
 } from "@/store/image-conversation-normalize";
+import { pickLatestConversation } from "@/store/image-conversation-revision";
 import { conversationForPersistence } from "@/store/image-conversation-persist";
 import type {
   ImageConversation,

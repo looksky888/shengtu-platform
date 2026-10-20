@@ -44,7 +44,29 @@ type ConversationRequest struct {
 	FallbackModels     []string
 }
 
+// Bounds for the OpenAI-compatible "n" parameter. Every requested image drives a
+// real upstream generation against a leased account, so the cap is enforced both
+// when parsing client input and again in Normalized().
+const (
+	MinImageCount = 1
+	MaxImageCount = 4
+)
+
+// normalizeImageCount clamps n into the supported range. ParseImageCount rejects
+// out-of-range input with HTTP 400; this is the defensive bound for callers that
+// build a ConversationRequest directly.
+func normalizeImageCount(n int) int {
+	if n < MinImageCount {
+		return MinImageCount
+	}
+	if n > MaxImageCount {
+		return MaxImageCount
+	}
+	return n
+}
+
 func (r ConversationRequest) Normalized() ConversationRequest {
+	r.N = normalizeImageCount(r.N)
 	r.Size = NormalizeImageGenerationSize(r.Size)
 	r.Quality = ImageQualityForModel(r.Model, r.Quality)
 	r.OutputFormat = NormalizeImageOutputFormat(r.OutputFormat)

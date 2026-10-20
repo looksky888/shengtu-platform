@@ -18,7 +18,6 @@ import { useImageManagerFilters } from "@/app/image-manager/use-image-manager-fi
 import { useImageManagerLoader } from "@/app/image-manager/use-image-manager-loader";
 import { useOrderedImageMasonryColumns } from "@/app/image-manager/use-image-masonry-columns";
 import { useImageManagerMutations } from "@/app/image-manager/use-image-manager-mutations";
-import { useImageManagerPagination } from "@/app/image-manager/use-image-manager-pagination";
 import { useImageManagerSelection } from "@/app/image-manager/use-image-manager-selection";
 import { ImageLightbox } from "@/components/image-lightbox";
 import { PageHeader } from "@/components/page-header";
@@ -60,17 +59,14 @@ export function ImageManagerContent({ cacheScope, canDeleteImages, isAdmin }: Im
     isMutatingImages: mutations.isMutatingImages,
     resetSelection,
   });
-  const pagination = useImageManagerPagination({
-    filteredItems: filters.filteredItems,
-  });
   const { clearLoadError } = loader;
 
   const resetListState = useCallback(() => {
     resetSelection();
     clearLoadError();
   }, [clearLoadError, resetSelection]);
-  const imageColumns = useOrderedImageMasonryColumns(pagination.visibleItems);
-  const lightboxImages = useImageManagerLightboxImages(pagination.visibleItems);
+  const imageColumns = useOrderedImageMasonryColumns(filters.filteredItems);
+  const lightboxImages = useImageManagerLightboxImages(filters.filteredItems);
   const status = getImageManagerStatus(loader.isLoading, loader.loadError, items.length, filters.filteredItems.length);
 
   return (
@@ -162,7 +158,7 @@ export function ImageManagerContent({ cacheScope, canDeleteImages, isAdmin }: Im
         />
         <ImageManagerGrid
           filteredCount={filters.filteredItems.length}
-          visibleCount={pagination.visibleItems.length}
+          visibleCount={filters.filteredItems.length}
           imageColumns={imageColumns}
           galleryView={filters.galleryView}
           selectedImageIds={selection.selectedImageIds}

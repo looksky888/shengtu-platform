@@ -54,6 +54,9 @@ func (s *RegisterService) snapshotLocked() map[string]any {
 	// Local/personal deploy: keep full mailbox credentials in API responses.
 	// (Previously redacted mailboxes to "" which also broke register workers that used Get().)
 	enrichOutlookPools(out)
+	// Every other credential (provider api_key/admin_password, cf_clearance and
+	// cf_cookies) is always stripped; the write path restores it on save.
+	redactRegisterSnapshotSecrets(out)
 	return out
 }
 

@@ -27,38 +27,6 @@ export function formatSignedCreditDelta(value?: number | null) {
   return `${sign}${formatCreditNumber(Math.abs(amount))}`;
 }
 
-export function creditReasonLabel(reason?: string | null) {
-  switch (reason) {
-    case "signup":
-      return "注册奖励";
-    case "checkin":
-      return "每日签到";
-    case "invite":
-      return "邀请奖励";
-    case "card_redeem":
-      return "卡密兑换";
-    case "image_generation":
-      return "图片生成";
-    case "image_edit":
-      return "图片编辑";
-    case "image_refund":
-      return "图片返还";
-    case "video_generation":
-      return "视频生成";
-    case "video_refund":
-      return "视频返还";
-    default:
-      return reason || "积分变动";
-  }
-}
-
-export function providerLabel(provider?: string) {
-  if (provider === "local" || !provider) {
-    return "本地账号";
-  }
-  return provider;
-}
-
 export function sessionRoleLabel(session: StoredAuthSession) {
   if (session.role === "admin") {
     return "管理员";

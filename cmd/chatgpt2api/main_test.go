@@ -49,6 +49,8 @@ func TestPublicListenAddr(t *testing.T) {
 	tests := []struct {
 		name    string
 		value   string
+		altPort string
+		bind    string
 		want    string
 		wantErr bool
 	}{
@@ -57,10 +59,21 @@ func TestPublicListenAddr(t *testing.T) {
 		{name: "not numeric", value: "http", wantErr: true},
 		{name: "zero", value: "0", wantErr: true},
 		{name: "too high", value: "65536", wantErr: true},
+		// CHATGPT2API_PORT is the documented .env name for source builds and must
+		// only apply when PORT is unset (the container image always sets PORT).
+		{name: "env file port", altPort: " 3004 ", want: ":3004"},
+		{name: "port wins over env file port", value: "80", altPort: "3004", want: ":80"},
+		{name: "bad env file port", altPort: "nope", wantErr: true},
+		// CHATGPT2API_BIND_ADDR restricts the interface; empty keeps all interfaces.
+		{name: "bind loopback", value: "3004", bind: " 127.0.0.1 ", want: "127.0.0.1:3004"},
+		{name: "bind ipv6 loopback", value: "3004", bind: "::1", want: "[::1]:3004"},
+		{name: "bind all interfaces", value: "3004", bind: "0.0.0.0", want: "0.0.0.0:3004"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Setenv("PORT", tt.value)
+			t.Setenv("CHATGPT2API_PORT", tt.altPort)
+			t.Setenv("CHATGPT2API_BIND_ADDR", tt.bind)
 			got, err := publicListenAddr()
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("publicListenAddr() error = %v, wantErr=%v", err, tt.wantErr)

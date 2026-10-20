@@ -124,14 +124,6 @@ export function createUserPayload(values: CreateUserForm): CreateManagedUserPayl
   };
 }
 
-export function providerLabel(provider?: string) {
-  if (provider === "local" || !provider) {
-    return "本地";
-  }
-  // Legacy third-party providers (e.g. removed OAuth) still show raw label if present.
-  return provider;
-}
-
 export function numeric(value: unknown) {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }

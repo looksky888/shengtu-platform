@@ -287,7 +287,7 @@ func (s *Store) Update(data map[string]any) (map[string]any, error) {
 	for _, removedKey := range []string{"model_channel", "model_channel_status", "model_channels", "prompt_remote_sources", "prompt_remote_sync_enabled", "prompt_remote_sync_interval_minute"} {
 		delete(next, removedKey)
 	}
-	next["update_repo"] = normalizeUpdateRepo(util.ValueOr(next["update_repo"], "looksky888/shengtu-platform"))
+	next["update_repo"] = normalizeUpdateRepo(util.ValueOr(next["update_repo"], "ZyphrZero/chatgpt2api"))
 	if err := s.validateSettingsUpdateLocked(next); err != nil {
 		s.mu.Unlock()
 		return nil, err
@@ -365,7 +365,7 @@ func isEmptySettingValue(value any) bool {
 }
 
 func (s *Store) validateSettingsUpdateLocked(data map[string]any) error {
-	if err := validateUpdateRepo(util.Clean(util.ValueOr(data["update_repo"], "looksky888/shengtu-platform"))); err != nil {
+	if err := validateUpdateRepo(util.Clean(util.ValueOr(data["update_repo"], "ZyphrZero/chatgpt2api"))); err != nil {
 		return err
 	}
 	if normalizeImageProvider(data["image_provider"]) == "proxy_api" {

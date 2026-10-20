@@ -19,6 +19,10 @@ import {
 
 import { useGrokOAuthTest } from "./use-grok-oauth-test";
 
+const PROTOCOL_POLL_INTERVAL_MS = 1500;
+/** ~5 分钟上限，避免服务端任务卡住时前端无限轮询。 */
+const PROTOCOL_POLL_MAX_ATTEMPTS = 200;
+
 export function useGrokOAuthPanel(open: boolean, onChanged?: () => void) {
   const [accounts, setAccounts] = useState<GrokOAuthAccount[]>([]);
   const [availableModels, setAvailableModels] = useState<string[]>([]);
@@ -31,6 +35,7 @@ export function useGrokOAuthPanel(open: boolean, onChanged?: () => void) {
   const [device, setDevice] = useState<GrokOAuthDeviceSession | null>(null);
   const [protocolJob, setProtocolJob] = useState<GrokOAuthProtocolJob | null>(null);
   const protocolTimer = useRef<number | null>(null);
+  const protocolPollAttempts = useRef(0);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -45,11 +50,15 @@ export function useGrokOAuthPanel(open: boolean, onChanged?: () => void) {
     }
   }, []);
 
+  const stopProtocolPoll = useCallback(() => {
+    if (protocolTimer.current !== null) {
+      window.clearTimeout(protocolTimer.current);
+      protocolTimer.current = null;
+    }
+  }, []);
+
   useEffect(() => {
     if (open) void load();
-    return () => {
-      if (protocolTimer.current !== null) window.clearTimeout(protocolTimer.current);
-    };
   }, [open, load]);
 
   const test = useGrokOAuthTest(accounts, availableModels, setBusy, async () => {
@@ -59,8 +68,14 @@ export function useGrokOAuthPanel(open: boolean, onChanged?: () => void) {
   const protocolRunning = ["pending", "running"].includes(String(protocolJob?.status || "").toLowerCase());
 
   function scheduleProtocolPoll(jobId: string) {
-    if (protocolTimer.current !== null) window.clearTimeout(protocolTimer.current);
+    stopProtocolPoll();
+    if (protocolPollAttempts.current >= PROTOCOL_POLL_MAX_ATTEMPTS) {
+      toast.error("协议授权状态轮询已达上限，请重新启动协议授权");
+      return;
+    }
+    protocolPollAttempts.current += 1;
     protocolTimer.current = window.setTimeout(async () => {
+      protocolTimer.current = null;
       try {
         const { job } = await getGrokOAuthProtocolJob(jobId);
         setProtocolJob(job);
@@ -79,8 +94,25 @@ export function useGrokOAuthPanel(open: boolean, onChanged?: () => void) {
       } catch (pollError) {
         toast.error(pollError instanceof Error ? pollError.message : "协议状态读取失败");
       }
-    }, 1500);
+    }, PROTOCOL_POLL_INTERVAL_MS);
   }
+
+  // Keep the latest closure (load / onChanged) available to the panel-visibility effect below
+  // without making that effect depend on unstable prop identities.
+  const scheduleProtocolPollRef = useRef(scheduleProtocolPoll);
+  useEffect(() => {
+    scheduleProtocolPollRef.current = scheduleProtocolPoll;
+  });
+
+  // 面板关闭时停止轮询，重新打开且任务仍在运行时恢复（任务在服务端继续跑）。
+  useEffect(() => {
+    if (!open || !protocolRunning || !protocolJob?.id) {
+      stopProtocolPoll();
+      return;
+    }
+    scheduleProtocolPollRef.current(protocolJob.id);
+    return stopProtocolPoll;
+  }, [open, protocolJob?.id, protocolRunning, stopProtocolPoll]);
 
   async function handleStartProtocol() {
     setBusy(true);
@@ -91,6 +123,7 @@ export function useGrokOAuthPanel(open: boolean, onChanged?: () => void) {
         toast.error("启动协议失败：无任务 id");
         return;
       }
+      protocolPollAttempts.current = 0;
       setProtocolJob(job);
       toast.message(response.reused ? "协议任务已在运行" : "协议授权已启动");
       scheduleProtocolPoll(job.id);

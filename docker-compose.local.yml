@@ -1,10 +1,38 @@
 services:
+  sentinel-solver:
+    build:
+      context: ./services/sentinel-solver
+    image: shengtu/sentinel-solver:4.6-20261015
+    restart: unless-stopped
+    environment:
+      SENTINEL_SOLVER_KEY: ${CHATGPT2API_SENTINEL_SOLVER_KEY:?set a random solver key of at least 32 characters}
+      SENTINEL_SOLVER_TIMEZONE: ${SENTINEL_SOLVER_TIMEZONE:?set timezone matching the verified upstream exit}
+      SENTINEL_SOLVER_PROXY: ${CHATGPT2API_PROXY:-}
+    expose:
+      - "8080"
+    init: true
+    mem_limit: 768m
+    cpus: 1.0
+    pids_limit: 256
+    shm_size: 128m
+    cap_drop: ["ALL"]
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "2"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
   app:
     build:
       context: .
       dockerfile: Dockerfile
       args:
-        VERSION: ${CHATGPT2API_VERSION:-4.5.2-20261017-public-updater}
+        VERSION: ${CHATGPT2API_VERSION:-4.6-20261015-sentinel}
     image: chatgpt2api:local
     container_name: chatgpt2api-local
     ports:
@@ -14,8 +42,15 @@ services:
     volumes:
       # Override with local absolute path if needed, e.g. COMPOSE_DATA_DIR=D:/path/to/data
       - ${COMPOSE_DATA_DIR:-./data}:/app/data
-      - ./.env:/app/.env
+    depends_on:
+      sentinel-solver:
+        condition: service_started
     environment:
+      CHATGPT2API_SENTINEL_SOLVER_URL: http://sentinel-solver:8080
+      CHATGPT2API_SENTINEL_SOLVER_KEY: ${CHATGPT2API_SENTINEL_SOLVER_KEY:?set a random solver key of at least 32 characters}
+      # Settings live in the data volume, exactly like the main compose. Mounting
+      # the host .env here used to make the container rewrite it on every save.
+      CHATGPT2API_SETTINGS_ENV_FILE: /app/data/settings.env
       STORAGE_BACKEND: sqlite
       DATABASE_URL: sqlite:////app/data/chatgpt2api.db
     # 存储后端配置 (可选值: json, sqlite, postgres, git)

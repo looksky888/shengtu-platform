@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 )
@@ -133,6 +134,11 @@ func (s *ImageService) ImageFileAccess(value string, scope ImageAccessScope) (Im
 	}, nil
 }
 
+type imageDeleteTarget struct {
+	rel  string
+	path string
+}
+
 func (s *ImageService) DeleteImages(paths []string, scope ImageAccessScope) (map[string]any, error) {
 	if len(paths) == 0 {
 		return nil, errors.New("请提供图片路径")
@@ -149,10 +155,10 @@ func (s *ImageService) DeleteImages(paths []string, scope ImageAccessScope) (map
 		return nil, err
 	}
 
+	// Request validation runs before any mutation so a malformed batch never
+	// leaves half of the paths deleted.
+	targets := make([]imageDeleteTarget, 0, len(paths))
 	seen := make(map[string]struct{}, len(paths))
-	deleted := 0
-	missing := 0
-	removedPaths := make([]string, 0, len(paths))
 	for _, value := range paths {
 		rel, err := cleanImageRelativePath(value)
 		if err != nil {
@@ -162,43 +168,69 @@ func (s *ImageService) DeleteImages(paths []string, scope ImageAccessScope) (map
 			continue
 		}
 		seen[rel] = struct{}{}
-
 		imagePath := filepath.Join(imageRoot, filepath.FromSlash(rel))
 		if !pathInsideRoot(imageRoot, imagePath) {
 			return nil, errors.New("图片路径无效")
 		}
-		if !scope.All && (scope.OwnerID == "" || s.imageOwner(rel) != scope.OwnerID) {
+		targets = append(targets, imageDeleteTarget{rel: rel, path: imagePath})
+	}
+
+	deleted := 0
+	missing := 0
+	removedPaths := make([]string, 0, len(targets))
+	var firstErr error
+	fail := func(err error) {
+		if firstErr == nil {
+			firstErr = err
+		}
+	}
+	for _, target := range targets {
+		if !scope.All && (scope.OwnerID == "" || s.imageOwner(target.rel) != scope.OwnerID) {
 			missing++
 			continue
 		}
-		if err := s.removeImageThumbnail(thumbnailRoot, rel); err != nil {
-			return nil, err
+		// The gallery index is what the UI renders, so its row is dropped before
+		// the file: a row may never outlive the file it points at. When the row
+		// cannot be dropped nothing else is touched, and the remaining paths are
+		// still processed instead of aborting the whole batch.
+		if err := s.removeGalleryIndexEntries([]string{target.rel}); err != nil {
+			fail(fmt.Errorf("删除图库索引 %s: %w", target.rel, err))
+			continue
 		}
-		if err := s.removeImageOwner(rel); err != nil {
-			return nil, err
-		}
-		info, err := os.Stat(imagePath)
-		if err != nil {
-			if !errors.Is(err, os.ErrNotExist) {
-				return nil, err
-			}
+		info, statErr := os.Stat(target.path)
+		switch {
+		case errors.Is(statErr, os.ErrNotExist):
 			missing++
-		} else if info.IsDir() {
-			return nil, errors.New("图片路径不是文件")
-		} else if err := os.Remove(imagePath); err != nil {
-			if !errors.Is(err, os.ErrNotExist) {
-				return nil, err
+		case statErr != nil:
+			fail(fmt.Errorf("读取图片 %s: %w", target.rel, statErr))
+			continue
+		case info.IsDir():
+			fail(fmt.Errorf("图片路径不是文件: %s", target.rel))
+			continue
+		default:
+			if removeErr := os.Remove(target.path); removeErr != nil {
+				if errors.Is(removeErr, os.ErrNotExist) {
+					missing++
+					break
+				}
+				fail(fmt.Errorf("删除图片 %s: %w", target.rel, removeErr))
+				continue
 			}
-			missing++
-		} else {
 			deleted++
 		}
-
-		removeEmptyParentDirs(imageRoot, filepath.Dir(imagePath))
-		removedPaths = append(removedPaths, rel)
+		if err := s.removeImageThumbnail(thumbnailRoot, target.rel); err != nil {
+			fail(fmt.Errorf("删除缩略图 %s: %w", target.rel, err))
+			continue
+		}
+		if err := s.removeImageOwner(target.rel); err != nil {
+			fail(fmt.Errorf("删除图片元数据 %s: %w", target.rel, err))
+			continue
+		}
+		removeEmptyParentDirs(imageRoot, filepath.Dir(target.path))
+		removedPaths = append(removedPaths, target.rel)
 	}
-	if err := s.removeGalleryIndexEntries(removedPaths); err != nil {
-		return nil, err
+	if firstErr != nil {
+		return nil, firstErr
 	}
 	return map[string]any{"deleted": deleted, "missing": missing, "paths": removedPaths}, nil
 }

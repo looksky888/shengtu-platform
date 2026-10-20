@@ -68,7 +68,7 @@ func TestNormalizePaymentSuccessTimeUsesUTC(t *testing.T) {
 func TestCompareTradeBillSkipsExternalRowsAndReportsMismatches(t *testing.T) {
 	rows := []tradeBillRow{{OutTradeNo: "EXTERNAL", Status: "SUCCESS", Currency: "CNY", AmountFen: 100}, {OutTradeNo: "ST1", TransactionID: "wx-other", Status: "SUCCESS", Currency: "CNY", AmountFen: 101}}
 	orders := []storage.PaymentOrderRecord{{ID: "order-1", OutTradeNo: "ST1", TransactionID: "wx-1", Currency: "CNY", AmountFen: 100}}
-	result, items := compareTradeBill(rows, orders, orders, "run-1")
+	result, items := compareTradeBill(rows, nil, orders, orders, "run-1")
 	if result.SkippedExternal != 1 || result.AmountMismatches != 1 || result.StatusMismatches != 1 || len(items) != 2 {
 		t.Fatalf("result=%#v items=%#v", result, items)
 	}

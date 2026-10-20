@@ -35,6 +35,7 @@ func (m *MediaLibrary) CleanupExpiredRemoteMedia(ctx context.Context, retentionD
 	}
 	cutoff := now.AddDate(0, 0, -retentionDays).Format(time.RFC3339Nano)
 	var removed int
+	var firstErr error
 	var beforeKey, beforePath string
 	for {
 		if err := ctx.Err(); err != nil {
@@ -45,7 +46,7 @@ func (m *MediaLibrary) CleanupExpiredRemoteMedia(ctx context.Context, retentionD
 			return removed, err
 		}
 		if len(items) == 0 {
-			return removed, nil
+			return removed, firstErr
 		}
 		for _, asset := range items {
 			beforeKey, beforePath = asset.CreatedAt, asset.Path
@@ -54,18 +55,34 @@ func (m *MediaLibrary) CleanupExpiredRemoteMedia(ctx context.Context, retentionD
 			if subscribed && entitlement.UsedBytes <= entitlement.StorageBytes {
 				continue
 			}
+			// Tombstone first: an expired row must never stay readable as ready
+			// while its objects are being removed. One broken asset does not stop
+			// the sweep; the first error is reported once the page is done.
+			if err := m.markMediaDeleting(asset); err != nil {
+				if firstErr == nil {
+					firstErr = err
+				}
+				continue
+			}
 			if asset.ThumbnailKey != "" {
 				if err := m.objects.Delete(ctx, asset.ThumbnailKey); err != nil {
-					return removed, err
+					if firstErr == nil {
+						firstErr = err
+					}
+					continue
 				}
 			}
-			if asset.ObjectKey != "" {
-				if err := m.objects.Delete(ctx, asset.ObjectKey); err != nil {
-					return removed, err
+			if err := m.objects.Delete(ctx, asset.ObjectKey); err != nil {
+				if firstErr == nil {
+					firstErr = err
 				}
+				continue
 			}
 			if err := m.repo.DeleteMediaAsset(asset.Path); err != nil {
-				return removed, err
+				if firstErr == nil {
+					firstErr = err
+				}
+				continue
 			}
 			m.removeSpoolFiles(asset.ID)
 			removed++
@@ -78,7 +95,7 @@ func (m *MediaLibrary) CleanupExpiredRemoteMedia(ctx context.Context, retentionD
 			}
 		}
 		if len(items) < 100 {
-			return removed, nil
+			return removed, firstErr
 		}
 	}
 }

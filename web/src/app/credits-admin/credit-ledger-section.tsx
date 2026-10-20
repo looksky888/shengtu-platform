@@ -2,7 +2,6 @@ import { Coins, LoaderCircle, RefreshCw, Search, X } from "lucide-react";
 
 import { CreditsTablePagination } from "@/app/credits-admin/credits-table-pagination";
 import {
-  creditReasonLabel,
   deltaBadgeVariant,
   formatCreditNumber,
   formatDateTime,
@@ -10,6 +9,7 @@ import {
   type TimeFilter,
 } from "@/app/credits-admin/credits-admin-utils";
 import type { CreditsAdminState } from "@/app/credits-admin/use-credits-admin";
+import { creditReasonLabel } from "@/lib/credit-labels";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";

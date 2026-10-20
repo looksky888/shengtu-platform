@@ -14,7 +14,26 @@ func (s *AuthService) load() ([]AuthKey, bool) {
 	if err != nil {
 		return []AuthKey{}, false
 	}
+	s.legacyPlaintextKeys = authKeyPlaintextCount(items)
 	return authKeysFromMaps(items), true
+}
+
+// eraseLegacyPlaintextKeys rewrites storage hash-only when rows loaded at boot
+// still carried a plaintext "key". Best effort: on failure we only log, because
+// the in-memory set never keeps plaintext and the next successful save clears it.
+func (s *AuthService) eraseLegacyPlaintextKeys() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !s.storeReady || s.legacyPlaintextKeys < 1 {
+		return
+	}
+	count := s.legacyPlaintextKeys
+	if err := s.saveLocked(); err != nil {
+		log.Printf("legacy plaintext API key cleanup failed (%d row(s)): %v", count, err)
+		return
+	}
+	s.legacyPlaintextKeys = 0
+	log.Printf("migrated %d legacy plaintext API key(s) to hash-only storage", count)
 }
 
 func (s *AuthService) loadRoles() ([]ManagedRole, bool) {

@@ -2,23 +2,19 @@ package backend
 
 import (
 	"bytes"
-	"crypto/sha3"
+	"context"
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"math/rand"
 	"regexp"
+	"strings"
 	"time"
-
-	"chatgpt2api/internal/util"
+	"unicode/utf16"
 )
 
 const defaultPOWScript = "https://chatgpt.com/backend-api/sentinel/sdk.js"
 
-var (
-	scriptSrcRE = regexp.MustCompile(`(?is)<script[^>]+src=["']([^"']+)["']`)
-)
+var scriptSrcRE = regexp.MustCompile(`(?is)<script[^>]+src=["']([^"']+)["']`)
 
 func parsePOWResources(html string) ([]string, string) {
 	matches := scriptSrcRE.FindAllStringSubmatch(html, -1)
@@ -44,121 +40,69 @@ func parsePOWResources(html string) ([]string, string) {
 	return sources, dataBuild
 }
 
-func buildLegacyRequirementsToken(userAgent string, scriptSources []string, dataBuild string) string {
-	seed := fmt.Sprintf("%f", rand.Float64())
-	config := buildPOWConfig(userAgent, scriptSources, dataBuild)
-	answer, _ := powGenerate(seed, "0fffff", config, 500000)
-	return "gAAAAAC" + answer
-}
-
-func buildProofToken(seed, difficulty, userAgent string, scriptSources []string, dataBuild string) (string, error) {
-	config := buildPOWConfig(userAgent, scriptSources, dataBuild)
-	answer, solved := powGenerate(seed, difficulty, config, 500000)
-	if !solved {
-		return "", fmt.Errorf("failed to solve proof token: difficulty=%s", difficulty)
+// decodeRequirementsConfig validates the browser-generated format before using it
+// as proof input. It is never rebuilt from random Go browser properties.
+func decodeRequirementsConfig(p string) ([]any, error) {
+	if !strings.HasPrefix(p, "gAAAAAC") || len(p) > 16384 {
+		return nil, fmt.Errorf("invalid requirements token")
 	}
-	return "gAAAAAB" + answer, nil
-}
-
-func buildPOWConfig(userAgent string, scriptSources []string, dataBuild string) []any {
-	if len(scriptSources) == 0 {
-		scriptSources = []string{defaultPOWScript}
-	}
-	navigatorKeys := []string{
-		"registerProtocolHandler−function registerProtocolHandler() { [native code] }",
-		"storage−[object StorageManager]", "locks−[object LockManager]", "appCodeName−Mozilla",
-		"permissions−[object Permissions]", "share−function share() { [native code] }", "webdriver−false",
-		"managed−[object NavigatorManagedData]", "canShare−function canShare() { [native code] }",
-		"vendor−Google Inc.", "mediaDevices−[object MediaDevices]", "vibrate−function vibrate() { [native code] }",
-		"storageBuckets−[object StorageBucketManager]", "mediaCapabilities−[object MediaCapabilities]",
-		"cookieEnabled−true", "virtualKeyboard−[object VirtualKeyboard]", "product−Gecko",
-		"presentation−[object Presentation]", "onLine−true", "mimeTypes−[object MimeTypeArray]",
-		"credentials−[object CredentialsContainer]", "serviceWorker−[object ServiceWorkerContainer]",
-		"keyboard−[object Keyboard]", "gpu−[object GPU]", "doNotTrack", "serial−[object Serial]",
-		"pdfViewerEnabled−true", "language−zh-CN", "geolocation−[object Geolocation]",
-		"userAgentData−[object NavigatorUAData]", "getUserMedia−function getUserMedia() { [native code] }",
-		"sendBeacon−function sendBeacon() { [native code] }", "hardwareConcurrency−32",
-		"windowControlsOverlay−[object WindowControlsOverlay]",
-	}
-	windowKeys := []string{
-		"0", "window", "self", "document", "name", "location", "customElements", "history", "navigation",
-		"innerWidth", "innerHeight", "scrollX", "scrollY", "visualViewport", "screenX", "screenY", "outerWidth",
-		"outerHeight", "devicePixelRatio", "screen", "chrome", "navigator", "onresize", "performance", "crypto",
-		"indexedDB", "sessionStorage", "localStorage", "scheduler", "alert", "atob", "btoa", "fetch", "matchMedia",
-		"postMessage", "queueMicrotask", "requestAnimationFrame", "setInterval", "setTimeout", "caches",
-		"__NEXT_DATA__", "__BUILD_MANIFEST", "__NEXT_PRELOADREADY",
-	}
-	documentKeys := []string{"_reactListeningo743lnnpvdg", "location"}
-	cores := []int{8, 16, 24, 32}
-	now := time.Now().In(time.FixedZone("EST", -5*3600)).Format("Mon Jan 02 2006 15:04:05") + " GMT-0500 (Eastern Standard Time)"
-	return []any{
-		randomChoiceInt([]int{3000, 4000, 5000}),
-		now,
-		4294705152,
-		0,
-		userAgent,
-		randomChoice(scriptSources),
-		dataBuild,
-		"en-US",
-		"en-US,es-US,en,es",
-		0,
-		randomChoice(navigatorKeys),
-		randomChoice(documentKeys),
-		randomChoice(windowKeys),
-		float64(time.Now().UnixNano()) / 1e6,
-		util.NewUUID(),
-		"",
-		randomChoiceInt(cores),
-		float64(time.Now().UnixNano())/1e6 - float64(time.Now().UnixNano())/1e6,
-	}
-}
-
-func powGenerate(seed, difficulty string, config []any, limit int) (string, bool) {
-	target, err := hex.DecodeString(difficulty)
+	raw, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(p, "gAAAAAC"))
 	if err != nil {
-		target = []byte{0x0f, 0xff, 0xff}
+		return nil, fmt.Errorf("invalid requirements encoding")
 	}
-	diffLen := len(difficulty) / 2
-	seedBytes := []byte(seed)
-	part1 := mustMarshal(config[:3])
-	part1 = append(part1[:len(part1)-1], ',')
-	part2 := mustMarshal(config[4:9])
-	part2 = append([]byte(","), part2[1:len(part2)-1]...)
-	part2 = append(part2, ',')
-	part3 := mustMarshal(config[10:])
-	part3 = append([]byte(","), part3[1:]...)
-	for i := 0; i < limit; i++ {
-		finalJSON := bytes.Join([][]byte{
-			part1,
-			[]byte(fmt.Sprint(i)),
-			part2,
-			[]byte(fmt.Sprint(i >> 1)),
-			part3,
-		}, nil)
-		encoded := []byte(base64.StdEncoding.EncodeToString(finalJSON))
-		hash := sha3.Sum512(append(seedBytes, encoded...))
-		if bytes.Compare(hash[:diffLen], target) <= 0 {
-			return string(encoded), true
+	var config []any
+	if err := json.Unmarshal(raw, &config); err != nil || len(config) != 25 {
+		return nil, fmt.Errorf("requirements must contain 25 fields")
+	}
+	return config, nil
+}
+
+// fnv1aAvalanche matches JavaScript charCodeAt (UTF-16), including non-ASCII seeds.
+func fnv1aAvalanche(text string) uint32 {
+	h := uint32(2166136261)
+	for _, ch := range utf16.Encode([]rune(text)) {
+		h ^= uint32(ch)
+		h *= 16777619
+	}
+	h ^= h >> 16
+	h *= 2246822507
+	h ^= h >> 13
+	h *= 3266489909
+	return h ^ (h >> 16)
+}
+
+func buildProofToken(ctx context.Context, seed, difficulty, sourceP string) (string, error) {
+	if seed == "" || len(seed) > 4096 || len(difficulty) < 1 || len(difficulty) > 8 {
+		return "", fmt.Errorf("invalid proof challenge")
+	}
+	for _, ch := range difficulty {
+		if !(ch >= '0' && ch <= '9' || ch >= 'a' && ch <= 'f') {
+			return "", fmt.Errorf("invalid proof difficulty")
 		}
 	}
-	return "wQ8Lk5FbGpA2NcR9dShT6gYjU7VxZ4D" + base64.StdEncoding.EncodeToString([]byte(`"`+seed+`"`)), false
-}
-
-func mustMarshal(v any) []byte {
-	data, _ := json.Marshal(v)
-	return data
-}
-
-func randomChoice(items []string) string {
-	if len(items) == 0 {
-		return ""
+	config, err := decodeRequirementsConfig(sourceP)
+	if err != nil {
+		return "", err
 	}
-	return items[rand.Intn(len(items))]
-}
-
-func randomChoiceInt(items []int) int {
-	if len(items) == 0 {
-		return 0
+	started := time.Now()
+	for i := 0; i < 500000; i++ {
+		if i%256 == 0 {
+			if err := ctx.Err(); err != nil {
+				return "", err
+			}
+		}
+		config[3], config[9] = i, time.Since(started).Milliseconds()
+		var buf bytes.Buffer
+		encoder := json.NewEncoder(&buf)
+		encoder.SetEscapeHTML(false)
+		if err := encoder.Encode(config); err != nil {
+			return "", fmt.Errorf("encode proof: %w", err)
+		}
+		payload := base64.StdEncoding.EncodeToString(bytes.TrimSuffix(buf.Bytes(), []byte("\n")))
+		digest := fmt.Sprintf("%08x", fnv1aAvalanche(seed+payload))
+		if digest[:len(difficulty)] <= difficulty {
+			return "gAAAAAB" + payload + "~S", nil
+		}
 	}
-	return items[rand.Intn(len(items))]
+	return "", fmt.Errorf("proof attempt budget exhausted")
 }

@@ -1,11 +1,14 @@
 package service
 
 import (
+	"bufio"
 	"chatgpt2api/internal/storage"
 	"chatgpt2api/internal/util"
 	"encoding/json"
 	"errors"
+	"io"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -78,46 +81,97 @@ func (s *LogService) deleteLogsBeforeLocked(day string) (int, error) {
 	return s.deleteFileLogsBeforeLocked(day)
 }
 
+// deleteFileLogsBeforeLocked rewrites the JSONL event log without the entries
+// older than day. It streams line by line into a temporary file and only swaps
+// the file after the new content is durable, so a multi-GB log no longer has to
+// be held in memory as whole-file copies.
 func (s *LogService) deleteFileLogsBeforeLocked(day string) (int, error) {
 	day = strings.TrimSpace(day)
 	if day == "" {
 		return 0, nil
 	}
-	data, err := os.ReadFile(s.path)
+	source, err := os.Open(s.path)
 	if errors.Is(err, os.ErrNotExist) {
 		return 0, nil
 	}
 	if err != nil {
 		return 0, err
 	}
-	lines := strings.Split(strings.TrimRight(string(data), "\r\n"), "\n")
-	kept := make([]string, 0, len(lines))
-	removed := 0
-	for _, line := range lines {
-		if strings.TrimSpace(line) == "" {
-			continue
-		}
-		var raw map[string]any
-		if json.Unmarshal([]byte(line), &raw) == nil {
-			if entry, ok := logEntryFromMap(raw); ok {
-				itemDay := entry.day()
-				if itemDay != "" && itemDay < day {
-					removed++
-					continue
-				}
-			}
-		}
-		kept = append(kept, line)
+	defer source.Close()
+
+	dir := filepath.Dir(s.path)
+	temp, err := os.CreateTemp(dir, filepath.Base(s.path)+".cleanup-*")
+	if err != nil {
+		return 0, err
+	}
+	tempPath := temp.Name()
+	defer func() {
+		_ = temp.Close()
+		_ = os.Remove(tempPath)
+	}()
+
+	removed, keptBytes, err := streamLogsKeptAfter(source, temp, day)
+	if err != nil {
+		return 0, err
 	}
 	if removed == 0 {
 		return 0, nil
 	}
-	next := []byte{}
-	if len(kept) > 0 {
-		next = []byte(strings.Join(kept, "\n") + "\n")
+	if err := temp.Sync(); err != nil {
+		return 0, err
 	}
-	if err := storage.AtomicWriteFile(s.path, next, 0o644); err != nil {
+	if err := temp.Close(); err != nil {
+		return 0, err
+	}
+	kept, err := os.Open(tempPath)
+	if err != nil {
+		return 0, err
+	}
+	defer kept.Close()
+	if _, err := storage.AtomicWriteFromReader(s.path, kept, keptBytes+1, 0o644); err != nil {
 		return 0, err
 	}
 	return removed, nil
+}
+
+// streamLogsKeptAfter copies every line that is not older than day into dest and
+// reports how many lines were dropped plus how many bytes were kept.
+func streamLogsKeptAfter(source io.Reader, dest io.Writer, day string) (int, int64, error) {
+	reader := bufio.NewReaderSize(source, 64*1024)
+	writer := bufio.NewWriterSize(dest, 64*1024)
+	removed := 0
+	var kept int64
+	for {
+		line, readErr := reader.ReadString('\n')
+		trimmed := strings.TrimRight(line, "\r\n")
+		keep := strings.TrimSpace(trimmed) != ""
+		if keep {
+			var raw map[string]any
+			if json.Unmarshal([]byte(trimmed), &raw) == nil {
+				if entry, ok := logEntryFromMap(raw); ok {
+					if itemDay := entry.day(); itemDay != "" && itemDay < day {
+						keep = false
+						removed++
+					}
+				}
+			}
+		}
+		if keep {
+			written, err := writer.WriteString(trimmed + "\n")
+			kept += int64(written)
+			if err != nil {
+				return removed, kept, err
+			}
+		}
+		if readErr != nil {
+			if !errors.Is(readErr, io.EOF) {
+				return removed, kept, readErr
+			}
+			break
+		}
+	}
+	if err := writer.Flush(); err != nil {
+		return removed, kept, err
+	}
+	return removed, kept, nil
 }

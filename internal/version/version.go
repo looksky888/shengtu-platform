@@ -6,10 +6,14 @@ import (
 	"strings"
 )
 
-// Version is overridden by builds with:
+// Version mirrors VERSION.txt for source builds and is overridden by release builds with:
 //
 //	go build -tags=embed -ldflags "-X chatgpt2api/internal/version.Version=1.2.3"
-var Version = "4.5.2-20261017-public-updater"
+//
+// Keep it in sync with VERSION.txt and the Dockerfile ARG default; the version
+// consistency test fails otherwise, because a stale default made source builds
+// report an older release and treat themselves as out of date.
+var Version = "4.6-20261015-sentinel"
 
 // Commit, Date, and BuildType are overridden by release builds.
 var (

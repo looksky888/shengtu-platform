@@ -260,10 +260,6 @@ export function deriveTurnStatus(turn: ImageTurn): Pick<ImageTurn, "status" | "e
   return { status: "queued", error: undefined };
 }
 
-export function isTurnInProgress(turn: ImageTurn) {
-  return turn.status === "queued" || turn.status === "generating" || turn.images.some((image) => image.status === "loading");
-}
-
 export function usesReferenceImages(mode: ImageConversationMode) {
   return mode === "image" || mode === "edit";
 }

@@ -108,8 +108,43 @@ func ToBool(v any) bool {
 			return true
 		}
 		return false
+	case json.Number:
+		// Decoders using UseNumber (http_helpers, DecodeJSON) hand numbers to us as
+		// json.Number, whose dynamic type is not string. Without this case a JSON
+		// `0` fell through to "present, therefore true" and switched flags ON.
+		number, err := x.Float64()
+		if err != nil {
+			return false
+		}
+		return number != 0
+	case float64:
+		return x != 0
+	case float32:
+		return x != 0
+	case int:
+		return x != 0
+	case int8:
+		return x != 0
+	case int16:
+		return x != 0
+	case int32:
+		return x != 0
+	case int64:
+		return x != 0
+	case uint:
+		return x != 0
+	case uint8:
+		return x != 0
+	case uint16:
+		return x != 0
+	case uint32:
+		return x != 0
+	case uint64:
+		return x != 0
 	default:
-		return v != nil
+		// Fail closed: an unexpected shape under a boolean key must not switch the
+		// setting on. Callers that need a default pass one in explicitly.
+		return false
 	}
 }
 

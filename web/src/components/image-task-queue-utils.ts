@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { formatDateTime } from "@/lib/datetime";
+import { isTurnBusy } from "@/lib/image-turn-state";
 import {
   IMAGE_CONVERSATIONS_CHANGED_EVENT,
   listImageConversations,
@@ -27,21 +28,8 @@ export type RecentQueueCompletion = TaskQueueItem & {
   finalStatus: ImageTurnStatus;
 };
 
-export function isTurnBusy(turn: ImageTurn) {
-  return turn.status === "queued" || turn.status === "generating" || turn.images.some((image) => image.status === "loading");
-}
-
 export function isTerminalTurnStatus(status: ImageTurnStatus) {
   return status === "success" || status === "message" || status === "error" || status === "cancelled";
-}
-
-export function formatElapsedClock(totalSeconds: number) {
-  const safeSeconds = Math.max(0, totalSeconds);
-  const hours = Math.floor(safeSeconds / 3600);
-  const minutes = Math.floor((safeSeconds % 3600) / 60);
-  const seconds = safeSeconds % 60;
-  if (hours > 0) return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
 export function formatQueueTime(value: string) {

@@ -2,11 +2,16 @@ package backend
 
 import (
 	"context"
+	"errors"
+	"io"
+	"net"
+	"net/http"
 	"os"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"chatgpt2api/internal/util"
@@ -284,21 +289,48 @@ func sleepWithinContext(ctx context.Context, duration time.Duration) bool {
 	}
 }
 
+// upstreamStatusError is implemented by upstream failures that expose a
+// decidable HTTP status instead of only a formatted message.
+type upstreamStatusError interface {
+	StatusCode() int
+}
+
+// isTransientPollError classifies a failed conversation poll from the error
+// value's structure. The message text is never inspected: upstreamHTTPError*
+// embeds up to 2 KiB of the upstream response body in Error(), so a body that
+// merely mentions a word like "timeout" or "stream" previously turned a
+// deterministic failure into a retry that burned the whole poll budget.
 func isTransientPollError(err error) bool {
 	if err == nil {
 		return false
 	}
-	text := strings.ToLower(err.Error())
-	return strings.Contains(text, "status=429") ||
-		strings.Contains(text, "status=500") ||
-		strings.Contains(text, "status=502") ||
-		strings.Contains(text, "status=503") ||
-		strings.Contains(text, "status=504") ||
-		strings.Contains(text, "timeout") ||
-		strings.Contains(text, "connection") ||
-		strings.Contains(text, "stream") ||
-		strings.Contains(text, "reset by peer") ||
-		strings.Contains(text, "unexpected eof")
+	if errors.Is(err, context.Canceled) {
+		return false
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+	if errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, io.EOF) {
+		return true
+	}
+	for _, target := range []error{syscall.ECONNRESET, syscall.ECONNREFUSED, syscall.ECONNABORTED, syscall.EPIPE, syscall.ETIMEDOUT} {
+		if errors.Is(err, target) {
+			return true
+		}
+	}
+	var statusErr upstreamStatusError
+	if errors.As(err, &statusErr) {
+		return isTransientUpstreamStatus(statusErr.StatusCode())
+	}
+	// Any remaining net.Error is a transport-level failure (dial, read, TLS or
+	// proxy), which is the structural equivalent of the old "connection" match.
+	var netErr net.Error
+	return errors.As(err, &netErr)
+}
+
+// isTransientUpstreamStatus treats rate limiting and upstream 5xx as retryable.
+func isTransientUpstreamStatus(status int) bool {
+	return status == http.StatusTooManyRequests || status >= 500
 }
 
 func floatValue(v any) float64 {

@@ -3,6 +3,7 @@ package config
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -222,7 +223,33 @@ func writeEnvUpdates(path string, updates map[string]string) error {
 		}
 	}
 	payload := []byte(strings.TrimRight(strings.Join(next, "\n"), "\n") + "\n")
-	return storage.AtomicWriteFile(path, payload, 0o644)
+	return storage.AtomicWriteFile(path, payload, settingsEnvFilePermission(path))
+}
+
+// settingsEnvFilePermission keeps the settings document owner-only. It holds
+// upstream API keys, R2 secrets and the internal service token, so an existing
+// owner-only mode is preserved exactly (e.g. 0400/0600) and anything readable by
+// group or others — including a brand new file — is written as 0o600.
+func settingsEnvFilePermission(path string) os.FileMode {
+	info, err := os.Stat(path)
+	if err != nil {
+		return settingsEnvPermission(0, false)
+	}
+	mode := info.Mode().Perm()
+	permission := settingsEnvPermission(mode, true)
+	if permission != mode {
+		log.Printf("settings env file %s had mode %#o; rewriting as %#o because it stores secrets", path, mode, permission)
+	}
+	return permission
+}
+
+// settingsEnvPermission is the pure widening decision behind settingsEnvFilePermission.
+func settingsEnvPermission(mode os.FileMode, exists bool) os.FileMode {
+	const ownerOnly os.FileMode = 0o600
+	if !exists || mode == 0 || mode&0o077 != 0 {
+		return ownerOnly
+	}
+	return mode
 }
 
 func formatEnvAssignment(key, value string) string {

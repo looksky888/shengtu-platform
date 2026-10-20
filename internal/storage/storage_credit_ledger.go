@@ -158,8 +158,7 @@ func (b *DatabaseBackend) buildCreditLedgerWhere(filter CreditLedgerFilter) (str
 		}
 	}
 	if kw := strings.ToLower(strings.TrimSpace(filter.Keyword)); kw != "" {
-		// Use '!' as LIKE escape char (portable single-char ESCAPE for SQLite/MySQL/Postgres).
-		like := "%" + escapeLikePattern(kw) + "%"
+		like := likeContainsPattern(kw)
 		start := len(args) + 1
 		for i := 0; i < 6; i++ {
 			args = append(args, like)
@@ -218,10 +217,4 @@ func normalizeCreditLedgerRow(row CreditLedgerRow) CreditLedgerRow {
 	row.RefID = strings.TrimSpace(row.RefID)
 	row.CreatedAt = strings.TrimSpace(row.CreatedAt)
 	return row
-}
-
-func escapeLikePattern(s string) string {
-	// Escape for LIKE ... ESCAPE '!'
-	replacer := strings.NewReplacer(`!`, `!!`, `%`, `!%`, `_`, `!_`)
-	return replacer.Replace(s)
 }

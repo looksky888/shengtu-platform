@@ -1,5 +1,5 @@
-import type { ImageVisibility } from "@/lib/api";
 import { formatImageFileSize } from "@/lib/image-size";
+import { isTurnBusy } from "@/lib/image-turn-state";
 import type { ImageTurn, ImageTurnStatus, StoredImage } from "@/store/image-conversations";
 import type { DownloadableImage } from "@/app/image/components/image-results-types";
 import { downloadImageBlob, downloadImageFiles, triggerImageDownload, type ImageDownloadResult } from "@/lib/image-download";
@@ -47,10 +47,6 @@ export function getStoredImageSrc(image: StoredImage) {
   return "";
 }
 
-export function isTurnBusy(turn: ImageTurn) {
-  return turn.status === "queued" || turn.status === "generating" || turn.images.some((image) => image.status === "loading");
-}
-
 export function imageSelectionKey(conversationId: string, turnId: string, imageId: string) {
   return `${conversationId}:${turnId}:${imageId}`;
 }
@@ -81,27 +77,6 @@ export function getTurnResultSizeLabel(turn: ImageTurn, dimensionsByImageId: Rec
   if (labels.length === 1) return labels[0];
   if (labels.length > 1) return `${labels.length} 种尺寸`;
   return isTurnBusy(turn) && turn.size ? `请求 ${turn.size}` : "";
-}
-
-export function imageVisibilityLabel(visibility?: ImageVisibility) {
-  return visibility === "public" ? "已公开" : "私有";
-}
-
-export function imageVisibilityPillClass(visibility?: ImageVisibility) {
-  return visibility === "public"
-    ? "bg-[#e8f2ff] text-[#1456f0] ring-1 ring-[#bfdbfe]"
-    : "bg-[#181e25]/82 text-white ring-1 ring-white/20";
-}
-
-export function imageVisibilityActionClass(visibility?: ImageVisibility) {
-  return visibility === "public" ? "bg-white/95 text-[#1456f0] hover:bg-[#e8f2ff]" : "bg-white/95 text-stone-800 hover:bg-stone-100";
-}
-
-export function blurFocusedElementInContainer(container: HTMLElement) {
-  const activeElement = document.activeElement;
-  if (activeElement instanceof HTMLElement && container.contains(activeElement)) {
-    activeElement.blur();
-  }
 }
 
 function imageExtension(outputFormat?: string) {
@@ -137,10 +112,6 @@ export async function downloadImages(images: DownloadableImage[]): Promise<Image
 	return downloadImageFiles(images.map((image) => ({ src: image.src, fileName: image.fileName })));
 }
 
-export function sleep(ms: number) {
-  return new Promise((resolve) => window.setTimeout(resolve, ms));
-}
-
 export async function fetchImageSizeLabel(src: string) {
   if (!src || src.startsWith("data:")) return "";
   try {
@@ -164,17 +135,6 @@ export function getTurnStatusLabel(status: ImageTurnStatus) {
 
 export function turnProgressKey(conversationId: string, turnId: string) {
   return `${conversationId}:${turnId}`;
-}
-
-export function formatElapsedClock(totalSeconds: number) {
-  const safeSeconds = Math.max(0, totalSeconds);
-  const hours = Math.floor(safeSeconds / 3600);
-  const minutes = Math.floor((safeSeconds % 3600) / 60);
-  const seconds = safeSeconds % 60;
-  if (hours > 0) {
-    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-  }
-  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
 export function getStatusChipClass(status: ImageTurnStatus) {

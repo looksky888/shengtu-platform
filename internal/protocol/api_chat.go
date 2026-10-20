@@ -237,9 +237,9 @@ func ImageResultContent(result map[string]any) string {
 }
 
 func ParseImageCount(raw any) (int, error) {
-	value := util.ToInt(raw, 1)
-	if value < 1 || value > 4 {
-		return 0, HTTPError{Status: 400, Message: "n must be between 1 and 4"}
+	value := util.ToInt(raw, MinImageCount)
+	if value < MinImageCount || value > MaxImageCount {
+		return 0, HTTPError{Status: 400, Message: fmt.Sprintf("n must be between %d and %d", MinImageCount, MaxImageCount)}
 	}
 	return value, nil
 }

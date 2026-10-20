@@ -107,7 +107,7 @@ func (b *DatabaseBackend) UpdatePaymentChannel(channel PaymentChannelRecord) (Pa
 	if err != nil {
 		return PaymentChannelRecord{}, b.paymentMutationError(err)
 	}
-	if err := requireOnePaymentRow(result); err != nil {
+	if err := b.requirePaymentRowUpdated(result, tx, "payment_channels", `id = `+b.placeholder(1), channel.ID); err != nil {
 		return PaymentChannelRecord{}, err
 	}
 	if err := tx.Commit(); err != nil {
@@ -154,7 +154,7 @@ func (b *DatabaseBackend) RotatePaymentChannelVersion(channelID string, version 
 	if err != nil {
 		return PaymentChannelVersionRecord{}, err
 	}
-	if err := requireOnePaymentRow(result); err != nil {
+	if err := b.requirePaymentRowUpdated(result, tx, "payment_channels", `id = `+b.placeholder(1), channelID); err != nil {
 		return PaymentChannelVersionRecord{}, err
 	}
 	if err := tx.Commit(); err != nil {
@@ -222,6 +222,10 @@ func (b *DatabaseBackend) CreateRechargeProduct(product RechargeProductRecord) (
 	return product, nil
 }
 
+// ArchiveRechargeProduct archives a product and reports whether this call is
+// what took it out of the active list. Archiving an already archived product
+// returns (false, nil); an unknown id returns ErrPaymentRecordNotFound, so the
+// caller can tell a repeated request from a deleted record.
 func (b *DatabaseBackend) ArchiveRechargeProduct(id, actor, archivedAt string) (bool, error) {
 	id, actor, archivedAt = strings.TrimSpace(id), strings.TrimSpace(actor), strings.TrimSpace(archivedAt)
 	if id == "" || actor == "" || archivedAt == "" {
@@ -232,7 +236,21 @@ func (b *DatabaseBackend) ArchiveRechargeProduct(id, actor, archivedAt string) (
 		return false, b.paymentMutationError(err)
 	}
 	affected, err := result.RowsAffected()
-	return affected == 1, err
+	if err != nil {
+		return false, err
+	}
+	if affected == 1 {
+		return true, nil
+	}
+	var marker int
+	err = b.db.QueryRow(`SELECT 1 FROM recharge_products WHERE id = `+b.placeholder(1)+` LIMIT 1`, id).Scan(&marker)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, ErrPaymentRecordNotFound
+	}
+	if err != nil {
+		return false, err
+	}
+	return false, nil
 }
 
 func (b *DatabaseBackend) UpdateRechargeProduct(product RechargeProductRecord) (RechargeProductRecord, error) {
@@ -250,7 +268,7 @@ func (b *DatabaseBackend) UpdateRechargeProduct(product RechargeProductRecord) (
 	if err != nil {
 		return RechargeProductRecord{}, b.paymentMutationError(err)
 	}
-	if err := requireOnePaymentRow(result); err != nil {
+	if err := b.requirePaymentRowUpdated(result, b.db, "recharge_products", `id = `+b.placeholder(1)+` AND archived_at = ''`, product.ID); err != nil {
 		return RechargeProductRecord{}, err
 	}
 	return product, nil
@@ -348,9 +366,29 @@ func (b *DatabaseBackend) paymentMutationError(err error) error {
 	return err
 }
 
-func requireOnePaymentRow(result sql.Result) error {
+// paymentRowQueryer is implemented by *sql.DB and *sql.Tx. The existence probe
+// must run on the same executor as the UPDATE it verifies, so a rollback or an
+// uncommitted transaction cannot be mistaken for a missing row.
+type paymentRowQueryer interface {
+	QueryRow(query string, args ...any) *sql.Row
+}
+
+// requirePaymentRowUpdated reports ErrPaymentRecordNotFound only when the row
+// the UPDATE targets is really gone. A statement whose new values equal the
+// stored ones affects 0 rows on MySQL unless clientFoundRows is enabled, so
+// affected != 1 proves nothing on its own; the row must be probed with the same
+// WHERE clause to tell "nothing changed" from "record deleted".
+func (b *DatabaseBackend) requirePaymentRowUpdated(result sql.Result, executor paymentRowQueryer, table, where string, args ...any) error {
 	affected, err := result.RowsAffected()
-	if err == nil && affected != 1 {
+	if err != nil {
+		return err
+	}
+	if affected == 1 {
+		return nil
+	}
+	var marker int
+	err = executor.QueryRow(`SELECT 1 FROM `+table+` WHERE `+where+` LIMIT 1`, args...).Scan(&marker)
+	if errors.Is(err, sql.ErrNoRows) {
 		return ErrPaymentRecordNotFound
 	}
 	return err

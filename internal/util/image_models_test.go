@@ -2,6 +2,25 @@ package util
 
 import "testing"
 
+func TestCanonicalImage25Model(t *testing.T) {
+	for _, tc := range []struct {
+		input string
+		want  string
+		ok    bool
+	}{
+		{input: " GPT-IMAGE-2.5 ", want: ImageModelGPT25Flare, ok: true},
+		{input: ImageModelGPT25Flare, want: ImageModelGPT25Flare, ok: true},
+		{input: "GPT-IMAGE-2.5-SUNBURST", want: ImageModelGPT25Sunburst, ok: true},
+		{input: "gpt-image-2.5-unknown", ok: false},
+		{input: "plus-gpt-image-2.5-flare", ok: false},
+	} {
+		got, ok := CanonicalImage25Model(tc.input)
+		if got != tc.want || ok != tc.ok {
+			t.Fatalf("CanonicalImage25Model(%q) = %q, %v; want %q, %v", tc.input, got, ok, tc.want, tc.ok)
+		}
+	}
+}
+
 func TestImageGenerationModelSetExcludesTextModels(t *testing.T) {
 	for _, model := range []string{ImageModelAuto, ImageModelGPT, ImageModelGPT25, ImageModelGrokImagine, ImageModelGrokLite, "GPT-IMAGE-2.5"} {
 		if !IsImageGenerationModel(model) {

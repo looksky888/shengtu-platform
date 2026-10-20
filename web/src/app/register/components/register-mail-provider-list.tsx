@@ -4,6 +4,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { STORED_SECRET_HINT } from "@/lib/register-types";
 
 import { RegisterOutlookPoolEditor } from "./register-outlook-pool-editor";
 import type { RegisterCardState } from "./use-register-card";
@@ -85,9 +86,9 @@ function RegisterMailProvider({ state, provider, index }: { state: RegisterCardS
             onChange={(value) => state.updateProvider(index, { api_base: value })}
           />
         ) : null}
-        {type === "cloudflare_temp_email" ? <ProviderInput label="Admin Password" value={String(provider.admin_password || "")} disabled={config.enabled} onChange={(value) => state.updateProvider(index, { admin_password: value })} /> : null}
+        {type === "cloudflare_temp_email" ? <ProviderInput label="Admin Password" value={String(provider.admin_password || "")} placeholder={provider.admin_password_configured ? STORED_SECRET_HINT : undefined} disabled={config.enabled} onChange={(value) => state.updateProvider(index, { admin_password: value })} /> : null}
         {type === "tempmail_lol" || type === "duckmail" || type === "gptmail" || type === "moemail" || type === "icloud_api" ? (
-          <ProviderInput label="API Key" value={String(provider.api_key || "")} disabled={config.enabled} onChange={(value) => state.updateProvider(index, { api_key: value })} />
+          <ProviderInput label="API Key" value={String(provider.api_key || "")} placeholder={provider.api_key_configured ? STORED_SECRET_HINT : undefined} disabled={config.enabled} onChange={(value) => state.updateProvider(index, { api_key: value })} />
         ) : null}
         {type === "duckmail" || type === "gptmail" ? <ProviderInput label="Default Domain" value={String(provider.default_domain || "")} placeholder={type === "duckmail" ? "duckmail.sbs" : ""} disabled={config.enabled} onChange={(value) => state.updateProvider(index, { default_domain: value })} /> : null}
         {type === "icloud_local" || type === "icloud_api" ? (

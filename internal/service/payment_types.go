@@ -24,8 +24,16 @@ type PaymentProvider interface {
 	Close(context.Context, string, string) error
 }
 
+// WeChat trade bill types. SUCCESS is the payment-side bill, REFUND the
+// refund-side bill; both are reconciled so a merchant-side refund that never
+// reached the local order shows up as a difference.
+const (
+	paymentBillTypeSuccess = "SUCCESS"
+	paymentBillTypeRefund  = "REFUND"
+)
+
 type PaymentBillProvider interface {
-	DownloadTradeBill(context.Context, string, io.Writer) (PaymentBillDownload, error)
+	DownloadTradeBill(ctx context.Context, billDate, billType string, target io.Writer) (PaymentBillDownload, error)
 }
 
 type PaymentBillDownload struct {

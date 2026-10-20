@@ -6,7 +6,7 @@ import sqlite3
 from dataclasses import dataclass, field
 from typing import Callable
 
-from .account_locks import AccountLockRegistry
+from .account_locks import AccountLockRegistry, shared_account_locks
 from .build_repository import ManagedBuildRepository
 from .credential_cipher import ProviderCredentialCipher
 from .identity import build_account_id, source_fingerprint
@@ -50,7 +50,10 @@ class WebBuildConversionService:
         self._source = source
         self._cipher = cipher
         self._flow = flow
-        self._locks = locks or AccountLockRegistry()
+        # Default to the process-wide registry: every background task builds its
+        # own service instance, so a per-instance registry would not exclude
+        # concurrent OAuth authorisations for the same account.
+        self._locks = locks or shared_account_locks()
 
     async def convert(
         self,

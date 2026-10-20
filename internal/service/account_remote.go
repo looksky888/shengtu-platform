@@ -14,7 +14,7 @@ import (
 )
 
 const maxAccountRemoteResponseBytes = 32 << 20
-const maxAccountRemoteAttempts = 2
+const maxAccountRemoteAttempts = 3
 
 func (s *AccountService) FetchRemoteInfo(ctx context.Context, accessToken string) (map[string]any, error) {
 	accessToken = util.Clean(accessToken)
@@ -77,11 +77,16 @@ func (s *AccountService) FetchRemoteInfo(ctx context.Context, accessToken string
 				return response{payload: payload}
 			}
 			requestErr := refreshHTTPError(urlPath, resp.StatusCode, data)
-			if attempt == 0 && isCloudflareRefreshError(requestErr) && UpstreamClearanceEnabled() {
-				if bundle, refreshErr := RefreshUpstreamClearanceForChallenge(ctx); refreshErr == nil && bundle != nil {
-					headers = ApplyUpstreamClearanceToHeaders(headers, bundle)
-					continue
+			if attempt+1 < maxAccountRemoteAttempts && isAccountCloudflareChallengeResponse(resp, data) {
+				if attempt == 0 && UpstreamClearanceEnabled() {
+					if bundle, refreshErr := RefreshUpstreamClearanceForChallenge(ctx); refreshErr == nil && bundle != nil {
+						headers = ApplyUpstreamClearanceToHeaders(headers, bundle)
+					}
 				}
+				if err := waitAccountRemoteRetry(ctx, time.Duration(attempt+1)*1500*time.Millisecond); err != nil {
+					return response{err: err}
+				}
+				continue
 			}
 			return response{err: requestErr}
 		}
@@ -120,6 +125,36 @@ func (s *AccountService) FetchRemoteInfo(ctx context.Context, accessToken string
 		"restore_at":          restoreAt,
 		"status":              status,
 	}, nil
+}
+
+func isAccountCloudflareChallengeResponse(resp *http.Response, body []byte) bool {
+	if resp == nil || resp.StatusCode != http.StatusForbidden {
+		return false
+	}
+	contentType := strings.ToLower(resp.Header.Get("Content-Type"))
+	if strings.Contains(contentType, "json") {
+		return false
+	}
+	if strings.EqualFold(strings.TrimSpace(resp.Header.Get("CF-Mitigated")), "challenge") {
+		return true
+	}
+	lower := strings.ToLower(string(body))
+	return strings.Contains(contentType, "text/html") ||
+		strings.Contains(lower, "cf_chl") ||
+		strings.Contains(lower, "challenge-platform") ||
+		strings.Contains(lower, "enable javascript and cookies to continue") ||
+		strings.Contains(lower, "<title>just a moment")
+}
+
+func waitAccountRemoteRetry(ctx context.Context, delay time.Duration) error {
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
 }
 
 func (s *AccountService) bootstrapRemote(ctx context.Context, client *http.Client, baseURL, accessToken string) error {

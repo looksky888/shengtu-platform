@@ -27,5 +27,5 @@ curl -s http://127.0.0.1:8091/health   # 需在 compose 网络或临时映射端
 
 ## 风险
 
-- upstream 导入失败时 `health.features.image_generations=false`，见 `native_import_error`
+- upstream 导入失败时 `health.features.image_generations=false`；具体异常只写侧车日志（4.6 起 `/health` 不再回显异常原文，请看 `docker logs`）
 - 依赖 curl-cffi 等原生扩展，镜像构建需网络

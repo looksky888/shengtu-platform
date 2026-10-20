@@ -7,13 +7,13 @@ import {
   formatDateTime,
   formatInactiveDays,
   numeric,
-  providerLabel,
   roleLabel,
   todayCallCount,
   todayQuotaUsed,
   type CreditAdjustMode,
 } from "@/app/users/users-utils";
 import { Badge } from "@/components/ui/badge";
+import { providerLabel } from "@/lib/provider-label";
 import { Button } from "@/components/ui/button";
 import { TableCell, TableRow } from "@/components/ui/table";
 import type { ManagedRole, ManagedUser, ManagedUserUsage } from "@/lib/api";

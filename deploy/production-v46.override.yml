@@ -1,0 +1,53 @@
+# Existing production deployment only: preserve its project and shared egress network.
+# docker compose -p shengtu39prod -f docker-compose.yml -f docker-compose.runtime.override.yml ...
+name: shengtu39prod
+networks:
+  default:
+    external: true
+    name: shengtu39prod_default
+services:
+  sentinel-solver:
+    image: shengtu/sentinel-solver:4.6-20261016-pr418-results
+    container_name: shengtu39-sentinel-solver
+    restart: unless-stopped
+    environment:
+      SENTINEL_SOLVER_KEY: ${CHATGPT2API_SENTINEL_SOLVER_KEY:?set a random solver key of at least 32 characters}
+      SENTINEL_SOLVER_PROXY: http://privoxy:8118
+      SENTINEL_SOLVER_TIMEZONE: ${CHATGPT2API_SENTINEL_SOLVER_TIMEZONE:-America/Los_Angeles}
+    expose: ["8080"]
+    init: true
+    mem_limit: 768m
+    cpus: 1.0
+    pids_limit: 256
+    shm_size: 128m
+    cap_drop: [ALL]
+    security_opt: [seccomp=unconfined]
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "2"
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+  app:
+    image: shengtu:4.6-20261015-sentinel-pr420
+    build: null
+    depends_on:
+      sentinel-solver:
+        condition: service_healthy
+    environment:
+      CHATGPT2API_VERSION: 4.6-20261015-sentinel
+      CHATGPT2API_BIND_ADDR: "0.0.0.0"
+      CHATGPT2API_PROXY: http://privoxy:8118
+      CHATGPT2API_IMAGE_EGRESS_PROXY_URLS: http://privoxy:8118
+      CHATGPT2API_SENTINEL_SOLVER_URL: http://sentinel-solver:8080
+      CHATGPT2API_SENTINEL_SOLVER_KEY: ${CHATGPT2API_SENTINEL_SOLVER_KEY:?set a random solver key of at least 32 characters}
+  icloud-privacy-mail:
+    image: shengtu/icloud-privacy-mail:4.4-20260921-quality-remediation
+    build: null
+  grok-runtime:
+    image: shengtu/grok-runtime:4.2-20260908-deps
+    build: null

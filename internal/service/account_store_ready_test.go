@@ -39,7 +39,9 @@ func (b *failingAccountBackend) Info() storage.BackendInfo {
 
 func TestAccountServiceRefusesSaveWhenLoadFailed(t *testing.T) {
 	backend := &failingAccountBackend{loadErr: errors.New("disk read failed")}
-	svc := NewAccountService(backend, nil, nil, NewLogService(""))
+	// t.TempDir, not "": NewLogService creates <dataDir>/logs, so an empty dir
+	// wrote a logs/ directory into the package source tree during tests.
+	svc := NewAccountService(backend, nil, nil, NewLogService(t.TempDir()))
 	if svc.StoreReady() {
 		t.Fatal("StoreReady() = true, want false after load error")
 	}

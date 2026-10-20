@@ -62,6 +62,9 @@ export async function updateAccount(
     type?: AccountType;
     status?: AccountStatus;
     quota?: number;
+    proxy_url?: string;
+    proxy_timezone?: string;
+    clear_proxy?: boolean;
   },
 ) {
   return httpRequest<AccountUpdateResponse>("/api/accounts/update", {

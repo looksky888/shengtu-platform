@@ -14,8 +14,14 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"chatgpt2api/internal/util"
+)
+
+const (
+	imageClientCreatedRoot = "client-created-root"
+	imageCreationMention   = "@创建图像"
 )
 
 func (c *Client) ResolveConversationImageURLs(ctx context.Context, conversationID string, fileIDs, sedimentIDs []string, poll bool) []string {
@@ -40,6 +46,9 @@ func (c *Client) streamPictureConversation(ctx context.Context, out chan<- strin
 	if c.AccessToken == "" {
 		return fmt.Errorf("access_token is required for image endpoints")
 	}
+	if err := c.prepareSentinelContext(ctx); err != nil {
+		return err
+	}
 	references := make([]UploadedFile, 0, len(images))
 	for index, imageRef := range images {
 		uploaded, err := c.uploadImage(ctx, imageRef, fmt.Sprintf("image_%d.png", index+1))
@@ -55,11 +64,12 @@ func (c *Client) streamPictureConversation(ctx context.Context, out chan<- strin
 	if err != nil {
 		return err
 	}
-	conduit, err := c.prepareImageConversation(ctx, prompt, reqs, model)
+	traceID := util.NewUUID()
+	conduit, err := c.prepareImageConversation(ctx, prompt, reqs, model, traceID)
 	if err != nil {
 		return err
 	}
-	resp, err := c.startImageGeneration(ctx, prompt, reqs, conduit, model, references)
+	resp, err := c.startImageGeneration(ctx, prompt, reqs, conduit, model, references, traceID)
 	if err != nil {
 		return err
 	}
@@ -141,6 +151,10 @@ func (c *Client) imageHeaders(path string, reqs ChatRequirements, conduitToken, 
 }
 
 func (c *Client) imageHeadersContext(ctx context.Context, path string, reqs ChatRequirements, conduitToken, accept string) map[string]string {
+	return c.imageHeadersContextWithTrace(ctx, path, reqs, conduitToken, accept, "")
+}
+
+func (c *Client) imageHeadersContextWithTrace(ctx context.Context, path string, reqs ChatRequirements, conduitToken, accept, traceID string) map[string]string {
 	if accept == "" {
 		accept = "*/*"
 	}
@@ -157,7 +171,9 @@ func (c *Client) imageHeadersContext(ctx context.Context, path string, reqs Chat
 	if conduitToken != "" {
 		extra["X-Conduit-Token"] = conduitToken
 	}
-	if accept == "text/event-stream" {
+	if traceID != "" {
+		extra["X-Oai-Turn-Trace-Id"] = traceID
+	} else if accept == "text/event-stream" {
 		extra["X-Oai-Turn-Trace-Id"] = util.NewUUID()
 	}
 	return c.headersContext(ctx, path, extra)
@@ -165,13 +181,8 @@ func (c *Client) imageHeadersContext(ctx context.Context, path string, reqs Chat
 
 func (c *Client) imageModelSlug(model string) string {
 	model = strings.TrimSpace(model)
-	// The 2.5 public aliases are compatibility names for the Web image
-	// route.  The Web endpoint selects the active image engine through
-	// `auto`; sending the public API alias as an internal slug is not
-	// equivalent.  Keep the legacy gpt-image-2 mapping unchanged.
-	switch strings.ToLower(model) {
-	case util.ImageModelGPT25, util.ImageModelGPT25Flare, util.ImageModelGPT25Sunburst:
-		return util.ImageModelAuto
+	if canonical, ok := util.CanonicalImage25Model(model); ok {
+		return canonical
 	}
 	if model == "" || util.IsGPTImageModel(model) {
 		// Public GPT image aliases are translated to the Web conversation slug;
@@ -196,16 +207,18 @@ func isAllowedPictureModelSlug(model string) bool {
 	}
 }
 
-func (c *Client) prepareImageConversation(ctx context.Context, prompt string, reqs ChatRequirements, model string) (string, error) {
+func (c *Client) prepareImageConversation(ctx context.Context, prompt string, reqs ChatRequirements, model, traceID string) (string, error) {
 	path := "/backend-api/f/conversation/prepare"
+	timezoneName, timezoneOffset := c.imageTimezone()
 	payload := map[string]any{
-		"action": "next", "fork_from_shared_post": false, "parent_message_id": util.NewUUID(), "model": c.imageModelSlug(model),
-		"client_prepare_state": "success", "timezone_offset_min": -480, "timezone": "Asia/Shanghai",
-		"conversation_mode": map[string]any{"kind": "primary_assistant"}, "system_hints": []any{"picture_v2"},
-		"partial_query":      map[string]any{"id": util.NewUUID(), "author": map[string]any{"role": "user"}, "content": map[string]any{"content_type": "text", "parts": []any{prompt}}},
-		"supports_buffering": true, "supported_encodings": []any{"v1"}, "client_contextual_info": map[string]any{"app_name": "chatgpt.com"},
+		"action": "next", "is_do_not_remember": false, "model": c.imageModelSlug(model), "parent_message_id": imageClientCreatedRoot,
+		"system_hints": []any{"picture_v2"}, "timezone_offset_min": timezoneOffset, "timezone": timezoneName,
+		"client_contextual_info": map[string]any{"app_name": "chatgpt.com", "app_surface": "codex_browser", "has_web_push_capabilities": true, "web_push_notification_permission": "default"},
+		"local_function_names":   []any{"local.continue_in_work"}, "supported_encodings": []any{"v1"}, "client_prepare_state": "sent",
+		"partial_query":           map[string]any{"id": util.NewUUID(), "author": map[string]any{"role": "user"}, "content": map[string]any{"content_type": "text", "parts": []any{prompt}}},
+		"client_prepare_dispatch": "debounced", "client_prepare_source": "composer_editor_state",
 	}
-	resp, err := c.postJSON(ctx, path, payload, c.imageHeadersContext(ctx, path, reqs, "", "*/*"), false)
+	resp, err := c.postJSON(ctx, path, payload, c.imageHeadersContextWithTrace(ctx, path, reqs, "", "*/*", traceID), false)
 	if err != nil {
 		return "", err
 	}
@@ -276,17 +289,21 @@ func (c *Client) uploadImage(ctx context.Context, imageRef, fileName string) (Up
 	return UploadedFile{FileID: util.Clean(uploadMeta["file_id"]), FileName: fileName, FileSize: len(data), MimeType: mimeType, Width: cfg.Width, Height: cfg.Height}, nil
 }
 
-func (c *Client) startImageGeneration(ctx context.Context, prompt string, reqs ChatRequirements, conduitToken, model string, references []UploadedFile) (*http.Response, error) {
+func (c *Client) startImageGeneration(ctx context.Context, prompt string, reqs ChatRequirements, conduitToken, model string, references []UploadedFile, traceID string) (*http.Response, error) {
+	timezoneName, timezoneOffset := c.imageTimezone()
+	mentionText := imageCreationMention + " " + prompt
 	var parts []any
 	for _, item := range references {
 		parts = append(parts, map[string]any{"content_type": "image_asset_pointer", "asset_pointer": "file-service://" + item.FileID, "width": item.Width, "height": item.Height, "size_bytes": item.FileSize})
 	}
-	parts = append(parts, prompt)
-	content := map[string]any{"content_type": "text", "parts": []any{prompt}}
+	parts = append(parts, mentionText)
+	content := map[string]any{"content_type": "text", "parts": []any{mentionText}}
 	if len(references) > 0 {
 		content = map[string]any{"content_type": "multimodal_text", "parts": parts}
 	}
-	metadata := map[string]any{"developer_mode_connector_ids": []any{}, "selected_github_repos": []any{}, "selected_all_github_repos": false, "system_hints": []any{"picture_v2"}, "serialization_metadata": map[string]any{"custom_symbol_offsets": []any{}}}
+	metadata := map[string]any{"developer_mode_connector_ids": []any{}, "selected_github_repos": []any{}, "selected_all_github_repos": false, "system_hints": []any{"picture_v2"}, "serialization_metadata": map[string]any{
+		"render_format": "markdown", "custom_symbol_offsets": []any{map[string]any{"id": "picture_v2", "symbol": "ecosystemMention", "startIndex": 0, "endIndex": utf8.RuneCountInString(imageCreationMention)}},
+	}}
 	if len(references) > 0 {
 		attachments := make([]any, 0, len(references))
 		for _, item := range references {
@@ -295,14 +312,14 @@ func (c *Client) startImageGeneration(ctx context.Context, prompt string, reqs C
 		metadata["attachments"] = attachments
 	}
 	payload := map[string]any{
-		"action": "next", "messages": []any{map[string]any{"id": util.NewUUID(), "author": map[string]any{"role": "user"}, "create_time": float64(time.Now().UnixNano()) / 1e9, "content": content, "metadata": metadata}},
-		"parent_message_id": util.NewUUID(), "model": c.imageModelSlug(model), "client_prepare_state": "sent", "timezone_offset_min": -480, "timezone": "Asia/Shanghai",
-		"conversation_mode": map[string]any{"kind": "primary_assistant"}, "enable_message_followups": true, "system_hints": []any{"picture_v2"}, "supports_buffering": true, "supported_encodings": []any{"v1"},
-		"client_contextual_info":               map[string]any{"is_dark_mode": false, "time_since_loaded": 1200, "page_height": 1072, "page_width": 1724, "pixel_ratio": 1.2, "screen_height": 1440, "screen_width": 2560, "app_name": "chatgpt.com"},
-		"paragen_cot_summary_display_override": "allow", "force_parallel_switch": "auto",
+		"turn_attribution": map[string]any{"turn_trigger": "composer"}, "action": "next", "is_do_not_remember": false,
+		"messages":          []any{map[string]any{"id": util.NewUUID(), "author": map[string]any{"metadata": map[string]any{}, "name": nil, "role": "user"}, "channel": nil, "create_time": float64(time.Now().UnixNano()) / 1e9, "end_turn": nil, "content": content, "metadata": metadata, "recipient": "all", "status": "finished_successfully", "update_time": nil, "weight": 1}},
+		"parent_message_id": imageClientCreatedRoot, "model": c.imageModelSlug(model), "system_hints": []any{"picture_v2"}, "timezone_offset_min": timezoneOffset, "timezone": timezoneName,
+		"client_contextual_info": map[string]any{"app_name": "chatgpt.com", "app_surface": "codex_browser", "has_web_push_capabilities": true, "web_push_notification_permission": "default"},
+		"local_function_names":   []any{"local.continue_in_work"}, "supported_encodings": []any{"v1"}, "genui_state_snapshots": []any{}, "client_prepare_state": "success",
 	}
 	path := "/backend-api/f/conversation"
-	resp, err := c.postJSON(ctx, path, payload, c.imageHeadersContext(ctx, path, reqs, conduitToken, "text/event-stream"), true)
+	resp, err := c.postJSON(ctx, path, payload, c.imageHeadersContextWithTrace(ctx, path, reqs, conduitToken, "text/event-stream", traceID), true)
 	if err != nil {
 		return nil, err
 	}
@@ -311,6 +328,9 @@ func (c *Client) startImageGeneration(ctx context.Context, prompt string, reqs C
 		data, readErr := readBackendResponseBody(resp, path)
 		if readErr != nil {
 			return nil, readErr
+		}
+		if isAutoImageModelNotFound(resp.StatusCode, c.imageModelSlug(model), data) {
+			return nil, fmt.Errorf("%w: %v", ErrAutoImageModelNotFound, upstreamHTTPErrorWithResponse(path, resp, data))
 		}
 		return nil, upstreamHTTPErrorWithResponse(path, resp, data)
 	}

@@ -83,6 +83,9 @@ type RegisterClearancePublic struct {
 	UserAgent              string `json:"user_agent,omitempty"`
 	CFClearance            string `json:"cf_clearance,omitempty"`
 	CFCookies              string `json:"cf_cookies,omitempty"`
+	// CFCredentialsConfigured reports that a clearance pair is stored. The values
+	// themselves are never returned; leaving the inputs blank keeps them.
+	CFCredentialsConfigured bool `json:"cf_credentials_configured,omitempty"`
 }
 
 // RegisterMailPublic is the API-facing mail block.
@@ -275,6 +278,10 @@ func RegisterConfigPublicFromMap(item map[string]any) RegisterConfigPublic {
 	}
 
 	clearanceRaw := util.StringMap(item["clearance"])
+	// The snapshot blanks both values; the marker carries "stored, blank keeps it".
+	cfCredentialsConfigured := util.ToBool(clearanceRaw["cf_clearance"+registerSecretMarkerSuffix]) ||
+		util.ToBool(clearanceRaw["cf_cookies"+registerSecretMarkerSuffix]) ||
+		util.Clean(clearanceRaw["cf_clearance"]) != "" || util.Clean(clearanceRaw["cf_cookies"]) != ""
 	statsRaw := util.StringMap(item["stats"])
 	logsRaw := util.AsMapSlice(item["logs"])
 	logs := make([]RegisterLogPublic, 0, len(logsRaw))
@@ -319,8 +326,10 @@ func RegisterConfigPublicFromMap(item map[string]any) RegisterConfigPublic {
 			RefreshIntervalSeconds: util.ToInt(clearanceRaw["refresh_interval_seconds"], 3600),
 			Proxy:                  util.Clean(clearanceRaw["proxy"]),
 			UserAgent:              util.Clean(clearanceRaw["user_agent"]),
-			CFClearance:            util.Clean(clearanceRaw["cf_clearance"]),
-			CFCookies:              util.Clean(clearanceRaw["cf_cookies"]),
+			// Never echo the clearance pair: only whether one is stored.
+			CFClearance:             "",
+			CFCookies:               "",
+			CFCredentialsConfigured: cfCredentialsConfigured,
 		},
 		Total:           util.ToInt(item["total"], 1),
 		Threads:         util.ToInt(item["threads"], 1),

@@ -14,6 +14,7 @@ import {
   type VideoReferenceAsset,
 } from "@/lib/video-task-api";
 import { LEGACY_VIDEO_TASK_KEY, videoTaskStorageKey } from "@/app/video/video-task-storage";
+import type { VideoPreview } from "@/components/video-preview-dialog";
 import type { StoredAuthSession } from "@/store/auth";
 import { createRequestId } from "@/lib/request-id";
 
@@ -56,7 +57,7 @@ export function useVideoCreation(session: StoredAuthSession | null | undefined) 
   const [submitting, setSubmitting] = useState(false);
   const [pollError, setPollError] = useState("");
   const [creditCostPerSecond, setCreditCostPerSecond] = useState(1);
-  const [previewVideo, setPreviewVideo] = useState<{ url: string; taskID: string; prompt: string; seconds: number; size: string; resolutionName: string } | null>(null);
+  const [previewVideo, setPreviewVideo] = useState<(VideoPreview & { taskID: string }) | null>(null);
   const observedActiveTaskRef = useRef(false);
 
   useEffect(() => {
@@ -285,7 +286,7 @@ export function useVideoCreation(session: StoredAuthSession | null | undefined) 
       prompt: prompt.trim(),
       seconds: video.seconds || seconds,
       size,
-      resolutionName,
+      resolution: resolutionName,
     });
     if (taskStorageKey) window.localStorage.removeItem(taskStorageKey);
     setTask(null);

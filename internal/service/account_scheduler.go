@@ -9,14 +9,54 @@ import (
 	"chatgpt2api/internal/util"
 )
 
+// GetTextAccessToken returns the next text-usable token in pool rotation order.
+//
+// Text traffic (/v1/chat/completions, /v1/messages, /v1/responses) shares the pool
+// with image jobs, so selection rotates from the scheduler cursor and honours the
+// same status and cooldown gates: previously every text request reused the first
+// non-disabled row, pinning all text load (and any upstream rate limit) on one
+// account while the rest stayed idle.
 func (s *AccountService) GetTextAccessToken() string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	for _, item := range s.items {
-		status := util.Clean(item.Status)
-		if status != "禁用" && status != "异常" {
-			return util.Clean(item.AccessToken)
+	now := time.Now()
+	if token := s.nextTextAccessTokenLocked(now, false); token != "" {
+		return token
+	}
+	// Nothing unrestricted left: 限流 marks image_gen quota exhaustion and cooldown
+	// only gates the image path, so a throttled account may still serve text. Rotate
+	// over them instead of failing every text request.
+	return s.nextTextAccessTokenLocked(now, true)
+}
+
+// nextTextAccessTokenLocked scans the pool from the scheduler cursor and advances it
+// past the selected row. allowThrottled additionally accepts 限流 / cooling accounts.
+func (s *AccountService) nextTextAccessTokenLocked(now time.Time, allowThrottled bool) string {
+	total := len(s.items)
+	if total == 0 {
+		return ""
+	}
+	start := s.index % total
+	for offset := 0; offset < total; offset++ {
+		idx := (start + offset) % total
+		item := s.items[idx]
+		token := util.Clean(item.AccessToken)
+		if token == "" {
+			continue
 		}
+		switch util.Clean(item.Status) {
+		case "禁用", "异常":
+			continue
+		case "限流":
+			if !allowThrottled {
+				continue
+			}
+		}
+		if !allowThrottled && s.isImageCooldownActiveLocked(token, now) {
+			continue
+		}
+		s.index = (idx + 1) % total
+		return token
 	}
 	return ""
 }

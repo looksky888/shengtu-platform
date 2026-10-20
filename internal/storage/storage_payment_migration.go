@@ -1,114 +1,22 @@
 package storage
 
-import (
-	"database/sql"
-	"fmt"
-)
+import "fmt"
 
 type paymentColumnMigration struct {
+	table      string
 	name       string
 	definition string
 }
 
+// ensurePaymentChannelVersionColumns installs the payment columns that were
+// added after the original payment schema. Every ALTER TABLE is issued
+// unconditionally and a concurrent initializer that created the column first is
+// tolerated, so two instances starting at the same time cannot fail startup
+// with "duplicate column name".
 func (b *DatabaseBackend) ensurePaymentChannelVersionColumns() error {
-	columns := []paymentColumnMigration{
-		{name: "alipay_private_key_cipher", definition: "TEXT NOT NULL DEFAULT ''"},
-		{name: "alipay_public_key_cipher", definition: "TEXT NOT NULL DEFAULT ''"},
-		{name: "alipay_gateway", definition: "TEXT NOT NULL DEFAULT ''"},
-		{name: "alipay_seller_id", definition: "TEXT NOT NULL DEFAULT ''"},
-	}
-	if b.driver == "mysql" {
-		columns[0].definition = "LONGTEXT NULL"
-		columns[1].definition = "LONGTEXT NULL"
-		columns[2].definition = "VARCHAR(512) NOT NULL DEFAULT ''"
-		columns[3].definition = "VARCHAR(128) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT ''"
-	}
-	for _, column := range columns {
-		exists, err := b.paymentColumnExists("payment_channel_versions", column.name)
-		if err != nil {
+	for _, column := range b.paymentColumnMigrations() {
+		if err := b.addPaymentColumn(column); err != nil {
 			return err
-		}
-		if exists {
-			continue
-		}
-		if _, err := b.db.Exec(`ALTER TABLE payment_channel_versions ADD COLUMN ` + column.name + ` ` + column.definition); err != nil {
-			return fmt.Errorf("add %s: %w", column.name, err)
-		}
-	}
-	productTypeExists, err := b.paymentColumnExists("recharge_products", "product_type")
-	if err != nil {
-		return err
-	}
-	for _, column := range []paymentColumnMigration{
-		{name: "storage_days", definition: "INTEGER NOT NULL DEFAULT 0"},
-		{name: "storage_bytes", definition: "BIGINT NOT NULL DEFAULT 0"},
-	} {
-		exists, err := b.paymentColumnExists("recharge_products", column.name)
-		if err != nil {
-			return err
-		}
-		if exists {
-			continue
-		}
-		definition := column.definition
-		if b.driver == "mysql" && column.name == "storage_bytes" {
-			definition = "BIGINT NOT NULL DEFAULT 0"
-		}
-		if _, err := b.db.Exec(`ALTER TABLE recharge_products ADD COLUMN ` + column.name + ` ` + definition); err != nil {
-			return fmt.Errorf("add recharge_products.%s: %w", column.name, err)
-		}
-	}
-	for _, column := range []paymentColumnMigration{
-		{name: "cloud_storage_enabled", definition: "INTEGER NOT NULL DEFAULT 0"},
-		{name: "cloud_storage_policy_started_at", definition: "TEXT NOT NULL DEFAULT ''"},
-	} {
-		exists, err := b.paymentColumnExists("payment_settings", column.name)
-		if err != nil {
-			return err
-		}
-		if exists {
-			continue
-		}
-		if _, err := b.db.Exec(`ALTER TABLE payment_settings ADD COLUMN ` + column.name + ` ` + column.definition); err != nil {
-			return fmt.Errorf("add payment_settings.%s: %w", column.name, err)
-		}
-	}
-	for _, column := range []paymentColumnMigration{
-		{name: "product_type_snapshot", definition: "TEXT NOT NULL DEFAULT 'credits'"},
-		{name: "storage_days_snapshot", definition: "INTEGER NOT NULL DEFAULT 0"},
-		{name: "storage_bytes_snapshot", definition: "BIGINT NOT NULL DEFAULT 0"},
-	} {
-		exists, err := b.paymentColumnExists("payment_orders", column.name)
-		if err != nil {
-			return err
-		}
-		if exists {
-			continue
-		}
-		if _, err := b.db.Exec(`ALTER TABLE payment_orders ADD COLUMN ` + column.name + ` ` + column.definition); err != nil {
-			return fmt.Errorf("add payment_orders.%s: %w", column.name, err)
-		}
-	}
-	if !productTypeExists {
-		definition := "TEXT NOT NULL DEFAULT 'credits'"
-		if b.driver == "mysql" {
-			definition = "VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'credits'"
-		}
-		if _, err := b.db.Exec(`ALTER TABLE recharge_products ADD COLUMN product_type ` + definition); err != nil {
-			return fmt.Errorf("add recharge_products.product_type: %w", err)
-		}
-	}
-	archivedAtExists, err := b.paymentColumnExists("recharge_products", "archived_at")
-	if err != nil {
-		return err
-	}
-	if !archivedAtExists {
-		definition := "TEXT NOT NULL DEFAULT ''"
-		if b.driver == "mysql" {
-			definition = "VARCHAR(64) NOT NULL DEFAULT ''"
-		}
-		if _, err := b.db.Exec(`ALTER TABLE recharge_products ADD COLUMN archived_at ` + definition); err != nil {
-			return fmt.Errorf("add recharge_products.archived_at: %w", err)
 		}
 	}
 	if _, err := b.db.Exec(`INSERT INTO payment_settings (id) VALUES (1)`); err != nil && !b.isUniqueConflict(err) {
@@ -117,38 +25,61 @@ func (b *DatabaseBackend) ensurePaymentChannelVersionColumns() error {
 	return nil
 }
 
-func (b *DatabaseBackend) paymentColumnExists(table, column string) (bool, error) {
-	var marker int
-	var err error
-	switch b.driver {
-	case "postgres":
-		err = b.db.QueryRow(`SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = $1 AND column_name = $2`, table, column).Scan(&marker)
-	case "mysql":
-		err = b.db.QueryRow(`SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?`, table, column).Scan(&marker)
-	default:
-		rows, queryErr := b.db.Query(`PRAGMA table_info(` + table + `)`)
-		if queryErr != nil {
-			return false, queryErr
-		}
-		defer rows.Close()
-		for rows.Next() {
-			var cid, notNull, primaryKey int
-			var name, dataType string
-			var defaultValue any
-			if scanErr := rows.Scan(&cid, &name, &dataType, &notNull, &defaultValue, &primaryKey); scanErr != nil {
-				return false, scanErr
+// paymentColumnMigrations lists the post-baseline payment columns in install
+// order. MySQL definitions mirror the MySQL baseline CREATE TABLE statements:
+// the cipher columns are NOT NULL there, so the migration must not widen them to
+// NULL (which previously forced COALESCE on the read path).
+func (b *DatabaseBackend) paymentColumnMigrations() []paymentColumnMigration {
+	columns := []paymentColumnMigration{
+		{table: "payment_channel_versions", name: "alipay_private_key_cipher", definition: "TEXT NOT NULL DEFAULT ''"},
+		{table: "payment_channel_versions", name: "alipay_public_key_cipher", definition: "TEXT NOT NULL DEFAULT ''"},
+		{table: "payment_channel_versions", name: "alipay_gateway", definition: "TEXT NOT NULL DEFAULT ''"},
+		{table: "payment_channel_versions", name: "alipay_seller_id", definition: "TEXT NOT NULL DEFAULT ''"},
+		{table: "recharge_products", name: "storage_days", definition: "INTEGER NOT NULL DEFAULT 0"},
+		{table: "recharge_products", name: "storage_bytes", definition: "BIGINT NOT NULL DEFAULT 0"},
+		{table: "payment_settings", name: "cloud_storage_enabled", definition: "INTEGER NOT NULL DEFAULT 0"},
+		{table: "payment_settings", name: "cloud_storage_policy_started_at", definition: "TEXT NOT NULL DEFAULT ''"},
+		{table: "payment_orders", name: "product_type_snapshot", definition: "TEXT NOT NULL DEFAULT 'credits'"},
+		{table: "payment_orders", name: "storage_days_snapshot", definition: "INTEGER NOT NULL DEFAULT 0"},
+		{table: "payment_orders", name: "storage_bytes_snapshot", definition: "BIGINT NOT NULL DEFAULT 0"},
+		{table: "recharge_products", name: "product_type", definition: "TEXT NOT NULL DEFAULT 'credits'"},
+		{table: "recharge_products", name: "archived_at", definition: "TEXT NOT NULL DEFAULT ''"},
+	}
+	if b.driver == "mysql" {
+		for index := range columns {
+			switch columns[index].name {
+			case "alipay_private_key_cipher", "alipay_public_key_cipher":
+				columns[index].definition = "LONGTEXT NOT NULL"
+			case "alipay_gateway":
+				columns[index].definition = "VARCHAR(512) NOT NULL DEFAULT ''"
+			case "alipay_seller_id":
+				columns[index].definition = "VARCHAR(128) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT ''"
+			case "product_type":
+				columns[index].definition = "VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'credits'"
+			case "archived_at":
+				columns[index].definition = "VARCHAR(64) NOT NULL DEFAULT ''"
 			}
-			if name == column {
-				return true, nil
-			}
 		}
-		return false, rows.Err()
 	}
-	if err == nil {
-		return true, nil
+	return columns
+}
+
+// addPaymentColumn adds one column and treats "the column already exists" as
+// success: the existence check and the ALTER TABLE cannot be made atomic, so the
+// loser of that race must not abort startup.
+func (b *DatabaseBackend) addPaymentColumn(column paymentColumnMigration) error {
+	statement := `ALTER TABLE ` + column.table + ` ADD COLUMN `
+	if b.driver == "postgres" {
+		// Postgres 9.6+ supports ADD COLUMN IF NOT EXISTS, so the race never
+		// surfaces as an error there.
+		statement += `IF NOT EXISTS `
 	}
-	if err == sql.ErrNoRows {
-		return false, nil
+	statement += column.name + ` ` + column.definition
+	if _, err := b.db.Exec(statement); err != nil {
+		if isDuplicatePaymentColumnError(err) {
+			return nil
+		}
+		return fmt.Errorf("add %s.%s: %w", column.table, column.name, err)
 	}
-	return false, err
+	return nil
 }

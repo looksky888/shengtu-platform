@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { useMotionValue, useReducedMotion, useSpring } from "motion/react";
 
 import { fetchStudioImageTaskTodayStats } from "@/lib/api";
@@ -41,6 +41,7 @@ export function useStudioStatsFab() {
   const [error, setError] = useState<string | null>(null);
   const [refreshToken, setRefreshToken] = useState(0);
   const [bump, setBump] = useState(0);
+  const [panelHeight, setPanelHeight] = useState(0);
   const wrapRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef({ active: false, moved: false, startX: 0, startY: 0, originX: 0, originY: 0 });
@@ -183,6 +184,20 @@ export function useStudioStatsFab() {
     void loadStats(true);
   }, [loadStats, open]);
 
+  // 面板高度必须在布局阶段量测后进入 state：render 期读 DOM 会拿到过期尺寸，
+  // 使首次打开时的定位按兜底高度计算。
+  useLayoutEffect(() => {
+    const panel = panelRef.current;
+    if (!open || !panel) {
+      return;
+    }
+    const measure = () => setPanelHeight(panel.offsetHeight);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(panel);
+    return () => observer.disconnect();
+  }, [open]);
+
   const commitPos = useCallback(
     (next: FabPosition, snap = false) => {
       const clamped = clampFabPosition(snap ? snapFabToEdge(next, BALL, 16) : next, BALL, 8);
@@ -198,7 +213,7 @@ export function useStudioStatsFab() {
   const panelStyle = useMemo(() => {
     if (typeof window === "undefined") return { left: 0, top: 0, transformOrigin: "100% 100%", width: PANEL_W };
     const pw = Math.min(PANEL_W, window.innerWidth - 24);
-    const ph = panelRef.current?.offsetHeight || 360;
+    const ph = panelHeight || 360;
     const gap = 14;
     const ballCx = pos.x + BALL / 2;
     const ballCy = pos.y + BALL / 2;
@@ -215,7 +230,9 @@ export function useStudioStatsFab() {
       width: pw,
       transformOrigin: `${Math.min(100, Math.max(0, ox))}% ${Math.min(100, Math.max(0, oy))}%`,
     };
-  }, [pos.x, pos.y]);
+    // panelHeight is re-measured on every open (layout effect + ResizeObserver), so it
+    // covers reopening without reading the DOM during render.
+  }, [panelHeight, pos.x, pos.y]);
 
   const onPointerDown = (event: ReactPointerEvent<HTMLButtonElement>) => {
     if (event.button !== 0) return;

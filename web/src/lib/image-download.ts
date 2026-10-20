@@ -68,6 +68,15 @@ export async function triggerImageDownloads(
 /** Fetch through the application origin, then save a local Blob URL. */
 export async function downloadImageBlob(src: string, fileName: string) {
   const blob = await fetchImageDownloadBlob(src);
+  downloadBlob(blob, fileName);
+}
+
+/**
+ * Save an in-memory blob (export JSON / txt) through a temporary anchor.
+ * The anchor must be attached for the click to be treated as a download, and the
+ * object URL has to outlive the click before it is revoked.
+ */
+export function downloadBlob(blob: Blob, fileName: string) {
   const objectUrl = URL.createObjectURL(blob);
   try {
     triggerImageDownload(objectUrl, fileName);

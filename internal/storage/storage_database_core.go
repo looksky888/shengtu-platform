@@ -2,9 +2,12 @@ package storage
 
 import (
 	"database/sql"
+	"net/url"
+	"strings"
+	"time"
+
 	_ "github.com/lib/pq"
 	_ "modernc.org/sqlite"
-	"time"
 )
 
 type DatabaseBackend struct {
@@ -19,16 +22,21 @@ func NewDatabaseBackend(databaseURL string) (*DatabaseBackend, error) {
 	if err != nil {
 		return nil, err
 	}
-	db, err := sql.Open(driver, dsn)
+	openDSN := dsn
+	if driver == "sqlite" {
+		// PRAGMA settings are per connection. database/sql opens new connections
+		// over the lifetime of the pool (SetConnMaxLifetime below), so the
+		// settings must travel with the DSN: a connection created later would
+		// otherwise run with busy_timeout=0 and fail immediately on SQLITE_BUSY.
+		openDSN = sqlitePragmaDSN(openDSN)
+	}
+	db, err := sql.Open(driver, openDSN)
 	if err != nil {
 		return nil, err
 	}
+	// dsn stays the bare SQLite file path: database snapshots read it as a path.
 	backend := &DatabaseBackend{databaseURL: databaseURL, driver: driver, dsn: dsn, db: db}
 	backend.configurePool()
-	if err := backend.configureSQLite(); err != nil {
-		_ = db.Close()
-		return nil, err
-	}
 	if err := backend.init(); err != nil {
 		_ = db.Close()
 		return nil, err
@@ -55,20 +63,27 @@ func (b *DatabaseBackend) configurePool() {
 	b.db.SetMaxIdleConns(5)
 }
 
-func (b *DatabaseBackend) configureSQLite() error {
-	if b.driver != "sqlite" {
-		return nil
+// sqlitePragmas are connection-scoped settings every pooled connection needs.
+// journal_mode is durable in the database file, but it is applied here too so a
+// freshly created file is switched to WAL before any other statement runs.
+var sqlitePragmas = []string{
+	"busy_timeout(5000)",
+	"foreign_keys(ON)",
+	"journal_mode(WAL)",
+	"synchronous(NORMAL)",
+	"temp_store(MEMORY)",
+}
+
+// sqlitePragmaDSN appends the connection PRAGMAs as DSN query parameters, which
+// modernc.org/sqlite replays on every connection it opens.
+func sqlitePragmaDSN(dsn string) string {
+	params := make([]string, 0, len(sqlitePragmas))
+	for _, pragma := range sqlitePragmas {
+		params = append(params, "_pragma="+url.QueryEscape(pragma))
 	}
-	for _, stmt := range []string{
-		`PRAGMA journal_mode=WAL`,
-		`PRAGMA synchronous=NORMAL`,
-		`PRAGMA busy_timeout=5000`,
-		`PRAGMA temp_store=MEMORY`,
-		`PRAGMA foreign_keys=ON`,
-	} {
-		if _, err := b.db.Exec(stmt); err != nil {
-			return err
-		}
+	separator := "?"
+	if strings.Contains(dsn, "?") {
+		separator = "&"
 	}
-	return nil
+	return dsn + separator + strings.Join(params, "&")
 }

@@ -4,11 +4,11 @@ import { CheckSquare, Filter, Globe2, LoaderCircle, Lock, Plus, RefreshCw, Squar
 import { Link } from "react-router-dom";
 
 import { VideoLibraryGrid } from "@/app/video-library/video-library-grid";
-import { VideoPreviewDialog } from "@/app/video-library/video-preview-dialog";
 import { VideoLibraryTabs } from "@/app/video-library/video-library-tabs";
 import { useVideoLibrary } from "@/app/video-library/use-video-library";
 import { PageHeader } from "@/components/page-header";
 import { MediaDeleteDialog } from "@/components/media-delete-dialog";
+import { VideoPreviewDialog } from "@/components/video-preview-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -24,6 +24,14 @@ export default function VideoLibraryPage() {
     return <div className="flex min-h-[40vh] items-center justify-center"><LoaderCircle className="size-5 animate-spin text-stone-400" /></div>;
   }
 
+  const selectedAsset = controller.selectedAsset;
+  const selectedVideo = selectedAsset ? {
+    url: selectedAsset.url,
+    prompt: selectedAsset.prompt,
+    seconds: selectedAsset.seconds,
+    resolution: selectedAsset.resolution_name,
+    size: selectedAsset.size,
+  } : null;
   const canDeleteVideos = hasAPIPermission(session, "DELETE", "/api/videos");
   const canUpdateVisibility = hasAPIPermission(session, "PATCH", "/api/videos/visibility");
   return (
@@ -62,7 +70,7 @@ export default function VideoLibraryPage() {
       {controller.searchKeyword.trim() || controller.visibilityFilter !== "all" ? <p className="-mt-2 px-1 text-xs text-muted-foreground">当前筛选显示 {controller.filteredAssets.length} / {controller.assets.length} 个已加载视频</p> : null}
       <VideoLibraryGrid controller={controller} canDeleteVideos={canDeleteVideos} canUpdateVisibility={canUpdateVisibility} onRetry={() => void controller.load()} />
       {controller.hasMore ? <div className="flex justify-center"><Button type="button" variant="outline" onClick={() => void controller.loadMore()} disabled={controller.loadingMore}>{controller.loadingMore ? <LoaderCircle className="animate-spin" /> : null}加载更多视频</Button></div> : null}
-      <VideoPreviewDialog asset={controller.selectedAsset} onOpenChange={(open) => { if (!open) controller.selectAsset(null); }} />
+      <VideoPreviewDialog video={selectedVideo} onOpenChange={(open) => { if (!open) controller.selectAsset(null); }} />
       <MediaDeleteDialog
         open={controller.deleteTargets.length > 0}
         mediaLabel="视频"

@@ -3,6 +3,7 @@ package service
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -14,8 +15,12 @@ type videoCleanupCandidate struct {
 	trashPath string
 }
 
-// CleanupOldVideos removes indexed, completed video assets after retention.
-// Active generation state lives outside this service and is never touched.
+// CleanupOldVideos removes indexed, completed video assets after retention and
+// reclaims orphan files under videos/ that no index row references (bytes that
+// landed on disk while Record failed, rows rolled back by a failed index save,
+// or legacy names that were never migrated).
+// Active generation state lives outside this service and is never touched: the
+// directory sweep only deletes files older than the retention cutoff.
 func (s *VideoAssetService) CleanupOldVideos(retentionDays int) (int, error) {
 	if retentionDays < 1 {
 		retentionDays = 1
@@ -26,9 +31,11 @@ func (s *VideoAssetService) CleanupOldVideos(retentionDays int) (int, error) {
 	if !s.storeReady {
 		return 0, fmt.Errorf("video index is not ready")
 	}
+	indexedPaths := make(map[string]struct{}, len(s.items))
 	candidates := make([]videoCleanupCandidate, 0)
 	for id, item := range s.items {
 		path := s.ContentPath(item.OwnerID, item.TaskID)
+		indexedPaths[path] = struct{}{}
 		info, err := os.Stat(path)
 		if err != nil || info.IsDir() {
 			continue
@@ -51,20 +58,53 @@ func (s *VideoAssetService) CleanupOldVideos(retentionDays int) (int, error) {
 		candidates = append(candidates, videoCleanupCandidate{id: id, item: item, path: path, trashPath: trashPath})
 		delete(s.items, id)
 	}
-	if len(candidates) == 0 {
-		return 0, nil
-	}
-	if err := s.saveLocked(); err != nil {
-		for _, candidate := range candidates {
-			s.items[candidate.id] = candidate.item
+	if len(candidates) > 0 {
+		if err := s.saveLocked(); err != nil {
+			for _, candidate := range candidates {
+				s.items[candidate.id] = candidate.item
+			}
+			s.restoreVideoCleanupFiles(candidates)
+			return 0, fmt.Errorf("save video index after cleanup: %w", err)
 		}
-		s.restoreVideoCleanupFiles(candidates)
-		return 0, fmt.Errorf("save video index after cleanup: %w", err)
+		for _, candidate := range candidates {
+			_ = os.Remove(candidate.trashPath)
+		}
 	}
-	for _, candidate := range candidates {
-		_ = os.Remove(candidate.trashPath)
+	orphans, orphanErr := s.removeOrphanVideoFilesLocked(indexedPaths, cutoff)
+	return len(candidates) + orphans, orphanErr
+}
+
+// removeOrphanVideoFilesLocked deletes videos/ files that no index row claims.
+// Only files whose modification time is already past the retention cutoff are
+// touched, so an output still being written by a running task is never removed.
+func (s *VideoAssetService) removeOrphanVideoFilesLocked(indexedPaths map[string]struct{}, cutoff time.Time) (int, error) {
+	dir := filepath.Join(s.dataDir, "videos")
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return 0, nil
+		}
+		return 0, fmt.Errorf("scan video directory: %w", err)
 	}
-	return len(candidates), nil
+	removed := 0
+	for _, entry := range entries {
+		path := filepath.Join(dir, entry.Name())
+		if _, ok := indexedPaths[path]; ok {
+			continue
+		}
+		info, err := entry.Info()
+		if err != nil || !info.Mode().IsRegular() || !info.ModTime().Before(cutoff) {
+			continue
+		}
+		if err := os.Remove(path); err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return removed, fmt.Errorf("remove orphan video %s: %w", entry.Name(), err)
+		}
+		removed++
+	}
+	return removed, nil
 }
 
 func (s *VideoAssetService) restoreVideoCleanupFiles(candidates []videoCleanupCandidate) {

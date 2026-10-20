@@ -1,10 +1,10 @@
 import { CheckCircle2, Clock3, LoaderCircle } from "lucide-react";
 
+import { formatElapsedClock } from "@/lib/datetime";
 import { cn } from "@/lib/utils";
 import { getImageTurnProgressSnapshot, imageTurnProgressKey } from "@/store/image-turn-progress";
 
 import {
-  formatElapsedClock,
   formatQueueTime,
   getCompletionTone,
   getModeLabel,

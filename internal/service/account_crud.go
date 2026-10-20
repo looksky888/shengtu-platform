@@ -150,7 +150,7 @@ func (s *AccountService) UpdateAccount(accessToken string, updates map[string]an
 	if !ok {
 		return nil, nil
 	}
-	if account.Status == "限流" && s.config.AutoRemoveRateLimitedAccounts() {
+	if account.Status == "限流" && s.autoRemoveRateLimitedAccounts() {
 		prevItems := append([]Account(nil), s.items...)
 		prevReservations := cloneStringIntMap(s.imageReservations)
 		prevCooldown := cloneStringTimeMap(s.imageCooldownUntil)

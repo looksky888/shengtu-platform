@@ -275,6 +275,23 @@ func TestImageHeadersCarryAllRequirementTokens(t *testing.T) {
 	}
 }
 
+func TestBrowserFingerprintMatchesChrome146(t *testing.T) {
+	for name, value := range map[string]string{
+		"user-agent":        browserUserAgent,
+		"sec-ch-ua":         browserSecCHUA,
+		"full-version":      browserSecCHUAFullVersion,
+		"full-version-list": browserSecCHUAFullVersionList,
+		"profile":           browserImpersonationProfile,
+	} {
+		if !strings.Contains(value, "146") {
+			t.Fatalf("%s = %q, want Chrome 146", name, value)
+		}
+		if strings.Contains(strings.ToLower(value), "edge") {
+			t.Fatalf("%s mixes Edge identity: %q", name, value)
+		}
+	}
+}
+
 func TestImageModelSlugSupportsSelection(t *testing.T) {
 	client := &Client{}
 	for _, tc := range []struct {
@@ -284,10 +301,10 @@ func TestImageModelSlugSupportsSelection(t *testing.T) {
 		{model: "", want: "gpt-5-3"},
 		{model: "auto", want: "auto"},
 		{model: "gpt-image-2", want: "gpt-5-3"},
-		{model: "gpt-image-2.5", want: "auto"},
-		{model: "GPT-IMAGE-2.5-FLARE", want: "auto"},
-		{model: "gpt-image-2.5-flare", want: "auto"},
-		{model: "gpt-image-2.5-sunburst", want: "auto"},
+		{model: "gpt-image-2.5", want: "gpt-image-2.5-flare"},
+		{model: "GPT-IMAGE-2.5-FLARE", want: "gpt-image-2.5-flare"},
+		{model: "gpt-image-2.5-flare", want: "gpt-image-2.5-flare"},
+		{model: "gpt-image-2.5-sunburst", want: "gpt-image-2.5-sunburst"},
 		{model: "gpt-5", want: "gpt-5"},
 		{model: "gpt-5-3-mini", want: "gpt-5-3-mini"},
 		{model: "gpt-5.4", want: "gpt-5.4"},
@@ -318,7 +335,7 @@ func TestStartImageGenerationMatchesPictureV2WebPayload(t *testing.T) {
 	defer server.Close()
 
 	client := &Client{BaseURL: server.URL, AccessToken: "test-token", httpClient: server.Client(), fp: map[string]string{}, userAgent: browserUserAgent}
-	resp, err := client.startImageGeneration(context.Background(), "draw a cat\n\n输出图片尺寸为 16:9。输出图片质量为 high。", ChatRequirements{Token: "requirements-token"}, "conduit-token", "gpt-image-2.5-flare", nil)
+	resp, err := client.startImageGeneration(context.Background(), "draw a cat\n\n输出图片尺寸为 16:9。输出图片质量为 high。", ChatRequirements{Token: "requirements-token"}, "conduit-token", "gpt-image-2.5-flare", nil, "trace-fixture")
 	if err != nil {
 		t.Fatalf("startImageGeneration() error = %v", err)
 	}
@@ -329,11 +346,85 @@ func TestStartImageGenerationMatchesPictureV2WebPayload(t *testing.T) {
 	if _, ok := payload["image_generation_quality"]; ok {
 		t.Fatalf("picture_v2 payload contains unsupported image_generation_quality: %#v", payload["image_generation_quality"])
 	}
-	if got := payload["model"]; got != "auto" {
-		t.Fatalf("model = %#v, want auto", got)
+	if got := payload["model"]; got != "gpt-image-2.5-flare" {
+		t.Fatalf("model = %#v, want gpt-image-2.5-flare", got)
 	}
 	if hints, ok := payload["system_hints"].([]any); !ok || len(hints) != 1 || hints[0] != "picture_v2" {
 		t.Fatalf("system_hints = %#v", payload["system_hints"])
+	}
+}
+
+func TestImagePrepareAndGenerationShareCurrentWebContract(t *testing.T) {
+	type capturedRequest struct {
+		path    string
+		headers http.Header
+		payload map[string]any
+	}
+	for _, tc := range []struct {
+		name       string
+		requested  string
+		want       string
+		references []UploadedFile
+	}{
+		{name: "alias generation", requested: "gpt-image-2.5", want: "gpt-image-2.5-flare"},
+		{name: "sunburst edit", requested: "gpt-image-2.5-sunburst", want: "gpt-image-2.5-sunburst", references: []UploadedFile{{FileID: "file-1", FileName: "input.png", FileSize: 20, MimeType: "image/png", Width: 10, Height: 10}}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var requests []capturedRequest
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				var payload map[string]any
+				if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+					t.Fatalf("decode %s payload: %v", r.URL.Path, err)
+				}
+				requests = append(requests, capturedRequest{path: r.URL.Path, headers: r.Header.Clone(), payload: payload})
+				w.Header().Set("Content-Type", "application/json")
+				if strings.HasSuffix(r.URL.Path, "/prepare") {
+					_, _ = io.WriteString(w, `{"conduit_token":"conduit"}`)
+					return
+				}
+				w.Header().Set("Content-Type", "text/event-stream")
+				w.WriteHeader(http.StatusOK)
+			}))
+			defer server.Close()
+
+			client := &Client{BaseURL: server.URL, AccessToken: "fixture", httpClient: server.Client(), fp: map[string]string{}, userAgent: browserUserAgent}
+			reqs := ChatRequirements{Token: "requirements", TurnstileToken: "turnstile"}
+			const traceID = "trace-fixture"
+			conduit, err := client.prepareImageConversation(context.Background(), "cat", reqs, tc.requested, traceID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			resp, err := client.startImageGeneration(context.Background(), "cat", reqs, conduit, tc.requested, tc.references, traceID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			resp.Body.Close()
+			if len(requests) != 2 {
+				t.Fatalf("requests = %d, want 2", len(requests))
+			}
+			trace := requests[0].headers.Get("X-Oai-Turn-Trace-Id")
+			if trace == "" || requests[1].headers.Get("X-Oai-Turn-Trace-Id") != trace {
+				t.Fatalf("trace ids = %q / %q", trace, requests[1].headers.Get("X-Oai-Turn-Trace-Id"))
+			}
+			for _, request := range requests {
+				if request.payload["model"] != tc.want || request.payload["parent_message_id"] != "client-created-root" {
+					t.Fatalf("%s model/parent = %#v / %#v", request.path, request.payload["model"], request.payload["parent_message_id"])
+				}
+			}
+			messages := requests[1].payload["messages"].([]any)
+			message := messages[0].(map[string]any)
+			content := message["content"].(map[string]any)
+			parts := content["parts"].([]any)
+			if parts[len(parts)-1] != "@创建图像 cat" {
+				t.Fatalf("prompt part = %#v", parts[len(parts)-1])
+			}
+			metadata := message["metadata"].(map[string]any)
+			serialization := metadata["serialization_metadata"].(map[string]any)
+			offsets := serialization["custom_symbol_offsets"].([]any)
+			if len(offsets) != 1 || offsets[0].(map[string]any)["id"] != "picture_v2" {
+				t.Fatalf("custom_symbol_offsets = %#v", offsets)
+			}
+		})
 	}
 }
 
@@ -426,15 +517,6 @@ func TestConversationPayloadCanEnableImageGenerationToolForTextModel(t *testing.
 	parts := content["parts"].([]any)
 	if !strings.Contains(parts[0].(string), "输出为 16:9") {
 		t.Fatalf("prompt = %q, want image generation hint", parts[0])
-	}
-}
-
-func TestSolveTurnstileTokenInterpretsEncodedProgram(t *testing.T) {
-	program := `[[3,"ok"]]`
-	key := "secret"
-	dx := base64.StdEncoding.EncodeToString([]byte(xorTurnstileString(program, key)))
-	if got := solveTurnstileToken(dx, key); got != "b2s=" {
-		t.Fatalf("solveTurnstileToken() = %q", got)
 	}
 }
 

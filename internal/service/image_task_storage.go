@@ -335,14 +335,38 @@ func (s *ImageTaskService) flushSaveLocked() error {
 }
 
 // recoverUnfinishedLocked marks in-flight tasks as error after process restart.
+// It writes the same terminal fields finishActiveTask would, so a recovered task
+// never reports a running progress percentage or a missing finish time.
 // Returns the interrupted tasks so callers can refund open image charges.
 func (s *ImageTaskService) recoverUnfinishedLocked() []*ImageTask {
 	var interrupted []*ImageTask
+	now := util.NowLocal()
 	for key, task := range s.tasks {
 		if task.Status == TaskStatusQueued || task.Status == TaskStatusRunning {
+			task.finishStage(time.Now())
 			task.Status = TaskStatusError
 			task.Error = "服务已重启，未完成的任务已中断"
-			task.UpdatedAt = util.NowLocal()
+			task.Progress = 100
+			task.progressSet = true
+			task.ProgressStage = "失败"
+			task.ProgressMessage = task.Error
+			task.FinishedAt = now
+			task.DurationSeconds = taskDurationSeconds(task, now)
+			task.durationSecondsSet = true
+			events := append([]map[string]any(nil), task.Events...)
+			events = append(events, map[string]any{
+				"time":    now,
+				"stage":   task.ProgressStage,
+				"message": task.ProgressMessage,
+				"status":  task.Status,
+			})
+			if len(events) > maxTaskEvents {
+				events = events[len(events)-maxTaskEvents:]
+			}
+			task.Events = events
+			task.LogCount = len(events)
+			task.logCountSet = true
+			task.UpdatedAt = now
 			s.markTaskDirtyLocked(key)
 			interrupted = append(interrupted, task)
 		}

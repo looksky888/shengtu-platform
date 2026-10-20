@@ -849,7 +849,7 @@ class TurnstileSolver:
             headers=headers or None,
             timeout=self.request_timeout,
             # Avoid certifi path under non-ASCII venv dirs (curl error 77 on Windows).
-            verify=True,
+            verify=False,
         )
         try:
             data = response.json()

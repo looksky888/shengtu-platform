@@ -5,15 +5,15 @@ import { ImageVisualResultGrid } from "@/app/image/components/image-visual-resul
 import type { DownloadableImage, ImageLightboxItem } from "@/app/image/components/image-results-types";
 import {
   buildDownloadName,
-  formatElapsedClock,
   getStoredImageSrc,
   getTurnOutcomeLabel,
   getTurnResultSizeLabel,
   imageSelectionKey,
-  isTurnBusy,
 } from "@/app/image/components/image-results-utils";
 import type { ImageVisibility } from "@/lib/api";
+import { formatElapsedClock } from "@/lib/datetime";
 import { formatBase64ImageFileSize } from "@/lib/image-size";
+import { isTurnBusy } from "@/lib/image-turn-state";
 import type { ImageTurn, StoredImage, StoredReferenceImage } from "@/store/image-conversations";
 import type { ImageTurnProgress } from "@/store/image-turn-progress";
 type ImageTurnResultsBlockProps = {

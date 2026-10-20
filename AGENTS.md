@@ -5,6 +5,12 @@
 **No compatibility layers**
 Write for the current API version only. Do not add fallbacks, shims, feature flags, or multi-path handling unless explicitly asked. Prefer deleting old code over guarding it.
 
+**Secrets never leave the API**
+No response may echo a credential (mail provider `api_key`/`admin_password`, `cf_clearance`, RPC/R2 keys, user API keys, `INTERNAL_SERVICE_TOKEN`). When a read path hides a secret, the matching write path must treat a blank or missing value as "unchanged", or a settings load/save round trip silently wipes it. Report a stored secret as a `<field>_configured` boolean instead of returning the value.
+
+**One version source**
+`VERSION.txt` is the single release version. Keep `internal/version/version.go`, the `Dockerfile` `ARG VERSION` defaults and `web/package.json` in sync; `internal/version` has a consistency test that fails on drift, because a stale Go default makes source builds report an older release and offer to replace their own binary.
+
 ## Project Structure & Module Organization
 
 This repository is a Go backend with a Vite/React admin UI. The backend entry point is `cmd/chatgpt2api/main.go`; implementation packages live under `internal/` (`httpapi`, `service`, `protocol`, `backend`, `storage`, `config`, and helpers). Frontend source is in `web/src/`, with pages under `web/src/app/`, shared UI in `web/src/components/`, API helpers in `web/src/lib/`, and stores in `web/src/store/`. Screenshots are in `assets/`; operational notes are in `docs/`.

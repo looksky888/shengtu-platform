@@ -104,16 +104,31 @@ func (e *Engine) ListModels(ctx context.Context) (map[string]any, error) {
 	seen := map[string]struct{}{}
 	for _, item := range data {
 		if id := util.Clean(item["id"]); id != "" {
-			seen[id] = struct{}{}
+			seen[strings.ToLower(id)] = struct{}{}
 		}
 	}
+	advertiseWebImages := e != nil && e.Accounts != nil && len(e.Accounts.ListAccounts()) > 0
 	for _, model := range util.ModelList() {
-		if _, ok := seen[model]; !ok {
+		if isWebImageCatalogModel(model) && !advertiseWebImages {
+			continue
+		}
+		key := strings.ToLower(model)
+		if _, ok := seen[key]; !ok {
 			data = append(data, map[string]any{"id": model, "object": "model", "created": 0, "owned_by": "chatgpt2api", "permission": []any{}, "root": model, "parent": nil})
+			seen[key] = struct{}{}
 		}
 	}
 	result["data"] = data
 	return result, nil
+}
+
+func isWebImageCatalogModel(model string) bool {
+	switch strings.ToLower(strings.TrimSpace(model)) {
+	case util.ImageModelGPT, util.ImageModelGPT25, util.ImageModelGPT25Flare, util.ImageModelGPT25Sunburst:
+		return true
+	default:
+		return false
+	}
 }
 
 func (e *Engine) listModels(ctx context.Context) (map[string]any, error) {

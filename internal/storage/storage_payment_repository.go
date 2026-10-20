@@ -52,8 +52,8 @@ func (b *DatabaseBackend) LoadActivePaymentChannels() ([]PaymentChannelRecord, e
 func (b *DatabaseBackend) LoadPaymentChannelVersion(id string) (PaymentChannelVersionRecord, error) {
 	row := b.db.QueryRow(`SELECT id, channel_id, version, app_id, merchant_id,
 		merchant_cert_serial, merchant_private_key_cipher, api_v3_key_cipher, verify_mode,
-		wechatpay_public_key_id, wechatpay_public_key_cipher, COALESCE(alipay_private_key_cipher, ''),
-		COALESCE(alipay_public_key_cipher, ''), alipay_gateway, alipay_seller_id, config_fingerprint, status,
+		wechatpay_public_key_id, wechatpay_public_key_cipher, alipay_private_key_cipher,
+		alipay_public_key_cipher, alipay_gateway, alipay_seller_id, config_fingerprint, status,
 		created_by, created_at FROM payment_channel_versions WHERE id = `+b.placeholder(1), strings.TrimSpace(id))
 	item, err := scanPaymentChannelVersion(row)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -115,7 +115,7 @@ func (b *DatabaseBackend) SavePaymentPrepay(orderID, codeURL, providerRequestID,
 	if err != nil {
 		return PaymentOrderRecord{}, err
 	}
-	if err := requireOnePaymentRow(result); err != nil {
+	if err := b.requirePaymentRowUpdated(result, b.db, "payment_orders", `id = `+b.placeholder(1)+` AND status IN (`+b.placeholder(2)+`, `+b.placeholder(3)+`)`, orderID, PaymentOrderStatusCreated, PaymentOrderStatusPending); err != nil {
 		return PaymentOrderRecord{}, err
 	}
 	return b.LoadPaymentOrderByID(orderID)
@@ -173,7 +173,7 @@ func (b *DatabaseBackend) UpdatePaymentEventStatus(providerEventID, status, last
 	if err != nil {
 		return err
 	}
-	return requireOnePaymentRow(result)
+	return b.requirePaymentRowUpdated(result, b.db, "payment_events", `provider_event_id = `+b.placeholder(1), providerEventID)
 }
 
 const paymentOrderSelect = `SELECT id, out_trade_no, user_id, idempotency_key,
@@ -299,8 +299,7 @@ func (b *DatabaseBackend) boolLiteral() string {
 }
 
 func (b *DatabaseBackend) isUniqueConflict(err error) bool {
-	message := strings.ToLower(err.Error())
-	return strings.Contains(message, "unique") || strings.Contains(message, "duplicate") || strings.Contains(message, "constraint")
+	return isUniqueViolation(err)
 }
 
 type rowScanner interface{ Scan(dest ...any) error }

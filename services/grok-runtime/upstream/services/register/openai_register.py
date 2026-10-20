@@ -806,7 +806,7 @@ def create_session(proxy: str = "", fingerprint: dict[str, str] | None = None) -
         proxy=proxy,
         upstream=True,
         impersonate=fp["impersonate"],
-        verify=True,
+        verify=False,
     )
     session = requests.Session(**kwargs)
     try:
@@ -892,7 +892,7 @@ def validate_otp(
         retry_attempts=1,
         json={"code": code},
         headers=headers,
-        verify=True,
+        verify=False,
     )
 
 
@@ -1004,7 +1004,7 @@ def request_platform_oauth_token(
                 "code": code,
                 "redirect_uri": platform_oauth_redirect_uri,
             },
-            verify=True,
+            verify=False,
             timeout=60,
         )
     except Exception as error:
@@ -1043,7 +1043,7 @@ def request_platform_oauth_token_legacy(
                 "client_id": platform_oauth_client_id,
                 "code_verifier": code_verifier,
             },
-            verify=True,
+            verify=False,
             timeout=60,
         )
     except Exception as error:
@@ -1083,7 +1083,7 @@ def extract_callback_via_consent(
     fp = _fingerprint_with_user_agent(fingerprint, user_agent_override) if user_agent_override else _browser_fingerprint(fingerprint)
     for _ in range(10):
         headers = _headers_with_clearance(_header_fingerprint(navigate_headers, fp), current, proxy, user_agent_override)
-        resp, _error = request_with_local_retry(session, "get", current, headers=headers, verify=True, allow_redirects=False)
+        resp, _error = request_with_local_retry(session, "get", current, headers=headers, verify=False, allow_redirects=False)
         if resp is None:
             return None
         callback = extract_oauth_callback_params_from_url(str(getattr(resp, "url", "") or ""))
@@ -1114,7 +1114,7 @@ def extract_callback_via_consent(
     headers["oai-device-id"] = device_id
     headers.update(_make_trace_headers())
     headers = _headers_with_clearance(headers, url, proxy, user_agent_override)
-    ws_resp, _error = request_with_local_retry(session, "post", url, json={"workspace_id": workspace_id}, headers=headers, verify=True, allow_redirects=False)
+    ws_resp, _error = request_with_local_retry(session, "post", url, json={"workspace_id": workspace_id}, headers=headers, verify=False, allow_redirects=False)
     if ws_resp is None:
         return None
     callback = extract_oauth_callback_params_from_url(str(getattr(ws_resp, "headers", {}).get("Location") or ""))
@@ -1138,7 +1138,7 @@ def extract_callback_via_consent(
     body = {"org_id": org_id}
     if project_id:
         body["project_id"] = project_id
-    org_resp, _error = request_with_local_retry(session, "post", org_url, json=body, headers=org_headers, verify=True, allow_redirects=False)
+    org_resp, _error = request_with_local_retry(session, "post", org_url, json=body, headers=org_headers, verify=False, allow_redirects=False)
     if org_resp is None:
         return None
     return extract_oauth_callback_params_from_url(str(getattr(org_resp, "headers", {}).get("Location") or ""))
@@ -1168,7 +1168,7 @@ def exchange_tokens_from_continue_url(
         url = _absolute_auth_url(continue_url)
         try:
             headers = _headers_with_clearance(_header_fingerprint(navigate_headers, fp), url, proxy, user_agent_override)
-            resp = session.get(url, headers=headers, allow_redirects=True, verify=True, timeout=30)
+            resp = session.get(url, headers=headers, allow_redirects=True, verify=False, timeout=30)
             callback = extract_oauth_callback_params_from_url(str(getattr(resp, "url", "") or ""))
             if not callback:
                 for history in getattr(resp, "history", []) or []:
@@ -1274,13 +1274,13 @@ class PlatformRegistrar:
         target_url = f"{auth_base}/api/accounts/authorize?{urlencode(params)}"
         headers = self._navigate_headers(f"{platform_base}/")
         headers = _headers_with_clearance(headers, target_url, self.proxy, self.clearance_user_agent)
-        resp, error = request_with_local_retry(self.session, "get", target_url, headers=headers, allow_redirects=True, verify=True)
+        resp, error = request_with_local_retry(self.session, "get", target_url, headers=headers, allow_redirects=True, verify=False)
         if _is_cloudflare_challenge(resp):
             bundle = self._refresh_cloudflare_clearance(auth_base, index)
             if bundle is None:
                 raise RuntimeError(_cloudflare_block_message(resp, reason=self.clearance_failure_reason))
             retry_headers = _headers_with_clearance(self._navigate_headers(f"{platform_base}/"), target_url, self.proxy, self.clearance_user_agent)
-            resp, error = request_with_local_retry(self.session, "get", target_url, headers=retry_headers, allow_redirects=True, verify=True)
+            resp, error = request_with_local_retry(self.session, "get", target_url, headers=retry_headers, allow_redirects=True, verify=False)
             if _is_cloudflare_challenge(resp):
                 raise RuntimeError(_cloudflare_block_message(resp, "Cloudflare clearance 重试仍被拦截"))
         if resp is None or resp.status_code != 200:
@@ -1333,7 +1333,7 @@ class PlatformRegistrar:
                 json={"username": {"kind": "email", "value": email}},
                 headers=headers,
                 allow_redirects=False,
-                verify=True,
+                verify=False,
             )
 
         resp, error = send()
@@ -1355,7 +1355,7 @@ class PlatformRegistrar:
         url = f"{auth_base}/api/accounts/passwordless/send-otp"
         headers = self._json_headers(f"{auth_base}/log-in/password")
         headers = _headers_with_clearance(headers, url, self.proxy, self.clearance_user_agent)
-        resp, error = request_with_local_retry(self.session, "post", url, json={}, headers=headers, allow_redirects=False, verify=True)
+        resp, error = request_with_local_retry(self.session, "post", url, json={}, headers=headers, allow_redirects=False, verify=False)
         if resp is None or resp.status_code not in (200, 201, 204):
             detail = _response_json(resp) if resp is not None else {}
             raise RuntimeError(error or f"passwordless_send_otp_http_{getattr(resp, 'status_code', 'unknown')}, detail={json.dumps(detail, ensure_ascii=False)[:300]}")
@@ -1436,7 +1436,7 @@ class PlatformRegistrar:
         def send():
             headers = self._json_headers(f"{auth_base}/create-account/password")
             headers = _headers_with_clearance(headers, url, self.proxy, self.clearance_user_agent)
-            return request_with_local_retry(self.session, "post", url, headers=headers, verify=True)
+            return request_with_local_retry(self.session, "post", url, headers=headers, verify=False)
 
         resp, error = send()
         if _is_cloudflare_challenge(resp):
@@ -1461,7 +1461,7 @@ class PlatformRegistrar:
         headers = self._json_headers(f"{auth_base}/create-account/password")
         headers["openai-sentinel-token"] = build_sentinel_token(self.session, self.device_id, "username_password_create", self.fingerprint)
         headers = _headers_with_clearance(headers, url, self.proxy, self.clearance_user_agent)
-        resp, error = request_with_local_retry(self.session, "post", url, json={"username": email, "password": password}, headers=headers, verify=True)
+        resp, error = request_with_local_retry(self.session, "post", url, json={"username": email, "password": password}, headers=headers, verify=False)
         if _is_cloudflare_challenge(resp):
             bundle = self._refresh_cloudflare_clearance(auth_base, index)
             if bundle is None:
@@ -1469,7 +1469,7 @@ class PlatformRegistrar:
             headers = self._json_headers(f"{auth_base}/create-account/password")
             headers["openai-sentinel-token"] = build_sentinel_token(self.session, self.device_id, "username_password_create", self.fingerprint)
             headers = _headers_with_clearance(headers, url, self.proxy, self.clearance_user_agent)
-            resp, error = request_with_local_retry(self.session, "post", url, json={"username": email, "password": password}, headers=headers, verify=True)
+            resp, error = request_with_local_retry(self.session, "post", url, json={"username": email, "password": password}, headers=headers, verify=False)
             if _is_cloudflare_challenge(resp):
                 raise RuntimeError(_cloudflare_block_message(resp, "Cloudflare clearance 重试仍被拦截"))
         if resp is None or resp.status_code != 200:
@@ -1484,13 +1484,13 @@ class PlatformRegistrar:
         step(index, "开始发送验证码")
         url = f"{auth_base}/api/accounts/email-otp/send"
         headers = _headers_with_clearance(self._navigate_headers(f"{auth_base}/create-account/password"), url, self.proxy, self.clearance_user_agent)
-        resp, error = request_with_local_retry(self.session, "get", url, headers=headers, allow_redirects=True, verify=True)
+        resp, error = request_with_local_retry(self.session, "get", url, headers=headers, allow_redirects=True, verify=False)
         if _is_cloudflare_challenge(resp):
             bundle = self._refresh_cloudflare_clearance(auth_base, index)
             if bundle is None:
                 raise RuntimeError(_cloudflare_block_message(resp, reason=self.clearance_failure_reason))
             headers = _headers_with_clearance(self._navigate_headers(f"{auth_base}/create-account/password"), url, self.proxy, self.clearance_user_agent)
-            resp, error = request_with_local_retry(self.session, "get", url, headers=headers, allow_redirects=True, verify=True)
+            resp, error = request_with_local_retry(self.session, "get", url, headers=headers, allow_redirects=True, verify=False)
             if _is_cloudflare_challenge(resp):
                 raise RuntimeError(_cloudflare_block_message(resp, "Cloudflare clearance 重试仍被拦截"))
         if resp is None or resp.status_code not in (200, 302):
@@ -1530,7 +1530,7 @@ class PlatformRegistrar:
                 url,
                 headers=headers,
                 allow_redirects=True,
-                verify=True,
+                verify=False,
             )
 
         step(index, "开始继续注册授权")
@@ -1571,7 +1571,7 @@ class PlatformRegistrar:
             headers["openai-sentinel-so-token"] = so_token
 
         headers = _headers_with_clearance(headers, url, self.proxy, self.clearance_user_agent)
-        resp, error = request_with_local_retry(self.session, "post", url, json={"name": name, "birthdate": birthdate}, headers=headers, verify=True)
+        resp, error = request_with_local_retry(self.session, "post", url, json={"name": name, "birthdate": birthdate}, headers=headers, verify=False)
         if _is_cloudflare_challenge(resp):
             bundle = self._refresh_cloudflare_clearance(auth_base, index)
             if bundle is None:
@@ -1593,7 +1593,7 @@ class PlatformRegistrar:
                 headers["openai-sentinel-so-token"] = so_token
 
             headers = _headers_with_clearance(headers, url, self.proxy, self.clearance_user_agent)
-            resp, error = request_with_local_retry(self.session, "post", url, json={"name": name, "birthdate": birthdate}, headers=headers, verify=True)
+            resp, error = request_with_local_retry(self.session, "post", url, json={"name": name, "birthdate": birthdate}, headers=headers, verify=False)
             if _is_cloudflare_challenge(resp):
                 raise RuntimeError(_cloudflare_block_message(resp, "Cloudflare clearance 重试仍被拦截"))
         if resp is None or resp.status_code not in (200, 302):
@@ -1756,13 +1756,13 @@ class ChatGPTWebRegistrar(PlatformRegistrar):
         url = f"{chatgpt_base}{path}"
         headers = kwargs.pop("headers", {})
         headers = _headers_with_clearance(headers, url, self.proxy, self.clearance_user_agent)
-        resp, error = request_with_local_retry(self.session, method, url, headers=headers, verify=True, **kwargs)
+        resp, error = request_with_local_retry(self.session, method, url, headers=headers, verify=False, **kwargs)
         if _is_cloudflare_challenge(resp):
             bundle = self._refresh_cloudflare_clearance(chatgpt_base, index)
             if bundle is None:
                 raise RuntimeError(_cloudflare_block_message(resp, reason=self.clearance_failure_reason))
             headers = _headers_with_clearance(headers, url, self.proxy, self.clearance_user_agent)
-            resp, error = request_with_local_retry(self.session, method, url, headers=headers, verify=True, **kwargs)
+            resp, error = request_with_local_retry(self.session, method, url, headers=headers, verify=False, **kwargs)
             if _is_cloudflare_challenge(resp):
                 raise RuntimeError(_cloudflare_block_message(resp, "ChatGPT clearance 重试仍被拦截"))
         return resp, error
@@ -1829,7 +1829,7 @@ class ChatGPTWebRegistrar(PlatformRegistrar):
             self._navigate_headers(f"{chatgpt_base}/"), authorize_url, self.proxy, self.clearance_user_agent
         )
         resp, error = request_with_local_retry(
-            self.session, "get", authorize_url, headers=headers, allow_redirects=True, verify=True
+            self.session, "get", authorize_url, headers=headers, allow_redirects=True, verify=False
         )
         if _is_cloudflare_challenge(resp):
             bundle = self._refresh_cloudflare_clearance(auth_base, index)
@@ -1839,7 +1839,7 @@ class ChatGPTWebRegistrar(PlatformRegistrar):
                 self._navigate_headers(f"{chatgpt_base}/"), authorize_url, self.proxy, self.clearance_user_agent
             )
             resp, error = request_with_local_retry(
-                self.session, "get", authorize_url, headers=headers, allow_redirects=True, verify=True
+                self.session, "get", authorize_url, headers=headers, allow_redirects=True, verify=False
             )
         if resp is None or resp.status_code != 200:
             raise RuntimeError(
@@ -1877,7 +1877,7 @@ class ChatGPTWebRegistrar(PlatformRegistrar):
                 headers["openai-sentinel-so-token"] = so_token
             headers = _headers_with_clearance(headers, url, self.proxy, self.clearance_user_agent)
             return request_with_local_retry(
-                self.session, "post", url, json=body, headers=headers, allow_redirects=False, verify=True
+                self.session, "post", url, json=body, headers=headers, allow_redirects=False, verify=False
             )
 
         resp, error = send()
@@ -1925,7 +1925,7 @@ class ChatGPTWebRegistrar(PlatformRegistrar):
                 headers["openai-sentinel-so-token"] = so_token
             headers = _headers_with_clearance(headers, url, self.proxy, self.clearance_user_agent)
             return request_with_local_retry(
-                self.session, "get", url, headers=headers, allow_redirects=True, verify=True
+                self.session, "get", url, headers=headers, allow_redirects=True, verify=False
             )
 
         resp, error = send()
@@ -1999,7 +1999,7 @@ class ChatGPTWebRegistrar(PlatformRegistrar):
                 json={"name": name, "birthdate": birthdate},
                 headers=headers,
                 allow_redirects=False,
-                verify=True,
+                verify=False,
             )
 
         resp, error = send()
@@ -2033,7 +2033,7 @@ class ChatGPTWebRegistrar(PlatformRegistrar):
             self._navigate_headers(f"{auth_base}/about-you"), callback_url, self.proxy, self.clearance_user_agent
         )
         callback_resp, error = request_with_local_retry(
-            self.session, "get", callback_url, headers=callback_headers, allow_redirects=True, verify=True
+            self.session, "get", callback_url, headers=callback_headers, allow_redirects=True, verify=False
         )
         if callback_resp is None or callback_resp.status_code != 200:
             raise RuntimeError(
@@ -2315,7 +2315,7 @@ class TraditionalChatGPTRegistrar(ChatGPTWebRegistrar):
                 auth_url,
                 headers=headers,
                 allow_redirects=True,
-                verify=True,
+                verify=False,
             )
 
         auth_resp, error = authorize()
@@ -2385,7 +2385,7 @@ class TraditionalChatGPTRegistrar(ChatGPTWebRegistrar):
             json={"username": {"value": email, "kind": "email"}, "screen_hint": "signup"},
             headers=headers,
             allow_redirects=False,
-            verify=True,
+            verify=False,
         )
         if resp is None or resp.status_code != 200:
             raise RuntimeError(
@@ -2443,7 +2443,7 @@ class TraditionalChatGPTRegistrar(ChatGPTWebRegistrar):
             page_url,
             headers=page_headers,
             allow_redirects=True,
-            verify=True,
+            verify=False,
         )
         if page_resp is None or page_resp.status_code not in (200, 302):
             raise RuntimeError(
@@ -2471,7 +2471,7 @@ class TraditionalChatGPTRegistrar(ChatGPTWebRegistrar):
             url,
             json={"password": password, "username": email},
             headers=headers,
-            verify=True,
+            verify=False,
         )
         if resp is None or resp.status_code != 200:
             raise RuntimeError(
@@ -2496,7 +2496,7 @@ class TraditionalChatGPTRegistrar(ChatGPTWebRegistrar):
             url,
             headers=headers,
             allow_redirects=True,
-            verify=True,
+            verify=False,
         )
         if resp is None or resp.status_code != 200:
             raise RuntimeError(
@@ -2537,7 +2537,7 @@ class TraditionalChatGPTRegistrar(ChatGPTWebRegistrar):
                 send_url,
                 headers=headers,
                 allow_redirects=True,
-                verify=True,
+                verify=False,
                 retry_attempts=1,
             )
 
@@ -2595,7 +2595,7 @@ class TraditionalChatGPTRegistrar(ChatGPTWebRegistrar):
                 retry_attempts=1,
                 headers=headers,
                 allow_redirects=False,
-                verify=True,
+                verify=False,
             )
 
         step(index, "重发 ChatGPT 注册验证码（email-otp/resend）")
@@ -2655,7 +2655,7 @@ class TraditionalChatGPTRegistrar(ChatGPTWebRegistrar):
             json={"name": name, "birthdate": birthdate},
             headers=headers,
             allow_redirects=False,
-            verify=True,
+            verify=False,
         )
         if resp is None or resp.status_code != 200:
             raise RuntimeError(
@@ -2692,7 +2692,7 @@ class TraditionalChatGPTRegistrar(ChatGPTWebRegistrar):
                 current_url,
                 headers=headers,
                 allow_redirects=False,
-                verify=True,
+                verify=False,
             )
             if resp is None:
                 raise RuntimeError(error or "ChatGPT 回调重定向请求失败")

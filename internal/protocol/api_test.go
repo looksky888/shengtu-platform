@@ -3,9 +3,12 @@ package protocol
 import (
 	"context"
 	"encoding/base64"
+	"path/filepath"
 	"strings"
 	"testing"
 
+	"chatgpt2api/internal/service"
+	"chatgpt2api/internal/storage"
 	"chatgpt2api/internal/util"
 )
 
@@ -115,6 +118,62 @@ func TestListModelsUsesInjectedLister(t *testing.T) {
 	data, _ := result["data"].([]map[string]any)
 	if len(data) == 0 || data[0]["id"] != "custom-model" {
 		t.Fatalf("ListModels() data = %#v", result["data"])
+	}
+}
+
+func TestListModelsAdvertisesWebImagesOnlyWhenAccountsExist(t *testing.T) {
+	lister := func(context.Context) (map[string]any, error) {
+		return map[string]any{"object": "list", "data": []map[string]any{}}, nil
+	}
+	assertWebModels := func(t *testing.T, result map[string]any, want bool) {
+		t.Helper()
+		seen := map[string]bool{}
+		for _, item := range util.AsMapSlice(result["data"]) {
+			seen[util.Clean(item["id"])] = true
+		}
+		for _, model := range []string{util.ImageModelGPT, util.ImageModelGPT25, util.ImageModelGPT25Flare, util.ImageModelGPT25Sunburst} {
+			if seen[model] != want {
+				t.Fatalf("model %q advertised=%v, want %v", model, seen[model], want)
+			}
+		}
+	}
+
+	without, err := (&Engine{ListModelsFunc: lister}).ListModels(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertWebModels(t, without, false)
+
+	dir := t.TempDir()
+	accounts := service.NewAccountService(storage.NewJSONBackend(filepath.Join(dir, "accounts.json"), filepath.Join(dir, "keys.json")), cooldownTestConfig{}, nil, service.NewLogService(dir))
+	accounts.AddAccounts([]string{"fixture-account"})
+	with, err := (&Engine{Accounts: accounts, ListModelsFunc: lister}).ListModels(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertWebModels(t, with, true)
+}
+
+func TestListModelsPreservesExistingImageModelEntry(t *testing.T) {
+	original := map[string]any{"id": util.ImageModelGPT25Flare, "object": "model", "owned_by": "upstream"}
+	engine := &Engine{ListModelsFunc: func(context.Context) (map[string]any, error) {
+		return map[string]any{"object": "list", "data": []map[string]any{original}}, nil
+	}}
+	result, err := engine.ListModels(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	matches := 0
+	for _, item := range util.AsMapSlice(result["data"]) {
+		if util.Clean(item["id"]) == util.ImageModelGPT25Flare {
+			matches++
+			if item["owned_by"] != "upstream" {
+				t.Fatalf("existing entry replaced: %#v", item)
+			}
+		}
+	}
+	if matches != 1 {
+		t.Fatalf("matches = %d, want 1", matches)
 	}
 }
 

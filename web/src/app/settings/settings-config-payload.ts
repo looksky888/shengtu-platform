@@ -2,7 +2,6 @@ import type { SettingsConfig } from "@/lib/api";
 
 import {
   normalizeImageAccountSchedule,
-  normalizeImageDefaultModel,
   normalizeImageFallbackModelSlugs,
   normalizeImageInternalModelSlug,
   normalizeImageProxyMaxRetries,
@@ -20,7 +19,6 @@ export function buildSettingsPayload(config: SettingsConfig): SettingsConfig {
     image_account_concurrency: Math.min(10, Math.max(1, Number(config.image_account_concurrency) || 1)),
     image_account_schedule: normalizeImageAccountSchedule(config.image_account_schedule),
     image_task_timeout_seconds: Math.min(3600, Math.max(30, Number(config.image_task_timeout_seconds) || 300)),
-    image_default_model: normalizeImageDefaultModel(config.image_default_model),
     image_internal_model_slug: normalizeImageInternalModelSlug(config.image_internal_model_slug),
     image_fallback_model_enabled: config.image_fallback_model_enabled !== false,
     image_fallback_model_slugs: normalizeImageFallbackModelSlugs(config.image_fallback_model_slugs),

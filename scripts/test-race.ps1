@@ -1,9 +1,16 @@
 param(
-  [string]$TaskName = "p3-5-race"
+  [string]$TaskName = "race"
 )
 
+# The race suite must not write into the source tree. Cache location is derived
+# from the OS temp directory and can be overridden when a specific disk is
+# preferred (e.g. RACE_CACHE_ROOT=D:\caches\race on Windows).
 $ErrorActionPreference = "Stop"
-$cacheRoot = "D:\BaiduNetdiskDownload\生图\生图测试缓存\4.5\$TaskName"
+if ($env:RACE_CACHE_ROOT) {
+  $cacheRoot = Join-Path $env:RACE_CACHE_ROOT $TaskName
+} else {
+  $cacheRoot = Join-Path ([System.IO.Path]::GetTempPath()) (Join-Path "chatgpt2api-race" $TaskName)
+}
 New-Item -ItemType Directory -Force -Path "$cacheRoot\go-build", "$cacheRoot\go-mod", "$cacheRoot\go-tmp" | Out-Null
 
 $env:GOCACHE = "$cacheRoot\go-build"

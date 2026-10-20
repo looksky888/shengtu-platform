@@ -246,7 +246,7 @@ func (s *PaymentService) ReconcileTradeBill(ctx context.Context, channelID, bill
 		_ = recon.FailPaymentReconciliationRun(run.ID, err.Error(), s.now().UTC().Format(time.RFC3339Nano))
 		return run, err
 	}
-	download, err := provider.DownloadTradeBill(ctx, billDate, tmp)
+	download, err := provider.DownloadTradeBill(ctx, billDate, paymentBillTypeSuccess, tmp)
 	if err == nil {
 		err = tmp.Sync()
 	}
@@ -263,10 +263,22 @@ func (s *PaymentService) ReconcileTradeBill(ctx context.Context, channelID, bill
 		_ = recon.FailPaymentReconciliationRun(run.ID, err.Error(), s.now().UTC().Format(time.RFC3339Nano))
 		return run, err
 	}
+	// Refund-side bill: detection only. A refund that the merchant executed but
+	// the local order never saw must surface as a difference, and this path
+	// never reverses credits or rewrites the order.
+	refundRows, refundErr := s.loadRefundBillRows(ctx, provider, billDate)
 	paidStart, paidEnd := billDateRange(billDate)
-	billOrderNumbers := make([]string, 0, len(parsed))
-	for _, row := range parsed {
-		if strings.HasPrefix(row.OutTradeNo, "ST") {
+	billOrderNumbers := make([]string, 0, len(parsed)+len(refundRows))
+	seenOrderNumbers := make(map[string]struct{}, len(parsed)+len(refundRows))
+	for _, rows := range [][]tradeBillRow{parsed, refundRows} {
+		for _, row := range rows {
+			if !strings.HasPrefix(row.OutTradeNo, "ST") {
+				continue
+			}
+			if _, ok := seenOrderNumbers[row.OutTradeNo]; ok {
+				continue
+			}
+			seenOrderNumbers[row.OutTradeNo] = struct{}{}
 			billOrderNumbers = append(billOrderNumbers, row.OutTradeNo)
 		}
 	}
@@ -280,7 +292,10 @@ func (s *PaymentService) ReconcileTradeBill(ctx context.Context, channelID, bill
 		_ = recon.FailPaymentReconciliationRun(run.ID, err.Error(), s.now().UTC().Format(time.RFC3339Nano))
 		return run, err
 	}
-	result, items := compareTradeBill(parsed, billOrders, dayOrders, run.ID)
+	result, items := compareTradeBill(parsed, refundRows, billOrders, dayOrders, run.ID)
+	if refundErr != nil {
+		items = append(items, reconciliationRefundBillUnavailableItem(run.ID, refundErr))
+	}
 	archiveDir := filepath.Join(s.billDir, channelID, billDate[:4])
 	if err := os.MkdirAll(archiveDir, 0o700); err != nil {
 		_ = recon.FailPaymentReconciliationRun(run.ID, err.Error(), s.now().UTC().Format(time.RFC3339Nano))
@@ -299,6 +314,33 @@ func (s *PaymentService) ReconcileTradeBill(ctx context.Context, channelID, bill
 		return run, err
 	}
 	return recon.LoadPaymentReconciliationRun(run.ID)
+}
+
+// loadRefundBillRows downloads and parses the refund-side bill for the date.
+// "No bill for this date" is a normal answer and yields no rows; every other
+// failure is returned so the run can record that refund coverage is missing.
+func (s *PaymentService) loadRefundBillRows(ctx context.Context, provider PaymentBillProvider, billDate string) ([]tradeBillRow, error) {
+	tmp, err := os.CreateTemp(s.billDir, ".refund-bill-*.csv")
+	if err != nil {
+		return nil, err
+	}
+	tmpPath := tmp.Name()
+	defer os.Remove(tmpPath)
+	_, err = provider.DownloadTradeBill(ctx, billDate, paymentBillTypeRefund, tmp)
+	if err == nil {
+		err = tmp.Sync()
+	}
+	closeErr := tmp.Close()
+	if err == nil {
+		err = closeErr
+	}
+	if err != nil {
+		if errors.Is(err, errPaymentBillNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return parseTradeBillFile(tmpPath)
 }
 
 func (s *PaymentService) prepareTradeBillReconciliation(channelID, billDate string) (storage.PaymentReconciliationRunRecord, error) {

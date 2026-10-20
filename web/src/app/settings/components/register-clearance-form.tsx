@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import type { RegisterClearanceConfig } from "@/lib/api";
+import { STORED_SECRET_HINT } from "@/lib/register-types";
 
 import { settingsInputClassName, settingsToggleClassName } from "./settings-ui";
 
@@ -117,6 +118,7 @@ export function RegisterClearanceForm({
             className={`${settingsInputClassName} font-mono text-xs`}
             value={clearance.cf_clearance || ""}
             onChange={(event) => onChange({ cf_clearance: event.target.value })}
+            placeholder={clearance.cf_credentials_configured ? STORED_SECRET_HINT : undefined}
             disabled={isRegisterRunning || mode !== "manual"}
           />
         </div>
@@ -126,7 +128,7 @@ export function RegisterClearanceForm({
             className={`${settingsInputClassName} min-h-24 font-mono text-xs`}
             value={clearance.cf_cookies || ""}
             onChange={(event) => onChange({ cf_cookies: event.target.value })}
-            placeholder="name=value; name2=value2"
+            placeholder={clearance.cf_credentials_configured ? STORED_SECRET_HINT : "name=value; name2=value2"}
             disabled={isRegisterRunning || mode !== "manual"}
           />
         </div>

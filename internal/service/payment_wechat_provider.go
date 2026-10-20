@@ -68,13 +68,35 @@ func newWechatPayBillProvider(ctx context.Context, credentials paymentRuntimeCre
 	}, nil
 }
 
-func (p *wechatPayBillProvider) DownloadTradeBill(ctx context.Context, billDate string, target io.Writer) (PaymentBillDownload, error) {
+// errPaymentBillNotFound reports that WeChat has no bill file for the requested
+// date and type. It is a normal outcome (a day without a single refund) and
+// must not be confused with a failed reconciliation.
+var errPaymentBillNotFound = errors.New("微信交易账单不存在")
+
+// wechatBillNotExist classifies the SDK error structurally instead of matching
+// response text: 404 / NO_BILL_EXIST is the "no bill for this date" answer.
+func wechatBillNotExist(err error) bool {
+	var apiErr *core.APIError
+	if !errors.As(err, &apiErr) {
+		return false
+	}
+	return apiErr.StatusCode == http.StatusNotFound || strings.EqualFold(strings.TrimSpace(apiErr.Code), "NO_BILL_EXIST")
+}
+
+func (p *wechatPayBillProvider) DownloadTradeBill(ctx context.Context, billDate, billType string, target io.Writer) (PaymentBillDownload, error) {
+	billType = strings.ToUpper(strings.TrimSpace(billType))
+	if billType != paymentBillTypeSuccess && billType != paymentBillTypeRefund {
+		return PaymentBillDownload{}, errors.New("微信交易账单类型无效")
+	}
 	if p == nil || p.client == nil || p.downloadClient == nil || target == nil {
 		return PaymentBillDownload{}, errors.New("微信交易账单下载器未就绪")
 	}
-	query := url.Values{"bill_date": {billDate}, "bill_type": {"SUCCESS"}, "tar_type": {"GZIP"}}
+	query := url.Values{"bill_date": {billDate}, "bill_type": {billType}, "tar_type": {"GZIP"}}
 	result, err := p.client.Get(ctx, "https://api.mch.weixin.qq.com/v3/bill/tradebill?"+query.Encode())
 	if err != nil {
+		if wechatBillNotExist(err) {
+			return PaymentBillDownload{}, errPaymentBillNotFound
+		}
 		return PaymentBillDownload{}, fmt.Errorf("申请微信交易账单: %w", err)
 	}
 	var metadata struct {

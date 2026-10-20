@@ -2,18 +2,15 @@ import { Check, Copy, Eye, Globe2, LoaderCircle, Lock, Trash2 } from "lucide-rea
 import { toast } from "sonner";
 
 import {
-  blurFocusedElementInContainer,
   formatManagedImageMegapixels,
   getManagedImageAspectRatio,
   getManagedImageFormatLabel,
   getManagedImageResolution,
   imageOwnerLabel,
-  imageVisibilityActionClass,
-  imageVisibilityLabel,
-  imageVisibilityPillClass,
   managedImageKey,
 } from "@/app/image-manager/image-manager-utils";
 import type { ImageVisibility, ManagedImage } from "@/lib/api";
+import { blurFocusedElementInContainer, imageVisibilityActionClass, imageVisibilityLabel, imageVisibilityPillClass } from "@/lib/image-card-utils";
 import type { ImageGalleryView } from "@/lib/image-manager-cache";
 import { formatImageFileSize } from "@/lib/image-size";
 

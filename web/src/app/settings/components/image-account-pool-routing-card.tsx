@@ -9,8 +9,8 @@ import { useSettingsStore } from "../store";
 import { ImageAccountPoolSettings } from "./image-account-pool-settings";
 import { SettingsCard } from "./settings-ui";
 
+// 生图默认模型由服务端锁定为 gpt-image-2.5-flare，不在本卡片内保存。
 const routingKeys: readonly (keyof SettingsConfig)[] = [
-  "image_default_model",
   "image_internal_model_slug",
   "image_fallback_model_enabled",
   "image_fallback_model_slugs",

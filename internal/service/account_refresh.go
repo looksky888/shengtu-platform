@@ -128,7 +128,7 @@ func (s *AccountService) MarkImageResult(accessToken string, success bool) map[s
 		return nil
 	}
 	// Legacy toggle: hard-delete rate-limited. Prefer quarantine path below for quota=0.
-	if account.Status == "限流" && s.config != nil && s.config.AutoRemoveRateLimitedAccounts() && !quotaExhausted {
+	if account.Status == "限流" && s.autoRemoveRateLimitedAccounts() && !quotaExhausted {
 		prevItems := append([]Account(nil), s.items...)
 		prevReservations := cloneStringIntMap(s.imageReservations)
 		prevCooldown := cloneStringTimeMap(s.imageCooldownUntil)
@@ -168,7 +168,7 @@ func (s *AccountService) MarkImageResult(accessToken string, success bool) map[s
 }
 
 func (s *AccountService) RemoveInvalidToken(accessToken, event string) bool {
-	if !s.config.AutoRemoveInvalidAccounts() {
+	if !s.autoRemoveInvalidAccounts() {
 		return false
 	}
 	removed := s.RemoveToken(accessToken)
@@ -195,18 +195,32 @@ func (s *AccountService) StartLimitedWatcher(ctx context.Context, interval time.
 			case <-ctx.Done():
 				return
 			case <-timer.C:
-				tokens := s.ListLimitedTokens()
-				if len(tokens) > 0 {
-					s.RefreshAccounts(ctx, tokens)
-					// Any remaining 限流/zero-quota in pool after refresh → isolation cabin.
-					s.quarantineInPoolExhaustedAccounts()
-				}
-				// Temporary quarantine: probe and restore when quota/status recovers.
-				s.tryRestoreTemporaryQuarantine(ctx)
+				s.runLimitedWatcherCycle(ctx)
 				timer.Reset(interval)
 			}
 		}
 	}()
+}
+
+// runLimitedWatcherCycle is one refresh/restore/reconcile pass of the limited-account
+// watcher. It is also the runtime half of the isolation-cabin reconciler: a pool
+// removal that failed while quarantining is retried here instead of only at startup.
+func (s *AccountService) runLimitedWatcherCycle(ctx context.Context) {
+	tokens := s.ListLimitedTokens()
+	if len(tokens) > 0 {
+		s.RefreshAccounts(ctx, tokens)
+		// Any remaining 限流/zero-quota in pool after refresh → isolation cabin.
+		s.quarantineInPoolExhaustedAccounts()
+	}
+	// Temporary quarantine: probe and restore when quota/status recovers.
+	s.tryRestoreTemporaryQuarantine(ctx)
+	if _, err := s.ReconcileQuarantinePool(); err != nil && s.logs != nil {
+		s.logs.Add("运行期隔离协调失败", map[string]any{
+			"module":         "accounts",
+			"operation_type": "隔离协调",
+			"reason":         truncateReason(err.Error(), 300),
+		})
+	}
 }
 
 // quarantineInPoolExhaustedAccounts moves active-pool accounts that are 限流 or

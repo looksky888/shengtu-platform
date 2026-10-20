@@ -21,6 +21,8 @@ export type Account = {
   success: number;
   fail: number;
   lastUsedAt: string | null;
+  proxy_configured?: boolean;
+  proxy_timezone?: string;
 };
 
 export type AccountListResponse = {

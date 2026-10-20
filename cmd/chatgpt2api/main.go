@@ -97,8 +97,6 @@ func main() {
 	var serveErr error
 	select {
 	case <-stop:
-	case <-app.ShutdownRequested():
-		logger.Info("graceful restart requested")
 	case failure := <-serverFailures:
 		logger.Error("listen failed", "name", failure.name, "error", failure.err)
 		serveErr = fmt.Errorf("%s server: %w", failure.name, failure.err)
@@ -140,7 +138,8 @@ func parseCLI(args []string, output io.Writer) (cliOptions, error) {
 	showVersion := flags.Bool("version", false, "print version and exit")
 	flags.Usage = func() {
 		fmt.Fprintln(output, "Usage: chatgpt2api [--version]")
-		fmt.Fprintln(output, "Environment: PORT sets the public listen port (default 8000).")
+		fmt.Fprintln(output, "Environment: PORT sets the public listen port (default 8000);")
+		fmt.Fprintln(output, "  CHATGPT2API_PORT is used when PORT is unset and CHATGPT2API_BIND_ADDR restricts the interface.")
 		flags.PrintDefaults()
 	}
 	if err := flags.Parse(args); err != nil {
@@ -155,16 +154,27 @@ func parseCLI(args []string, output io.Writer) (cliOptions, error) {
 	return cliOptions{showVersion: *showVersion}, nil
 }
 
+// publicListenAddr resolves the public listener. PORT wins because the container
+// image sets it; CHATGPT2API_PORT is the documented .env name for running the
+// binary directly. CHATGPT2API_BIND_ADDR restricts the interface: empty means
+// all interfaces, which is what the image relies on for its published port.
 func publicListenAddr() (string, error) {
-	value := strings.TrimSpace(os.Getenv("PORT"))
+	value, source := strings.TrimSpace(os.Getenv("PORT")), "PORT"
 	if value == "" {
-		value = "8000"
+		value, source = strings.TrimSpace(os.Getenv("CHATGPT2API_PORT")), "CHATGPT2API_PORT"
+	}
+	if value == "" {
+		value, source = "8000", "PORT"
 	}
 	port, err := validPort(value)
 	if err != nil {
-		return "", fmt.Errorf("PORT %q: %w", value, err)
+		return "", fmt.Errorf("%s %q: %w", source, value, err)
 	}
-	return fmt.Sprintf(":%d", port), nil
+	host := strings.TrimSpace(os.Getenv("CHATGPT2API_BIND_ADDR"))
+	if host == "" {
+		return fmt.Sprintf(":%d", port), nil
+	}
+	return net.JoinHostPort(host, strconv.Itoa(port)), nil
 }
 
 func internalListenAddr() (string, error) {

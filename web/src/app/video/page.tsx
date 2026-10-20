@@ -5,9 +5,9 @@ import { Link } from "react-router-dom";
 
 import { useVideoCreation } from "@/app/video/use-video-creation";
 import { VideoForm } from "@/app/video/video-form";
-import { VideoPreviewDialog } from "@/app/video/video-preview-dialog";
 import { VideoReferenceLibraryDialog } from "@/app/video/video-reference-library-dialog";
 import { VideoResult } from "@/app/video/video-result";
+import { VideoPreviewDialog } from "@/components/video-preview-dialog";
 import { Button } from "@/components/ui/button";
 import { useAuthGuard } from "@/lib/use-auth-guard";
 
@@ -32,7 +32,12 @@ export default function VideoPage() {
         <VideoForm controller={controller} />
         <VideoResult controller={controller} />
       </div>
-      <VideoPreviewDialog controller={controller} />
+      <VideoPreviewDialog
+        variant="studio"
+        video={controller.previewVideo}
+        downloadName={controller.previewVideo ? `grok-video-${controller.previewVideo.taskID}.mp4` : undefined}
+        onOpenChange={(open) => { if (!open) controller.closePreview(); }}
+      />
       <VideoReferenceLibraryDialog controller={controller} />
     </section>
   );

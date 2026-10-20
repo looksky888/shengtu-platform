@@ -46,8 +46,9 @@ func (c *Client) doUpstreamRequest(ctx context.Context, client *http.Client, met
 			c.logCloudflareChallenge(contextName, resp, attempt)
 			if bundle, refreshErr := service.RefreshUpstreamClearanceForChallenge(ctx); refreshErr == nil && bundle != nil {
 				headers = service.ApplyUpstreamClearanceToHeaders(headers, bundle)
+				c.applySentinelHeaders(headers)
 				if c.logger != nil {
-					c.logger.Info("upstream clearance refreshed", "host", upstreamRequestHost(resp), "proxy_present", c.proxy != nil && c.proxy.ProxyURL() != "", "proxy_hash", service.ProxyURLHash(proxyURL(c.proxy)), "clearance_created_at", bundle.CreatedAt.UTC().Format(time.RFC3339), "clearance_expires_at", bundle.ExpiresAt.UTC().Format(time.RFC3339), "clearance_cookie_count", len(bundle.Cookies), "clearance_has_user_agent", strings.TrimSpace(bundle.UserAgent) != "")
+					c.logger.Info("upstream clearance refreshed", "host", upstreamRequestHost(resp), "proxy_present", c.proxyURL != "", "proxy_hash", service.ProxyURLHash(c.proxyURL), "clearance_created_at", bundle.CreatedAt.UTC().Format(time.RFC3339), "clearance_expires_at", bundle.ExpiresAt.UTC().Format(time.RFC3339), "clearance_cookie_count", len(bundle.Cookies), "clearance_has_user_agent", strings.TrimSpace(bundle.UserAgent) != "")
 				}
 				resp.Body.Close()
 				continue
@@ -69,14 +70,7 @@ func (c *Client) logCloudflareChallengeBody(contextName string, resp *http.Respo
 	if c == nil || c.logger == nil {
 		return
 	}
-	c.logger.Warning("upstream Cloudflare challenge detected", "context", contextName, "attempt", attempt+1, "host", upstreamRequestHost(resp), "proxy_present", c.proxy != nil && c.proxy.ProxyURL() != "", "proxy_hash", service.ProxyURLHash(proxyURL(c.proxy)), "impersonate", c.fp["impersonate"], "user_agent_hash", shortFingerprintHash(c.userAgent), "sec_ch_ua", shortHeaderValue(c.fp["sec-ch-ua"]), "cf_ray", strings.TrimSpace(resp.Header.Get("CF-Ray")), "body_summary", bodySummary)
-}
-
-func proxyURL(proxy *service.ProxyService) string {
-	if proxy == nil {
-		return ""
-	}
-	return proxy.ProxyURL()
+	c.logger.Warning("upstream Cloudflare challenge detected", "context", contextName, "attempt", attempt+1, "host", upstreamRequestHost(resp), "proxy_present", c.proxyURL != "", "proxy_hash", service.ProxyURLHash(c.proxyURL), "impersonate", c.fp["impersonate"], "user_agent_hash", shortFingerprintHash(c.userAgent), "sec_ch_ua", shortHeaderValue(c.fp["sec-ch-ua"]), "cf_ray", strings.TrimSpace(resp.Header.Get("CF-Ray")), "body_summary", bodySummary)
 }
 
 func upstreamRequestHost(resp *http.Response) string {
@@ -193,12 +187,15 @@ func readBackendResponseBody(resp *http.Response, context string) ([]byte, error
 	return data, nil
 }
 
+// upstreamHTTPError reports an upstream HTTP failure and keeps the status
+// classifiable through upstreamStatusError, so retry decisions never depend on
+// the wording of the upstream body that is embedded in the message.
 func upstreamHTTPError(context string, status int, body []byte) error {
 	detail := summarizeUpstreamErrorBody(body)
 	if detail == "" {
-		return fmt.Errorf("%s failed: status=%d", context, status)
+		return &upstreamHTTPStatusError{status: status, message: fmt.Sprintf("%s failed: status=%d", context, status)}
 	}
-	return fmt.Errorf("%s failed: status=%d, %s", context, status, detail)
+	return &upstreamHTTPStatusError{status: status, message: fmt.Sprintf("%s failed: status=%d, %s", context, status, detail)}
 }
 
 func upstreamTransportError(context string, err error) error {

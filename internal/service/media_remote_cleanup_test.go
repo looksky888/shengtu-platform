@@ -62,3 +62,44 @@ func TestCleanupExpiredRemoteMediaRespectsPolicyStartAndEntitlement(t *testing.T
 		t.Fatal("expired free-tier thumbnail was retained")
 	}
 }
+
+func TestCleanupExpiredRemoteMediaContinuesAfterObjectFailure(t *testing.T) {
+	library, repo, objects := newMediaLibraryTestFixture(t)
+	now := time.Now().UTC()
+	policyStart := now.AddDate(0, 0, -10).Format(time.RFC3339Nano)
+	createdAt := now.AddDate(0, 0, -7).Format(time.RFC3339Nano)
+	failing := storage.MediaAssetRecord{ID: "failing", Path: "failing.png", OwnerID: "free-user", MediaType: "image", ObjectKey: "images/failing.png", ContentType: "image/png", SizeBytes: 10, Status: "ready", CreatedAt: createdAt, UpdatedAt: now.Format(time.RFC3339Nano)}
+	healthy := storage.MediaAssetRecord{ID: "healthy", Path: "healthy.png", OwnerID: "free-user", MediaType: "image", ObjectKey: "images/healthy.png", ContentType: "image/png", SizeBytes: 10, Status: "ready", CreatedAt: createdAt, UpdatedAt: now.Format(time.RFC3339Nano)}
+	for _, asset := range []storage.MediaAssetRecord{failing, healthy} {
+		if err := repo.SaveMediaAsset(asset); err != nil {
+			t.Fatal(err)
+		}
+		objects.data[asset.ObjectKey] = []byte("image")
+	}
+	objects.failDelete = failing.ObjectKey
+
+	removed, err := library.CleanupExpiredRemoteMedia(context.Background(), 5, policyStart)
+	if err == nil {
+		t.Fatal("CleanupExpiredRemoteMedia() error = nil, want the object failure reported")
+	}
+	if removed != 1 {
+		t.Fatalf("CleanupExpiredRemoteMedia() removed = %d, want the healthy asset only", removed)
+	}
+	if _, ok, err := repo.LoadMediaAsset(healthy.Path); err != nil || ok {
+		t.Fatalf("healthy expired media was retained: ok=%v err=%v", ok, err)
+	}
+	stored, ok, err := repo.LoadMediaAsset(failing.Path)
+	if err != nil || !ok {
+		t.Fatalf("failed asset row was lost: ok=%v err=%v", ok, err)
+	}
+	if stored.Status != mediaStatusDeleting {
+		t.Fatalf("failed asset status = %q, want %q", stored.Status, mediaStatusDeleting)
+	}
+	page, err := library.ListImages("https://app.example.test", ImageListQuery{Scope: ImageAccessScope{All: true}, Limit: 10})
+	if err != nil {
+		t.Fatalf("ListImages() error = %v", err)
+	}
+	if items := page["items"].([]map[string]any); len(items) != 0 {
+		t.Fatalf("cleanup left listable media rows: %#v", items)
+	}
+}

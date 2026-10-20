@@ -66,6 +66,31 @@ func (s *ProxyService) BrowserHTTPClientWithProfile(profile string, timeout time
 	return browserHTTPClientForProfile(s.config.Proxy(), profile, timeout)
 }
 
+// BrowserHTTPClientForProxyWithProfile builds an isolated browser-like client
+// for one account's persisted proxy. The proxy value must never be logged.
+func BrowserHTTPClientForProxyWithProfile(proxy, profile string, timeout time.Duration) *http.Client {
+	return browserHTTPClientForProfile(proxy, profile, timeout)
+}
+
+// NormalizeAccountProxyURL validates a persisted account egress URL while
+// preserving authentication and provider session parameters in userinfo.
+func NormalizeAccountProxyURL(value string) (string, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "", nil
+	}
+	parsed, err := url.Parse(value)
+	if err != nil || parsed.Host == "" || parsed.RawQuery != "" || parsed.Fragment != "" || (parsed.Path != "" && parsed.Path != "/") {
+		return "", fmt.Errorf("账号代理 URL 无效")
+	}
+	switch strings.ToLower(parsed.Scheme) {
+	case "http", "https", "socks5", "socks5h":
+	default:
+		return "", fmt.Errorf("账号代理仅支持 http、https、socks5 或 socks5h")
+	}
+	return value, nil
+}
+
 // ProxyTestResultPublic is the API-facing proxy connectivity test result.
 type ProxyTestResultPublic struct {
 	OK        bool   `json:"ok"`

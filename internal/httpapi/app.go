@@ -5,13 +5,12 @@ import (
 	"chatgpt2api/internal/protocol"
 	"chatgpt2api/internal/service"
 	"chatgpt2api/internal/storage"
-	"chatgpt2api/internal/updaterclient"
 	"chatgpt2api/internal/util"
+	"chatgpt2api/internal/version"
 	"context"
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 )
@@ -43,50 +42,44 @@ const (
 )
 
 type App struct {
-	config            *config.Store
-	auth              *service.AuthService
-	accounts          *service.AccountService
-	logs              *service.LogService
-	logger            *service.Logger
-	proxy             *service.ProxyService
-	engine            *protocol.Engine
-	images            *service.ImageService
-	media             *service.MediaLibrary
-	mediaAdmin        *service.MediaLibrary
-	mediaKey          string
-	mediaMu           sync.Mutex
-	billingMu         sync.RWMutex
-	billingHealth     creationBillingHealth
-	videos            *service.VideoAssetService
-	videoRefs         *service.VideoReferenceAssetService
-	tasks             *service.ImageTaskService
-	proxyStats        *imageProxyHealth
-	apiLimiter        *apiKeyLimiter
-	announce          *service.AnnouncementService
-	backup            *service.BackupService
-	prompts           *service.PromptFavoriteService
-	cpa               *service.CPAConfig
-	cpaImport         *service.CPAImportService
-	register          *service.RegisterService
-	credits           *service.CreditService
-	imageChannels     *service.ImageChannelService
-	regQuota          *service.RegistrationQuotaService
-	email             *service.RegistrationEmailService
-	paymentAdmin      *service.PaymentAdminService
-	paymentOrders     *service.PaymentService
-	update            *service.UpdateService
-	hostUpdater       *updaterclient.Client
-	hostUpdaterReason string
-	hostUpdaterToken  string
-	updateAdmission   *updateAdmissionGate
-	shutdownRequested chan struct{}
-	shutdownOnce      sync.Once
-	cancel            context.CancelFunc
-	rootCtx           context.Context
-	closeTasks        func(context.Context) error
-	closeUsage        func() error
-	closeLog          func() error
-	closeStorage      func() error
+	config        *config.Store
+	auth          *service.AuthService
+	accounts      *service.AccountService
+	logs          *service.LogService
+	logger        *service.Logger
+	proxy         *service.ProxyService
+	engine        *protocol.Engine
+	images        *service.ImageService
+	media         *service.MediaLibrary
+	mediaAdmin    *service.MediaLibrary
+	mediaKey      string
+	mediaMu       sync.Mutex
+	billingMu     sync.RWMutex
+	billingHealth creationBillingHealth
+	videos        *service.VideoAssetService
+	videoRefs     *service.VideoReferenceAssetService
+	tasks         *service.ImageTaskService
+	proxyStats    *imageProxyHealth
+	apiLimiter    *apiKeyLimiter
+	announce      *service.AnnouncementService
+	backup        *service.BackupService
+	prompts       *service.PromptFavoriteService
+	cpa           *service.CPAConfig
+	cpaImport     *service.CPAImportService
+	register      *service.RegisterService
+	credits       *service.CreditService
+	imageChannels *service.ImageChannelService
+	regQuota      *service.RegistrationQuotaService
+	email         *service.RegistrationEmailService
+	paymentAdmin  *service.PaymentAdminService
+	paymentOrders *service.PaymentService
+	update        *service.UpdateService
+	cancel        context.CancelFunc
+	rootCtx       context.Context
+	closeTasks    func(context.Context) error
+	closeUsage    func() error
+	closeLog      func() error
+	closeStorage  func() error
 }
 
 func NewApp() (*App, error) {
@@ -182,36 +175,30 @@ func NewApp() (*App, error) {
 	}
 	images := service.NewImageService(cfg, storageBackend)
 	images.BindMediaLibrary(media)
-	hostUpdater, hostUpdaterReason := updaterclient.NewFromEnv()
 	app := &App{
 		config: cfg, auth: auth, accounts: accounts, logs: logs, logger: logger, proxy: proxy, engine: engine,
-		images:            images,
-		media:             media,
-		videos:            service.NewVideoAssetService(cfg.DataDir, storageBackend),
-		videoRefs:         service.NewVideoReferenceAssetService(cfg.DataDir, storageBackend),
-		proxyStats:        newImageProxyHealth(filepath.Join(cfg.DataDir, "image_proxy_health.json")),
-		apiLimiter:        newAPIKeyLimiter(storageBackend, logger),
-		announce:          service.NewAnnouncementService(cfg.DataDir, storageBackend),
-		backup:            service.NewBackupService(cfg.RootDir, cfg.DataDir, storageBackend),
-		prompts:           service.NewPromptFavoriteService(cfg.DataDir, storageBackend),
-		cpa:               service.NewCPAConfig(cfg.DataDir, storageBackend),
-		credits:           service.NewCreditService(cfg.DataDir, storageBackend),
-		imageChannels:     imageChannels,
-		regQuota:          regQuota,
-		email:             email,
-		paymentAdmin:      payment,
-		paymentOrders:     paymentOrders,
-		update:            newUpdateService(cfg),
-		hostUpdater:       hostUpdater,
-		hostUpdaterReason: hostUpdaterReason,
-		hostUpdaterToken:  strings.TrimSpace(os.Getenv("CHATGPT2API_HOST_UPDATER_TOKEN")),
-		updateAdmission:   newUpdateAdmissionGate(),
-		shutdownRequested: make(chan struct{}),
-		cancel:            cancel,
-		rootCtx:           ctx,
-		closeUsage:        logs.Close,
-		closeLog:          logger.Close,
-		closeStorage:      closeStorage,
+		images:        images,
+		media:         media,
+		videos:        service.NewVideoAssetService(cfg.DataDir, storageBackend),
+		videoRefs:     service.NewVideoReferenceAssetService(cfg.DataDir, storageBackend),
+		proxyStats:    newImageProxyHealth(filepath.Join(cfg.DataDir, "image_proxy_health.json")),
+		apiLimiter:    newAPIKeyLimiter(storageBackend, logger),
+		announce:      service.NewAnnouncementService(cfg.DataDir, storageBackend),
+		backup:        service.NewBackupService(cfg.RootDir, cfg.DataDir, storageBackend),
+		prompts:       service.NewPromptFavoriteService(cfg.DataDir, storageBackend),
+		cpa:           service.NewCPAConfig(cfg.DataDir, storageBackend),
+		credits:       service.NewCreditService(cfg.DataDir, storageBackend),
+		imageChannels: imageChannels,
+		regQuota:      regQuota,
+		email:         email,
+		paymentAdmin:  payment,
+		paymentOrders: paymentOrders,
+		update:        newUpdateService(cfg),
+		cancel:        cancel,
+		rootCtx:       ctx,
+		closeUsage:    logs.Close,
+		closeLog:      logger.Close,
+		closeStorage:  closeStorage,
 	}
 	app.cpaImport = service.NewCPAImportService(app.cpa, accounts, proxy)
 	app.paymentOrders.BindCredits(app.credits)
@@ -248,6 +235,7 @@ func NewApp() (*App, error) {
 	media.Start(ctx)
 	app.backup.Start(ctx)
 	app.startMediaCleanup(ctx, mediaCleanupInterval)
+	app.startLogCleanup(ctx, logCleanupInterval)
 	return app, nil
 }
 
@@ -282,6 +270,45 @@ func (a *App) startMediaCleanup(ctx context.Context, interval time.Duration) {
 			a.logger.Warning("scheduled video cleanup failed", "error", err.Error())
 		} else if removed > 0 && a.logger != nil {
 			a.logger.Info("scheduled video cleanup completed", "removed", removed)
+		}
+	}
+	cleanup()
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				cleanup()
+			}
+		}
+	}()
+}
+
+const logCleanupInterval = 6 * time.Hour
+
+// startLogCleanup enforces the configured log retention on a schedule. Before
+// this existed the only caller of CleanupOlderThan was the admin endpoint, so
+// the event log grew without bound on an unattended instance.
+func (a *App) startLogCleanup(ctx context.Context, interval time.Duration) {
+	if a == nil || a.config == nil || a.logs == nil {
+		return
+	}
+	if interval <= 0 {
+		interval = logCleanupInterval
+	}
+	cleanup := func() {
+		result, err := a.logs.CleanupOlderThan(a.config.LogRetentionDays())
+		if err != nil {
+			if a.logger != nil {
+				a.logger.Warning("scheduled log cleanup failed", "error", err.Error())
+			}
+			return
+		}
+		if result.Deleted > 0 && a.logger != nil {
+			a.logger.Info("scheduled log cleanup completed", "deleted", result.Deleted, "retention_days", result.RetentionDays)
 		}
 	}
 	cleanup()
@@ -397,6 +424,16 @@ func (a *App) refundInterruptedCreationTasks() {
 			a.logger.Info("restart refund applied", "user_id", task.OwnerID, "task_id", task.ID, "ref_id", refID)
 		}
 	}
+}
+
+func newUpdateService(cfg *config.Store) *service.UpdateService {
+	return service.NewUpdateService(service.UpdateOptions{
+		CurrentVersion: version.Get(),
+		BuildType:      version.GetBuildType(),
+		Repo:           cfg.UpdateRepo(),
+		ProxyURL:       cfg.UpdateProxyURL(),
+		GitHubToken:    cfg.UpdateGitHubToken(),
+	})
 }
 
 func (a *App) Logger() *service.Logger {

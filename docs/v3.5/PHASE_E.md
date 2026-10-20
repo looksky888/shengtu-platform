@@ -59,6 +59,6 @@ SHENGTU_POOL_SYNC_REFRESH=true
 
 ## 风险
 
-- 上游依赖多，镜像首次 `import register_service` 可能失败（见 health.register_import_error）
+- 上游依赖多，镜像首次 `import register_service` 可能失败（4.6 起 `/health` 只回布尔能力位，异常详情见侧车容器日志）
 - Checkout / Sub2API 已挂在 register_service，首期可不配置
 - 前端 `target: grok` UI 需补选择器（类型已扩展，设置页可后续加）

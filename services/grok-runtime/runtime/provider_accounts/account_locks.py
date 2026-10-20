@@ -43,3 +43,11 @@ class AccountLockRegistry:
     async def size(self) -> int:
         async with self._guard:
             return len(self._entries)
+
+
+_SHARED_LOCKS = AccountLockRegistry()
+
+
+def shared_account_locks() -> AccountLockRegistry:
+    """Process-wide registry so every task runner serialises on the same account lock."""
+    return _SHARED_LOCKS

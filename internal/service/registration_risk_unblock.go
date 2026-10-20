@@ -2,40 +2,26 @@ package service
 
 import "time"
 
-// clearRiskTriggerWindowLocked makes manual unblock effective immediately.
-// Historical rows outside the active policy window remain for audit.
-func (s *RegistrationQuotaService) clearRiskTriggerWindowLocked(block RegistrationRiskBlock, now time.Time) {
-	switch block.Kind {
-	case riskBlockDevice:
-		cutoff := now.AddDate(0, 0, -s.policy.DeviceWindowDays)
-		s.state.Events = filterRegistrationEvents(s.state.Events, func(event RegistrationQuotaEvent) bool {
-			return quotaEventInWindow(event, cutoff) && event.DeviceID == block.Key
-		})
-	case riskBlockIP:
-		cutoff := now.Add(-time.Duration(s.policy.IPWindowHours) * time.Hour)
-		s.state.Events = filterRegistrationEvents(s.state.Events, func(event RegistrationQuotaEvent) bool {
-			return quotaEventInWindow(event, cutoff) && NormalizeClientIP(event.ClientIP) == block.Key
-		})
-	case riskBlockPair:
-		cutoff := now.Add(-time.Duration(s.policy.PairAttemptWindowMinutes) * time.Minute)
-		next := make([]RegistrationAttempt, 0, len(s.state.Attempts))
-		for _, attempt := range s.state.Attempts {
-			created := parseRegistrationQuotaTime(attempt.CreatedAt)
-			if created.After(cutoff) && riskPairKey(attempt.ClientIP, attempt.DeviceID) == block.Key {
-				continue
-			}
-			next = append(next, attempt)
-		}
-		s.state.Attempts = next
+// riskUnblockCutoffLocked returns the effective window start for one block key after
+// applying manual unblocks.
+//
+// Manual unblocking must not delete historical Events/Attempts: a NAT / shared egress
+// would lose every co-tenant's registration history (audit ledger) and silently reset
+// their subnet quota. Instead an unblock records the unblock time for that single
+// kind+key, so only rows created afterwards count against that same key.
+func (s *RegistrationQuotaService) riskUnblockCutoffLocked(kind, key string, cutoff time.Time) time.Time {
+	if key == "" {
+		return cutoff
 	}
-}
-
-func filterRegistrationEvents(events []RegistrationQuotaEvent, remove func(RegistrationQuotaEvent) bool) []RegistrationQuotaEvent {
-	next := make([]RegistrationQuotaEvent, 0, len(events))
-	for _, event := range events {
-		if !remove(event) {
-			next = append(next, event)
+	for index := len(s.state.Unblocks) - 1; index >= 0; index-- {
+		unblock := s.state.Unblocks[index]
+		if unblock.Kind != kind || unblock.Key != key {
+			continue
 		}
+		if at := parseRegistrationQuotaTime(unblock.CreatedAt); at.After(cutoff) {
+			return at
+		}
+		return cutoff
 	}
-	return next
+	return cutoff
 }

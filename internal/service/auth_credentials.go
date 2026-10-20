@@ -134,7 +134,8 @@ func (s *AuthService) RevealKey(id string, filter AuthKeyFilter) (string, bool) 
 		if item.ID != id || !matchAuthKey(item, filter) {
 			continue
 		}
-		// New credentials store only key_hash. Legacy rows may still have plaintext "key".
+		// Only key_hash is ever kept: legacy plaintext rows are rewritten hash-only
+		// at boot, so this intentionally always reports "not available".
 		raw := util.Clean(item.Key)
 		if raw == "" {
 			return "", false

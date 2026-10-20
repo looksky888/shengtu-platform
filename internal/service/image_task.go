@@ -93,13 +93,10 @@ type ImageTaskService struct {
 	// App drains these to refund credits for charges that may have completed before death.
 	recoveredInterrupted []*ImageTask
 	// Lifecycle: tasks inherit rootCtx; Close waits on taskWG (F-03).
-	rootCtx        context.Context
-	rootCancel     context.CancelFunc
-	taskWG         sync.WaitGroup
-	closing        bool
-	draining       bool
-	drainReason    string
-	drainStartedAt string
+	rootCtx    context.Context
+	rootCancel context.CancelFunc
+	taskWG     sync.WaitGroup
+	closing    bool
 }
 
 // SetTerminalObserver registers a non-blocking observer for terminal task
@@ -201,9 +198,11 @@ func newImageTaskService(path string, store storage.JSONDocumentBackend, generat
 	s.statsLedger, statsReady = s.loadStatsLedgerLocked()
 	s.storeReady = tasksReady && statsReady
 	if s.storeReady {
-		backfilled := s.backfillStatsLedgerFromTasksLocked()
+		// Recovery runs first: backfill only counts terminal rows, so recovering
+		// interrupted tasks afterwards would leave them out of the ledger forever.
 		interrupted := s.recoverUnfinishedLocked()
 		s.recoveredInterrupted = interrupted
+		backfilled := s.backfillStatsLedgerFromTasksLocked()
 		pruned := s.pruneStatsLedgerRecordedLocked()
 		if backfilled > 0 || pruned > 0 {
 			if err := s.flushStatsLedgerSaveLocked(); err != nil {

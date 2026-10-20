@@ -20,14 +20,11 @@ func (a *App) InternalHandler() (http.Handler, error) {
 		return nil, err
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case internalAccountsImportPath:
-			a.handleInternalAccountsImport(w, r)
-		case internalHostUpdateDrainPath, internalHostUpdateStatusPath, internalHostUpdateResumePath:
-			a.handleInternalHostUpdate(w, r)
-		default:
+		if r.URL.Path != internalAccountsImportPath {
 			http.NotFound(w, r)
+			return
 		}
+		a.handleInternalAccountsImport(w, r)
 	}), nil
 }
 

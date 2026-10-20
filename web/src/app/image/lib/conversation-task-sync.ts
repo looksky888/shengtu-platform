@@ -1,8 +1,10 @@
 import { fetchCreationTasks, type CreationTaskMessage } from "@/lib/api";
+import { isTurnBusy } from "@/lib/image-turn-state";
+import { advanceConversationRevision, touchConversation } from "@/store/image-conversation-revision";
 import { saveImageConversations, type ImageConversation } from "@/store/image-conversations";
 
 import { imageDataIndexForTask, imageTaskIdForImage, taskDataToStoredImage } from "./image-task-utils";
-import { deriveTurnStatus, isMissingBatchImageDataError, isMissingRecoverableTaskIdError, isTurnInProgress } from "./image-turn-utils";
+import { deriveTurnStatus, isMissingBatchImageDataError, isMissingRecoverableTaskIdError } from "./image-turn-utils";
 import { MISSING_RECOVERABLE_TASK_ID_ERROR } from "./image-page-types";
 
 export function buildCreationTaskMessages(conversation: ImageConversation, activeTurnId: string): CreationTaskMessage[] {
@@ -70,7 +72,7 @@ export async function syncConversationCreationTasks(items: ImageConversation[]) 
       changed = true;
       const derived = deriveTurnStatus({ ...turn, images });
       const nextTurn = { ...turn, ...derived, images };
-      if (isTurnInProgress(turn) && !isTurnInProgress(nextTurn)) {
+      if (isTurnBusy(turn) && !isTurnBusy(nextTurn)) {
         completedActiveTurn = true;
       }
       return nextTurn;
@@ -79,7 +81,8 @@ export async function syncConversationCreationTasks(items: ImageConversation[]) 
       return conversation;
     }
     const nextConversation = { ...conversation, turns };
-    return completedActiveTurn ? { ...nextConversation, updatedAt: new Date().toISOString() } : nextConversation;
+    // Only a finished turn is a user-visible change; poll updates just advance the revision.
+    return completedActiveTurn ? touchConversation(nextConversation) : advanceConversationRevision(nextConversation);
   });
 
   if (changed) {
@@ -137,7 +140,7 @@ export async function recoverConversationHistory(items: ImageConversation[]) {
       return conversation;
     }
 
-    return { ...conversation, turns, updatedAt: new Date().toISOString() };
+    return touchConversation(conversation, { turns });
   });
 
   if (changed) {

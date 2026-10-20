@@ -6,10 +6,13 @@
 
 | 项 | 值 |
 |----|-----|
-| 版本标记 | `4.5.2-20261017-public-updater` |
-| Compose 镜像 | `shengtu:4.5.2-20261017-public-updater` |
+| 版本标记 | `4.6-20261015-sentinel` |
+| Compose 镜像 | `shengtu:4.6-20261015-sentinel` |
 | 宿主端口 | `127.0.0.1:3004` → 容器 `80` |
 | 配置模板 | `.env.example`（不要提交真实 `.env`） |
+
+单一事实来源是仓库根的 `VERSION.txt`：`internal/version/version.go` 的默认值、`Dockerfile` 的 `ARG VERSION`
+默认值和 `web/package.json` 的版本都必须与它一致，`internal/version` 的一致性测试会在漂移时失败。
 
 R2 媒体配置属于生产密钥，只写入部署环境或设置页，不进入净包。切换到 R2 前先完成设置页连接测试和旧图迁移；迁移不会删除本地回滚副本。
 
@@ -36,6 +39,9 @@ Get-ChildItem -Recurse $stage.FullName -Force |
     $_.Name -eq '.env' -or
     $_.Name -eq 'bootstrap-admin.txt' -or
     $_.Name -like '*.db' -or
+    $_.Name -like '*.pyc' -or
+    $_.Name -eq '__pycache__' -or
+    $_.Name -like '*pytest-cache*' -or
     $_.FullName -match '\\data\\' -or
     $_.FullName -match '\\node_modules\\' -or
     $_.FullName -match '\\.codex\\'
@@ -43,6 +49,10 @@ Get-ChildItem -Recurse $stage.FullName -Force |
 ```
 
 应无输出。
+
+> **交付快照必须由本脚本产出。** 历史 4.6 快照是手工打包的，结果夹带了 `.codex/`（104 个任务记录）和一个
+> 由 pytest 生成的 `...pytest-cache` 目录 —— 两者都在脚本的禁止项里，且缺少 `RELEASE_MANIFEST.txt`。
+> 手工拷目录会同时漏掉"净包验收"和版本核对这两道闸门。
 
 ## 3. 干净环境从零启动（Compose）
 
@@ -52,8 +62,8 @@ cd /opt/chatgpt2api-clean
 
 # 2) 配置
 cp .env.example .env
-# 编辑 .env：至少填写 INTERNAL_SERVICE_TOKEN；再配置管理员密码、代理、存储等
-# INTERNAL_SERVICE_TOKEN 可用 `openssl rand -hex 32` 生成
+# 编辑 .env：至少填写 INTERNAL_SERVICE_TOKEN 与 CHATGPT2API_AUTH_KEY；再配置管理员密码、代理、存储等
+# 两者都可用 `openssl rand -hex 32` 生成（各自独立随机，不要复用同一个值）
 
 # 3) 启动
 docker compose up -d --build

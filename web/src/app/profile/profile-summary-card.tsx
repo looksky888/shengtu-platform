@@ -1,9 +1,9 @@
 import { UserCircle2 } from "lucide-react";
 
 import { ProfileInfoRow } from "@/app/profile/profile-info-row";
-import { providerLabel } from "@/app/profile/profile-utils";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { providerLabel } from "@/lib/provider-label";
 import type { StoredAuthSession } from "@/store/auth";
 
 type ProfileSummaryCardProps = {

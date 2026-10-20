@@ -9,7 +9,7 @@
 | 面向图片工作流的 `POST /v1/chat/completions` | ✅  | 已支持图片相关请求。 |
 | 面向图片工作流的 `POST /v1/responses` | ✅  | 已支持图片生成工具调用。 |
 | 管理端异步创作任务 API | ✅  | 统一使用 `/api/creation-tasks` 资源根路径；提交子接口为 `image-generations`、`image-edits`、`chat-completions`，并支持任务轮询与取消。 |
-| `GET /v1/models` 接口 | ✅  | 当前返回 `gpt-image-2`、`grok-imagine-image*`、`auto`、`gpt-5-mini`、`gpt-5-3-mini`、`gpt-5`、`gpt-5-1`、`gpt-5-2`、`gpt-5-3`、`gpt-5.4`、`gpt-5.5`。 |
+| `GET /v1/models` 接口 | ✅  | 保留上游模型；存在 Web 图片账号时额外返回 `gpt-image-2`、`gpt-image-2.5`、`gpt-image-2.5-flare`、`gpt-image-2.5-sunburst`，并返回 `grok-imagine-image*`、`auto`、`gpt-5*` 等本地模型。 |
 | 同时生成多张图片 | ✅  | 已支持，后端与前端都可进行多图生成。 |
 | 前端创作台 | ✅  | 已支持手动切换对话 / 作画模式；作画模式支持图片生成、图片编辑、模型选择、历史记录与查看大图。 |
 | 前端图片输入 / 参考图交互 | ✅  | 已支持参考图上传、预览、移除和编辑模式工作流。 |

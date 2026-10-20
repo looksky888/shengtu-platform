@@ -38,11 +38,10 @@ func (e *Engine) applyPictureModelRouting(request *ConversationRequest) {
 	if request == nil || !util.IsGPTImageModel(request.Model) || request.ResponsesImageTool {
 		return
 	}
-	// Images 2.5 public aliases are routed by the Web image engine.  Keep this
-	// mapping authoritative so a legacy IMAGE_INTERNAL_MODEL_SLUG environment
-	// value cannot silently send 2.5 requests through an obsolete model.
-	if model := strings.ToLower(strings.TrimSpace(request.Model)); model == util.ImageModelGPT25 || model == util.ImageModelGPT25Flare || model == util.ImageModelGPT25Sunburst {
-		request.UpstreamModel = util.ImageModelAuto
+	// Explicit Images 2.5 selections are real Web slugs. Keep them out of the
+	// legacy gpt-image-2 configurable route and do not switch models on retry.
+	if model, ok := util.CanonicalImage25Model(request.Model); ok {
+		request.UpstreamModel = model
 		request.FallbackModels = nil
 		return
 	}
@@ -91,10 +90,16 @@ func (e *Engine) HandleImageEdits(ctx context.Context, body map[string]any, imag
 		return nil, nil, &ImageGenerationError{Message: "image is required", StatusCode: 502, Type: "server_error", Code: "upstream_error"}
 	}
 	size := util.Clean(body["size"])
+	// Same bound as /v1/images/generations: every requested image drives a real
+	// upstream generation against a leased account, so n must not be unbounded.
+	n, err := ParseImageCount(body["n"])
+	if err != nil {
+		return nil, nil, err
+	}
 	request := ConversationRequest{
 		Prompt:             util.Clean(body["prompt"]),
 		Model:              e.normalizeDirectImageModel(util.Clean(body["model"])),
-		N:                  util.ToInt(body["n"], 1),
+		N:                  n,
 		Size:               size,
 		Quality:            util.Clean(body["quality"]),
 		OutputFormat:       NormalizeImageOutputFormat(util.Clean(body["output_format"])),

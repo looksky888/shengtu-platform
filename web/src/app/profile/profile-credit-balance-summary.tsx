@@ -1,5 +1,4 @@
 import {
-  creditReasonLabel,
   formatCreditBalance,
   formatCreditNumber,
   formatDateTime,
@@ -7,6 +6,7 @@ import {
 } from "@/app/profile/profile-utils";
 import { Badge } from "@/components/ui/badge";
 import type { CreditLedgerEntry, ProfileCredits } from "@/lib/api";
+import { creditReasonLabel } from "@/lib/credit-labels";
 
 export function ProfileCreditBalanceSummary({
   credits,

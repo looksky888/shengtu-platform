@@ -27,10 +27,6 @@ export function pickFallbackConversationId(conversations: ImageConversation[]) {
   return activeConversation?.id ?? conversations[0]?.id ?? null;
 }
 
-export function sortImageConversations(conversations: ImageConversation[]) {
-  return [...conversations].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-}
-
 export function getStoredImageModel(): ImageModel {
   if (typeof window === "undefined") {
     return DEFAULT_IMAGE_MODEL;

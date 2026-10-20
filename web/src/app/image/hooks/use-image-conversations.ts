@@ -2,8 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { recoverConversationHistory } from "@/app/image/lib/conversation-task-sync";
-import { pickFallbackConversationId, sortImageConversations } from "@/app/image/lib/image-storage-utils";
+import { pickFallbackConversationId } from "@/app/image/lib/image-storage-utils";
 import { preserveEphemeralReferenceImages } from "@/store/image-conversation-ephemeral";
+import { sortImageConversations } from "@/store/image-conversation-normalize";
+import { advanceConversationRevision } from "@/store/image-conversation-revision";
 import {
   ACTIVE_IMAGE_CONVERSATION_STORAGE_KEY,
   getImageConversationStats,
@@ -143,12 +145,13 @@ export function useImageConversations({ restoreStoredComposerSettings }: UseImag
 
   const persistConversation = useCallback(
     async (conversation: ImageConversation) => {
+      const nextConversation = advanceConversationRevision(conversation);
       const nextConversations = sortImageConversations([
-        conversation,
-        ...conversationsRef.current.filter((item) => item.id !== conversation.id),
+        nextConversation,
+        ...conversationsRef.current.filter((item) => item.id !== nextConversation.id),
       ]);
       replaceConversations(nextConversations);
-      await saveImageConversation(conversation);
+      await saveImageConversation(nextConversation);
     },
     [replaceConversations],
   );
@@ -160,7 +163,9 @@ export function useImageConversations({ restoreStoredComposerSettings }: UseImag
       options: { persist?: boolean } = {},
     ) => {
       const current = conversationsRef.current.find((item) => item.id === conversationId) ?? null;
-      const nextConversation = updater(current);
+      // Every write advances the revision so merge arbitration never depends on the
+      // (frequently stale) display timestamp; see image-conversation-revision.
+      const nextConversation = advanceConversationRevision(updater(current));
       const nextConversations = sortImageConversations([
         nextConversation,
         ...conversationsRef.current.filter((item) => item.id !== conversationId),

@@ -7,7 +7,6 @@ import (
 	"strings"
 	"testing"
 
-	"chatgpt2api/internal/hostupdate"
 	"chatgpt2api/internal/service"
 	"chatgpt2api/internal/version"
 )
@@ -215,7 +214,7 @@ func TestAppAuthAndSPACompatibility(t *testing.T) {
 
 func TestAdminSystemCheckUpdates(t *testing.T) {
 	releaseAPI := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/repos/looksky888/shengtu-platform/releases/latest" {
+		if r.URL.Path != "/repos/ZyphrZero/chatgpt2api/releases/latest" {
 			http.NotFound(w, r)
 			return
 		}
@@ -249,7 +248,6 @@ func TestAdminSystemCheckUpdates(t *testing.T) {
 		APIBaseURL:     releaseAPI.URL,
 		CurrentVersion: version.Get(),
 		BuildType:      version.GetBuildType(),
-		Deployment:     "binary",
 	})
 
 	req := httptest.NewRequest(http.MethodGet, "/api/admin/system/check-updates?force=true", nil)
@@ -263,89 +261,8 @@ func TestAdminSystemCheckUpdates(t *testing.T) {
 	if err := json.Unmarshal(res.Body.Bytes(), &body); err != nil {
 		t.Fatalf("check updates json: %v", err)
 	}
-	if body["current_version"] != "1.1.0" || body["latest_version"] != "1.2.0" || body["has_update"] != true || body["build_type"] != "release" || body["automatic_update_supported"] != true {
+	if body["current_version"] != "1.1.0" || body["latest_version"] != "1.2.0" || body["has_update"] != true || body["build_type"] != "release" {
 		t.Fatalf("unexpected check updates body = %#v", body)
-	}
-}
-
-func TestAdminSystemRejectsDockerInProcessUpdate(t *testing.T) {
-	app := newTestApp(t)
-	defer app.Close()
-	app.update = service.NewUpdateService(service.UpdateOptions{
-		CurrentVersion: "4.5-20260925-ui-workspace",
-		BuildType:      "release",
-		Deployment:     "docker",
-	})
-
-	req := httptest.NewRequest(http.MethodPost, "/api/admin/system/update", nil)
-	req.Header.Set("Authorization", adminAuthHeader(t, app))
-	res := httptest.NewRecorder()
-	app.Handler().ServeHTTP(res, req)
-	if res.Code != http.StatusConflict || !strings.Contains(res.Body.String(), "Host Updater") {
-		t.Fatalf("docker update status = %d body = %s", res.Code, res.Body.String())
-	}
-}
-
-func TestAdminSystemHostUpdaterStatus(t *testing.T) {
-	token := "0123456789abcdef0123456789abcdef"
-	updater := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("Authorization") != "Bearer "+token {
-			w.WriteHeader(http.StatusUnauthorized)
-			return
-		}
-		_, _ = w.Write([]byte(`{"status":"idle","updated_at":"now","checks":[]}`))
-	}))
-	defer updater.Close()
-	t.Setenv("CHATGPT2API_HOST_UPDATER_TOKEN", token)
-	t.Setenv("CHATGPT2API_HOST_UPDATER_URL", updater.URL)
-	app := newTestApp(t)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/admin/system/update-status", nil)
-	req.Header.Set("Authorization", adminAuthHeader(t, app))
-	res := httptest.NewRecorder()
-	app.Handler().ServeHTTP(res, req)
-	if res.Code != http.StatusOK {
-		t.Fatalf("update status = %d body = %s", res.Code, res.Body.String())
-	}
-	var body hostUpdaterStatusResponse
-	if err := json.Unmarshal(res.Body.Bytes(), &body); err != nil {
-		t.Fatal(err)
-	}
-	if !body.Configured || !body.Connected || body.State == nil || body.State.Status != "idle" {
-		t.Fatalf("body = %#v", body)
-	}
-}
-
-func TestAdminSystemPreflightDoesNotRequireReleaseLookup(t *testing.T) {
-	token := "0123456789abcdef0123456789abcdef"
-	updater := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/v1/preflight" || r.Header.Get("Authorization") != "Bearer "+token {
-			w.WriteHeader(http.StatusUnauthorized)
-			return
-		}
-		var request hostupdate.PreflightRequest
-		if err := json.NewDecoder(r.Body).Decode(&request); err != nil || request.TargetVersion == "" {
-			t.Errorf("preflight request = %#v, %v", request, err)
-		}
-		w.WriteHeader(http.StatusAccepted)
-		_, _ = w.Write([]byte(`{"state":{"status":"preflight","updated_at":"now","checks":[]},"started":true}`))
-	}))
-	defer updater.Close()
-	releases := httptest.NewServer(http.NotFoundHandler())
-	defer releases.Close()
-	t.Setenv("CHATGPT2API_HOST_UPDATER_TOKEN", token)
-	t.Setenv("CHATGPT2API_HOST_UPDATER_URL", updater.URL)
-	app := newTestApp(t)
-	app.update = service.NewUpdateService(service.UpdateOptions{
-		APIBaseURL: releases.URL, CurrentVersion: "4.5-test", BuildType: "release", Deployment: "docker", Repo: "owner/project",
-	})
-
-	req := httptest.NewRequest(http.MethodPost, "/api/admin/system/update-preflight", nil)
-	req.Header.Set("Authorization", adminAuthHeader(t, app))
-	res := httptest.NewRecorder()
-	app.Handler().ServeHTTP(res, req)
-	if res.Code != http.StatusAccepted {
-		t.Fatalf("preflight status = %d body = %s", res.Code, res.Body.String())
 	}
 }
 

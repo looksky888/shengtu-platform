@@ -75,6 +75,18 @@ export function chinaTodayStartMs(now = new Date()) {
 
 export type TimeRangeFilter = "all" | "today" | "7d" | "30d";
 
+/** mm:ss (or hh:mm:ss past an hour) elapsed clock used by the task queue and result cards. */
+export function formatElapsedClock(totalSeconds: number) {
+  const safeSeconds = Math.max(0, totalSeconds);
+  const hours = Math.floor(safeSeconds / 3600);
+  const minutes = Math.floor((safeSeconds % 3600) / 60);
+  const seconds = safeSeconds % 60;
+  if (hours > 0) {
+    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  }
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
 /** Whether a timestamp falls in the China-time filter window. */
 export function isWithinChinaTimeFilter(value: string | null | undefined, filter: TimeRangeFilter) {
   if (filter === "all") return true;

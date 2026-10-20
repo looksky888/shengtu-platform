@@ -15,6 +15,7 @@ import {
   type GrokAccountsSummary,
   type GrokQuotaMode,
 } from "@/lib/grok-accounts-api";
+import { downloadBlob } from "@/lib/image-download";
 
 function quotaModeTotal(summary: GrokAccountsSummary | undefined, mode: GrokQuotaMode): number {
   const value = summary?.quota?.[mode];
@@ -217,12 +218,7 @@ export function useGrokAccounts() {
     setBusy(true);
     try {
       const data = await exportGrokAccounts("json");
-      const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }));
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = `grok-accounts-${Date.now()}.json`;
-      anchor.click();
-      URL.revokeObjectURL(url);
+      downloadBlob(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }), `grok-accounts-${Date.now()}.json`);
       toast.success("已导出");
     } catch (exportError) {
       toast.error(exportError instanceof Error ? exportError.message : "导出失败");

@@ -1,3 +1,6 @@
+/** Shown when a credential is stored but never returned by the API (blank keeps it). */
+export const STORED_SECRET_HINT = "已保存，留空保持不变";
+
 export type RegisterClearanceConfig = {
   enabled: boolean;
   mode: "none" | "manual" | "flaresolverr";
@@ -6,8 +9,10 @@ export type RegisterClearanceConfig = {
   refresh_interval_seconds: number;
   proxy: string;
   user_agent: string;
+  /** Never returned by the API: a stored pair is only reported as configured. */
   cf_clearance: string;
   cf_cookies: string;
+  cf_credentials_configured?: boolean;
 };
 
 export type OutlookPoolStats = {

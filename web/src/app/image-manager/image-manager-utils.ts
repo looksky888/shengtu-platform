@@ -8,6 +8,7 @@ import {
   type ImageVisibilityFilter,
 } from "@/app/image-manager/image-manager-types";
 import type { ImageVisibility, ManagedImage } from "@/lib/api";
+import { imageVisibilityLabel } from "@/lib/image-card-utils";
 import { formatImageFileSize } from "@/lib/image-size";
 import { downloadImageBlob, downloadImageFiles, type ImageDownloadProgress } from "@/lib/image-download";
 import type { StoredAuthSession } from "@/store/auth";
@@ -43,10 +44,6 @@ export async function downloadManagedImages(
 		src: item.url,
 		fileName: buildManagedImageDownloadName(item, allItems.indexOf(item)),
 	})), onProgress);
-}
-
-export function sleep(ms: number) {
-  return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
 export function isRequestCanceled(error: unknown) {
@@ -269,27 +266,4 @@ export function matchesManagedImageKeyword(item: ManagedImage, keyword: string) 
     formatManagedImageMegapixels(item),
     formatImageFileSize(item.size),
   ].some((value) => String(value || "").toLowerCase().includes(normalizedKeyword));
-}
-
-export function imageVisibilityLabel(visibility: ImageVisibility) {
-  return visibility === "public" ? "已公开" : "私有";
-}
-
-export function imageVisibilityPillClass(visibility: ImageVisibility) {
-  return visibility === "public"
-    ? "bg-[#e8f2ff] text-[#1456f0] ring-1 ring-[#bfdbfe]"
-    : "bg-[#181e25]/82 text-white ring-1 ring-white/20";
-}
-
-export function imageVisibilityActionClass(visibility: ImageVisibility) {
-  return visibility === "public"
-    ? "bg-white/95 text-[#1456f0] hover:bg-[#e8f2ff]"
-    : "bg-white/95 text-stone-800 hover:bg-stone-100";
-}
-
-export function blurFocusedElementInContainer(container: HTMLElement) {
-  const activeElement = document.activeElement;
-  if (activeElement instanceof HTMLElement && container.contains(activeElement)) {
-    activeElement.blur();
-  }
 }

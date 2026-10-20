@@ -110,7 +110,7 @@ func (b *DatabaseBackend) FailPaymentReconciliationRun(id, lastError, finishedAt
 	if err != nil {
 		return err
 	}
-	return requireOnePaymentRow(result)
+	return b.requirePaymentRowUpdated(result, b.db, "payment_reconciliation_runs", `id = `+b.placeholder(1)+` AND status = `+b.placeholder(2), id, PaymentReconciliationStatusRunning)
 }
 
 func (b *DatabaseBackend) LoadPaymentReconciliationRun(id string) (PaymentReconciliationRunRecord, error) {

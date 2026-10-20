@@ -44,6 +44,7 @@ export function useUsersManagement(session: StoredAuthSession) {
   const [usageLoadedKey, setUsageLoadedKey] = useState("");
   const [isLoadingUsage, setIsLoadingUsage] = useState(false);
   const usersRequestSeq = useRef(0);
+  const usageRequestSeq = useRef(0);
   const usersAbortRef = useRef<AbortController | null>(null);
   const usageAbortRef = useRef<AbortController | null>(null);
 
@@ -126,6 +127,7 @@ export function useUsersManagement(session: StoredAuthSession) {
     usersAbortRef.current?.abort();
     // List change invalidates on-demand usage; cancel in-flight usage scan.
     usageAbortRef.current?.abort();
+    usageRequestSeq.current += 1;
     setUsageReady(false);
     setUsageByUserId(new Map());
     setUsageLoadedKey("");
@@ -193,13 +195,12 @@ export function useUsersManagement(session: StoredAuthSession) {
     usageAbortRef.current?.abort();
     const controller = new AbortController();
     usageAbortRef.current = controller;
+    const seq = ++usageRequestSeq.current;
     setIsLoadingUsage(true);
     try {
       const data = await fetchManagedUsersUsage(ids, { days: 14, signal: controller.signal });
-      if (controller.signal.aborted) return;
-      // Drop result if the page membership changed while the request was in flight.
-      const currentKey = items.map((user) => user.id).filter(Boolean).join(",");
-      if (currentKey !== requestedKey) return;
+      // Drop the result when the page changed or another scan started while this one was in flight.
+      if (seq !== usageRequestSeq.current) return;
       // Scheme B: scoped scan is synchronous; store usage off the user row.
       const byId = data.items || {};
       const next = new Map<string, ManagedUserUsage>();
@@ -212,11 +213,11 @@ export function useUsersManagement(session: StoredAuthSession) {
       setUsageReady(true);
       toast.success("本页用量已加载");
     } catch (error) {
-      if (controller.signal.aborted) return;
+      if (controller.signal.aborted || seq !== usageRequestSeq.current) return;
       toast.error(error instanceof Error ? error.message : "加载用量失败");
     } finally {
       if (usageAbortRef.current === controller) usageAbortRef.current = null;
-      setIsLoadingUsage(false);
+      if (seq === usageRequestSeq.current) setIsLoadingUsage(false);
     }
   }, [items]);
 

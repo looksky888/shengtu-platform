@@ -28,6 +28,11 @@ import (
 const (
 	mediaStatusPending = "pending"
 	mediaStatusReady   = "ready"
+	// mediaStatusDeleting is the tombstone between "the user asked for removal"
+	// and "remote objects are gone". Listings, capacity/retention queries and
+	// Delivery only accept ready/pending, so a record can never keep handing out
+	// presigned URLs for an object that has already been deleted.
+	mediaStatusDeleting = "deleting"
 )
 
 // MediaLibrary owns persistence order, retry state, object verification, and

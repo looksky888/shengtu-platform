@@ -160,6 +160,12 @@ func (m *MediaLibrary) DeleteImages(paths []string, scope ImageAccessScope) (map
 	seen := map[string]struct{}{}
 	removed := make([]string, 0, len(paths))
 	deleted, missing := 0, 0
+	var firstErr error
+	fail := func(err error) {
+		if firstErr == nil {
+			firstErr = err
+		}
+	}
 	for _, value := range paths {
 		rel, err := cleanImageRelativePath(value)
 		if err != nil {
@@ -171,7 +177,8 @@ func (m *MediaLibrary) DeleteImages(paths []string, scope ImageAccessScope) (map
 		seen[rel] = struct{}{}
 		asset, ok, err := m.repo.LoadMediaAsset(rel)
 		if err != nil {
-			return nil, err
+			fail(err)
+			continue
 		}
 		if !ok || (!scope.All && (scope.OwnerID == "" || asset.OwnerID != scope.OwnerID)) {
 			missing++
@@ -179,31 +186,55 @@ func (m *MediaLibrary) DeleteImages(paths []string, scope ImageAccessScope) (map
 		}
 		release := m.lockMediaAsset(asset.ID)
 		asset, ok, err = m.repo.LoadMediaAsset(rel)
-		if err != nil {
+		if err != nil || !ok || (!scope.All && (scope.OwnerID == "" || asset.OwnerID != scope.OwnerID)) {
 			release()
-			return nil, err
-		}
-		if !ok || (!scope.All && (scope.OwnerID == "" || asset.OwnerID != scope.OwnerID)) {
-			release()
+			if err != nil {
+				fail(err)
+				continue
+			}
 			missing++
 			continue
 		}
+		// Tombstone the row before touching any object: from here on Delivery
+		// refuses the record, so a crash or a failed remote delete can only leak
+		// bytes — it can never keep signing presigned URLs for a missing object.
+		if err := m.markMediaDeleting(asset); err != nil {
+			release()
+			fail(err)
+			continue
+		}
+		// Remote objects, then the row. A failed object delete leaves the
+		// tombstoned row (object keys intact) so a retry can finish, and the
+		// remaining paths are still processed.
 		if err := m.objects.Delete(context.Background(), asset.ThumbnailKey); err != nil {
 			release()
-			return nil, err
+			fail(fmt.Errorf("删除缩略图 %s: %w", asset.Path, err))
+			continue
 		}
 		if err := m.objects.Delete(context.Background(), asset.ObjectKey); err != nil {
 			release()
-			return nil, err
+			fail(fmt.Errorf("删除原图 %s: %w", asset.Path, err))
+			continue
 		}
 		if err := m.repo.DeleteMediaAsset(rel); err != nil {
 			release()
-			return nil, err
+			fail(err)
+			continue
 		}
 		m.removeSpoolFiles(asset.ID)
 		release()
 		deleted++
 		removed = append(removed, rel)
 	}
+	if firstErr != nil {
+		return nil, firstErr
+	}
 	return map[string]any{"deleted": deleted, "missing": missing, "paths": removed}, nil
+}
+
+// markMediaDeleting persists the delete tombstone for one record.
+func (m *MediaLibrary) markMediaDeleting(asset storage.MediaAssetRecord) error {
+	asset.Status = mediaStatusDeleting
+	asset.UpdatedAt = util.NowISO()
+	return m.repo.SaveMediaAsset(asset)
 }

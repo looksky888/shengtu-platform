@@ -54,9 +54,21 @@ type registerFlareSolverrResponse struct {
 	Solution registerFlareSolverrSolution `json:"solution"`
 }
 
+// registerClearanceFlightState coalesces concurrent FlareSolverr refreshes for
+// the same (target host, proxy) key. The mutex only guards the cache and the
+// in-flight registry: the FlareSolverr request itself runs outside the lock, so
+// one stalled FlareSolverr no longer serializes every register worker, and a
+// waiting worker can still be cancelled through its own context.
+type registerClearanceFlightState struct {
+	done   chan struct{}
+	bundle *registerClearanceBundle
+	err    error
+}
+
 var (
-	registerClearanceMu    sync.Mutex
-	registerClearanceCache = map[string]*registerClearanceBundle{}
+	registerClearanceMu     sync.Mutex
+	registerClearanceCache  = map[string]*registerClearanceBundle{}
+	registerClearanceFlight = map[string]*registerClearanceFlightState{}
 )
 
 func (b *registerClearanceBundle) validFor(targetHost, proxyURL string, now time.Time) bool {
@@ -258,16 +270,42 @@ func (w *registerWorker) refreshCloudflareClearance(ctx context.Context, target 
 		w.step("Cloudflare challenge detected; reuse refreshed clearance and retry")
 		return nil
 	}
+	if flight := registerClearanceFlight[key]; flight != nil {
+		registerClearanceMu.Unlock()
+		w.step("Cloudflare challenge detected; waiting for in-flight clearance refresh")
+		select {
+		case <-flight.done:
+			if flight.err != nil {
+				w.step("Cloudflare clearance refresh failed: " + flight.err.Error())
+				return flight.err
+			}
+			w.applyCloudflareClearance(flight.bundle)
+			w.step("Cloudflare challenge detected; reuse refreshed clearance and retry")
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+	flight := &registerClearanceFlightState{done: make(chan struct{})}
+	registerClearanceFlight[key] = flight
+	registerClearanceMu.Unlock()
+
 	w.step("Cloudflare challenge detected; refreshing clearance")
 	clearanceTarget := "https://" + targetHost + "/"
 	if targetHost == registerHostFromURL(registerAuthBase) {
 		clearanceTarget = registerAuthBase
 	}
 	bundle, err := registerFetchFlareSolverrClearance(ctx, flaresolverrURL, clearanceTarget, proxyURL, w.clearanceTimeout(), w.clearanceRefreshInterval())
+
+	registerClearanceMu.Lock()
+	flight.bundle, flight.err = bundle, err
 	if err == nil {
 		registerClearanceCache[key] = bundle
 	}
+	delete(registerClearanceFlight, key)
+	close(flight.done)
 	registerClearanceMu.Unlock()
+
 	if err != nil {
 		w.step("Cloudflare clearance refresh failed: " + err.Error())
 		return err

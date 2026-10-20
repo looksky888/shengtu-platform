@@ -110,6 +110,8 @@ func (s *AuthService) RevealUserAPIKey(id string) (string, bool) {
 		if managedAuthUserID(item) != id || util.Clean(item.Kind) != AuthKindAPIKey {
 			continue
 		}
+		// Plaintext is never retained (legacy rows are rewritten hash-only at boot),
+		// so this intentionally always reports "not available".
 		raw := util.Clean(item.Key)
 		if raw == "" {
 			return "", false

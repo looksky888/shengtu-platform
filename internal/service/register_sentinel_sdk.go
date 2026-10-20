@@ -122,7 +122,14 @@ func (w *registerWorker) loadSentinelSDKAssets(ctx context.Context, userAgent st
 	if err != nil {
 		return "", "", err
 	}
-	sdkURL := registerSentinelAbsoluteSDKURL(registerExtractSentinelSDKURL(frameHTML))
+	rawSDKURL := registerExtractSentinelSDKURL(frameHTML)
+	sdkURL := registerSentinelAbsoluteSDKURL(rawSDKURL)
+	if frameStatus == http.StatusOK && rawSDKURL != "" && sdkURL == "" {
+		if cachedURL != "" && cachedSource != "" {
+			return cachedURL, cachedSource, nil
+		}
+		return "", "", fmt.Errorf("sentinel_sdk_url_rejected")
+	}
 	if frameStatus != http.StatusOK || sdkURL == "" {
 		if cachedURL != "" && cachedSource != "" {
 			return cachedURL, cachedSource, nil
@@ -198,21 +205,60 @@ func registerExtractSentinelSDKURL(html string) string {
 	return strings.TrimSpace(match[1])
 }
 
+// registerSentinelSDKAllowedHosts pins the only hosts the Sentinel SDK may be
+// loaded from. The SDK source is executed by Node's vm, which is not a security
+// boundary, and the URL comes from upstream-controlled HTML, so anything outside
+// this list must be refused instead of executed. The list mirrors the sibling
+// solver allowlist in services/sentinel-solver/browser.py.
+var registerSentinelSDKAllowedHosts = []string{
+	"sentinel.openai.com",
+	"cdn.oaistatic.com",
+}
+
+func registerSentinelSDKHostAllowed(host string) bool {
+	host = registerNormalizeHost(host)
+	if host == "" {
+		return false
+	}
+	for _, allowed := range registerSentinelSDKAllowedHosts {
+		if host == allowed {
+			return true
+		}
+	}
+	return false
+}
+
+// registerSentinelAbsoluteSDKURL resolves an SDK URL extracted from HTML and
+// returns it only when it is an https URL on an allowlisted host. Anything else
+// (plain http, a non-web scheme, credentials in the URL, foreign hosts) yields
+// "" so the caller keeps its existing failure semantics and never executes the
+// fetched script.
 func registerSentinelAbsoluteSDKURL(value string) string {
 	value = strings.TrimSpace(value)
 	if value == "" {
 		return ""
 	}
-	if strings.HasPrefix(value, "http://") || strings.HasPrefix(value, "https://") {
-		return value
+	parsed, err := url.Parse(value)
+	if err != nil || parsed == nil {
+		return ""
 	}
-	if strings.HasPrefix(value, "//") {
-		return "https:" + value
+	if parsed.Scheme == "" {
+		switch {
+		case strings.HasPrefix(value, "//"):
+			parsed, err = url.Parse("https:" + value)
+		case strings.HasPrefix(value, "/"):
+			parsed, err = url.Parse(registerSentinelBase + value)
+		default:
+			parsed, err = url.Parse(registerSentinelBase + "/" + value)
+		}
 	}
-	if strings.HasPrefix(value, "/") {
-		return registerSentinelBase + value
+	if err != nil || parsed == nil || parsed.Scheme != "https" || parsed.User != nil {
+		return ""
 	}
-	return registerSentinelBase + "/" + value
+	if !registerSentinelSDKHostAllowed(parsed.Hostname()) {
+		return ""
+	}
+	return parsed.String()
 }
 
 func runRegisterSentinelSDK(ctx context.Context, payload map[string]any) (map[string]any, error) {

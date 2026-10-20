@@ -9,12 +9,12 @@ import {
 import {
   deriveTurnStatus,
   formatCreationTaskError,
-  isTurnInProgress,
   normalizeRequestedImageCount,
   usesReferenceImages,
 } from "@/app/image/lib/image-turn-utils";
 import { buildConversationTitle, createId } from "@/app/image/lib/reference-image-utils";
 import { cancelCreationTask } from "@/lib/api";
+import { isTurnBusy } from "@/lib/image-turn-state";
 import type { ImageConversation } from "@/store/image-conversations";
 import { imageTurnProgressKey } from "@/store/image-turn-progress";
 
@@ -152,7 +152,7 @@ export function useImageTurnActions({
         toast.error("未找到对应的图片记录");
         return;
       }
-      if (isTurnInProgress(targetTurn)) {
+      if (isTurnBusy(targetTurn)) {
         toast.error("当前轮次正在处理，稍后再重试");
         return;
       }
@@ -233,7 +233,7 @@ export function useImageTurnActions({
         toast.error("请输入提示词");
         return;
       }
-      if (isTurnInProgress(targetTurn)) {
+      if (isTurnBusy(targetTurn)) {
         toast.error("当前轮次正在处理，稍后再重新生成");
         return;
       }

@@ -12,16 +12,22 @@ type AccountEditDialogProps = {
   editStatus: AccountStatus;
   editType: AccountType;
   editQuota: string;
+  editProxyUrl: string;
+  editProxyTimezone: string;
+  clearProxy: boolean;
   isUpdating: boolean;
   canUpdateAccount: boolean;
   onOpenChange: (open: boolean) => void;
   onStatusChange: (value: AccountStatus) => void;
   onTypeChange: (value: AccountType) => void;
   onQuotaChange: (value: string) => void;
+  onProxyUrlChange: (value: string) => void;
+  onProxyTimezoneChange: (value: string) => void;
+  onClearProxyChange: (value: boolean) => void;
   onSave: () => void;
 };
 
-export function AccountEditDialog({ account, editStatus, editType, editQuota, isUpdating, canUpdateAccount, onOpenChange, onStatusChange, onTypeChange, onQuotaChange, onSave }: AccountEditDialogProps) {
+export function AccountEditDialog({ account, editStatus, editType, editQuota, editProxyUrl, editProxyTimezone, clearProxy, isUpdating, canUpdateAccount, onOpenChange, onStatusChange, onTypeChange, onQuotaChange, onProxyUrlChange, onProxyTimezoneChange, onClearProxyChange, onSave }: AccountEditDialogProps) {
   return (
     <Dialog open={Boolean(account)} onOpenChange={onOpenChange}>
       <DialogContent showCloseButton={false} className="rounded-2xl p-6">
@@ -35,6 +41,19 @@ export function AccountEditDialog({ account, editStatus, editType, editQuota, is
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground">额度</label>
             <Input value={editQuota} onChange={(event) => onQuotaChange(event.target.value)} className="h-11 rounded-xl border-border bg-background" />
+          </div>
+          <div className="rounded-xl border border-border bg-muted/30 p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium text-foreground">账号专用出口</p>
+                <p className="text-xs text-muted-foreground">{account?.proxy_configured ? "已配置；留空保持原值" : "未配置时继承系统代理"}</p>
+              </div>
+              {account?.proxy_configured ? <label className="flex items-center gap-2 text-xs text-muted-foreground"><input type="checkbox" checked={clearProxy} onChange={(event) => onClearProxyChange(event.target.checked)} />清除</label> : null}
+            </div>
+            <div className="space-y-3">
+              <Input type="password" autoComplete="off" value={editProxyUrl} disabled={clearProxy} onChange={(event) => onProxyUrlChange(event.target.value)} placeholder="http://user:password@host:port" className="h-11 rounded-xl border-border bg-background" />
+              <Input value={editProxyTimezone} disabled={clearProxy} onChange={(event) => onProxyTimezoneChange(event.target.value)} placeholder="IANA 时区，例如 America/Los_Angeles" className="h-11 rounded-xl border-border bg-background" />
+            </div>
           </div>
         </div>
         <DialogFooter className="pt-2">

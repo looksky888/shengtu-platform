@@ -1,4 +1,36 @@
 services:
+  sentinel-solver:
+    build:
+      context: ./services/sentinel-solver
+    image: shengtu/sentinel-solver:4.6-20261015
+    restart: unless-stopped
+    environment:
+      SENTINEL_SOLVER_KEY: ${CHATGPT2API_SENTINEL_SOLVER_KEY:?set a random solver key of at least 32 characters}
+      SENTINEL_SOLVER_TIMEZONE: ${SENTINEL_SOLVER_TIMEZONE:?set timezone matching the verified upstream exit}
+      SENTINEL_SOLVER_PROXY: ${CHATGPT2API_PROXY:-}
+    expose:
+      - "8080"
+    init: true
+    mem_limit: 768m
+    cpus: 1.0
+    pids_limit: 256
+    shm_size: 128m
+    cap_drop: ["ALL"]
+    # Chromium creates its own user-namespace/seccomp sandbox. Docker's default
+    # seccomp profile blocks that namespace setup on the supported test hosts.
+    security_opt:
+      - seccomp=unconfined
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "2"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
   flaresolverr:
     image: ghcr.io/flaresolverr/flaresolverr:v3.5.0@sha256:139dfee1c6f89249c8d665d1333a42e8ec74ec0a86bc6bb1c8461e10d3a66a47
     container_name: shengtu39-flaresolverr
@@ -22,7 +54,7 @@ services:
     build:
       context: .
       dockerfile: deploy/icloud-privacy-mail/Dockerfile
-    image: ${ICLOUD_PRIVACY_MAIL_IMAGE:-shengtu/icloud-privacy-mail:4.5.1-20261017-backup-retention}
+    image: ${ICLOUD_PRIVACY_MAIL_IMAGE:-shengtu/icloud-privacy-mail:4.6-20261015-sentinel}
     container_name: shengtu39-icloud-privacy-mail
     restart: unless-stopped
     environment:
@@ -55,14 +87,15 @@ services:
     build:
       context: ./services/grok-runtime
       dockerfile: Dockerfile
-    image: ${GROK_RUNTIME_IMAGE:-shengtu/grok-runtime:4.5.1-20261017-backup-retention}
+    image: ${GROK_RUNTIME_IMAGE:-shengtu/grok-runtime:4.6-20261015-sentinel}
     container_name: shengtu39-grok-runtime
     restart: unless-stopped
     environment:
       GROK_RUNTIME_PORT: "8091"
-      GROK_RUNTIME_VERSION: ${GROK_RUNTIME_VERSION:-4.5.1-20261017-backup-retention}
+      GROK_RUNTIME_VERSION: ${GROK_RUNTIME_VERSION:-4.6-20261015-sentinel}
       DATA_DIR: /data
       INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?set a strong random INTERNAL_SERVICE_TOKEN}
+      CHATGPT2API_AUTH_KEY: ${CHATGPT2API_AUTH_KEY:?set a strong random register auth key}
       GROK_PROVIDER_CREDENTIAL_KEY: ${GROK_PROVIDER_CREDENTIAL_KEY:-}
       ICLOUD_PRIVACY_MAIL_BASE_URL: ${ICLOUD_PRIVACY_MAIL_BASE_URL:-http://icloud-privacy-mail:8787}
       SHENGTU_BASE_URL: ${SHENGTU_BASE_URL:-http://app:8092}
@@ -97,11 +130,13 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        VERSION: "${CHATGPT2API_VERSION:-4.5.2-20261017-public-updater}"
-    image: ${CHATGPT2API_IMAGE:-shengtu:4.5.2-20261017-public-updater}
+        VERSION: "${CHATGPT2API_VERSION:-4.6-20261015-sentinel}"
+    image: ${CHATGPT2API_IMAGE:-shengtu:4.6-20261015-sentinel}
     container_name: shengtu39-app
     restart: unless-stopped
     depends_on:
+      sentinel-solver:
+        condition: service_started
       flaresolverr:
         condition: service_started
       grok-runtime:
@@ -115,7 +150,11 @@ services:
     volumes:
       - ./data:/app/data
     environment:
+      CHATGPT2API_SENTINEL_SOLVER_URL: http://sentinel-solver:8080
+      CHATGPT2API_SENTINEL_SOLVER_KEY: ${CHATGPT2API_SENTINEL_SOLVER_KEY:?set a random solver key of at least 32 characters}
       CHATGPT2API_SETTINGS_ENV_FILE: /app/data/settings.env
+      # Listen on the container interface; ports above control the host exposure.
+      CHATGPT2API_BIND_ADDR: "0.0.0.0"
       STORAGE_BACKEND: ${STORAGE_BACKEND:-sqlite}
       DATABASE_URL: ${DATABASE_URL:-sqlite:////app/data/chatgpt2api.db}
       CHATGPT2API_FLARESOLVERR_URL: ${CHATGPT2API_FLARESOLVERR_URL:-http://flaresolverr:8191}

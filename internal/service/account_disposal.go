@@ -30,6 +30,10 @@ const (
 	DisposeQuarantinedTemporary DisposeAction = "quarantined_temporary"
 	DisposeCooledTemporary      DisposeAction = "cooled_temporary"
 	DisposeSoftFailUnknown      DisposeAction = "soft_fail_unknown"
+	// DisposePersistFailed marks a dispose whose status write failed: the row kept its
+	// old status (the pool save was rolled back) and is still schedulable, so the
+	// outcome must not be reported as 已冷却 / 已标记异常.
+	DisposePersistFailed DisposeAction = "persist_failed"
 )
 
 const defaultUnknownCooldown = 2 * time.Minute
@@ -105,9 +109,15 @@ func (s *AccountService) disposeAccount(accessToken, event, reason string, grade
 		if s.quarantineTemporaryAccount(accessToken, event, reason) {
 			return DisposeQuarantinedTemporary
 		}
-		// Fallback if remove failed: mark 限流 so isImageAvailable skips them.
-		_, _ = s.UpdateAccount(accessToken, map[string]any{"status": "限流", "quota": 0, "image_quota_unknown": false})
+		// Fallback if the cabin / pool removal failed: mark 限流 so isImageAvailable skips
+		// them, plus an in-memory cooldown for this process. Only claim 已冷却 when the
+		// status write is durable.
 		s.setImageCooldown(accessToken, defaultUnknownCooldown)
+		if err := s.markAccountLimited(accessToken); err != nil {
+			s.recordPoolOp(string(DisposePersistFailed), 1)
+			s.logDisposePersistFailure(accessToken, event, err)
+			return DisposePersistFailed
+		}
 		s.recordPoolOp(string(DisposeCooledTemporary), 1)
 		return DisposeCooledTemporary
 	case DisposalUnknown:
@@ -137,16 +147,50 @@ func (s *AccountService) hardDeleteOrMarkInvalid(accessToken, event, reason stri
 	if forceDelete {
 		if err := s.quarantineThenRemove(accessToken, event, reason, DisposalPermanent); err != nil {
 			// Cabin write failed: keep token in pool, mark 异常 so it leaves image scheduling.
-			_, _ = s.UpdateAccount(accessToken, map[string]any{"status": "异常", "quota": 0, "image_quota_unknown": false})
+			if markErr := s.markAccountInvalid(accessToken); markErr != nil {
+				s.recordPoolOp(string(DisposePersistFailed), 1)
+				s.logDisposePersistFailure(accessToken, event, markErr)
+				return DisposePersistFailed
+			}
 			s.recordPoolOp(string(DisposeQuarantineWriteFail), 1)
 			return DisposeQuarantineWriteFail
 		}
 		s.recordPoolOp(string(DisposeDeletedPermanent), 1)
 		return DisposeDeletedPermanent
 	}
-	_, _ = s.UpdateAccount(accessToken, map[string]any{"status": "异常", "quota": 0, "image_quota_unknown": false})
+	if err := s.markAccountInvalid(accessToken); err != nil {
+		s.recordPoolOp(string(DisposePersistFailed), 1)
+		s.logDisposePersistFailure(accessToken, event, err)
+		return DisposePersistFailed
+	}
 	s.recordPoolOp(string(DisposeMarkedInvalid), 1)
 	return DisposeMarkedInvalid
+}
+
+// markAccountLimited takes the account out of image scheduling by status (persisted).
+func (s *AccountService) markAccountLimited(accessToken string) error {
+	_, err := s.UpdateAccount(accessToken, map[string]any{"status": "限流", "quota": 0, "image_quota_unknown": false})
+	return err
+}
+
+// markAccountInvalid takes the account out of image scheduling by status (persisted).
+func (s *AccountService) markAccountInvalid(accessToken string) error {
+	_, err := s.UpdateAccount(accessToken, map[string]any{"status": "异常", "quota": 0, "image_quota_unknown": false})
+	return err
+}
+
+// logDisposePersistFailure records a dispose that could not persist its status change.
+func (s *AccountService) logDisposePersistFailure(accessToken, event string, err error) {
+	if s.logs == nil || err == nil {
+		return
+	}
+	s.logs.Add("账号状态保存失败，处置未生效", map[string]any{
+		"module":         "accounts",
+		"operation_type": "处置失败",
+		"source":         event,
+		"reason":         truncateReason(err.Error(), 200),
+		"token":          util.AnonymizeToken(accessToken),
+	})
 }
 
 func (s *AccountService) setImageCooldown(accessToken string, d time.Duration) {
@@ -203,10 +247,7 @@ func (s *AccountService) shouldHardDeletePermanent() bool {
 	// When off: mark 异常 only (account leaves image pool via IsImageAccountAvailable).
 	// When on: delete + quarantine so ops can restore from isolation cabin.
 	// Note: explicit dead tokens (token_expired etc.) bypass this via disposePermanent.
-	if s.config == nil {
-		return false
-	}
-	return s.config.AutoRemoveInvalidAccounts()
+	return s.autoRemoveInvalidAccounts()
 }
 
 func (s *AccountService) recordPoolOp(kind string, delta int) {

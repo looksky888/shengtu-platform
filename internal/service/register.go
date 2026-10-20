@@ -129,6 +129,9 @@ func (s *RegisterService) Update(updates map[string]any) (map[string]any, error)
 	defer s.mu.Unlock()
 	previous := normalizeRegisterConfig(s.config.toMap())
 	s.mergeOutlookPoolsLocked(updates)
+	// The API snapshot hides credentials, so an incoming blank secret means
+	// "unchanged" rather than "clear it".
+	updates = preserveRegisterStoredSecrets(s.config.toMap(), updates)
 	s.config = normalizeRegisterConfig(mergeMaps(s.config.toMap(), updates))
 	if err := s.saveLocked(); err != nil {
 		s.config = previous

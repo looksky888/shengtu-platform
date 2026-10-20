@@ -62,6 +62,12 @@ func (s *AccountService) isImageCooldownActiveLocked(accessToken string, now tim
 	if accessToken == "" {
 		return false
 	}
+	if expiry, ok := s.imageModelCooldownUntil[accessToken]; ok {
+		if now.Before(expiry) {
+			return true
+		}
+		delete(s.imageModelCooldownUntil, accessToken)
+	}
 	s.ensureImageCooldownsLocked()
 	until, ok := s.imageCooldownUntil[accessToken]
 	if !ok {

@@ -96,15 +96,30 @@ func matchingReleaseAssets(assets []Asset, archiveName string) (string, string) 
 	var checksumURL string
 	for _, asset := range assets {
 		name := strings.TrimSpace(asset.Name)
-		if name == "checksums.txt" {
-			checksumURL = asset.DownloadURL
+		url := strings.TrimSpace(asset.DownloadURL)
+		if name == "" || url == "" {
+			continue
+		}
+		// Deterministic: the first checksum manifest in release order wins.
+		if checksumURL == "" && isChecksumAssetName(name) {
+			checksumURL = url
 			continue
 		}
 		if strings.Contains(name, archiveName) && !strings.HasSuffix(name, ".txt") {
-			downloadURL = asset.DownloadURL
+			downloadURL = url
 		}
 	}
 	return downloadURL, checksumURL
+}
+
+// isChecksumAssetName recognises the sha256 manifest names release tooling uses
+// (goreleaser's "checksums.txt", scripted "sha256sums.txt", ...).
+func isChecksumAssetName(name string) bool {
+	lower := strings.ToLower(strings.TrimSpace(name))
+	if !strings.HasSuffix(lower, ".txt") {
+		return false
+	}
+	return strings.Contains(lower, "checksum") || strings.Contains(lower, "sha256sum")
 }
 
 func validateUpdateDownloadURL(rawURL string) error {

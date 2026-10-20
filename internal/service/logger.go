@@ -6,13 +6,14 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
 type Logger struct {
 	levels func() []string
 	logger *slog.Logger
-	file   *os.File
+	closer io.Closer
 }
 
 func NewLogger(dataDir string, levels func() []string) (*Logger, error) {
@@ -20,15 +21,17 @@ func NewLogger(dataDir string, levels func() []string) (*Logger, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return nil, err
 	}
-	file, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+	// The file rotates on size; it used to be opened for append with no bound at
+	// all, which can fill the data volume of a long-running instance.
+	rotator, err := newRotatingFileWriter(path, defaultServerLogMaxBytes, defaultServerLogMaxRotatedFile)
 	if err != nil {
 		return nil, err
 	}
-	writer := io.MultiWriter(os.Stdout, file)
+	writer := io.MultiWriter(os.Stdout, rotator)
 	return &Logger{
 		levels: levels,
 		logger: slog.New(slog.NewJSONHandler(writer, nil)),
-		file:   file,
+		closer: rotator,
 	}, nil
 }
 
@@ -60,10 +63,10 @@ func (l *Logger) Warning(message string, attrs ...any) { l.print("warning", mess
 func (l *Logger) Error(message string, attrs ...any) { l.print("error", message, attrs...) }
 
 func (l *Logger) Close() error {
-	if l == nil || l.file == nil {
+	if l == nil || l.closer == nil {
 		return nil
 	}
-	return l.file.Close()
+	return l.closer.Close()
 }
 
 func (l *Logger) print(level string, message string, attrs ...any) {
@@ -139,16 +142,46 @@ func sanitizeLogField(key string, value any) any {
 	if sensitiveLogKey(key) {
 		return maskSensitiveLogValue(value)
 	}
+	if emailLogKey(key) {
+		return maskEmailLogValue(value)
+	}
 	if s, ok := value.(string); ok && base64LogKey(key) {
 		return maskBase64(s)
 	}
 	return SanitizeLogValue(value)
 }
 
+// maskEmailLogValue masks e-mail addresses in a log field, keeping the domain.
+func maskEmailLogValue(value any) any {
+	switch x := value.(type) {
+	case string:
+		return maskEmailString(x)
+	case []string:
+		out := make([]any, len(x))
+		for i, item := range x {
+			out[i] = maskEmailString(item)
+		}
+		return out
+	default:
+		return SanitizeLogValue(value)
+	}
+}
+
+func maskEmailString(value string) string {
+	trimmed := strings.TrimSpace(value)
+	at := strings.LastIndex(trimmed, "@")
+	if at <= 0 || at == len(trimmed)-1 {
+		return maskString(trimmed, 2)
+	}
+	local := []rune(trimmed[:at])
+	return string(local[:1]) + "***" + trimmed[at:]
+}
+
 func sensitiveLogKey(key string) bool {
 	lower := strings.ToLower(strings.TrimSpace(key))
 	switch lower {
-	case "authorization", "password", "secret", "token", "tokens", "access_token", "access_tokens", "refresh_token", "refresh_tokens", "api_key", "key", "dx":
+	case "authorization", "password", "secret", "token", "tokens", "access_token", "access_tokens", "refresh_token", "refresh_tokens", "api_key", "key", "dx",
+		"phone", "mobile", "id_card", "idcard":
 		return true
 	default:
 		return strings.Contains(lower, "password") ||
@@ -160,8 +193,22 @@ func sensitiveLogKey(key string) bool {
 			strings.HasSuffix(lower, "_token") ||
 			strings.HasSuffix(lower, "_tokens") ||
 			strings.HasPrefix(lower, "token_") ||
-			strings.HasPrefix(lower, "tokens_")
+			strings.HasPrefix(lower, "tokens_") ||
+			strings.HasSuffix(lower, "_phone") ||
+			strings.HasSuffix(lower, "_mobile")
 	}
+}
+
+// emailLogKey matches fields that hold an e-mail address. They are masked by
+// keeping the domain only, so logs stay diagnosable without storing the account
+// identifier (the local part is what identifies a person).
+func emailLogKey(key string) bool {
+	lower := strings.ToLower(strings.TrimSpace(key))
+	switch lower {
+	case "email", "mail", "email_address", "mail_address":
+		return true
+	}
+	return strings.HasSuffix(lower, "_email") || strings.HasSuffix(lower, "_mail")
 }
 
 func base64LogKey(key string) bool {
@@ -204,11 +251,27 @@ func maskSensitiveLogValue(value any) any {
 	}
 }
 
+// maskString renders a secret for logs. Long values keep the historical
+// prefix + "..." form so operators can still tell two credentials apart, but a
+// value shorter than minSecretRevealLength is masked completely: the old code
+// returned anything <= keep characters verbatim, which leaked short passwords
+// and tokens into the log store in clear text.
 func maskString(value string, keep int) string {
-	if len(value) <= keep {
-		return value
+	const minSecretRevealLength = 16
+	runes := []rune(value)
+	if len(runes) == 0 {
+		return ""
 	}
-	return value[:keep] + "..."
+	if len(runes) < minSecretRevealLength {
+		return "***(" + strconv.Itoa(len(runes)) + ")"
+	}
+	if keep < 1 {
+		keep = 1
+	}
+	if keep > len(runes) {
+		keep = len(runes)
+	}
+	return string(runes[:keep]) + "..."
 }
 
 func maskBase64(value string) string {

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -59,9 +60,11 @@ func (s *AccountService) quarantineMax() int {
 //
 // Consistency model (no cross-file DB transaction on JSON storage):
 //  1. Cabin write fails → account stays in pool (return error). Safe.
-//  2. Cabin write OK, pool delete fails → dual presence; return nil but record
-//     quarantine_remove_pending; ReconcileQuarantinePool on startup removes pool copy
-//     (cabin is authority once durable). Token is never lost.
+//  2. Cabin write OK, pool delete fails → dual presence. The cabin (durable) is the
+//     authority, so the token can never be lost, but it is still schedulable; return an
+//     error so the caller stops reporting "quarantined" and degrades the row
+//     (限流/异常) itself. ReconcileQuarantinePool (startup + watcher cycle) removes the
+//     pool copy once storage recovers.
 //  3. Both OK → clean. Cabin AtomicWriteFile is fsync'd before rename.
 func (s *AccountService) quarantineThenRemove(accessToken, event, reason string, grade DisposalGrade) error {
 	accessToken = util.Clean(accessToken)
@@ -104,26 +107,22 @@ func (s *AccountService) quarantineThenRemove(accessToken, event, reason string,
 			return err
 		}
 	}
-	// Cabin durable (or not configured): leave active pool.
-	if s.forceRemoveUnavailableAccount(accessToken, event, reason) {
-		return nil
-	}
-	if path == "" {
-		return nil
-	}
-	// RemoveToken false: already absent, or pool save rolled back (still present).
-	if s.GetAccount(accessToken) == nil {
+	// Cabin durable (or not configured): drop the active pool copy so it is not scheduled.
+	if s.forceRemoveUnavailableAccount(accessToken, event, reason) || s.GetAccount(accessToken) == nil {
 		return nil
 	}
 	// One retry for transient save errors.
-	if s.forceRemoveUnavailableAccount(accessToken, event, reason) {
+	if s.forceRemoveUnavailableAccount(accessToken, event, reason) || s.GetAccount(accessToken) == nil {
 		return nil
 	}
-	if s.GetAccount(accessToken) == nil {
-		return nil
-	}
-	// Dual presence: cabin has the token; pool still schedules it until reconcile.
+	// Dual presence: the token is still schedulable. Report the failure instead of
+	// claiming a quarantine that did not happen; the caller degrades the row and the
+	// runtime reconciler retries the pool removal.
 	s.recordPoolOp(PoolOpQuarantineRemovePending, 1)
+	detail := "号池移除失败，账号仍在号池中可被调度"
+	if path == "" {
+		detail = "隔离仓未配置且号池移除失败，账号仍可被调度"
+	}
 	if s.logs != nil {
 		s.logs.Add("隔离仓已写入，号池移除待协调", map[string]any{
 			"module":         "accounts",
@@ -133,7 +132,7 @@ func (s *AccountService) quarantineThenRemove(accessToken, event, reason string,
 			"token":          util.AnonymizeToken(accessToken),
 		})
 	}
-	return nil
+	return fmt.Errorf("隔离 %s: %s: %s", shortTokenHash(accessToken), detail, truncateReason(reason, 120))
 }
 
 func redactAccountSnapshot(snap map[string]any) map[string]any {
@@ -206,10 +205,13 @@ func (s *AccountService) restoreQuarantine(tokenHash, metricOp string) map[strin
 	if path == "" || tokenHash == "" {
 		return map[string]any{"restored": false, "error": "not found"}
 	}
+	// Hold the cabin lock across re-import and row removal: the row is the only
+	// remaining copy, and two concurrent restores of the same token must not both
+	// re-import it or interleave cabin writes.
 	s.quarantineMu.Lock()
+	defer s.quarantineMu.Unlock()
 	list, loadErr := s.loadQuarantineLockedStrict(path)
 	if loadErr != nil {
-		s.quarantineMu.Unlock()
 		return map[string]any{"restored": false, "error": loadErr.Error()}
 	}
 	var found *quarantineEntry
@@ -223,25 +225,24 @@ func (s *AccountService) restoreQuarantine(tokenHash, metricOp string) map[strin
 		remain = append(remain, list[i])
 	}
 	if found == nil || found.AccessToken == "" {
-		s.quarantineMu.Unlock()
 		return map[string]any{"restored": false, "error": "not found"}
 	}
-	// Keep cabin row until pool re-import succeeds (avoid cabin-drop-without-pool).
-	cabinOK := append([]quarantineEntry(nil), list...)
-	if err := s.saveQuarantineLocked(path, remain); err != nil {
-		s.quarantineMu.Unlock()
-		return map[string]any{"restored": false, "error": err.Error()}
-	}
-	s.quarantineMu.Unlock()
-
+	// Pool first: only drop the cabin row once the pool write is durable, otherwise a
+	// crash in between leaves the token in neither store and it is lost for good.
 	result := s.AddAccounts([]string{found.AccessToken})
-	// Prefer durable re-import: on pool save failure put cabin row back (cabin was authority).
 	if errText, _ := result["error"].(string); strings.TrimSpace(errText) != "" {
-		rollbackErr := s.restoreQuarantineSnapshot(path, cabinOK)
-		if rollbackErr != nil {
-			errText += "；回滚隔离仓失败: " + rollbackErr.Error()
-		}
 		return map[string]any{"restored": false, "error": errText, "add": result}
+	}
+	if err := s.saveQuarantineLocked(path, remain); err != nil {
+		// Cabin row stays; undo the pool import so the token is not in both stores.
+		rollback := s.DeleteAccounts([]string{found.AccessToken})
+		if message := strings.TrimSpace(util.Clean(rollback["error"])); message != "" || util.ToInt(rollback["removed"], 0) == 0 {
+			return map[string]any{
+				"restored": true, "add": result, "email": found.Email, "token_hash": found.TokenHash,
+				"error": "隔离仓记录删除失败，账号已回号池并同时留在隔离仓，待运行期协调: " + err.Error(),
+			}
+		}
+		return map[string]any{"restored": false, "error": "删除隔离仓记录失败，已回滚号池导入: " + err.Error(), "add": result}
 	}
 	if metricOp != "" {
 		s.recordPoolOp(metricOp, 1)

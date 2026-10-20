@@ -73,7 +73,6 @@ export function normalizeConfig(config: SettingsConfig): SettingsConfig {
     image_account_concurrency: Math.min(10, Math.max(1, Number(config.image_account_concurrency) || 1)),
     image_account_schedule: normalizeImageAccountSchedule(config.image_account_schedule),
     image_task_timeout_seconds: Number(config.image_task_timeout_seconds || 300),
-    image_default_model: normalizeImageDefaultModel(config.image_default_model),
     image_internal_model_slug: normalizeImageInternalModelSlug(config.image_internal_model_slug),
     image_fallback_model_enabled: config.image_fallback_model_enabled !== false,
     image_fallback_model_slugs: normalizeImageFallbackModelSlugs(config.image_fallback_model_slugs),
@@ -154,16 +153,6 @@ export function normalizeImageProxyMaxRetries(value: unknown) {
     return 1;
   }
   return Math.min(5, Math.max(0, retries));
-}
-
-export function normalizeImageDefaultModel(value: unknown) {
-  const model = String(value || "").trim();
-  // Studio default is GPT; per-request Grok selection is independent.
-  if (model === "gpt-image-2" || model === "gpt-image-2.5" || model === "gpt-image-2.5-flare" || model === "gpt-image-2.5-sunburst" || model === "auto" || model === "") {
-    return "gpt-image-2.5-flare";
-  }
-  // Ignore legacy codex / accidental grok defaults.
-  return "gpt-image-2.5-flare";
 }
 
 export function normalizeImageInternalModelSlug(value: unknown) {

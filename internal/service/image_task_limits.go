@@ -4,6 +4,7 @@ import (
 	"chatgpt2api/internal/util"
 	"context"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 )
@@ -93,15 +94,23 @@ func (s *ImageTaskService) releaseImageSlots(slots int, channel string) {
 		channel = imageTaskChannelGPT
 	}
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	if s.runningByChannel == nil {
 		s.runningByChannel = map[string]int{}
 	}
-	s.runningByChannel[channel] -= slots
-	if s.runningByChannel[channel] < 0 {
+	held := s.runningByChannel[channel]
+	overReleased := held < slots
+	if overReleased {
 		s.runningByChannel[channel] = 0
+	} else {
+		s.runningByChannel[channel] = held - slots
 	}
 	s.notifyImageSlotWaitersLocked()
+	s.mu.Unlock()
+	// An over-release (duplicate release, or a leaked counter) silently raises the
+	// effective concurrency cap. Keep the clamp, but make it visible.
+	if overReleased {
+		log.Printf("image task slots over-released: channel=%s released=%d held=%d clamped_to=0", channel, slots, held)
+	}
 }
 
 func (s *ImageTaskService) notifyImageSlotWaitersLocked() {

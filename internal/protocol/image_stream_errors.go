@@ -2,6 +2,7 @@ package protocol
 
 import (
 	"errors"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -59,6 +60,53 @@ func newImageStreamGenerationError(message string) *ImageGenerationError {
 	}
 }
 
+// imageStreamErrorHead returns the transport part of an upstream error message
+// and drops the upstream response body. backend.upstreamHTTPError* appends up
+// to 2 KiB of that body after its " failed: status=<code>, " envelope, so body
+// wording must never decide retryability.
+func imageStreamErrorHead(lower string) string {
+	const envelope = " failed: status="
+	index := strings.Index(lower, envelope)
+	if index < 0 {
+		return lower
+	}
+	rest := lower[index+len(envelope):]
+	if end := strings.IndexAny(rest, ", ("); end >= 0 {
+		return lower[:index+len(envelope)+end]
+	}
+	return lower
+}
+
+// imageStreamRetryableParts are transport/stream-level signatures that the
+// HTTP/SSE stack and our own normalisation emit. They are matched inside
+// imageStreamErrorHead only. The former bare "eof"/"stream"/"connection"
+// matches were removed: they fired on ordinary words inside upstream bodies.
+var imageStreamRetryableParts = []string{
+	"deadline exceeded",
+	"timed out",
+	"timeout",
+	"stream error",
+	"stream closed",
+	"reset by peer",
+	"connection reset",
+	"connection refused",
+	"connection aborted",
+	"remote disconnected",
+	"unexpected eof",
+	"no such host",
+	"tls connect error",
+	"tls handshake",
+	"flow_control_error",
+	"upstream connection failed",
+	"internal_error",
+	"received from peer",
+	"http2",
+}
+
+// isRetryableImageStreamError classifies an upstream image-stream failure. The
+// status code is read from our own error envelope (the project's existing
+// ImageTaskUpstreamMetadataFromError parser); the wording-based signatures are
+// only consulted in the part of the message our own code produced.
 func isRetryableImageStreamError(message string) bool {
 	lower := strings.ToLower(strings.TrimSpace(message))
 	if lower == "" {
@@ -67,27 +115,12 @@ func isRetryableImageStreamError(message string) bool {
 	if isCloudflareChallengeMessage(lower) {
 		return true
 	}
-	if strings.Contains(lower, "deadline exceeded") || strings.Contains(lower, "timed out") || strings.Contains(lower, "timeout") {
+	if status := service.ImageTaskUpstreamMetadataFromError(errors.New(lower)).HTTPStatus; status == http.StatusTooManyRequests || status >= 500 {
 		return true
 	}
-	retryableParts := []string{
-		"stream error",
-		"internal_error",
-		"received from peer",
-		"reset by peer",
-		"connection reset",
-		"unexpected eof",
-		"eof",
-		"connection aborted",
-		"remote disconnected",
-		"tls connect error",
-		"flow_control_error",
-		"upstream connection failed",
-		"upstream image stream was reset",
-		"http2",
-	}
-	for _, part := range retryableParts {
-		if strings.Contains(lower, part) {
+	head := imageStreamErrorHead(lower)
+	for _, part := range imageStreamRetryableParts {
+		if strings.Contains(head, part) {
 			return true
 		}
 	}

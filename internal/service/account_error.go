@@ -34,7 +34,8 @@ func (s *AccountService) ApplyAccountErrorMessage(accessToken, event, message st
 func disposeActionMessage(action DisposeAction, original string) (string, bool) {
 	switch action {
 	case DisposeDeletedPermanent, DisposeMarkedInvalid, DisposeQuarantineWriteFail:
-		// quarantine_write_failed: cabin write failed — account stays in pool as 异常; still surface as ban for this attempt.
+		// quarantine_write_failed: the account left scheduling by status (removed, or kept
+		// in the pool as 限流/异常); still surface as ban for this attempt.
 		return "检测到封号", true
 	case DisposeRefreshRecovered:
 		// Token probed OK and stayed in pool — not a ban; do not force account switch messaging.

@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { isTurnBusy } from "@/lib/image-turn-state";
 import { usePageVisible } from "@/lib/use-page-visible";
 import { cn } from "@/lib/utils";
 import {
@@ -19,7 +20,6 @@ import {
   findQueueItem,
   getTaskQueueItems,
   isTerminalTurnStatus,
-  isTurnBusy,
   useImageConversationsForQueue,
   type RecentQueueCompletion,
   type TaskQueueItem,

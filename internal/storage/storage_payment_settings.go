@@ -25,7 +25,7 @@ func (b *DatabaseBackend) SavePaymentSettings(item PaymentSettingsRecord) (Payme
 	if err != nil {
 		return PaymentSettingsRecord{}, err
 	}
-	if err := requireOnePaymentRow(result); err != nil {
+	if err := b.requirePaymentRowUpdated(result, b.db, "payment_settings", "id = 1"); err != nil {
 		return PaymentSettingsRecord{}, err
 	}
 	return b.LoadPaymentSettings()

@@ -13,6 +13,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import type { GrokProviderConversionTask } from "@/lib/grok-provider-accounts-api";
+import { downloadBlob } from "@/lib/image-download";
 
 const OPERATION_LABELS: Record<GrokProviderConversionTask["operation"], string> = {
   convert: "账号转换", import: "账号导入", status: "状态更新", concurrency: "并发配置",
@@ -55,12 +56,7 @@ export function GrokProviderTaskProgress({ task }: { task: GrokProviderConversio
 
   const downloadResult = () => {
     const payload = { task_id: task.id, operation: task.operation, target: task.target, status: task.status, result: task.result, error: task.error, created_at: task.created_at, started_at: task.started_at, finished_at: task.finished_at };
-    const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" }));
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `grok-provider-task-${task.id}.json`;
-    anchor.click();
-    URL.revokeObjectURL(url);
+    downloadBlob(new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" }), `grok-provider-task-${task.id}.json`);
   };
 
   return (

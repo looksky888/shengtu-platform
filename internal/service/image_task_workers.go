@@ -93,13 +93,6 @@ func (s *ImageTaskService) Close(ctx context.Context) error {
 	}
 	s.mu.Lock()
 	s.closing = true
-	s.draining = true
-	if s.drainReason == "" {
-		s.drainReason = "服务正在关闭"
-	}
-	if s.drainStartedAt == "" {
-		s.drainStartedAt = util.NowLocal()
-	}
 	s.mu.Unlock()
 
 	done := make(chan struct{})

@@ -56,10 +56,25 @@ type RegistrationRiskBlock struct {
 	ExpiresAt string `json:"expires_at"`
 }
 
+// RegistrationRiskUnblock is an admin manual unblock of one block key.
+//
+// Unblocking never deletes ledger rows: a shared/NAT egress would otherwise lose every
+// co-tenant's registration history (audit) and reset their subnet quota. Instead the
+// unblock moves the counting window start for that single kind+key, so the key can
+// register again while all historical Events/Attempts stay intact.
+type RegistrationRiskUnblock struct {
+	ID        string `json:"id"`
+	Kind      string `json:"kind"`
+	Key       string `json:"key"`
+	Code      string `json:"code,omitempty"`
+	CreatedAt string `json:"created_at"`
+}
+
 type registrationQuotaState struct {
-	Events   []RegistrationQuotaEvent `json:"events"`
-	Attempts []RegistrationAttempt    `json:"attempts"`
-	Blocks   []RegistrationRiskBlock  `json:"blocks"`
+	Events   []RegistrationQuotaEvent  `json:"events"`
+	Attempts []RegistrationAttempt     `json:"attempts"`
+	Blocks   []RegistrationRiskBlock   `json:"blocks"`
+	Unblocks []RegistrationRiskUnblock `json:"unblocks,omitempty"`
 }
 
 type RegistrationQuotaService struct {
@@ -219,6 +234,7 @@ func cloneRegistrationQuotaState(value registrationQuotaState) registrationQuota
 		Events:   append([]RegistrationQuotaEvent(nil), value.Events...),
 		Attempts: append([]RegistrationAttempt(nil), value.Attempts...),
 		Blocks:   append([]RegistrationRiskBlock(nil), value.Blocks...),
+		Unblocks: append([]RegistrationRiskUnblock(nil), value.Unblocks...),
 	}
 }
 

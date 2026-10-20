@@ -1,9 +1,9 @@
-﻿"use client";
+"use client";
 
 import { Checkbox } from "@/components/ui/checkbox";
-import { Field, FieldLabel } from "@/components/ui/field";
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { IMAGE_MODEL_OPTIONS } from "@/lib/api-models";
+import { DEFAULT_IMAGE_MODEL } from "@/lib/api-models";
 import {
   Select,
   SelectContent,
@@ -14,9 +14,6 @@ import {
 
 import { useSettingsStore } from "../store";
 import { settingsInputClassName, settingsToggleClassName } from "./settings-ui";
-
-const DEFAULT_IMAGE_MODEL_VALUES = new Set(["gpt-image-2.5-flare", "gpt-image-2.5", "gpt-image-2"]);
-const defaultModelOptions = IMAGE_MODEL_OPTIONS.filter((option) => DEFAULT_IMAGE_MODEL_VALUES.has(option.value));
 
 const internalModelOptions = [
   "auto",
@@ -45,17 +42,13 @@ export function ImageAccountPoolSettings() {
     <div className="grid gap-4 rounded-[18px] border border-border/80 bg-muted/25 p-4">
       <div className="grid gap-4 md:grid-cols-2">
         <Field>
-          <FieldLabel htmlFor="image-default-model">生图默认模型</FieldLabel>
-          <Select value={String(config.image_default_model || "gpt-image-2.5-flare")} onValueChange={(value) => setImageProxyField({ image_default_model: value })}>
-            <SelectTrigger id="image-default-model" className={settingsInputClassName}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {defaultModelOptions.map((option) => (
-                <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <FieldLabel>生图默认模型</FieldLabel>
+          <div className="flex h-10 items-center rounded-[13px] border border-input bg-muted/40 px-3 text-sm text-muted-foreground">
+            {String(config.image_default_model || DEFAULT_IMAGE_MODEL)}
+          </div>
+          <FieldDescription>
+            服务端把缺省生图模型固定为 {DEFAULT_IMAGE_MODEL}（未传 model 或传 auto 时使用）；Studio 仍可按请求选择模型。
+          </FieldDescription>
         </Field>
         <Field>
           <FieldLabel htmlFor="image-internal-model-slug">GPT Images 2.5 账号池路由</FieldLabel>

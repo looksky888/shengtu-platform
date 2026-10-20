@@ -72,12 +72,8 @@ func (s *UpdateService) fetchLatestRelease(ctx context.Context) (*UpdateInfo, er
 			HTMLURL:     release.HTMLURL,
 			Assets:      assets,
 		},
-		Cached:                   false,
-		BuildType:                s.buildType,
-		Deployment:               s.deployment,
-		Repository:               s.repo,
-		AutomaticUpdateSupported: s.automaticUpdateSupported(),
-		SupportReason:            s.automaticUpdateSupportReason(),
+		Cached:    false,
+		BuildType: s.buildType,
 	}, nil
 }
 

@@ -1,6 +1,8 @@
 import { imageDataIndexForTask, imageTaskIdForImage, taskDataToStoredImage } from "@/app/image/lib/image-task-utils";
-import { deriveTurnStatus, isTurnInProgress } from "@/app/image/lib/image-turn-utils";
+import { deriveTurnStatus } from "@/app/image/lib/image-turn-utils";
 import type { CreationTask } from "@/lib/api";
+import { isTurnBusy } from "@/lib/image-turn-state";
+import { advanceConversationRevision, touchConversation } from "@/store/image-conversation-revision";
 import type { ImageConversation, ImageTurn } from "@/store/image-conversations";
 
 export type ImageTaskGroup = {
@@ -50,8 +52,7 @@ export function buildMissingTaskGroups(turn: ImageTurn, missingIds: string[]) {
 }
 
 export function markTurnTasksGenerating(conversation: ImageConversation, turnId: string) {
-  return {
-    ...conversation,
+  return touchConversation(conversation, {
     turns: conversation.turns.map((turn) =>
       turn.id === turnId
         ? {
@@ -69,7 +70,7 @@ export function markTurnTasksGenerating(conversation: ImageConversation, turnId:
           }
         : turn,
     ),
-  };
+  });
 }
 
 const LOCAL_TERMINAL_IMAGE_STATUSES = new Set(["cancelled", "error", "success"]);
@@ -105,21 +106,14 @@ export function applyCreationTasksToConversation(
       ...derived,
       images,
     };
-    if (isTurnInProgress(turn) && !isTurnInProgress(nextTurn)) {
+    if (isTurnBusy(turn) && !isTurnBusy(nextTurn)) {
       completedActiveTurn = true;
     }
     return nextTurn;
   });
-  const nextConversation = {
-    ...conversation,
-    turns,
-  };
-  return completedActiveTurn
-    ? {
-        ...nextConversation,
-        updatedAt: new Date().toISOString(),
-      }
-    : nextConversation;
+  const nextConversation = { ...conversation, turns };
+  // Only a finished turn is a user-visible change; poll updates just advance the revision.
+  return completedActiveTurn ? touchConversation(nextConversation) : advanceConversationRevision(nextConversation);
 }
 
 /** Mark loading images for exhausted missing-resubmit budget as error so the poll loop can exit. */
@@ -133,9 +127,7 @@ export function markMissingTasksExhausted(
     return conversation;
   }
   const idSet = new Set(taskIds);
-  return {
-    ...conversation,
-    updatedAt: new Date().toISOString(),
+  return touchConversation(conversation, {
     turns: conversation.turns.map((turn) => {
       if (turn.id !== turnId) {
         return turn;
@@ -150,13 +142,11 @@ export function markMissingTasksExhausted(
       const derived = deriveTurnStatus({ ...turn, images });
       return { ...turn, ...derived, images, error: derived.error || message };
     }),
-  };
+  });
 }
 
 export function markTurnError(conversation: ImageConversation, turnId: string, message: string) {
-  return {
-    ...conversation,
-    updatedAt: new Date().toISOString(),
+  return touchConversation(conversation, {
     turns: conversation.turns.map((turn) =>
       turn.id === turnId
         ? {
@@ -167,5 +157,5 @@ export function markTurnError(conversation: ImageConversation, turnId: string, m
           }
         : turn,
     ),
-  };
+  });
 }

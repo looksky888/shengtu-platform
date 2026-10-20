@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import sys
 from contextlib import asynccontextmanager
@@ -17,13 +18,15 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, Response
 
-from runtime.internal_auth import require_internal
+from runtime.internal_auth import require_internal, require_startup_token
 from runtime.image_payload import decode_edit_images
 from runtime.model_catalog import GROK_MODELS
 from runtime.request_body import read_json_object
 
+logger = logging.getLogger(__name__)
+
 SERVICE = "grok-runtime"
-VERSION = os.getenv("GROK_RUNTIME_VERSION", "4.5.1-20261017-backup-retention")
+VERSION = os.getenv("GROK_RUNTIME_VERSION", "4.5-20260925-ui-workspace")
 
 _UPSTREAM = Path(__file__).resolve().parents[1] / "upstream"
 # Always put vendored reverse stack first so `import app.products` resolves to
@@ -44,42 +47,67 @@ if _UPSTREAM.is_dir():
 _native_importable = False
 _native_error = ""
 _register_ready = False
-_register_error = ""
 _oauth_ready = False
-_oauth_error = ""
 _embedded_ready = False
 _register_router_mounted = False
 
 
 def _try_import_native() -> tuple[bool, str]:
+    """Return (importable, detail); detail is logged and only returned to authenticated callers."""
     try:
         import api.grok as grok  # type: ignore  # noqa: F401
 
         return True, ""
     except Exception as exc:  # pragma: no cover
+        logger.warning("grok native stack import failed", exc_info=True)
         return False, f"{type(exc).__name__}: {exc}"
 
 
-def _try_import_register() -> tuple[bool, str]:
+def _try_import_register() -> bool:
     try:
         from services.register_service import register_service  # type: ignore  # noqa: F401
 
-        return True, ""
-    except Exception as exc:  # pragma: no cover
-        return False, f"{type(exc).__name__}: {exc}"
+        return True
+    except Exception:  # pragma: no cover
+        logger.warning("register bridge import failed", exc_info=True)
+        return False
 
 
-def _try_import_oauth() -> tuple[bool, str]:
+def _try_import_oauth() -> bool:
     try:
         from services.xai_cli_oauth_service import xai_cli_oauth_service  # type: ignore  # noqa: F401
         from services.xai_cli_oauth_store import xai_cli_oauth_store  # type: ignore  # noqa: F401
 
-        return True, ""
-    except Exception as exc:  # pragma: no cover
-        return False, f"{type(exc).__name__}: {exc}"
+        return True
+    except Exception:  # pragma: no cover
+        logger.warning("xai CLI OAuth import failed", exc_info=True)
+        return False
+
+
+def _write_private_json(path: Path, payload: dict[str, Any]) -> None:
+    """Persist a secret-bearing file with owner-only permissions.
+
+    ``Path.write_text`` honours the process umask (typically 0644), so the file
+    is created through ``os.open`` with 0600 instead.
+    """
+    data = json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    try:
+        os.write(fd, data)
+    finally:
+        os.close(fd)
 
 
 def _prepare_data_dirs() -> Path:
+    # Upstream services/config.py refuses to load without an auth-key; never
+    # substitute a source-visible default, and never persist one.
+    auth = (os.environ.get("CHATGPT2API_AUTH_KEY") or "").strip()
+    if not auth:
+        raise RuntimeError(
+            "auth-key 未设置！请在环境变量 CHATGPT2API_AUTH_KEY 中设置，"
+            "或者在 config.json 中填写 auth-key。"
+        )
+
     data_dir = Path(os.environ.get("DATA_DIR") or "./data").resolve()
     data_dir.mkdir(parents=True, exist_ok=True)
     os.environ["DATA_DIR"] = str(data_dir)
@@ -93,15 +121,13 @@ def _prepare_data_dirs() -> Path:
     os.environ["GROK_LOG_DIR"] = str(log_dir)
     os.environ.setdefault("ACCOUNT_STORAGE", "local")
 
-    auth = (os.environ.get("CHATGPT2API_AUTH_KEY") or "dev-register-auth-key").strip()
-    os.environ.setdefault("CHATGPT2API_AUTH_KEY", auth)
     cfg = data_dir / "config.json"
     try:
         existing = cfg.read_text(encoding="utf-8") if cfg.exists() else ""
     except OSError:
         existing = ""
     if "auth-key" not in existing:
-        cfg.write_text(json.dumps({"auth-key": auth}, ensure_ascii=False, indent=2), encoding="utf-8")
+        _write_private_json(cfg, {"auth-key": auth})
 
     # Host services.config also looks for upstream/config.json
     up_cfg = _UPSTREAM / "config.json"
@@ -116,16 +142,17 @@ def _prepare_data_dirs() -> Path:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Start register bridge + EmbeddedGrokRuntime (account directory)."""
-    global _native_importable, _native_error, _register_ready, _register_error
-    global _oauth_ready, _oauth_error, _embedded_ready, _register_router_mounted
+    global _native_importable, _native_error, _register_ready, _oauth_ready
+    global _embedded_ready, _register_router_mounted
 
     register_service_instance = None
     previous_provider_sink = None
 
+    require_startup_token()
     _prepare_data_dirs()
     _native_importable, _native_error = _try_import_native()
-    _register_ready, _register_error = _try_import_register()
-    _oauth_ready, _oauth_error = _try_import_oauth()
+    _register_ready = _try_import_register()
+    _oauth_ready = _try_import_oauth()
 
     if _register_ready:
         try:
@@ -139,9 +166,9 @@ async def lifespan(app: FastAPI):
             if not _register_router_mounted:
                 app.include_router(create_register_router())
                 _register_router_mounted = True
-        except Exception as exc:  # pragma: no cover
+        except Exception:  # pragma: no cover
+            logger.warning("register router mount failed", exc_info=True)
             _register_ready = False
-            _register_error = f"router: {type(exc).__name__}: {exc}"
 
     try:
         if not _native_importable:
@@ -160,6 +187,7 @@ async def lifespan(app: FastAPI):
                 finally:
                     _embedded_ready = False
     except Exception as exc:  # pragma: no cover
+        logger.warning("embedded grok runtime lifespan failed", exc_info=True)
         _native_error = f"lifespan: {type(exc).__name__}: {exc}"
         _embedded_ready = False
         # Register may still work without native image pool.
@@ -208,9 +236,6 @@ def health() -> JSONResponse:
             "xai_cli_oauth": _oauth_ready,
             "accounts": True,
             "embedded_runtime": embedded,
-            "native_import_error": _native_error or None,
-            "register_import_error": _register_error or None,
-            "oauth_import_error": _oauth_error or None,
         },
     }
     return JSONResponse(content=payload, status_code=200 if generation_ready else 503)

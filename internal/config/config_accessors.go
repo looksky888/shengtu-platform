@@ -349,7 +349,7 @@ func (s *Store) UpdateProxyURL() string {
 }
 
 func (s *Store) UpdateRepo() string {
-	return normalizeUpdateRepo(s.settingValue("update_repo", "looksky888/shengtu-platform"))
+	return normalizeUpdateRepo(s.settingValue("update_repo", "ZyphrZero/chatgpt2api"))
 }
 
 func (s *Store) UpdateGitHubToken() string {

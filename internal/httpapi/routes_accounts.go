@@ -3,6 +3,7 @@ package httpapi
 import (
 	"net/http"
 	"strings"
+	"time"
 
 	"chatgpt2api/internal/service"
 	"chatgpt2api/internal/util"
@@ -133,6 +134,30 @@ func (a *App) handleAccounts(w http.ResponseWriter, r *http.Request) {
 		for _, key := range []string{"type", "status", "quota"} {
 			if value, ok := body[key]; ok && value != nil {
 				updates[key] = value
+			}
+		}
+		if util.ToBool(body["clear_proxy"]) {
+			updates["proxy_url"] = ""
+			updates["proxy_timezone"] = ""
+		} else if raw, exists := body["proxy_url"]; exists {
+			proxyURL, err := service.NormalizeAccountProxyURL(util.Clean(raw))
+			if err != nil {
+				util.WriteError(w, http.StatusBadRequest, err.Error())
+				return
+			}
+			// A blank hidden secret means unchanged; clearing is explicit above.
+			if proxyURL != "" {
+				updates["proxy_url"] = proxyURL
+			}
+		}
+		if raw, exists := body["proxy_timezone"]; exists {
+			zone := util.Clean(raw)
+			if zone != "" {
+				if _, err := time.LoadLocation(zone); err != nil {
+					util.WriteError(w, http.StatusBadRequest, "账号代理时区必须是有效的 IANA 时区")
+					return
+				}
+				updates["proxy_timezone"] = zone
 			}
 		}
 		if len(updates) == 0 {

@@ -21,6 +21,7 @@ import (
 //	CHATGPT2API_UPSTREAM_CLEARANCE_TIMEOUT_SEC=60
 //	CHATGPT2API_UPSTREAM_CLEARANCE_REFRESH_INTERVAL=3600
 //	CHATGPT2API_PROXY (optional; passed to FlareSolverr so cookies match egress)
+//
 // UpstreamClearanceEnabled reports whether image/bootstrap should use FlareSolverr clearance.
 func UpstreamClearanceEnabled() bool {
 	v := strings.TrimSpace(strings.ToLower(os.Getenv("CHATGPT2API_UPSTREAM_CLEARANCE_ENABLED")))

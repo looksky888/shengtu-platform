@@ -14,6 +14,7 @@ import {
   type ImageModel,
 } from "@/lib/api";
 import { fetchModelCatalog, type ModelCatalogResponse } from "@/lib/register-cpa-proxy-api";
+import { AUTH_SESSION_CHANGE_EVENT } from "@/lib/auth-session-events";
 import type { ImageChannelType } from "@/lib/image-channel-api";
 import { clearModelCatalogCache, readModelCatalogCache, writeModelCatalogCache } from "@/lib/model-catalog-cache";
 import { normalizePublicImageChannelModels } from "@/lib/model-catalog-normalizers";
@@ -133,15 +134,31 @@ async function loadSharedCatalog(force = false): Promise<ModelCatalogResponse | 
   return sharedCatalogPromise;
 }
 
-export function resetPublicModelChannelCache() {
+/**
+ * Drop the cached catalog (module singleton + persisted copy) without notifying mounted
+ * consumers: used when the auth session changes, where kicking off new requests is not wanted.
+ */
+export function forgetPublicModelChannelCache() {
   sharedCatalog = null;
   sharedCatalogStoredAt = 0;
   sharedCatalogPromise = null;
   sharedCatalogError = null;
   if (typeof window !== "undefined") {
     clearModelCatalogCache(window.localStorage);
+  }
+}
+
+export function resetPublicModelChannelCache() {
+  forgetPublicModelChannelCache();
+  if (typeof window !== "undefined") {
     window.dispatchEvent(new Event(MODEL_CATALOG_UPDATED_EVENT));
   }
+}
+
+// The catalog carries per-session channel names / aliases / credit costs, so another account
+// logging in on the same browser must never read the previous session's cached catalog.
+if (typeof window !== "undefined") {
+  window.addEventListener(AUTH_SESSION_CHANGE_EVENT, forgetPublicModelChannelCache);
 }
 
 function labelFor(model: string, fallbackLabel?: string): string {
