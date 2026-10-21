@@ -79,7 +79,7 @@
   --theme-transition-x: 50vw;
   --theme-transition-y: 50vh;
   --theme-transition-radius: 0px;
-  --radius: 0.75rem;
+  --radius: 0.5rem;
 
   /* 1. Semantic Surfaces (inspired by open-ai-canvas Celadon UI) */
   --background: #f4f6f9;
@@ -99,8 +99,8 @@
   --card-foreground: #18181b;
   --popover: #ffffff;
   --popover-foreground: #18181b;
-  --primary: #18181b;
-  --primary-hover: #27272a;
+  --primary: #1456f0;
+  --primary-hover: #0f49cf;
   --primary-foreground: #ffffff;
   --secondary: #eef1f6;
   --secondary-foreground: #27272a;
@@ -175,9 +175,9 @@
   --card-foreground: #f4f4f6;
   --popover: #202027;
   --popover-foreground: #f4f4f6;
-  --primary: #f4f4f6;
-  --primary-hover: #e4e4e7;
-  --primary-foreground: #18181b;
+  --primary: #3b82f6;
+  --primary-hover: #2563eb;
+  --primary-foreground: #ffffff;
   --secondary: #22222a;
   --secondary-foreground: #f4f4f6;
   --muted: #22222a;

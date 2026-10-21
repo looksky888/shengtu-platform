@@ -56,20 +56,22 @@ export function ProfileSummaryCard({
         </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
-        <ProfileInfoRow label="用户 ID" value={session.subjectId} code />
-        <ProfileInfoRow
-          label="登录来源"
-          value={providerLabel(session.provider)}
-        />
-        <ProfileInfoRow
-          label="角色标识"
-          value={session.roleId || session.role}
-          code
-        />
-        <ProfileInfoRow
-          label="当前积分"
-          value={formatCreditBalance(credits?.balance)}
-        />
+        <div className="grid grid-cols-2 gap-2.5">
+          <ProfileInfoRow label="用户 ID" value={session.subjectId} code />
+          <ProfileInfoRow
+            label="登录来源"
+            value={providerLabel(session.provider)}
+          />
+          <ProfileInfoRow
+            label="角色标识"
+            value={session.roleId || session.role}
+            code
+          />
+          <ProfileInfoRow
+            label="当前积分"
+            value={formatCreditBalance(credits?.balance)}
+          />
+        </div>
         {onCheckin ? (
           <div className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-muted/20 p-3">
             <div className="min-w-0">
