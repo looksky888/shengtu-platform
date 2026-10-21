@@ -135,18 +135,18 @@ export function PaymentChannelsSection() {
 
   return (
     <>
-      <Card className="overflow-hidden rounded-2xl">
+      <Card className="overflow-hidden rounded-xl">
         <CardHeader className="border-b border-border/70 bg-muted/20">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <CardTitle className="flex items-center gap-2">
-              <CreditCard className="size-5 text-[#1456f0]" />
+              <CreditCard className="size-5 text-primary" />
               支付渠道
             </CardTitle>
             <div className="flex flex-wrap gap-2">
-              <Button type="button" variant="outline" onClick={() => void load()} disabled={loading} className="rounded-xl">
+              <Button type="button" variant="outline" onClick={() => void load()} disabled={loading} className="h-9 rounded-lg">
                 <RefreshCw className={loading ? "size-4 animate-spin" : "size-4"} />刷新
               </Button>
-              <Button type="button" onClick={openCreate} className="rounded-xl">
+              <Button type="button" onClick={openCreate} className="h-9 rounded-lg">
               <Plus className="size-4" />
               新增渠道
               </Button>

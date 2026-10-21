@@ -58,11 +58,11 @@ export function UsersFilterBar({
             value={searchText}
             onChange={(event) => onSearchTextChange(event.target.value)}
             placeholder="搜索邮箱、用户名、用户 ID、owner 或会话"
-            className="h-10 rounded-lg pl-9"
+            className="h-9 rounded-lg pl-9"
           />
         </div>
         <Select value={providerFilter} onValueChange={onProviderFilterChange}>
-          <SelectTrigger aria-label="用户来源筛选" className="h-10 rounded-lg">
+          <SelectTrigger aria-label="用户来源筛选" className="h-9 rounded-lg">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -71,7 +71,7 @@ export function UsersFilterBar({
           </SelectContent>
         </Select>
         <Select value={statusFilter} onValueChange={onStatusFilterChange}>
-          <SelectTrigger aria-label="用户状态筛选" className="h-10 rounded-lg">
+          <SelectTrigger aria-label="用户状态筛选" className="h-9 rounded-lg">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -81,7 +81,7 @@ export function UsersFilterBar({
           </SelectContent>
         </Select>
         <Select value={timeFilter} onValueChange={(value) => onTimeFilterChange(value as UserTimeFilter)}>
-          <SelectTrigger aria-label="用户时间筛选" className="h-10 rounded-lg">
+          <SelectTrigger aria-label="用户时间筛选" className="h-9 rounded-lg">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -92,7 +92,7 @@ export function UsersFilterBar({
           </SelectContent>
         </Select>
         <Select value={cleanupFilter} onValueChange={(value) => onCleanupFilterChange(value as UserCleanupFilter)}>
-          <SelectTrigger aria-label="待清理用户筛选" className="h-10 rounded-lg">
+          <SelectTrigger aria-label="待清理用户筛选" className="h-9 rounded-lg">
             <SelectValue placeholder="清理筛选" />
           </SelectTrigger>
           <SelectContent>
@@ -105,7 +105,7 @@ export function UsersFilterBar({
         <Button
           type="button"
           variant="outline"
-          className="h-10 rounded-lg px-3"
+          className="h-9 rounded-lg px-3"
           disabled={!hasActiveFilters}
           onClick={onClearFilters}
         >

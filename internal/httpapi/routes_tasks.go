@@ -250,6 +250,11 @@ func imageOutputCompressionFromBody(value any) (int, bool) {
 }
 
 func writeCreationTaskSubmitError(w http.ResponseWriter, err error) {
+	var admissionErr service.ImageTaskAdmissionError
+	if errors.As(err, &admissionErr) {
+		util.WriteCodedError(w, http.StatusServiceUnavailable, admissionErr.Code, admissionErr.Message)
+		return
+	}
 	var idempotencyErr service.ImageTaskIdempotencyConflictError
 	if errors.As(err, &idempotencyErr) {
 		util.WriteCodedError(w, http.StatusConflict, "idempotency_conflict", err.Error())

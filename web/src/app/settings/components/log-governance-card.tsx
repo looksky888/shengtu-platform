@@ -78,7 +78,7 @@ export function LogGovernanceCard() {
 
 function SaveLogConfigButton({ isSaving, onSave }: { isSaving: boolean; onSave: () => void }) {
   return (
-    <Button size="lg" onClick={onSave} disabled={isSaving}>
+    <Button onClick={onSave} disabled={isSaving}>
       {isSaving ? <LoaderCircle data-icon="inline-start" className="animate-spin" /> : <Save data-icon="inline-start" />}
       {"保存"}
     </Button>

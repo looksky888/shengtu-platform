@@ -28,7 +28,7 @@ export function ProfileCreditLedgerTable({
   onPageChange,
 }: ProfileCreditLedgerTableProps) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-border bg-background">
+    <div className="overflow-hidden rounded-xl border border-border/70 bg-card">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-muted/20 px-4 py-3 sm:px-5">
         <div className="text-sm font-semibold text-foreground">积分使用流水</div>
         <Badge variant="secondary" className="rounded-md">

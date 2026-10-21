@@ -71,7 +71,7 @@ export default function ICloudPage() {
           {bridge?.reachable ? "Bridge 可达" : "Bridge 未就绪"}
         </Badge>
         {bridge?.base_url ? (
-          <span className="rounded-full border border-border/70 bg-muted/40 px-2.5 py-0.5 font-mono text-[11px] text-muted-foreground">
+          <span className="rounded-md border border-border/70 bg-muted/40 px-2.5 py-0.5 font-mono text-[11px] text-muted-foreground">
             {bridge.base_url}
           </span>
         ) : null}
@@ -79,12 +79,12 @@ export default function ICloudPage() {
       </div>
 
       {pageError ? (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100">
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100">
           {pageError}
         </div>
       ) : null}
       {notice ? (
-        <div className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-100">
+        <div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-100">
           {notice}
         </div>
       ) : null}

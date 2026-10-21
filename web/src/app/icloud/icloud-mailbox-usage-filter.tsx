@@ -19,7 +19,7 @@ export function ICloudMailboxUsageFilter({
   return (
     <div className="flex items-center gap-2">
       <span className="shrink-0 text-xs text-muted-foreground">使用状态</span>
-      <div role="tablist" aria-label="邮箱使用状态" className="inline-flex h-9 items-center rounded-full border border-border bg-muted/50 p-1">
+      <div role="tablist" aria-label="邮箱使用状态" className="inline-flex h-9 items-center rounded-lg border border-border bg-muted/50 p-1">
         {options.map((option) => {
           const selected = value === option.value;
           return (
@@ -30,13 +30,13 @@ export function ICloudMailboxUsageFilter({
               aria-selected={selected}
               disabled={disabled}
               className={cn(
-                "h-7 rounded-full px-3 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:cursor-not-allowed disabled:opacity-50",
+                "h-7 rounded-md px-3 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:cursor-not-allowed disabled:opacity-50",
                 selected
                   ? option.value === "unused"
-                    ? "bg-emerald-600 text-white shadow-sm"
+                    ? "bg-emerald-600 text-white shadow-2xs"
                     : option.value === "used"
-                      ? "bg-violet-600 text-white shadow-sm"
-                      : "bg-[#1456f0] text-white shadow-sm"
+                      ? "bg-violet-600 text-white shadow-2xs"
+                      : "bg-primary text-primary-foreground shadow-2xs"
                   : "text-muted-foreground hover:bg-background hover:text-foreground",
               )}
               onClick={() => onChange(option.value)}

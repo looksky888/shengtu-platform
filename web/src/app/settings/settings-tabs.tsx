@@ -11,6 +11,7 @@ import {
   Image,
   Mail,
   Megaphone,
+  RefreshCw,
   RotateCcw,
   Save,
   SlidersHorizontal,
@@ -45,6 +46,7 @@ const TAB_ICON_MAP: Record<SettingsTabKey, LucideIcon> = {
   announcement: Megaphone,
   backup: ArchiveRestore,
   maintenance: Wrench,
+  "system-update": RefreshCw,
 };
 
 const SETTINGS_NAV_GROUPS: Array<{
@@ -61,7 +63,7 @@ const SETTINGS_NAV_GROUPS: Array<{
   },
   {
     title: "运营与维护",
-    keys: ["announcement", "backup", "maintenance"],
+    keys: ["announcement", "backup", "maintenance", "system-update"],
   },
 ];
 
@@ -221,7 +223,7 @@ export function SettingsTabs({
         {/* Desktop left grouped vertical navigation */}
         <aside
           aria-label="设置分组导航"
-          className="sticky top-18 hidden rounded-2xl border border-border/80 bg-surface p-2.5 shadow-2xs lg:block"
+          className="sticky top-18 hidden rounded-xl border border-border/70 bg-card p-2 shadow-2xs lg:block"
         >
           <div className="space-y-4" role="tablist" aria-orientation="vertical">
             {SETTINGS_NAV_GROUPS.map((group) => (
@@ -242,7 +244,7 @@ export function SettingsTabs({
                       aria-controls={`settings-panel-${key}`}
                       onClick={() => selectTab(key)}
                       className={cn(
-                        "flex h-9 w-full items-center gap-2.5 rounded-xl px-2.5 text-[13px] font-medium transition-colors",
+                        "flex h-8.5 w-full items-center gap-2.5 rounded-lg px-2.5 text-[13px] font-medium transition-colors",
                         selected
                           ? "border border-brand-border bg-brand-soft font-semibold text-brand"
                           : "text-muted-foreground hover:bg-surface-hover hover:text-foreground"
@@ -288,7 +290,7 @@ export function SettingsTabs({
 
       {/* Sticky Bottom Unsaved Changes Bar */}
       {dirtyModules.length > 0 && canManageSystem ? (
-        <div className="fixed inset-x-0 bottom-4 z-40 mx-auto flex w-[min(42rem,calc(100vw-1.5rem))] items-center justify-between gap-3 rounded-2xl border border-amber-500/35 bg-surface-raised/95 px-4 py-3 shadow-xl backdrop-blur-xl">
+        <div className="fixed inset-x-0 bottom-4 z-40 mx-auto flex w-[min(42rem,calc(100vw-1.5rem))] items-center justify-between gap-3 rounded-xl border border-amber-500/35 bg-surface-raised/95 px-4 py-3 shadow-xl backdrop-blur-xl">
           <div className="flex min-w-0 items-center gap-2.5 text-xs font-medium text-foreground sm:text-sm">
             <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400">
               <AlertTriangle className="size-4" />

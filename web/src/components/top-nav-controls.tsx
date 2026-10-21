@@ -48,7 +48,7 @@ export function ThemeToggleButton({
       type="button"
       variant="ghost"
       size="icon"
-      className={cn("relative size-8 rounded-full", className)}
+      className={cn("relative size-8 rounded-lg", className)}
       onClick={(event) => onToggle(event.currentTarget)}
       aria-label={dark ? "切换到浅色模式" : "切换到深色模式"}
       title={dark ? "浅色模式" : "深色模式"}
@@ -136,13 +136,12 @@ export function CreditBalanceBadge({
   const content = (
     <div
       className={cn(
-        "inline-flex h-8 min-w-[84px] items-center justify-center gap-1.5 rounded-full border border-border/80 bg-surface-muted/75 px-3 text-xs font-medium text-foreground transition-colors",
+        "inline-flex h-8 min-w-[78px] items-center justify-center gap-1.5 rounded-lg border border-border/80 bg-surface-muted/75 px-2.5 text-xs font-medium text-foreground transition-colors",
         canRecharge && "hover:border-brand-border hover:bg-brand-soft hover:text-brand"
       )}
       title={canRecharge ? "当前积分余额，点击前往充值中心" : "当前积分余额"}
     >
       <Coins className="size-3.5 text-amber-500" />
-      <span className="text-muted-foreground">积分</span>
       <span className="font-mono font-semibold tabular-nums">{creditBalance}</span>
     </div>
   );
@@ -276,16 +275,16 @@ export function AccountMenu({
           type="button"
           variant="outline"
           className={cn(
-            "rounded-full shadow-none",
+            "rounded-lg shadow-none",
             compact ? "size-8 px-0" : "h-8 gap-1.5 px-2",
             profileActive && "border-brand-border bg-brand-soft text-brand"
           )}
           aria-label="账号菜单"
         >
-          <span className="flex size-5.5 shrink-0 items-center justify-center rounded-full bg-brand text-[11px] font-semibold text-white">
+          <span className="flex size-5 shrink-0 items-center justify-center rounded-md bg-brand text-[11px] font-semibold text-white">
             {initial}
           </span>
-          <span className="hidden max-w-[110px] truncate text-xs font-medium xl:inline">
+          <span className="hidden max-w-[100px] truncate text-xs font-medium xl:inline">
             {displayName}
           </span>
           <ChevronDown className={cn("size-3.5 opacity-70", compact && "hidden")} />
@@ -294,7 +293,7 @@ export function AccountMenu({
       <PopoverContent
         align="end"
         sideOffset={8}
-        className="w-72 rounded-2xl p-2.5"
+        className="w-72 rounded-xl p-2.5"
       >
         <div className="flex flex-col gap-2">
           <AccountSummary

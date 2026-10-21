@@ -107,7 +107,7 @@ export function LogStatsSection({
 
 function LogLevelOption({ checked, label, onCheckedChange }: { checked: boolean; label: string; onCheckedChange: (checked: boolean) => void }) {
   return (
-    <label className="flex min-h-10 min-w-0 items-center gap-2.5 rounded-[12px] border border-border/70 bg-background/75 px-3 py-2 text-sm font-medium text-foreground">
+    <label className="flex min-h-9 min-w-0 items-center gap-2.5 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-sm font-medium text-foreground">
       <Checkbox checked={checked} onCheckedChange={(value) => onCheckedChange(Boolean(value))} />
       <span className="min-w-0 leading-5">{label}</span>
     </label>
@@ -116,7 +116,7 @@ function LogLevelOption({ checked, label, onCheckedChange }: { checked: boolean;
 
 function LogStatsLoading() {
   return (
-    <div className="flex items-center justify-center rounded-[16px] border border-border/80 bg-background py-8">
+    <div className="flex items-center justify-center rounded-lg border border-border/60 bg-muted/20 py-8">
       <LoaderCircle className="size-5 animate-spin text-muted-foreground" />
     </div>
   );
@@ -134,7 +134,7 @@ function LogStatsGrid({ governance }: { governance: LogGovernanceSummary | null 
 
 function StatBlock({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex min-h-20 flex-col justify-between rounded-[16px] border border-border/80 bg-background px-4 py-3 shadow-[0_4px_6px_rgba(0,0,0,0.04)]">
+    <div className="flex min-h-20 flex-col justify-between rounded-lg border border-border/60 bg-muted/20 px-4 py-3">
       <span className="text-xs leading-5 font-medium text-muted-foreground">{label}</span>
       <span className="truncate text-lg leading-7 font-semibold text-foreground">{value}</span>
     </div>

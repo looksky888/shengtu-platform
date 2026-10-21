@@ -30,7 +30,7 @@ type AccountEditDialogProps = {
 export function AccountEditDialog({ account, editStatus, editType, editQuota, editProxyUrl, editProxyTimezone, clearProxy, isUpdating, canUpdateAccount, onOpenChange, onStatusChange, onTypeChange, onQuotaChange, onProxyUrlChange, onProxyTimezoneChange, onClearProxyChange, onSave }: AccountEditDialogProps) {
   return (
     <Dialog open={Boolean(account)} onOpenChange={onOpenChange}>
-      <DialogContent showCloseButton={false} className="rounded-2xl p-6">
+      <DialogContent showCloseButton={false} className="rounded-xl p-6">
         <DialogHeader className="gap-2">
           <DialogTitle>编辑账户</DialogTitle>
           <DialogDescription className="text-sm leading-6">手动修改账号状态、类型和额度。</DialogDescription>
@@ -40,7 +40,7 @@ export function AccountEditDialog({ account, editStatus, editType, editQuota, ed
           <EditSelect label="类型" value={editType} options={accountTypeOptions.filter((option) => option.value !== "all")} onChange={(value) => onTypeChange(value as AccountType)} />
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground">额度</label>
-            <Input value={editQuota} onChange={(event) => onQuotaChange(event.target.value)} className="h-11 rounded-xl border-border bg-background" />
+            <Input value={editQuota} onChange={(event) => onQuotaChange(event.target.value)} className="h-9 rounded-lg border-border bg-background" />
           </div>
           <div className="rounded-xl border border-border bg-muted/30 p-4">
             <div className="mb-3 flex items-center justify-between gap-3">
@@ -51,14 +51,14 @@ export function AccountEditDialog({ account, editStatus, editType, editQuota, ed
               {account?.proxy_configured ? <label className="flex items-center gap-2 text-xs text-muted-foreground"><input type="checkbox" checked={clearProxy} onChange={(event) => onClearProxyChange(event.target.checked)} />清除</label> : null}
             </div>
             <div className="space-y-3">
-              <Input type="password" autoComplete="off" value={editProxyUrl} disabled={clearProxy} onChange={(event) => onProxyUrlChange(event.target.value)} placeholder="http://user:password@host:port" className="h-11 rounded-xl border-border bg-background" />
-              <Input value={editProxyTimezone} disabled={clearProxy} onChange={(event) => onProxyTimezoneChange(event.target.value)} placeholder="IANA 时区，例如 America/Los_Angeles" className="h-11 rounded-xl border-border bg-background" />
+              <Input type="password" autoComplete="off" value={editProxyUrl} disabled={clearProxy} onChange={(event) => onProxyUrlChange(event.target.value)} placeholder="http://user:password@host:port" className="h-9 rounded-lg border-border bg-background" />
+              <Input value={editProxyTimezone} disabled={clearProxy} onChange={(event) => onProxyTimezoneChange(event.target.value)} placeholder="IANA 时区，例如 America/Los_Angeles" className="h-9 rounded-lg border-border bg-background" />
             </div>
           </div>
         </div>
         <DialogFooter className="pt-2">
-          <Button variant="secondary" className="h-10 rounded-xl bg-muted px-5 text-foreground hover:bg-muted/80" onClick={() => onOpenChange(false)} disabled={isUpdating}>取消</Button>
-          <Button className="h-10 rounded-xl bg-foreground px-5 text-background hover:bg-foreground/90" onClick={onSave} disabled={isUpdating || !canUpdateAccount}>
+          <Button variant="secondary" className="h-9 rounded-lg bg-muted px-4 text-foreground hover:bg-muted/80" onClick={() => onOpenChange(false)} disabled={isUpdating}>取消</Button>
+          <Button className="h-9 rounded-lg bg-primary px-4 text-primary-foreground hover:bg-primary/90" onClick={onSave} disabled={isUpdating || !canUpdateAccount}>
             {isUpdating ? <LoaderCircle className="size-4 animate-spin" /> : null}保存修改
           </Button>
         </DialogFooter>
@@ -72,7 +72,7 @@ function EditSelect({ label, value, options, onChange }: { label: string; value:
     <div className="space-y-2">
       <label className="text-sm font-medium text-foreground">{label}</label>
       <Select value={value} onValueChange={onChange}>
-        <SelectTrigger className="h-11 rounded-xl border-border bg-background"><SelectValue /></SelectTrigger>
+        <SelectTrigger className="h-9 rounded-lg border-border bg-background"><SelectValue /></SelectTrigger>
         <SelectContent>{options.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent>
       </Select>
     </div>

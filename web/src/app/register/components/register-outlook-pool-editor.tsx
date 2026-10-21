@@ -49,7 +49,7 @@ export function RegisterOutlookPoolEditor({
         placeholder={
           "每行一个邮箱，格式：\n邮箱----密码----client_id----refresh_token\n（本地环境完整回显已保存内容，可直接编辑）"
         }
-        className="min-h-32 rounded-xl font-mono text-xs"
+        className="min-h-32 rounded-lg font-mono text-xs"
         disabled={disabled}
       />
       <div className="flex flex-wrap items-center gap-1.5 text-xs">

@@ -15,7 +15,7 @@ export function RegisterGrokCaptchaPanel({ state }: { state: RegisterCardState }
   const verifyOnImport = Boolean(grok.grok2api_verify_on_import);
 
   return (
-    <div className="space-y-3 rounded-[18px] border border-violet-100 bg-violet-50/40 p-4">
+    <div className="space-y-3 rounded-xl border border-violet-100 bg-violet-50/40 p-4">
       <div>
         <h3 className="text-sm font-semibold text-stone-800">Grok 注册协议 / 打码</h3>
         <p className="mt-1 text-xs text-stone-500">
@@ -27,7 +27,7 @@ export function RegisterGrokCaptchaPanel({ state }: { state: RegisterCardState }
         <div className="space-y-1">
           <label className="text-xs text-stone-600">Turnstile 服务</label>
           <Select value={provider} onValueChange={(value) => state.setGrokField("provider", value)} disabled={config.enabled}>
-            <SelectTrigger aria-label="Turnstile 服务" className="h-10 rounded-xl border-stone-200 bg-white">
+            <SelectTrigger aria-label="Turnstile 服务" className="h-9 rounded-lg">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -60,7 +60,7 @@ export function RegisterGrokCaptchaPanel({ state }: { state: RegisterCardState }
             onValueChange={(value) => state.setGrokField("grok2api_pool", value)}
             disabled={config.enabled}
           >
-            <SelectTrigger aria-label="Grok 入池类型" className="h-10 rounded-xl border-stone-200 bg-white">
+            <SelectTrigger aria-label="Grok 入池类型" className="h-9 rounded-lg">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -90,7 +90,7 @@ export function RegisterGrokCaptchaPanel({ state }: { state: RegisterCardState }
           disabled={config.enabled}
         />
       </div>
-      <div className="grid gap-2 rounded-xl border border-violet-100 bg-white/70 p-3 md:grid-cols-2">
+      <div className="grid gap-2 rounded-lg border border-violet-100 bg-white/70 p-3 md:grid-cols-2">
         <label className="flex cursor-pointer items-start gap-2 text-sm text-stone-700">
           <Checkbox
             className="mt-0.5"

@@ -41,7 +41,7 @@ export function RBACRoleList({
               value={searchText}
               onChange={(event) => onSearchTextChange(event.target.value)}
               placeholder="搜索角色名称或描述"
-              className="h-10 rounded-lg pl-9"
+              className="h-9 rounded-lg pl-9"
             />
           </div>
         </div>
@@ -60,7 +60,7 @@ export function RBACRoleList({
               type="button"
               className={cn(
                 "block w-full border-b border-border px-5 py-4 text-left transition hover:bg-muted/50",
-                role.id === selectedRoleId ? "bg-[#edf4ff] dark:bg-sky-950/20" : "",
+                role.id === selectedRoleId ? "bg-primary/8 dark:bg-primary/15" : "",
               )}
               onClick={() => onSelectRole(role)}
             >

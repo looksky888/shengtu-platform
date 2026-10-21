@@ -1,9 +1,29 @@
 package httpapi
 
 import (
+	"chatgpt2api/internal/hostupdate"
 	"chatgpt2api/internal/service"
 	"chatgpt2api/internal/version"
 )
+
+type hostUpdaterStatusResponse struct {
+	Configured bool              `json:"configured"`
+	Connected  bool              `json:"connected"`
+	Reason     string            `json:"reason,omitempty"`
+	State      *hostupdate.State `json:"state,omitempty"`
+}
+
+type hostUpdaterPreflightResponse struct {
+	Configured bool                       `json:"configured"`
+	Connected  bool                       `json:"connected"`
+	Result     hostupdate.PreflightResult `json:"result"`
+}
+
+type hostUpdaterUpdateResponse struct {
+	Configured bool                    `json:"configured"`
+	Connected  bool                    `json:"connected"`
+	Result     hostupdate.UpdateResult `json:"result"`
+}
 
 type healthDeployment struct {
 	SingleWriterRequired bool   `json:"single_writer_required"`
@@ -39,6 +59,16 @@ type applicationHealthResponse struct {
 	FeaturesV35        *healthFeaturesV35                       `json:"features_v35,omitempty"`
 }
 
+type applicationReadinessResponse struct {
+	Status        string                         `json:"status"`
+	Version       string                         `json:"version"`
+	SchemaVersion int                            `json:"schema_version"`
+	Reasons       []string                       `json:"reasons,omitempty"`
+	Storage       healthStorage                  `json:"storage"`
+	Tasks         service.ImageTaskDrainSnapshot `json:"tasks"`
+	Requests      updateRequestDrainSnapshot     `json:"requests"`
+}
+
 type systemVersionResponse struct {
 	Version      string              `json:"version"`
 	VersionInfo  version.Info        `json:"version_info"`
@@ -49,6 +79,13 @@ type systemActionResponse struct {
 	Message     string `json:"message"`
 	NeedRestart bool   `json:"need_restart"`
 	Note        string `json:"note,omitempty"`
+}
+
+type systemTaskDrainResponse struct {
+	Message  string                         `json:"message"`
+	Drained  bool                           `json:"drained"`
+	Tasks    service.ImageTaskDrainSnapshot `json:"tasks"`
+	Requests updateRequestDrainSnapshot     `json:"requests"`
 }
 
 type modelCatalogSource struct {

@@ -34,21 +34,21 @@ export function LandingHeader({
           src="/logo-mark.svg"
           alt=""
           aria-hidden="true"
-          className="size-8 shrink-0 rounded-[14px] shadow-[0_10px_24px_rgba(180,83,9,0.18)] sm:size-9 sm:rounded-2xl"
+          className="size-8 shrink-0 rounded-lg shadow-2xs sm:size-9 sm:rounded-xl"
         />
         <div className="min-w-0 leading-tight">
           <div
             className={cn(
               "truncate text-sm font-semibold tracking-tight",
-              isDark ? "text-amber-50" : "text-stone-800",
+              isDark ? "text-slate-100" : "text-slate-900",
             )}
           >
             {LANDING_BRAND.name}
           </div>
           <div
             className={cn(
-              "hidden text-[10px] font-medium uppercase tracking-[0.22em] sm:block",
-              isDark ? "text-amber-100/40" : "text-stone-400",
+              "hidden text-[10px] font-medium uppercase tracking-[0.18em] sm:block",
+              isDark ? "text-slate-400" : "text-slate-500",
             )}
           >
             {LANDING_BRAND.badge}
@@ -63,10 +63,10 @@ export function LandingHeader({
           variant="outline"
           size="icon"
           className={cn(
-            "relative size-9 rounded-full shadow-sm backdrop-blur",
+            "relative size-9 rounded-lg shadow-2xs backdrop-blur",
             isDark
-              ? "border-amber-800/50 bg-stone-900/70 hover:border-amber-700 hover:bg-stone-900"
-              : "border-amber-200/80 bg-white/75 hover:border-amber-300 hover:bg-white",
+              ? "border-white/10 bg-slate-900/70 hover:border-white/20 hover:bg-slate-900"
+              : "border-slate-200/80 bg-white/80 hover:border-slate-300 hover:bg-white",
           )}
           onClick={onThemeToggle}
           aria-label={isDark ? "切换到浅色模式" : "切换到深色模式"}
@@ -79,11 +79,11 @@ export function LandingHeader({
           <Link
             to="/login?register=1"
             className={cn(
-              "hidden rounded-full px-3 py-1.5 text-sm font-medium transition sm:inline-flex",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/50",
+              "hidden rounded-lg px-3 py-1.5 text-sm font-medium transition sm:inline-flex",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
               isDark
-                ? "text-amber-100/60 hover:bg-white/5 hover:text-amber-50"
-                : "text-stone-500 hover:bg-white/60 hover:text-amber-900",
+                ? "text-slate-300 hover:bg-white/5 hover:text-white"
+                : "text-slate-600 hover:bg-white/60 hover:text-slate-900",
             )}
           >
             注册
@@ -92,11 +92,11 @@ export function LandingHeader({
         <Link
           to="/login"
           className={cn(
-            "inline-flex h-9 items-center rounded-full border px-4 text-sm font-semibold shadow-[0_8px_20px_rgba(180,83,9,0.08)] backdrop-blur-md transition",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/50",
+            "inline-flex h-9 items-center rounded-lg border px-4 text-sm font-semibold shadow-2xs backdrop-blur-md transition",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
             isDark
-              ? "border-amber-700/50 bg-amber-950/50 text-amber-50 hover:border-amber-600 hover:bg-amber-900/40"
-              : "border-amber-200/80 bg-white/75 text-stone-800 hover:border-amber-300 hover:bg-white hover:text-amber-900",
+              ? "border-blue-500/40 bg-blue-600 text-white hover:bg-blue-500"
+              : "border-[#1456f0] bg-[#1456f0] text-white hover:bg-[#0f49cf]",
           )}
         >
           登录

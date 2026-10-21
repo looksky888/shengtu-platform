@@ -85,7 +85,7 @@ export function ImageProviderCard() {
         title="生图渠道"
         tone="blue"
         className="md:col-span-2"
-        meta={<span className="rounded-full bg-surface-muted px-3 py-1 text-xs text-muted-foreground">{channels.filter((item) => item.enabled).length} / {channels.length} 运行中</span>}
+        meta={<span className="rounded-md bg-muted px-2.5 py-1 text-xs text-muted-foreground">{channels.filter((item) => item.enabled).length} / {channels.length} 运行中</span>}
         action={
           <div className="flex gap-2">
             <Button type="button" variant="outline" size="icon" aria-label="刷新渠道" disabled={loading} onClick={() => void load()}>{loading ? <LoaderCircle className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}</Button>

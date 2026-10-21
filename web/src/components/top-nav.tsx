@@ -155,16 +155,18 @@ export function TopNav() {
   const canAccessImageTasks = canAccessPath(session, "/image");
   const canAccessRecharge =
     rechargeEnabled && canAccessPath(session, "/recharge");
+  const canAccessSettings = canAccessPath(session, "/settings");
   const navToggleLabel = navCollapsed ? "展开导航栏" : "收起导航栏";
 
   return (
-    <header className="sticky top-2.5 z-40 min-w-0 rounded-2xl border border-border/80 bg-surface/90 shadow-xs backdrop-blur-xl">
-      <div className="flex min-h-12 flex-col gap-1.5 px-3 py-1.5 lg:flex-row lg:items-center lg:justify-between lg:gap-3 lg:px-3.5">
+    <header className="sticky top-0 z-40 w-full min-w-0 border-b border-border/70 bg-background/85 backdrop-blur-md">
+      <div className="mx-auto flex min-h-14 w-full max-w-[1440px] flex-col gap-1.5 px-3 py-1.5 sm:px-5 lg:grid lg:grid-cols-[auto_1fr_auto] lg:items-center lg:gap-4 lg:px-6 lg:py-0">
         <div className="flex min-w-0 items-center justify-between gap-2 lg:justify-start">
           <NavBrandButton
             collapsed={navCollapsed}
             brandTitle={brandTitle}
             label={navToggleLabel}
+            canAccessSettings={canAccessSettings}
             onToggle={() => setNavCollapsed((collapsed) => !collapsed)}
           />
           <TopNavActions
@@ -185,35 +187,37 @@ export function TopNav() {
           id={PRIMARY_NAV_ID}
           aria-label="主导航"
           className={cn(
-            "-mx-1 min-w-0 items-center gap-1 px-1 pb-0.5 lg:mx-0 lg:flex-1 lg:gap-1 lg:px-0 lg:pb-0",
+            "-mx-1 min-w-0 items-center justify-center gap-1.5 px-1 pb-0.5 lg:mx-0 lg:px-0 lg:pb-0",
             navCollapsed ? "hidden" : "flex"
           )}
         >
-          <div className="hide-scrollbar flex min-w-0 flex-1 items-center gap-1 overflow-x-auto overscroll-x-contain scroll-px-1 touch-pan-x [-webkit-overflow-scrolling:touch]">
+          <div className="hide-scrollbar flex min-w-0 items-center gap-0.5 overflow-x-auto overscroll-x-contain rounded-xl border border-border/70 bg-muted/40 p-1 scroll-px-1 touch-pan-x [-webkit-overflow-scrolling:touch]">
             {primaryNavItems.map((item) => (
               <NavPill key={item.href} item={item} pathname={pathname} />
             ))}
             <MoreNavMenu items={overflowNavItems} pathname={pathname} />
           </div>
+        </nav>
+        <div className="hidden items-center justify-end gap-1.5 lg:flex">
           <NavSearchMenu
             items={visibleNavItems}
             pathname={pathname}
             theme={theme}
             onToggleTheme={() => handleThemeToggle()}
           />
-        </nav>
-        <TopNavActions
-          canAccessImageTasks={canAccessImageTasks}
-          canAccessRecharge={canAccessRecharge}
-          creditBalance={creditBalance}
-          theme={theme}
-          session={session}
-          roleLabel={roleLabel}
-          pathname={pathname}
-          onThemeToggle={handleThemeToggle}
-          onLogout={handleLogout}
-          className="hidden items-center justify-end gap-1.5 lg:flex"
-        />
+          <TopNavActions
+            canAccessImageTasks={canAccessImageTasks}
+            canAccessRecharge={canAccessRecharge}
+            creditBalance={creditBalance}
+            theme={theme}
+            session={session}
+            roleLabel={roleLabel}
+            pathname={pathname}
+            onThemeToggle={handleThemeToggle}
+            onLogout={handleLogout}
+            className="flex items-center justify-end gap-1.5"
+          />
+        </div>
       </div>
     </header>
   );
@@ -248,20 +252,26 @@ function NavBrandButton({
   collapsed,
   brandTitle,
   label,
+  canAccessSettings,
   onToggle,
 }: {
   collapsed: boolean;
   brandTitle: string;
   label: string;
+  canAccessSettings?: boolean;
   onToggle: () => void;
 }) {
   const navigate = useNavigate();
+  const displayBrand =
+    brandTitle === "chatgpt2api" || brandTitle === "ChatGPT"
+      ? "Shengtu Studio"
+      : brandTitle;
   return (
-    <div className="flex min-w-0 items-center gap-1">
+    <div className="flex min-w-0 items-center gap-1.5">
       <Button
         type="button"
         variant="ghost"
-        className="font-display h-8 min-w-0 max-w-[148px] justify-start gap-2 rounded-lg px-1.5 pr-2 text-sm font-semibold text-foreground shadow-none hover:bg-surface-hover sm:max-w-[190px] lg:max-w-none"
+        className="font-display h-8 min-w-0 max-w-[160px] justify-start gap-2 rounded-lg px-2 text-sm font-semibold text-foreground shadow-none hover:bg-surface-hover sm:max-w-[200px] lg:max-w-none"
         title="返回创作工作台"
         onClick={() => navigate("/image")}
       >
@@ -269,10 +279,20 @@ function NavBrandButton({
           src="/logo-mark.svg"
           alt=""
           aria-hidden="true"
-          className="size-6 rounded-lg shadow-xs"
+          className="size-6 rounded-md shadow-2xs"
         />
-        <span className="truncate">{brandTitle}</span>
+        <span className="truncate tracking-tight">{displayBrand}</span>
       </Button>
+      {canAccessSettings ? (
+        <button
+          type="button"
+          onClick={() => navigate("/settings?tab=system-update")}
+          title="查看系统版本与在线更新"
+          className="hidden h-5 items-center rounded-md border border-border/70 bg-muted/50 px-1.5 font-mono text-[10px] font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/10 hover:text-primary sm:inline-flex"
+        >
+          v4.7.1
+        </button>
+      ) : null}
       <Button
         type="button"
         variant="ghost"

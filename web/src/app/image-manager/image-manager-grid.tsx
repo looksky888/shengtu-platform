@@ -105,12 +105,12 @@ export function ImageManagerGrid({
 
       {showPager ? (
         <div className="flex flex-col items-center gap-2 py-4">
-          <div className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-2 py-1.5 shadow-sm">
+          <div className="inline-flex items-center gap-2 rounded-xl border border-border/70 bg-card px-2 py-1.5 shadow-2xs">
             <Button
               type="button"
               variant="ghost"
               size="sm"
-              className="h-8 rounded-full px-3 text-xs"
+              className="h-8 rounded-lg px-3 text-xs"
               disabled={!canGoPrevPage || isPageLoading}
               onClick={onGoPrevPage}
             >
@@ -120,7 +120,7 @@ export function ImageManagerGrid({
             <span className="min-w-[7.5rem] text-center text-xs text-muted-foreground tabular-nums">
               {isPageLoading ? (
                 <span className="inline-flex items-center gap-1.5">
-                  <LoaderCircle className="size-3.5 animate-spin text-[#1456f0]" />
+                  <LoaderCircle className="size-3.5 animate-spin text-primary" />
                   加载中…
                 </span>
               ) : (
@@ -133,7 +133,7 @@ export function ImageManagerGrid({
               type="button"
               variant="ghost"
               size="sm"
-              className="h-8 rounded-full px-3 text-xs"
+              className="h-8 rounded-lg px-3 text-xs"
               disabled={!canGoNextPage || isPageLoading}
               onClick={onGoNextPage}
             >

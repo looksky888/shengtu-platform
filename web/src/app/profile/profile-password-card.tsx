@@ -44,7 +44,7 @@ export function ProfilePasswordCard({
     <Card className="order-2">
       <CardHeader>
         <div className="flex min-w-0 items-center gap-3">
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-brand-border bg-brand-soft text-brand">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-brand-border bg-brand-soft text-brand">
             <LockKeyhole className="size-5" />
           </div>
           <div className="min-w-0">
@@ -115,7 +115,7 @@ export function ProfilePasswordCard({
             </div>
           </FieldGroup>
         ) : (
-          <div className="rounded-xl border border-border bg-surface-muted/40 px-3 py-4 text-sm text-muted-foreground">
+          <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-4 text-sm text-muted-foreground">
             外部登录账号不使用本地密码。
           </div>
         )}

@@ -27,8 +27,8 @@ export function LandingBackground({
         className={cn(
           "pointer-events-none absolute inset-0",
           isDark
-            ? "bg-[radial-gradient(ellipse_at_center,rgba(28,20,16,1)_0%,rgba(12,10,9,1)_55%,rgba(8,7,6,1)_100%)]"
-            : "bg-[radial-gradient(ellipse_at_center,rgba(255,247,237,1)_0%,rgba(255,248,240,1)_48%,rgba(254,243,226,0.95)_100%)]",
+            ? "bg-[radial-gradient(ellipse_at_center,rgba(15,23,42,1)_0%,rgba(9,11,16,1)_55%,rgba(6,8,12,1)_100%)]"
+            : "bg-[radial-gradient(ellipse_at_center,rgba(239,246,255,1)_0%,rgba(248,250,252,1)_48%,rgba(241,245,249,0.95)_100%)]",
         )}
       />
       <div
@@ -36,8 +36,8 @@ export function LandingBackground({
         className="pointer-events-none absolute -inset-[4%] will-change-transform"
         style={{
           background: isDark
-            ? "radial-gradient(circle at 20% 24%, rgba(251,191,36,0.14), transparent 42%), radial-gradient(circle at 80% 70%, rgba(180,83,9,0.12), transparent 46%), radial-gradient(circle at 50% 40%, rgba(253,224,71,0.06), transparent 50%)"
-            : "radial-gradient(circle at 20% 24%, rgba(251,191,36,0.12), transparent 42%), radial-gradient(circle at 80% 70%, rgba(249,115,22,0.08), transparent 46%), radial-gradient(circle at 50% 40%, rgba(253,224,71,0.05), transparent 50%)",
+            ? "radial-gradient(circle at 20% 24%, rgba(59,130,246,0.14), transparent 42%), radial-gradient(circle at 80% 70%, rgba(20,86,240,0.12), transparent 46%), radial-gradient(circle at 50% 40%, rgba(96,165,250,0.06), transparent 50%)"
+            : "radial-gradient(circle at 20% 24%, rgba(59,130,246,0.12), transparent 42%), radial-gradient(circle at 80% 70%, rgba(37,99,235,0.08), transparent 46%), radial-gradient(circle at 50% 40%, rgba(96,165,250,0.05), transparent 50%)",
         }}
       />
       <div
@@ -51,7 +51,7 @@ export function LandingBackground({
       <div
         className={cn(
           "pointer-events-none absolute inset-x-0 bottom-0 h-[42%] bg-gradient-to-t to-transparent",
-          isDark ? "from-[#0c0a09] via-[#0c0a09]/88" : "from-[#fff8f0] via-[#fff8f0]/85",
+          isDark ? "from-[#090b10] via-[#090b10]/88" : "from-[#f8fafc] via-[#f8fafc]/85",
         )}
         aria-hidden="true"
       />
@@ -79,10 +79,10 @@ export function LandingBackground({
               key={text}
               className={cn(
                 "bg-clip-text text-transparent",
-                "text-[clamp(2.25rem,9vw,6.25rem)] font-semibold leading-none tracking-[-0.05em]",
+                "text-[clamp(2rem,7.2vw,5.25rem)] font-semibold leading-none tracking-[-0.05em]",
                 isDark
-                  ? "bg-gradient-to-b from-amber-200/25 via-amber-300/14 to-amber-500/8"
-                  : "bg-gradient-to-b from-amber-800/22 via-amber-700/14 to-amber-600/8",
+                  ? "bg-gradient-to-b from-blue-300/22 via-blue-400/12 to-blue-600/6"
+                  : "bg-gradient-to-b from-slate-800/16 via-blue-800/10 to-blue-600/5",
               )}
             >
               {text}

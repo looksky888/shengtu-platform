@@ -3,8 +3,10 @@
 import { useCallback, useEffect } from "react";
 
 import { ImageManagerActionsPopover } from "@/app/image-manager/image-manager-actions-popover";
+import { ImageManagerAutoRefreshControls } from "@/app/image-manager/image-manager-auto-refresh-controls";
 import { ImageManagerDeleteDialog } from "@/app/image-manager/image-manager-delete-dialog";
 import { ImageManagerFilterPanel } from "@/app/image-manager/image-manager-filter-panel";
+import { ImageManagerGalleryViewTabs } from "@/app/image-manager/image-manager-gallery-view-tabs";
 import { ImageManagerGrid } from "@/app/image-manager/image-manager-grid";
 import { ImageManagerStatusSections } from "@/app/image-manager/image-manager-status-sections";
 import {
@@ -70,8 +72,76 @@ export function ImageManagerContent({ cacheScope, canDeleteImages, isAdmin }: Im
   const status = getImageManagerStatus(loader.isLoading, loader.loadError, items.length, filters.filteredItems.length);
 
   return (
-    <section className="flex flex-col gap-5 pb-20 sm:pb-24">
-      <PageHeader eyebrow="图库" title={"图片库"} />
+    <section className="flex flex-col gap-4 pb-20 sm:pb-24">
+      <PageHeader
+        eyebrow="图库"
+        title="素材管理"
+        badge={
+          <ImageManagerGalleryViewTabs
+            galleryView={filters.galleryView}
+            isAdmin={isAdmin}
+            itemsCount={items.length}
+            filteredCount={filters.filteredItems.length}
+            hasLocalFilters={filters.hasLocalFilters}
+            serverTotal={loader.serverTotal}
+            serverHasMore={loader.serverHasMore}
+            currentPage={loader.currentPage}
+            onGalleryViewChange={(nextView) => {
+              if (!isAdmin && nextView === "all") return;
+              if (nextView !== filters.galleryView) {
+                filters.setGalleryView(nextView);
+                resetListState();
+              }
+            }}
+          />
+        }
+        actions={
+          <>
+            <ImageManagerAutoRefreshControls
+              menuScope="desktop"
+              className="hidden items-center gap-2 md:flex"
+              activeScope={view.autoRefreshMenuScope}
+              buttonLabel={loader.autoRefreshButtonLabel}
+              isAutoRefreshing={loader.isAutoRefreshing}
+              isAutoRefreshEnabled={loader.isAutoRefreshEnabled}
+              autoRefreshInterval={loader.autoRefreshInterval}
+              isLoading={loader.isLoading}
+              isMutatingImages={mutations.isMutatingImages}
+              onScopeChange={view.setAutoRefreshMenuScope}
+              onToggleAutoRefresh={loader.toggleAutoRefresh}
+              onIntervalChange={(interval) => {
+                loader.updateAutoRefreshInterval(interval);
+                view.setAutoRefreshMenuScope(null);
+              }}
+              onRefresh={() => void loader.loadImages({ force: true })}
+            />
+            <ImageManagerActionsPopover
+              open={view.isImageActionsOpen}
+              selectedCount={selection.selectedCount}
+              totalCount={items.length}
+              filteredCount={filters.filteredItems.length}
+              hasLocalFilters={filters.hasLocalFilters}
+              allSelected={selection.allSelected}
+              galleryView={filters.galleryView}
+              selectedItems={selection.selectedItems}
+              selectedPrivateItems={selection.selectedPrivateItems}
+              selectedPublicItems={selection.selectedPublicItems}
+              canDeleteImages={canDeleteImages}
+              isLoading={loader.isLoading}
+              isMutatingImages={mutations.isMutatingImages}
+              downloadingKey={mutations.downloadingKey}
+              visibilityMutatingPath={mutations.visibilityMutatingPath}
+              onOpenChange={view.setIsImageActionsOpen}
+              onToggleAll={selection.toggleAllImages}
+              onBulkVisibilityChange={(targetItems, visibility) => void mutations.handleBulkVisibilityChange(targetItems, visibility)}
+              onDownloadSelected={() => void mutations.downloadItems("selected", selection.selectedItems)}
+              onDownloadAll={() => void mutations.downloadItems("all", filters.filteredItems)}
+              onDeleteSelected={() => { view.setIsImageActionsOpen(false); mutations.openDeleteConfirm(selection.selectedItems); }}
+              onRefresh={() => void loader.loadImages({ force: true })}
+            />
+          </>
+        }
+      />
       <div className="flex flex-col gap-4">
         <ImageManagerFilterPanel
           galleryView={filters.galleryView}
@@ -121,30 +191,6 @@ export function ImageManagerContent({ cacheScope, canDeleteImages, isAdmin }: Im
           onAutoRefreshScopeChange={view.setAutoRefreshMenuScope}
           onToggleAutoRefresh={loader.toggleAutoRefresh}
           onAutoRefreshIntervalChange={(interval) => { loader.updateAutoRefreshInterval(interval); view.setAutoRefreshMenuScope(null); }}
-          onRefresh={() => void loader.loadImages({ force: true })}
-        />
-        <ImageManagerActionsPopover
-          open={view.isImageActionsOpen}
-          selectedCount={selection.selectedCount}
-          totalCount={items.length}
-          filteredCount={filters.filteredItems.length}
-          hasLocalFilters={filters.hasLocalFilters}
-          allSelected={selection.allSelected}
-          galleryView={filters.galleryView}
-          selectedItems={selection.selectedItems}
-          selectedPrivateItems={selection.selectedPrivateItems}
-          selectedPublicItems={selection.selectedPublicItems}
-          canDeleteImages={canDeleteImages}
-          isLoading={loader.isLoading}
-          isMutatingImages={mutations.isMutatingImages}
-          downloadingKey={mutations.downloadingKey}
-          visibilityMutatingPath={mutations.visibilityMutatingPath}
-          onOpenChange={view.setIsImageActionsOpen}
-          onToggleAll={selection.toggleAllImages}
-          onBulkVisibilityChange={(targetItems, visibility) => void mutations.handleBulkVisibilityChange(targetItems, visibility)}
-          onDownloadSelected={() => void mutations.downloadItems("selected", selection.selectedItems)}
-          onDownloadAll={() => void mutations.downloadItems("all", filters.filteredItems)}
-          onDeleteSelected={() => { view.setIsImageActionsOpen(false); mutations.openDeleteConfirm(selection.selectedItems); }}
           onRefresh={() => void loader.loadImages({ force: true })}
         />
         <ImageManagerStatusSections

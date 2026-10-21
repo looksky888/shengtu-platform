@@ -106,7 +106,7 @@ function RegisterMailProvider({ state, provider, index }: { state: RegisterCardS
               onValueChange={(value) => state.updateProvider(index, { mode: value })}
               disabled={config.enabled}
             >
-              <SelectTrigger aria-label="Outlook 读取方式" className="h-10 rounded-xl border-stone-200 bg-white"><SelectValue /></SelectTrigger>
+              <SelectTrigger aria-label="Outlook 读取方式" className="h-9 rounded-lg"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="auto">auto（Graph 失败则 IMAP，推荐）</SelectItem>
                 <SelectItem value="graph">Graph API（Mail.Read）</SelectItem>
@@ -120,7 +120,7 @@ function RegisterMailProvider({ state, provider, index }: { state: RegisterCardS
       {type === "tempmail_lol" || type === "cloudflare_temp_email" || type === "moemail" ? (
         <div className="space-y-2">
           <label className="text-sm text-stone-700">Domain</label>
-          <Textarea aria-label="邮箱域名" value={domains} onChange={(event) => state.updateProvider(index, { domain: event.target.value.split(/[\n,]/).map((item) => item.trim()).filter(Boolean) })} placeholder={domainPlaceholder} className="min-h-20 rounded-xl border-stone-200 bg-white font-mono text-xs" disabled={config.enabled} />
+          <Textarea aria-label="邮箱域名" value={domains} onChange={(event) => state.updateProvider(index, { domain: event.target.value.split(/[\n,]/).map((item) => item.trim()).filter(Boolean) })} placeholder={domainPlaceholder} className="min-h-20 rounded-lg font-mono text-xs" disabled={config.enabled} />
         </div>
       ) : null}
       {type === "outlook_token" ? <RegisterOutlookPoolEditor state={state} provider={provider} index={index} disabled={config.enabled} /> : null}
@@ -133,7 +133,7 @@ function ProviderTypeSelect({ type, disabled, onChange }: { type: string; disabl
     <div className="space-y-2">
       <label className="text-sm text-stone-700">类型</label>
       <Select value={type} onValueChange={onChange} disabled={disabled}>
-        <SelectTrigger aria-label="邮箱来源类型" className="h-10 rounded-xl border-stone-200 bg-white"><SelectValue /></SelectTrigger>
+        <SelectTrigger aria-label="邮箱来源类型" className="h-9 rounded-lg"><SelectValue /></SelectTrigger>
         <SelectContent>
           <SelectItem value="cloudflare_temp_email">cloudflare_temp_email</SelectItem>
           <SelectItem value="tempmail_lol">tempmail_lol</SelectItem>
@@ -150,5 +150,5 @@ function ProviderTypeSelect({ type, disabled, onChange }: { type: string; disabl
 }
 
 function ProviderInput({ label, value, disabled, placeholder, onChange }: { label: string; value: string; disabled?: boolean; placeholder?: string; onChange: (value: string) => void }) {
-  return <div className="space-y-2"><label className="text-sm text-stone-700">{label}</label><Input aria-label={label} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className="h-10 rounded-xl border-stone-200 bg-white" disabled={disabled} /></div>;
+  return <div className="space-y-2"><label className="text-sm text-stone-700">{label}</label><Input aria-label={label} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className="h-9 rounded-lg" disabled={disabled} /></div>;
 }

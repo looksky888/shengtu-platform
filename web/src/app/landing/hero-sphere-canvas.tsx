@@ -159,8 +159,8 @@ export function HeroSphereCanvas({
           const s = project(sp, scale, cx, cy);
           const g = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, scale * 0.14);
           g.addColorStop(0, "rgba(255, 255, 255, 0.55)");
-          g.addColorStop(0.3, "rgba(253, 224, 71, 0.35)");
-          g.addColorStop(1, "rgba(253, 224, 71, 0)");
+          g.addColorStop(0.3, "rgba(96, 165, 250, 0.35)");
+          g.addColorStop(1, "rgba(96, 165, 250, 0)");
           ctx.fillStyle = g;
           ctx.beginPath();
           ctx.arc(s.x, s.y, scale * 0.14, 0, Math.PI * 2);

@@ -51,7 +51,7 @@ export function ImageEditDialog({
 
   return (
     <Dialog open onOpenChange={(open) => (!open ? setDraft(null) : null)}>
-      <DialogContent className="flex max-h-[88dvh] w-[min(92vw,640px)] flex-col overflow-hidden rounded-[28px] p-0">
+      <DialogContent className="flex max-h-[88dvh] w-[min(92vw,640px)] flex-col overflow-hidden rounded-xl p-0">
         <DialogHeader className="px-6 pt-6 pb-2">
           <DialogTitle>{draft.mode === "chat" ? "编辑对话" : "编辑生成设置"}</DialogTitle>
           <DialogDescription>

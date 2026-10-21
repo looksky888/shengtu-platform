@@ -45,7 +45,7 @@ export function RBACRoleEditorCard({
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div className="min-w-0">
               <div className="flex min-w-0 items-center gap-2">
-                <ShieldCheck className="size-5 shrink-0 text-[#1456f0]" />
+                <ShieldCheck className="size-5 shrink-0 text-primary" />
                 <h2 className="truncate text-base font-semibold text-foreground">
                   {selectedRole?.name || "未选择角色"}
                 </h2>
@@ -78,7 +78,7 @@ export function RBACRoleEditorCard({
               onChange={(event) => onRoleNameChange(event.target.value)}
               placeholder="角色名称"
               disabled={!selectedRole || isLoading}
-              className="h-10 rounded-lg"
+              className="h-9 rounded-lg"
             />
             <Input
               aria-label="角色描述"
@@ -86,7 +86,7 @@ export function RBACRoleEditorCard({
               onChange={(event) => onRoleDescriptionChange(event.target.value)}
               placeholder="角色描述"
               disabled={!selectedRole || isLoading}
-              className="h-10 rounded-lg"
+              className="h-9 rounded-lg"
             />
           </div>
         </div>

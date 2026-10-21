@@ -12,7 +12,7 @@ export function RegisterField({ label, value, disabled, placeholder, onChange }:
   return (
     <div className="space-y-2">
       <label className="text-sm text-stone-700">{label}</label>
-      <Input aria-label={label} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className="h-10 rounded-xl border-stone-200 bg-white" disabled={disabled} />
+      <Input aria-label={label} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className="h-9 rounded-lg" disabled={disabled} />
     </div>
   );
 }

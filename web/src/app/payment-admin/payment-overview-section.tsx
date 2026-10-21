@@ -78,7 +78,7 @@ export function PaymentOverviewSection() {
     );
   if (loadError || !stats || !settings) {
     return (
-      <div className="flex min-h-56 flex-col items-center justify-center gap-4 rounded-2xl border border-destructive/30 bg-destructive/10 px-6 text-center">
+      <div className="flex min-h-56 flex-col items-center justify-center gap-4 rounded-xl border border-destructive/30 bg-destructive/10 px-6 text-center">
         <AlertCircle className="size-8 text-status-danger" />
         <div>
           <h2 className="font-semibold text-status-danger">经营概览加载失败</h2>
@@ -96,7 +96,7 @@ export function PaymentOverviewSection() {
   return (
     <div className="space-y-5">
       <PaymentStatsDashboard stats={stats} channels={channels} />
-      <Card className="rounded-2xl">
+      <Card className="rounded-xl">
         <CardHeader className="border-b border-border/70 bg-muted/20">
           <CardTitle className="flex items-center gap-2">
             <BarChart3 className="size-5 text-primary" />
@@ -177,7 +177,7 @@ export function PaymentOverviewSection() {
             <Button
               onClick={() => void save()}
               disabled={saving}
-              className="rounded-xl"
+              className="h-9 rounded-lg"
             >
               <Save className="size-4" />
               {saving ? "保存中…" : "保存设置"}

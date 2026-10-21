@@ -93,10 +93,13 @@ type ImageTaskService struct {
 	// App drains these to refund credits for charges that may have completed before death.
 	recoveredInterrupted []*ImageTask
 	// Lifecycle: tasks inherit rootCtx; Close waits on taskWG (F-03).
-	rootCtx    context.Context
-	rootCancel context.CancelFunc
-	taskWG     sync.WaitGroup
-	closing    bool
+	rootCtx        context.Context
+	rootCancel     context.CancelFunc
+	taskWG         sync.WaitGroup
+	closing        bool
+	draining       bool
+	drainReason    string
+	drainStartedAt string
 }
 
 // SetTerminalObserver registers a non-blocking observer for terminal task

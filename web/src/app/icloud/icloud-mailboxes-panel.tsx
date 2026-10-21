@@ -60,25 +60,25 @@ export function ICloudMailboxesPanel({ controller }: { controller: ICloudPageCon
         <div className="flex flex-wrap items-center gap-2">
           <Input
             aria-label="搜索邮箱或标记"
-            className="h-9 w-48 rounded-xl"
+            className="h-9 w-48 rounded-lg"
             placeholder="搜索邮箱 / 标记"
             value={mailboxSearch}
             onChange={(event) => setMailboxSearch(event.target.value)}
             onKeyDown={(event) => event.key === "Enter" && searchMailboxes()}
           />
-          <Button size="sm" variant="outline" className="h-9 rounded-xl" disabled={mailboxLoading} onClick={() => void searchMailboxes()}>
+          <Button size="sm" variant="outline" className="h-9 rounded-lg" disabled={mailboxLoading} onClick={() => void searchMailboxes()}>
             {mailboxLoading ? <LoaderCircle className="size-3.5 animate-spin" /> : null}
             搜索
           </Button>
-          <Button size="sm" variant="outline" className="h-9 rounded-xl" disabled={busy} onClick={() => void syncAll()}>
+          <Button size="sm" variant="outline" className="h-9 rounded-lg" disabled={busy} onClick={() => void syncAll()}>
             <Download className="size-3.5" />
             同步邮箱
           </Button>
-          <Button size="sm" variant="outline" className="h-9 rounded-xl" disabled={mailboxLoading || mailboxPage <= 1} onClick={() => void changeMailboxPage(mailboxPage - 1)}>
+          <Button size="sm" variant="outline" className="h-9 rounded-lg" disabled={mailboxLoading || mailboxPage <= 1} onClick={() => void changeMailboxPage(mailboxPage - 1)}>
             上一页
           </Button>
           <span className="text-xs text-muted-foreground">共 {mailboxFilteredTotal} 个 · 第 {mailboxPage}/{mailboxTotalPages} 页</span>
-          <Button size="sm" variant="outline" className="h-9 rounded-xl" disabled={mailboxLoading || mailboxPage >= mailboxTotalPages} onClick={() => void changeMailboxPage(mailboxPage + 1)}>
+          <Button size="sm" variant="outline" className="h-9 rounded-lg" disabled={mailboxLoading || mailboxPage >= mailboxTotalPages} onClick={() => void changeMailboxPage(mailboxPage + 1)}>
             下一页
           </Button>
         </div>
@@ -115,28 +115,28 @@ export function ICloudMailboxesPanel({ controller }: { controller: ICloudPageCon
                 </div>
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
-                <Button size="sm" variant="outline" className="h-8 rounded-lg text-xs" disabled={!mailbox.email} onClick={() => void copyText(mailbox.email || "", "邮箱已复制")}>
+                <Button size="sm" variant="outline" className="h-8 rounded-md text-xs" disabled={!mailbox.email} onClick={() => void copyText(mailbox.email || "", "邮箱已复制")}>
                   <Copy className="size-3" />复制邮箱
                 </Button>
-                <Button size="sm" variant="outline" className="h-8 rounded-lg text-xs" disabled={!mailbox.email || !mailbox.api_url} onClick={() => void copyMailboxAPI(mailbox)}>
+                <Button size="sm" variant="outline" className="h-8 rounded-md text-xs" disabled={!mailbox.email || !mailbox.api_url} onClick={() => void copyMailboxAPI(mailbox)}>
                   <Copy className="size-3" />复制 API
                 </Button>
-                <Button size="sm" variant="outline" className="h-8 rounded-lg text-xs" disabled={!mailbox.id} onClick={() => setTaggingMailbox(mailbox)}>
+                <Button size="sm" variant="outline" className="h-8 rounded-md text-xs" disabled={!mailbox.id} onClick={() => setTaggingMailbox(mailbox)}>
                   <Tag className="size-3" />标记
                 </Button>
-                <Button size="sm" variant="outline" className="h-8 rounded-lg text-xs" disabled={busy || !mailbox.id} onClick={() => void syncMailbox(mailbox, codeKeyword)}>
+                <Button size="sm" variant="outline" className="h-8 rounded-md text-xs" disabled={busy || !mailbox.id} onClick={() => void syncMailbox(mailbox, codeKeyword)}>
                   <Download className="size-3" />同步邮件
                 </Button>
-                <Button size="sm" variant="outline" className="h-8 rounded-lg text-xs" disabled={codeBusyId === mailbox.id || !mailbox.id} onClick={() => void fetchCode(mailbox, codeKeyword)}>
+                <Button size="sm" variant="outline" className="h-8 rounded-md text-xs" disabled={codeBusyId === mailbox.id || !mailbox.id} onClick={() => void fetchCode(mailbox, codeKeyword)}>
                   <KeyRound className="size-3" />{codeBusyId === mailbox.id ? "取码中…" : "取验证码"}
                 </Button>
-                <Button size="sm" variant="ghost" className="h-8 rounded-lg text-xs" disabled={msgBusyId === mailbox.id || !mailbox.id} onClick={() => void toggleMessages(mailbox)}>
+                <Button size="sm" variant="ghost" className="h-8 rounded-md text-xs" disabled={msgBusyId === mailbox.id || !mailbox.id} onClick={() => void toggleMessages(mailbox)}>
                   <Mail className="size-3" />{expandedId === mailbox.id ? "收起邮件" : "查看邮件"}
                 </Button>
                 <Button
                   size="sm"
                   variant="outline"
-                  className="h-8 rounded-lg border-rose-200/80 text-xs text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:border-rose-900/50 dark:text-rose-300 dark:hover:bg-rose-950/40"
+                  className="h-8 rounded-md border-rose-200/80 text-xs text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:border-rose-900/50 dark:text-rose-300 dark:hover:bg-rose-950/40"
                   disabled={busy || isDeletingMailbox || !mailbox.id}
                   onClick={() => setDeletingMailbox(mailbox)}
                 >

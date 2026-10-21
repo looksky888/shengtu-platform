@@ -118,7 +118,7 @@ export function RechargeContent({ sessionKey }: { sessionKey: string }) {
   if (!settings?.recharge_enabled)
     return (
       <main className="mx-auto max-w-3xl p-8">
-        <section className="rounded-3xl border bg-card p-12 text-center shadow-sm">
+        <section className="rounded-xl border border-border/70 bg-card p-8 text-center shadow-2xs">
           <WalletCards className="mx-auto mb-4 size-10 text-muted-foreground" />
           <h1 className="text-2xl font-semibold">充值服务暂未开放</h1>
           <p className="mt-2 text-muted-foreground">

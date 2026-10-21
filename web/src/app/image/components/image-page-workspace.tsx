@@ -56,7 +56,7 @@ export function ImagePageWorkspace({
       )}
     >
       {!sidebarCollapsed ? (
-        <div className="hidden h-full min-h-0 rounded-2xl border border-border/75 bg-surface/85 px-3 py-1.5 shadow-2xs lg:block">
+        <div className="hidden h-full min-h-0 rounded-xl border border-border/70 bg-card/85 px-2.5 py-2 shadow-2xs lg:block">
           <ImageSidebar
             conversations={conversations}
             isLoadingHistory={isLoadingHistory}
@@ -73,7 +73,7 @@ export function ImagePageWorkspace({
 
       {overlays}
 
-      <div className="relative flex min-h-0 flex-col gap-2 rounded-2xl lg:border lg:border-border/70 lg:bg-surface/65 lg:p-2">
+      <div className="relative flex min-h-0 flex-col gap-2 rounded-xl lg:border lg:border-border/70 lg:bg-card/65 lg:p-2">
         {sidebarCollapsed ? (
           <div className="hidden items-center gap-2 px-2 pt-1 lg:flex">
             <Button
@@ -164,7 +164,7 @@ function MobileToolbar({
       <div className="flex min-w-0 flex-1 items-center gap-2">
         <Button
           variant="outline"
-          className="h-9 min-w-0 flex-1 shrink rounded-xl shadow-2xs"
+          className="h-9 min-w-0 flex-1 shrink rounded-lg shadow-2xs"
           onClick={onOpenHistory}
         >
           <History className="size-4" />
@@ -172,7 +172,7 @@ function MobileToolbar({
         </Button>
         <Button
           variant="brand"
-          className="h-9 rounded-xl shadow-2xs"
+          className="h-9 rounded-lg shadow-2xs"
           onClick={onCreateDraft}
         >
           <Plus className="size-4" />
@@ -183,7 +183,7 @@ function MobileToolbar({
           size="icon"
           aria-label="清空历史记录"
           title="清空历史记录"
-          className="size-9 rounded-xl shadow-2xs hover:text-destructive"
+          className="size-9 rounded-lg shadow-2xs hover:text-destructive"
           onClick={() => setConfirmOpen(true)}
           disabled={conversationsCount === 0}
         >

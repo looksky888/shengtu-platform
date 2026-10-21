@@ -76,7 +76,7 @@ export function MetricCard({
   const accentClass =
     tone === "ok" ? "bg-status-success" : tone === "warn" ? "bg-status-warning" : tone === "bad" ? "bg-status-danger" : "bg-muted-foreground/40";
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-border/80 bg-card px-4 py-4 shadow-sm">
+    <div className="relative overflow-hidden rounded-xl border border-border/70 bg-card p-4 shadow-2xs">
       <span className={`absolute inset-y-0 left-0 w-1 ${accentClass}`} aria-hidden="true" />
       <div className="text-xs font-medium text-muted-foreground">{label}</div>
       <div className={`mt-1 text-2xl font-semibold tabular-nums tracking-tight ${valueClass}`}>{value}</div>
@@ -98,10 +98,10 @@ export function SectionCard({
 }) {
   return (
     <section
-      className={`space-y-3 rounded-2xl border p-5 shadow-sm ${
+      className={`space-y-3 rounded-xl border p-5 shadow-2xs ${
         tone === "accent"
-          ? "border-status-info/30 bg-gradient-to-br from-status-info-soft via-card to-card"
-          : "border-border/80 bg-card"
+          ? "border-status-info/30 bg-status-info-soft/35"
+          : "border-border/70 bg-card"
       }`}
     >
       <div className="flex items-start justify-between gap-2">

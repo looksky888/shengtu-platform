@@ -48,8 +48,8 @@ export function TaskQueueDetail({ detail, onClose }: { detail: CreationTask; onC
                           {section.rawStages.length ? formatStageDuration(section.milliseconds) : "未执行"}
                         </span>
                       </div>
-                      <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-blue-100/70 dark:bg-white/10">
-                        <span className="block h-full rounded-full bg-blue-500/80" style={{ width: `${section.milliseconds > 0 ? ratio : section.rawStages.length ? 3 : 0}%` }} />
+                      <div className="mt-1.5 h-1.5 overflow-hidden rounded-sm bg-blue-100/70 dark:bg-white/10">
+                        <span className="block h-full rounded-sm bg-blue-500/80" style={{ width: `${section.milliseconds > 0 ? ratio : section.rawStages.length ? 3 : 0}%` }} />
                       </div>
                       {section.rawStages.length > 1 ? <div className="mt-1 text-[11px] text-stone-400">{section.rawStages.map(taskStageLabel).join("、")}</div> : null}
                     </div>

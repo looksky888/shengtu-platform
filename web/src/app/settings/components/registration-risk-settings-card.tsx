@@ -69,7 +69,7 @@ export function RegistrationRiskSettingsCard() {
         <div className="flex min-h-40 items-center justify-center text-sm text-muted-foreground"><LoaderCircle className="mr-2 size-4 animate-spin" />正在加载...</div>
       ) : (
         <div className="space-y-5">
-          <label className="flex items-center gap-3 rounded-[16px] border border-border bg-background px-4 py-3 text-sm font-medium">
+          <label className="flex items-center gap-3 rounded-lg border border-border/60 bg-muted/20 px-3.5 py-2.5 text-sm font-medium">
             <Checkbox checked={settings.enabled} onCheckedChange={(value) => setSettings({ ...settings, enabled: value === true })} />
             启用注册组合风控
           </label>
@@ -106,7 +106,7 @@ export function RegistrationRiskSettingsCard() {
 }
 
 function RiskGroup({ title, children }: { title: string; children: ReactNode }) {
-  return <fieldset className="grid gap-3 rounded-[16px] border border-border/80 bg-muted/25 p-4 sm:grid-cols-2"><legend className="px-1 text-sm font-semibold">{title}</legend>{children}</fieldset>;
+  return <fieldset className="grid gap-3 rounded-lg border border-border/60 bg-muted/20 p-4 sm:grid-cols-2"><legend className="px-1 text-sm font-semibold">{title}</legend>{children}</fieldset>;
 }
 
 function RiskNumber({ label, field, value, onChange }: { label: string; field: NumberKey; value: number; onChange: (field: NumberKey, value: string) => void }) {

@@ -16,7 +16,7 @@ export function AccountsLoadingCard() {
 export function AccountsInitialEmptyState() {
   return (
     <div className="flex min-h-[260px] flex-col items-center justify-center gap-3 px-6 py-14 text-center">
-      <div className="rounded-[16px] bg-[#edf4ff] p-4 text-[#1456f0] ring-1 ring-blue-100"><UserRound className="size-7" /></div>
+      <div className="rounded-xl bg-primary/10 p-4 text-primary ring-1 ring-primary/15"><UserRound className="size-7" /></div>
       <div className="space-y-1"><p className="text-sm font-medium text-foreground">暂无账号</p><p className="max-w-[28rem] text-sm leading-6 text-muted-foreground">导入 Token 后，账号状态、类型、额度和调用统计会在这里显示。</p></div>
     </div>
   );

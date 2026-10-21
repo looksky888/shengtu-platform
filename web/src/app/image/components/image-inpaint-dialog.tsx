@@ -172,7 +172,7 @@ export function ImageInpaintDialog({ source, onClose, onSubmit }: ImageInpaintDi
 
   return (
     <Dialog open={Boolean(source)} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="flex max-h-[92dvh] w-[min(96vw,980px)] flex-col overflow-hidden rounded-[24px] p-0">
+      <DialogContent className="flex max-h-[92dvh] w-[min(96vw,980px)] flex-col overflow-hidden rounded-xl p-0">
         <DialogHeader className="border-b border-border px-5 py-4">
           <DialogTitle>局部修改</DialogTitle>
           <DialogDescription>用矩形或画笔标出需要修改的区域，蓝色标记只用于说明范围。</DialogDescription>

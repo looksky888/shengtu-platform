@@ -69,7 +69,7 @@ export function ProfileApiDocsPanel({
       <CardHeader className="border-b border-border/70 pb-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-start gap-3">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-brand-border bg-brand-soft text-brand">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-brand-border bg-brand-soft text-brand">
               <BookOpen className="size-5" />
             </div>
             <div>
@@ -89,7 +89,7 @@ export function ProfileApiDocsPanel({
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-border/80 bg-surface-muted/55 px-3 py-1.5 text-xs">
+            <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-1.5 text-xs">
               <KeyRound className="size-3.5 text-brand" />
               <span className="text-foreground">代码示例自动填入我的密钥</span>
               <Switch
@@ -123,7 +123,7 @@ export function ProfileApiDocsPanel({
 
       <CardContent className="space-y-6 pt-5">
         {/* 第三方客户端快速接入速查 */}
-        <div className="rounded-xl border border-border/80 bg-surface-muted/35 p-4">
+        <div className="rounded-lg border border-border/60 bg-muted/20 p-4">
           <div className="mb-3 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
               <Sparkles className="size-4 text-brand" />
@@ -179,7 +179,7 @@ export function ProfileApiDocsPanel({
         </div>
 
         {/* 状态码与错误处理规范 */}
-        <div className="rounded-xl border border-border/80 bg-surface-muted/30 p-4">
+        <div className="rounded-lg border border-border/60 bg-muted/20 p-4">
           <div className="mb-2.5 flex items-center gap-2 text-xs font-semibold text-foreground">
             <ShieldAlert className="size-4 text-amber-500" />
             HTTP 状态码、限流与计费退费说明
@@ -230,7 +230,7 @@ function ClientConfigCard({
   onCopy: (val: string) => void;
 }) {
   return (
-    <div className="flex flex-col justify-between gap-2 rounded-xl border border-border/75 bg-surface p-3">
+    <div className="flex flex-col justify-between gap-2 rounded-lg border border-border/60 bg-background p-3">
       <div>
         <div className="flex items-center justify-between gap-1.5">
           <span className="text-xs font-semibold text-foreground">{name}</span>
@@ -273,7 +273,7 @@ function EndpointDocCard({
   const code = endpoint.snippets[lang];
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-border/85 bg-surface">
+    <div className="overflow-hidden rounded-xl border border-border/70 bg-card">
       <div className="flex flex-col gap-2 border-b border-border/70 bg-surface-muted/40 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap items-center gap-2">
           <span
@@ -309,7 +309,7 @@ function EndpointDocCard({
         </p>
 
         {endpoint.params && endpoint.params.length > 0 ? (
-          <div className="overflow-x-auto rounded-xl border border-border/75">
+          <div className="overflow-x-auto rounded-lg border border-border/70">
             <table className="w-full text-left text-xs">
               <thead className="border-b border-border/70 bg-surface-muted/60 text-[11px] text-muted-foreground">
                 <tr>
@@ -353,7 +353,7 @@ function EndpointDocCard({
 
         <div className="grid gap-3 lg:grid-cols-[1.25fr_0.75fr]">
           {/* 请求示例 */}
-          <div className="flex flex-col overflow-hidden rounded-xl border border-border/80 bg-zinc-950 text-zinc-100">
+          <div className="flex flex-col overflow-hidden rounded-lg border border-border/80 bg-zinc-950 text-zinc-100">
             <div className="flex items-center justify-between border-b border-zinc-800 px-3 py-1.5 text-[11px]">
               <div className="flex items-center gap-1.5">
                 <Terminal className="size-3.5 text-sky-400" />
@@ -393,7 +393,7 @@ function EndpointDocCard({
           </div>
 
           {/* 响应示例 */}
-          <div className="flex flex-col overflow-hidden rounded-xl border border-border/80 bg-zinc-950 text-zinc-100">
+          <div className="flex flex-col overflow-hidden rounded-lg border border-border/80 bg-zinc-950 text-zinc-100">
             <div className="flex items-center justify-between border-b border-zinc-800 px-3 py-1.5 text-[11px]">
               <span className="inline-flex items-center gap-1.5 font-medium text-zinc-300">
                 <Code2 className="size-3.5 text-emerald-400" />

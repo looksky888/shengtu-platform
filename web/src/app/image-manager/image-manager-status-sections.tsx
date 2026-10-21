@@ -36,9 +36,9 @@ export function ImageManagerStatusSections({
 
 function ImageLoadingCard() {
   return (
-    <Card className="overflow-hidden rounded-[20px]">
+    <Card className="overflow-hidden rounded-xl border border-border/70 shadow-2xs">
       <CardContent className="flex min-h-[280px] flex-col items-center justify-center gap-3 px-6 py-14 text-center">
-        <div className="rounded-[16px] bg-[#edf4ff] p-4 text-[#1456f0] ring-1 ring-blue-100">
+        <div className="rounded-xl bg-primary/10 p-4 text-primary ring-1 ring-primary/15">
           <LoaderCircle className="size-7 animate-spin" />
         </div>
         <div className="space-y-1">
@@ -51,9 +51,9 @@ function ImageLoadingCard() {
 
 function ImageErrorCard({ loadError, onRetry }: { loadError: string; onRetry: () => void }) {
   return (
-    <Card className="overflow-hidden rounded-[20px]">
+    <Card className="overflow-hidden rounded-xl border border-border/70 shadow-2xs">
       <CardContent className="flex min-h-[280px] flex-col items-center justify-center gap-3 px-6 py-14 text-center">
-        <div className="rounded-[16px] bg-rose-50 p-4 text-rose-600 ring-1 ring-rose-100">
+        <div className="rounded-xl bg-rose-500/10 p-4 text-rose-600 ring-1 ring-rose-500/15">
           <ImageIcon className="size-7" />
         </div>
         <div className="space-y-1">
@@ -71,7 +71,7 @@ function ImageErrorCard({ loadError, onRetry }: { loadError: string; onRetry: ()
 
 function ImageEmptyCard({ showFilteredEmpty, galleryView }: { showFilteredEmpty: boolean; galleryView: ImageGalleryView }) {
   return (
-    <Card className="overflow-hidden rounded-[20px]">
+    <Card className="overflow-hidden rounded-xl border border-border/70 shadow-2xs">
       <CardContent className="flex min-h-[320px] flex-col items-center justify-center gap-4 px-6 py-14 text-center">
         <div className="space-y-1">
           <p className="text-sm font-medium text-foreground">{showFilteredEmpty ? "没有匹配的图片" : "暂无图片"}</p>

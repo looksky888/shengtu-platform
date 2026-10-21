@@ -56,8 +56,8 @@ export function ImageManagerMobileFilters({
         <button
           type="button"
           className={cn(
-            "relative inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-border bg-background text-muted-foreground transition hover:bg-accent hover:text-accent-foreground",
-            isMobileFiltersOpen && "border-[#bfdbfe] bg-[#eef4ff] text-[#1456f0] dark:border-sky-900/70 dark:bg-sky-950/30 dark:text-sky-300",
+            "relative inline-flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-background text-muted-foreground transition hover:bg-accent hover:text-accent-foreground",
+            isMobileFiltersOpen && "border-primary/30 bg-primary/10 text-primary",
           )}
           onClick={() => onMobileFiltersOpenChange(!isMobileFiltersOpen)}
           aria-label={isMobileFiltersOpen ? "收起筛选项" : "展开筛选项"}
@@ -66,7 +66,7 @@ export function ImageManagerMobileFilters({
         >
           <SlidersHorizontal className="size-4" />
           {activeFilterCount > 0 ? (
-            <span className="absolute -top-0.5 -right-0.5 inline-flex size-4 items-center justify-center rounded-full bg-[#1456f0] text-[10px] font-semibold text-white">
+            <span className="absolute -top-1 -right-1 inline-flex size-4 items-center justify-center rounded-md bg-primary text-[10px] font-semibold text-primary-foreground">
               {activeFilterCount}
             </span>
           ) : null}
@@ -75,11 +75,11 @@ export function ImageManagerMobileFilters({
       {activeFilterLabels.length > 0 && !isMobileFiltersOpen ? (
         <div className="hide-scrollbar mt-2 flex gap-1.5 overflow-x-auto">
           {activeFilterLabels.map((label) => (
-            <span key={label} className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
+            <span key={label} className="shrink-0 rounded-md bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
               {label}
             </span>
           ))}
-          <button type="button" className="shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium text-[#1456f0]" onClick={onClearFilters}>
+          <button type="button" className="shrink-0 rounded-md px-2 py-0.5 text-[11px] font-medium text-primary" onClick={onClearFilters}>
             清除
           </button>
         </div>
@@ -88,7 +88,7 @@ export function ImageManagerMobileFilters({
         <div className="mt-2 grid grid-cols-2 gap-2">
           <div className="col-span-2">{renderDateRangeFilter("w-full sm:w-full")}</div>
           <ImageManagerFilterSelects {...selectProps} />
-          <Button type="button" variant="outline" className="col-span-2 h-9 rounded-full text-xs shadow-none" onClick={onClearFilters} disabled={!hasActiveFilters}>
+          <Button type="button" variant="outline" className="col-span-2 h-9 rounded-lg text-xs shadow-none" onClick={onClearFilters} disabled={!hasActiveFilters}>
             重置筛选
           </Button>
         </div>

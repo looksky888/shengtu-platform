@@ -1,0 +1,181 @@
+name: Release app image
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  quality:
+    uses: ./.github/workflows/quality.yml
+
+  publish:
+    name: Publish GHCR image and GitHub Release
+    needs: quality
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: write
+      packages: write
+    env:
+      REGISTRY: ghcr.io
+      IMAGE_NAME: ${{ github.repository }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Validate tag and version
+        id: version
+        shell: bash
+        run: |
+          version="$(tr -d '\r\n' < VERSION.txt)"
+          test -n "$version"
+          expected_tag="v${version}"
+          if [[ "$GITHUB_REF_NAME" != "$expected_tag" ]]; then
+            echo "Tag $GITHUB_REF_NAME does not match VERSION.txt ($expected_tag)" >&2
+            exit 1
+          fi
+          channel=stable
+          tag_lower="${GITHUB_REF_NAME,,}"
+          if [[ "$tag_lower" =~ (^|[-.])(alpha|beta|rc[0-9]*|dev|canary|nightly)([-.]|$) ]]; then
+            channel=prerelease
+          fi
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          repository_name="${GITHUB_REPOSITORY#*/}"
+          image="${REGISTRY}/${owner}/${repository_name}"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "channel=$channel" >> "$GITHUB_OUTPUT"
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+          echo "build_date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Log in to GHCR
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Prepare image metadata
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ steps.version.outputs.image }}
+          tags: |
+            type=raw,value=${{ steps.version.outputs.version }}
+            type=sha,format=long,prefix=sha-
+            type=raw,value=latest,enable=${{ steps.version.outputs.channel == 'stable' }}
+          labels: |
+            org.opencontainers.image.title=shengtu-platform
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ steps.version.outputs.version }}
+
+      - name: Build and push immutable app image
+        id: image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64
+          push: true
+          build-args: |
+            VERSION=${{ steps.version.outputs.version }}
+            COMMIT=${{ github.sha }}
+            BUILD_DATE=${{ steps.version.outputs.build_date }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=shengtu-app-amd64
+          cache-to: type=gha,mode=max,scope=shengtu-app-amd64
+          provenance: mode=max
+          sbom: true
+
+      - name: Build release manifest
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          CHANNEL: ${{ steps.version.outputs.channel }}
+          IMAGE: ${{ steps.version.outputs.image }}
+          DIGEST: ${{ steps.image.outputs.digest }}
+        shell: bash
+        run: |
+          [[ "$DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
+          mkdir -p dist
+
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -p=1 -trimpath \
+            -ldflags="-s -w" \
+            -o dist/shengtu-host-updater_linux_amd64 ./cmd/host-updater
+          updater_sha="$(sha256sum dist/shengtu-host-updater_linux_amd64 | awk '{print $1}')"
+          release_metadata="$(go run ./cmd/release-metadata)"
+          storage_schema_version="$(jq -er '.storageSchemaVersion' <<<"$release_metadata")"
+          min_source_schema_version="$(jq -er '.minSourceSchemaVersion' <<<"$release_metadata")"
+          jq -n \
+            --arg version "$VERSION" \
+            --arg channel "$CHANNEL" \
+            --arg commit "$GITHUB_SHA" \
+            --arg publishedAt "${{ steps.version.outputs.build_date }}" \
+            --arg image "$IMAGE" \
+            --arg digest "$DIGEST" \
+            --arg updaterSha "$updater_sha" \
+            --argjson storageSchemaVersion "$storage_schema_version" \
+            --argjson minSourceSchemaVersion "$min_source_schema_version" \
+            '{
+              schemaVersion: 1,
+              version: $version,
+              channel: $channel,
+              commit: $commit,
+              publishedAt: $publishedAt,
+              platform: "linux/amd64",
+              images: {
+                app: {
+                  reference: $image,
+                  digest: $digest
+                }
+              },
+              hostUpdater: {
+                asset: "shengtu-host-updater_linux_amd64",
+                sha256: $updaterSha
+              },
+              storage: {
+                schemaVersion: $storageSchemaVersion,
+                minSourceSchemaVersion: $minSourceSchemaVersion
+              }
+            }' > dist/update-manifest.json
+          (
+            cd dist
+            sha256sum update-manifest.json shengtu-host-updater_linux_amd64 > SHA256SUMS
+          )
+
+      - name: Create or update GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CHANNEL: ${{ steps.version.outputs.channel }}
+        shell: bash
+        run: |
+          release_args=(--verify-tag --title "$GITHUB_REF_NAME" --generate-notes)
+          if [[ "$CHANNEL" == prerelease ]]; then
+            release_args+=(--prerelease)
+          else
+            release_args+=(--latest)
+          fi
+          assets=(dist/update-manifest.json dist/shengtu-host-updater_linux_amd64 dist/SHA256SUMS)
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "${assets[@]}" --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$GITHUB_REF_NAME" "${assets[@]}" \
+              --repo "$GITHUB_REPOSITORY" "${release_args[@]}"
+          fi

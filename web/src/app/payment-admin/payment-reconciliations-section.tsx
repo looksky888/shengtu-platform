@@ -79,7 +79,7 @@ export function PaymentReconciliationsSection({
   };
   return (
     <>
-      <Card className="rounded-2xl">
+      <Card className="rounded-xl">
         <CardHeader>
           <CardTitle>账单对账</CardTitle>
         </CardHeader>

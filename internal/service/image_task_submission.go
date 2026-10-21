@@ -122,6 +122,23 @@ func (s *ImageTaskService) submit(ctx context.Context, identity Identity, client
 		s.mu.Unlock()
 		return result, nil
 	}
+	if s.draining || s.closing {
+		code := ImageTaskAdmissionCodeDraining
+		message := strings.TrimSpace(s.drainReason)
+		if s.closing {
+			code = ImageTaskAdmissionCodeClosing
+			message = "服务正在关闭，无法提交新任务"
+		} else if message == "" {
+			message = "服务更新中，暂不接收新的创作任务"
+		}
+		if cleaned {
+			if saveErr := s.saveLocked(); saveErr != nil {
+				log.Printf("image task admission cleanup persistence failed: %v", saveErr)
+			}
+		}
+		s.mu.Unlock()
+		return nil, ImageTaskAdmissionError{Code: code, Message: message}
+	}
 	count := taskCount(mode, payload)
 	if err := s.checkUserTaskLimitsLocked(identity, owner, count, mode, payload, time.Now()); err != nil {
 		if cleaned {
@@ -131,15 +148,6 @@ func (s *ImageTaskService) submit(ctx context.Context, identity Identity, client
 		}
 		s.mu.Unlock()
 		return nil, err
-	}
-	if s.closing {
-		if cleaned {
-			if saveErr := s.saveLocked(); saveErr != nil {
-				log.Printf("image task closing cleanup persistence failed: %v", saveErr)
-			}
-		}
-		s.mu.Unlock()
-		return nil, fmt.Errorf("服务正在关闭，无法提交新任务")
 	}
 	// App wiring starts workers through BindRootContext. Keep a lazy start for
 	// focused service tests and embedders that submit before binding a root

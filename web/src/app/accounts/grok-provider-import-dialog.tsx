@@ -46,20 +46,20 @@ export function GrokProviderImportDialog({
         <fieldset className="grid gap-2"><legend className="mb-2 text-sm font-medium">选择账号类型</legend><div className="grid gap-2 sm:grid-cols-3">{options.map((option) => {
           const Icon = option.icon;
           const active = provider === option.value;
-          return <button key={option.value} type="button" aria-pressed={active} className={`grid gap-1 rounded-2xl border p-3 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[#1456f0]/30 ${active ? "border-[#1456f0] bg-blue-50 text-[#1456f0]" : "border-border hover:bg-muted/50"}`} onClick={() => setProvider(option.value)}><Icon className="size-4" /><span className="mt-1 text-sm font-medium">{option.label}</span><span className="text-[11px] text-muted-foreground">{option.detail}</span></button>;
+          return <button key={option.value} type="button" aria-pressed={active} className={`grid gap-1 rounded-xl border p-3 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary/30 ${active ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-muted/50"}`} onClick={() => setProvider(option.value)}><Icon className="size-4" /><span className="mt-1 text-sm font-medium">{option.label}</span><span className="text-[11px] text-muted-foreground">{option.detail}</span></button>;
         })}</div></fieldset>
         <label className="grid gap-2 text-sm font-medium">
-          <span className="inline-flex items-center gap-1.5"><FileJson2 className="size-4 text-[#1456f0]" />凭据文档</span>
+          <span className="inline-flex items-center gap-1.5"><FileJson2 className="size-4 text-primary" />凭据文档</span>
           <Textarea
             aria-label="Grok Provider 凭据文档"
-            className="min-h-48 rounded-[16px] font-mono text-xs"
+            className="min-h-48 rounded-xl font-mono text-xs"
             value={document}
             onChange={(event) => setDocument(event.target.value)}
             placeholder={provider === "build" ? '{"access_token":"...","refresh_token":"..."}' : "每行一个 SSO，或粘贴 JSON 文档"}
           />
         </label>
         <p className="text-xs text-muted-foreground">单次最多 10,000 个账号；Provider 不匹配、格式错误或凭据缺失时整批拒绝。</p>
-        <div className="grid gap-2 rounded-[16px] border border-border/70 bg-muted/30 p-3">
+        <div className="grid gap-2 rounded-xl border border-border/70 bg-muted/30 p-3">
           <label className="flex cursor-pointer items-start gap-3 text-sm">
             <Checkbox checked={autoSyncQuota} onCheckedChange={(checked) => setAutoSyncQuota(checked === true)} className="mt-0.5" />
             <span className="font-medium">自动同步本次导入账号额度</span>

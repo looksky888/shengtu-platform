@@ -77,7 +77,7 @@ export function ImageManagerImageCard({
   return (
     <figure
       className={cn(
-        "group relative w-full overflow-hidden rounded-[20px] border border-border/60 bg-surface-muted shadow-sm transition-shadow hover:shadow-md",
+        "group relative w-full overflow-hidden rounded-xl border border-border/60 bg-surface-muted shadow-2xs transition-shadow hover:shadow-md",
         selected && "ring-2 ring-brand ring-offset-2 ring-offset-background",
       )}
       style={{
@@ -117,7 +117,7 @@ export function ImageManagerImageCard({
         type="button"
         onClick={toggleSelection}
         className={cn(
-          "absolute top-2.5 left-2.5 z-10 inline-flex size-7 items-center justify-center rounded-full border transition duration-150 focus-visible:pointer-events-auto focus-visible:opacity-100",
+          "absolute top-2.5 left-2.5 z-10 inline-flex size-7 items-center justify-center rounded-md border transition duration-150 focus-visible:pointer-events-auto focus-visible:opacity-100",
           selected
             ? "border-brand bg-brand text-white opacity-100 shadow-sm"
             : "pointer-events-none border-white/90 bg-black/30 text-transparent opacity-0 shadow-sm group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100 hover:bg-black/45",
@@ -140,7 +140,7 @@ export function ImageManagerImageCard({
       />
       <div className="absolute right-2.5 bottom-2.5 left-2.5 z-20 flex items-center justify-between gap-2">
         <div
-          className="pointer-events-none inline-flex h-7 min-w-0 max-w-[min(58%,13rem)] items-center rounded-full bg-black/45 px-2.5 text-[11px] font-medium text-white shadow-sm ring-1 ring-white/20 backdrop-blur-md"
+          className="pointer-events-none inline-flex h-7 min-w-0 max-w-[min(58%,13rem)] items-center rounded-md bg-black/45 px-2.5 text-[11px] font-medium text-white shadow-sm ring-1 ring-white/20 backdrop-blur-md"
           title={`作者：${ownerLabel}`}
         >
           <span className="min-w-0 truncate">{ownerLabel}</span>
@@ -208,7 +208,7 @@ function ImageCardTopActions({
           event.stopPropagation();
           onOpenLightbox(index);
         }}
-        className="inline-flex h-7 items-center gap-1 rounded-full bg-black/65 px-2.5 text-[11px] font-medium text-white shadow-sm backdrop-blur-md transition hover:bg-black/80"
+        className="inline-flex h-7 items-center gap-1 rounded-lg bg-black/65 px-2.5 text-[11px] font-medium text-white shadow-sm backdrop-blur-md transition hover:bg-black/80"
         aria-label="查看原图"
         title="查看原图"
       >
@@ -224,7 +224,7 @@ function ImageCardTopActions({
               .then(() => toast.success("图片地址已复制"))
               .catch(() => toast.error("复制失败，请手动复制"));
           }}
-          className="inline-flex size-7 items-center justify-center rounded-full bg-black/65 text-white shadow-sm backdrop-blur-md transition hover:bg-black/80"
+          className="inline-flex size-7 items-center justify-center rounded-lg bg-black/65 text-white shadow-sm backdrop-blur-md transition hover:bg-black/80"
           aria-label="复制图片地址"
           title="复制图片地址"
         >
@@ -239,7 +239,7 @@ function ImageCardTopActions({
             onDelete([item]);
           }}
           disabled={isDeleting}
-          className="inline-flex size-7 items-center justify-center rounded-full bg-white/95 text-rose-600 shadow-sm transition hover:bg-rose-50 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex size-7 items-center justify-center rounded-lg bg-white/95 text-rose-600 shadow-sm transition hover:bg-rose-50 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
           aria-label="删除图片"
           title="删除图片"
         >
@@ -280,7 +280,7 @@ function ImageCardVisibility({
           }}
           disabled={visibilityMutatingPath !== null || isDeleting}
           className={cn(
-            "inline-flex h-7 items-center gap-1.5 rounded-full px-2.5 text-[11px] font-medium shadow-sm transition disabled:cursor-not-allowed disabled:opacity-70 [@media(hover:none)]:opacity-100",
+            "inline-flex h-7 items-center gap-1.5 rounded-lg px-2.5 text-[11px] font-medium shadow-sm transition disabled:cursor-not-allowed disabled:opacity-70 [@media(hover:none)]:opacity-100",
             focused ? "opacity-100" : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100",
             imageVisibilityActionClass(item.visibility),
           )}
@@ -297,7 +297,7 @@ function ImageCardVisibility({
       ) : null}
       <div
         className={cn(
-          "pointer-events-none inline-flex h-7 items-center gap-1 rounded-full px-2 text-[11px] font-medium shadow-sm backdrop-blur-sm",
+          "pointer-events-none inline-flex h-7 items-center gap-1 rounded-md px-2 text-[11px] font-medium shadow-sm backdrop-blur-sm",
           imageVisibilityPillClass(item.visibility),
         )}
       >

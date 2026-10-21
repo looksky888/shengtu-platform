@@ -109,7 +109,7 @@ export function ImageTaskStatsCard({ active = true }: { active?: boolean } = {})
       tone="blue"
       meta={<Badge variant="secondary" className="rounded-md">{isToday ? "今日实时" : periodLabel(period)}</Badge>}
       action={
-        <Button type="button" variant="outline" className="h-9 rounded-xl" onClick={() => void load()} disabled={isLoading}>
+        <Button type="button" variant="outline" size="sm" onClick={() => void load()} disabled={isLoading}>
           {isLoading ? <LoaderCircle className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
           刷新
         </Button>
@@ -117,7 +117,7 @@ export function ImageTaskStatsCard({ active = true }: { active?: boolean } = {})
     >
       <div className="mb-4 grid gap-3 md:grid-cols-[140px_1fr_auto]">
         <Select value={period} onValueChange={(value) => setPeriod(value as StatsPeriod)}>
-          <SelectTrigger className="rounded-xl">
+          <SelectTrigger>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -128,23 +128,23 @@ export function ImageTaskStatsCard({ active = true }: { active?: boolean } = {})
         </Select>
         <div className="relative">
           <CalendarDays className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input type="date" value={date} onChange={(event) => setDate(event.target.value || todayInChina())} className="rounded-xl pl-9" />
+          <Input type="date" value={date} onChange={(event) => setDate(event.target.value || todayInChina())} className="pl-9" />
         </div>
-        <Button type="button" className="rounded-xl" onClick={() => void load()} disabled={isLoading}>查询</Button>
+        <Button type="button" onClick={() => void load()} disabled={isLoading}>查询</Button>
       </div>
       <div className="mb-3 text-xs text-muted-foreground">统计范围：{rangeText(stats)}</div>
       {isLoading && !stats ? (
         <div className="flex min-h-28 items-center justify-center"><LoaderCircle className="size-5 animate-spin text-muted-foreground" /></div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
-          <div className="rounded-2xl border border-status-success/25 bg-status-success-soft p-4">
+          <div className="rounded-lg border border-status-success/25 bg-status-success-soft p-4">
             <div className="text-xs font-medium text-status-success">成功图片</div>
-            <div className="mt-2 text-3xl font-semibold text-foreground">{numberText(stats?.success_images)}</div>
+            <div className="mt-2 text-2xl font-semibold text-foreground">{numberText(stats?.success_images)}</div>
             <div className="mt-1 text-xs text-muted-foreground">成功任务 {numberText(stats?.success_tasks)} 个</div>
           </div>
-          <div className="rounded-2xl border border-status-danger/25 bg-status-danger-soft p-4">
+          <div className="rounded-lg border border-status-danger/25 bg-status-danger-soft p-4">
             <div className="text-xs font-medium text-status-danger">失败图片</div>
-            <div className="mt-2 text-3xl font-semibold text-foreground">{numberText(stats?.failed_images)}</div>
+            <div className="mt-2 text-2xl font-semibold text-foreground">{numberText(stats?.failed_images)}</div>
             <div className="mt-1 text-xs text-muted-foreground">失败任务 {numberText(stats?.failed_tasks)} 个</div>
           </div>
         </div>

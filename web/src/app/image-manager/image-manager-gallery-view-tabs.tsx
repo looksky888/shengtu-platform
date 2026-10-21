@@ -49,10 +49,10 @@ export function ImageManagerGalleryViewTabs({
       : `共 ${total} 张`;
 
   return (
-    <div className="flex min-w-0 flex-col gap-2.5">
+    <div className="flex min-w-0 flex-wrap items-center gap-2.5">
       <MediaLibraryTabs value={galleryView} label="图库视图" options={options} onChange={onGalleryViewChange} />
-      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 px-0.5 text-sm text-muted-foreground">
-        <span className="font-medium text-foreground/80">{viewLabel}</span>
+      <div className="inline-flex min-w-0 items-center gap-1.5 rounded-lg border border-border/70 bg-muted/40 px-2.5 py-1 text-xs text-muted-foreground tabular-nums">
+        <span className="font-medium text-foreground/85">{viewLabel}</span>
         <span className="text-border">·</span>
         <span>{countLabel}</span>
       </div>

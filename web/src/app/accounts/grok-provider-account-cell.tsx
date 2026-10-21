@@ -25,7 +25,7 @@ export function GrokProviderAccountCell({ account }: { account: GrokProviderRow 
             <button
               type="button"
               aria-label={`查看 ${connections.length} 个关联身份`}
-              className="inline-flex items-center gap-1.5 rounded-md outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-[#1456f0]/30"
+              className="inline-flex items-center gap-1.5 rounded-md outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-primary/30"
             >
               {connections.map((connection) => (
                 <GrokProviderIcon key={`${connection.provider}:${connection.id}`} provider={connection.provider} className="size-3.5" />
@@ -41,7 +41,7 @@ export function GrokProviderAccountCell({ account }: { account: GrokProviderRow 
                   <div className="flex items-center gap-2 text-xs font-medium">
                     <GrokProviderIcon provider={connection.provider} className="size-3.5" />
                     <span>{PROVIDER_LABELS[connection.provider]}</span>
-                    {connection.current ? <span className="text-[#1456f0]">当前</span> : null}
+                    {connection.current ? <span className="text-primary">当前</span> : null}
                     <span className={cn("ml-auto", connection.status === "error" && "text-rose-600")}>{STATUS_LABELS[connection.status]}</span>
                   </div>
                   <div className="mt-1 truncate pl-5 font-mono text-[10px] text-muted-foreground" title={connection.id}>{connection.id}</div>

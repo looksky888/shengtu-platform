@@ -28,7 +28,7 @@ export function ICloudCodeFilter({ onKeywordChange }: { onKeywordChange: (keywor
     <div className="flex flex-wrap items-center gap-2">
       <span className="text-xs text-muted-foreground">取码平台</span>
       <Select value={platform} onValueChange={updatePlatform}>
-        <SelectTrigger className="h-9 w-[158px] rounded-xl" aria-label="选择取码平台">
+        <SelectTrigger className="h-9 w-[158px] rounded-lg" aria-label="选择取码平台">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -40,7 +40,7 @@ export function ICloudCodeFilter({ onKeywordChange }: { onKeywordChange: (keywor
       {platform === "custom" ? (
         <Input
           aria-label="自定义取码平台或发件人关键词"
-          className="h-9 w-40 rounded-xl"
+          className="h-9 w-40 rounded-lg"
           placeholder="输入平台或发件人关键词"
           value={customKeyword}
           onChange={(event) => updateCustomKeyword(event.target.value)}

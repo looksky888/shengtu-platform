@@ -21,7 +21,7 @@ export function StorageEntitlementPanel({ entitlement }: { entitlement: StorageE
   const bar = urgent ? "bg-status-danger" : warning ? "bg-status-warning" : "bg-status-info";
 
   return (
-    <section className={`rounded-2xl border p-4 ${tone}`}>
+    <section className={`rounded-xl border p-4 ${tone}`}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2 font-medium">
           <Cloud className="size-4" />云存储

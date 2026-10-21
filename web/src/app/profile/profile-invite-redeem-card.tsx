@@ -54,7 +54,7 @@ export function ProfileInviteRedeemCard({
     <Card>
       <CardHeader>
         <div className="flex min-w-0 items-center gap-3">
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-brand-border bg-brand-soft text-brand">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-brand-border bg-brand-soft text-brand">
             <Gift className="size-5" />
           </div>
           <div className="min-w-0">
@@ -138,11 +138,11 @@ function InviteInfoPanel({
         ) : null}
       </div>
       {isLoadingInvite ? (
-        <div className="flex min-h-[140px] items-center justify-center rounded-xl border border-border bg-surface-muted/35">
+        <div className="flex min-h-[140px] items-center justify-center rounded-lg border border-border/60 bg-muted/20">
           <LoaderCircle className="size-5 animate-spin text-muted-foreground" />
         </div>
       ) : inviteError ? (
-        <div className="flex flex-col gap-3 rounded-xl border border-rose-200 bg-rose-50/70 p-4 text-sm text-rose-700 dark:border-rose-900/70 dark:bg-rose-950/20 dark:text-rose-300">
+        <div className="flex flex-col gap-3 rounded-lg border border-rose-200 bg-rose-50/70 p-4 text-sm text-rose-700 dark:border-rose-900/70 dark:bg-rose-950/20 dark:text-rose-300">
           <span>邀请信息加载失败：{inviteError}</span>
           <div className="flex justify-end">
             <Button type="button" variant="outline" size="sm" onClick={onRetry}>
@@ -152,7 +152,7 @@ function InviteInfoPanel({
           </div>
         </div>
       ) : !inviteInfo ? (
-        <div className="rounded-xl border border-border bg-surface-muted/35 px-3 py-4 text-sm text-muted-foreground">
+        <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-4 text-sm text-muted-foreground">
           暂无邀请信息。
         </div>
       ) : (
@@ -189,9 +189,9 @@ function InviteValueCard({
   onCopy: () => void;
 }) {
   return (
-    <div className="flex min-w-0 flex-col gap-2 rounded-xl border border-border/80 bg-surface-muted/40 p-3">
+    <div className="flex min-w-0 flex-col gap-1.5">
       <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
-        <span>{label}</span>
+        <span className="font-medium text-foreground">{label}</span>
         {badge ? (
           <Badge variant="secondary" className="rounded-md">
             {badge}
@@ -205,7 +205,7 @@ function InviteValueCard({
         ) : null}
       </div>
       <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
-        <code className="min-w-0 flex-1 truncate rounded-lg border border-border/70 bg-surface px-3 py-2 font-mono text-xs text-foreground">
+        <code className="min-w-0 flex-1 truncate rounded-lg border border-border/60 bg-muted/20 px-3 py-2 font-mono text-xs text-foreground">
           {value}
         </code>
         <Button

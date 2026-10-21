@@ -24,10 +24,10 @@ function QuotaSlot({ slot }: { slot: ProviderQuotaSlot }) {
           {quotaValue(slot)}
         </span>
       </div>
-      <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted">
+      <div className="mt-1.5 h-1.5 overflow-hidden rounded-sm bg-muted">
         {slot.usedPercent != null ? (
           <div
-            className={cn("h-full rounded-full bg-[#1456f0]", exhausted && "bg-rose-500")}
+            className={cn("h-full rounded-sm bg-primary", exhausted && "bg-rose-500")}
             style={{ width: `${slot.usedPercent}%` }}
           />
         ) : null}

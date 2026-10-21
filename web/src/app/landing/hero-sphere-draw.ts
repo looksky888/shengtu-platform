@@ -51,11 +51,11 @@ export function strokePolyline(
     const a = Math.min(0.72, alpha);
     ctx.strokeStyle = a > 0.38
       ? dark
-        ? `rgba(253, 224, 71, ${a})`
-        : `rgba(217, 119, 6, ${a})`
+        ? `rgba(96, 165, 250, ${a})`
+        : `rgba(20, 86, 240, ${a})`
       : dark
-        ? `rgba(251, 191, 36, ${a * 0.9})`
-        : `rgba(180, 83, 9, ${a})`;
+        ? `rgba(59, 130, 246, ${a * 0.9})`
+        : `rgba(37, 99, 235, ${a})`;
     ctx.lineWidth = 0.55 + s.depth * 0.65 + (a > 0.4 ? 0.35 : 0);
     ctx.beginPath();
     ctx.moveTo(prev.x, prev.y);

@@ -28,27 +28,27 @@ export function AccountImportTokenPanel({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <AccountImportBackButton onClick={onBack} />
-        <span className="text-xs text-stone-400">当前识别 {tokenCount} 个 Token</span>
+        <span className="text-xs text-muted-foreground">当前识别 {tokenCount} 个 Token</span>
       </div>
       <div className="space-y-2">
-        <label className="text-sm font-medium text-stone-700">Access Token 列表</label>
+        <label className="text-sm font-medium text-foreground">Access Token 列表</label>
         <Textarea
           placeholder="每行一个 Access Token..."
           value={tokenInput}
           onChange={(event) => onTokenChange(event.target.value)}
-          className="min-h-56 resize-none rounded-xl border-stone-200"
+          className="min-h-56 resize-none rounded-xl border-border"
         />
       </div>
-      <div className="rounded-2xl border border-dashed border-stone-200 bg-stone-50 p-4">
+      <div className="rounded-xl border border-dashed border-border bg-muted/30 p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
-            <div className="text-sm font-medium text-stone-800">从 TXT 文件导入</div>
-            <div className="text-sm leading-6 text-stone-500">支持 `.txt`，文件内容也是一行一个 Token。</div>
+            <div className="text-sm font-medium text-foreground">从 TXT 文件导入</div>
+            <div className="text-sm leading-6 text-muted-foreground">支持 `.txt`，文件内容也是一行一个 Token。</div>
           </div>
           <Button
             type="button"
             variant="outline"
-            className="rounded-xl border-stone-200 bg-white"
+            className="h-9 rounded-lg border-border bg-background"
             onClick={() => txtInputRef.current?.click()}
             disabled={isSubmitting}
           >

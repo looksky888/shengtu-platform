@@ -17,16 +17,16 @@ export function AccountImportCpaPanel({ pendingCpaImport, isSubmitting, cpaInput
   return (
     <div className="space-y-4">
       <AccountImportBackButton onClick={onBack} />
-      <div className="rounded-2xl border border-dashed border-stone-200 bg-stone-50 p-5">
+      <div className="rounded-xl border border-dashed border-border bg-muted/30 p-5">
         <div className="space-y-2">
-          <div className="text-sm font-medium text-stone-800">多选本地 CPA JSON 文件</div>
-          <div className="text-sm leading-6 text-stone-500">
+          <div className="text-sm font-medium text-foreground">多选本地 CPA JSON 文件</div>
+          <div className="text-sm leading-6 text-muted-foreground">
             每个文件应为一个 JSON 对象。系统会从对象中自动提取 `access_token` 或 `accessToken`。
           </div>
         </div>
         <Button
           type="button"
-          className="mt-4 rounded-xl bg-stone-950 text-white hover:bg-stone-800"
+          className="mt-4 h-9 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90"
           onClick={() => cpaInputRef.current?.click()}
           disabled={isSubmitting}
         >
@@ -43,7 +43,7 @@ export function AccountImportCpaPanel({ pendingCpaImport, isSubmitting, cpaInput
         onChange={(event) => onCpaSelected(event)}
       />
       {pendingCpaImport ? (
-        <div className="rounded-2xl border border-stone-200 bg-white p-4 text-sm leading-6 text-stone-600">
+        <div className="rounded-xl border border-border bg-card p-4 text-sm leading-6 text-muted-foreground">
           最近一次读取到 {pendingCpaImport.parsedFileCount} 个 Token
           {pendingCpaImport.errorCount > 0 ? `，另有 ${pendingCpaImport.errorCount} 个文件未提取成功` : ""}。
         </div>

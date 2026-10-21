@@ -23,8 +23,8 @@ export type AppMeta = {
 };
 
 /** Display brand defaults — aligned with pre-login Hero. */
-export const DEFAULT_APP_TITLE = "ChatGPT";
-export const DEFAULT_PROJECT_NAME = "AI Image Studio";
+export const DEFAULT_APP_TITLE = "Shengtu Studio";
+export const DEFAULT_PROJECT_NAME = "AI Multimodal Workbench";
 
 export const defaultAppMeta: AppMeta = {
   canvas_url: "",

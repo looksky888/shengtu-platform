@@ -85,7 +85,7 @@ export function GrokProviderTaskProgress({
       <DialogContent className="max-h-[min(88dvh,720px)] gap-0 overflow-y-auto p-0 sm:w-[min(92vw,680px)]">
         <DialogHeader className="border-b border-border/70 px-5 py-5 pr-14 sm:px-6">
           <div className="flex items-center gap-3">
-            <span className={`grid size-10 shrink-0 place-items-center rounded-full ${failed ? "bg-rose-500/10 text-rose-600" : running ? "bg-brand-soft text-brand" : "bg-emerald-500/10 text-emerald-600"}`}>
+            <span className={`grid size-10 shrink-0 place-items-center rounded-xl ${failed ? "bg-rose-500/10 text-rose-600" : running ? "bg-brand-soft text-brand" : "bg-emerald-500/10 text-emerald-600"}`}>
               {failed ? <AlertCircle className="size-5" /> : running ? <LoaderCircle className="size-5 animate-spin motion-reduce:animate-none" /> : <CheckCircle2 className="size-5" />}
             </span>
             <div className="min-w-0">
@@ -101,8 +101,8 @@ export function GrokProviderTaskProgress({
               <div><p className="text-sm font-semibold">总体进度</p><p className="mt-0.5 text-xs text-muted-foreground">{finishedStages}/{stages.length} 个阶段完成</p></div>
               <span className={`font-mono text-2xl font-semibold tabular-nums ${failed ? "text-rose-600" : "text-brand"}`}>{overallPercent}%</span>
             </div>
-            <div className="h-2 overflow-hidden rounded-full bg-surface-muted">
-              <div className={`h-full rounded-full transition-[width] duration-300 motion-reduce:transition-none ${failed ? "bg-rose-500" : running ? "bg-brand" : "bg-emerald-600"}`} style={{ width: `${overallPercent}%` }} />
+            <div className="h-2 overflow-hidden rounded-sm bg-surface-muted">
+              <div className={`h-full rounded-sm transition-[width] duration-300 motion-reduce:transition-none ${failed ? "bg-rose-500" : running ? "bg-brand" : "bg-emerald-600"}`} style={{ width: `${overallPercent}%` }} />
             </div>
           </div>
 
@@ -114,9 +114,9 @@ export function GrokProviderTaskProgress({
               const isDone = stage.status === "succeeded";
               const stagePercent = Math.min(100, Math.max(0, stage.percent || 0));
               return (
-                <div key={`${stage.key}-${index}`} className={`relative min-w-0 overflow-hidden rounded-2xl border p-4 ${isRunning ? "border-brand-border bg-brand-soft/60" : isFailed ? "border-rose-500/25 bg-rose-500/10" : isDone ? "border-emerald-500/25 bg-emerald-500/10" : "border-border/70 bg-surface-muted/40"}`}>
+                <div key={`${stage.key}-${index}`} className={`relative min-w-0 overflow-hidden rounded-xl border p-4 ${isRunning ? "border-brand-border bg-brand-soft/60" : isFailed ? "border-rose-500/25 bg-rose-500/10" : isDone ? "border-emerald-500/25 bg-emerald-500/10" : "border-border/70 bg-surface-muted/40"}`}>
                   <div className="flex items-start gap-3">
-                    <span className={`mt-0.5 grid size-6 shrink-0 place-items-center rounded-full ${isDone ? "bg-emerald-600 text-white" : isRunning ? "bg-brand text-white" : isFailed ? "bg-rose-600 text-white" : "border border-border bg-surface text-muted-foreground"}`}>
+                    <span className={`mt-0.5 grid size-6 shrink-0 place-items-center rounded-md ${isDone ? "bg-emerald-600 text-white" : isRunning ? "bg-brand text-white" : isFailed ? "bg-rose-600 text-white" : "border border-border bg-surface text-muted-foreground"}`}>
                       {isDone ? <Check className="size-3.5" /> : isRunning ? <LoaderCircle className="size-3.5 animate-spin motion-reduce:animate-none" /> : isFailed ? <AlertCircle className="size-3.5" /> : <Circle className="size-2 fill-current" />}
                     </span>
                     <div className="min-w-0 flex-1">

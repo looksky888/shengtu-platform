@@ -31,8 +31,8 @@ export function ComposerSizeSettings({
 }: ComposerSizeSettingsProps) {
   return (
     <>
-      <div className="flex h-9 min-w-0 items-center justify-between gap-1.5 rounded-full border border-[#e5e7eb] bg-white px-2.5 dark:border-border dark:bg-background/70">
-        <span className="shrink-0 text-[11px] font-medium text-[#45515e] dark:text-muted-foreground">张数</span>
+      <div className="flex h-8.5 min-w-0 items-center justify-between gap-1.5 rounded-lg border border-border/70 bg-background px-2.5">
+        <span className="shrink-0 text-[11px] font-medium text-muted-foreground">张数</span>
         <Input
           aria-label="生成张数"
           type="number"
@@ -42,16 +42,16 @@ export function ComposerSizeSettings({
           step="1"
           value={imageCount}
           onChange={(event) => onImageCountChange(event.target.value)}
-          className="h-7 w-[36px] border-0 bg-transparent px-0 text-center text-xs font-semibold text-[#18181b] shadow-none focus-visible:ring-0 dark:text-foreground"
+          className="h-7 w-[36px] border-0 bg-transparent px-0 text-center text-xs font-semibold text-foreground shadow-none focus-visible:ring-0"
         />
       </div>
-      <div className="flex h-9 min-w-0 items-center justify-between gap-1.5 rounded-full border border-[#e5e7eb] bg-white px-2.5 text-[11px] dark:border-border dark:bg-background/70">
-        <span className="shrink-0 font-medium text-[#45515e] dark:text-muted-foreground">尺寸</span>
-        <span className="min-w-0 truncate text-right text-xs font-semibold text-[#18181b] dark:text-foreground">
+      <div className="flex h-8.5 min-w-0 items-center justify-between gap-1.5 rounded-lg border border-border/70 bg-background px-2.5 text-[11px]">
+        <span className="shrink-0 font-medium text-muted-foreground">尺寸</span>
+        <span className="min-w-0 truncate text-right text-xs font-semibold text-foreground">
           {sizePreviewLabel}
         </span>
       </div>
-      <div className="col-span-2 grid grid-cols-3 gap-1 rounded-full border border-[#e5e7eb] bg-white p-1 dark:border-border dark:bg-background/70 sm:col-span-3">
+      <div className="col-span-2 grid grid-cols-3 gap-1 rounded-lg border border-border/70 bg-muted/30 p-1 sm:col-span-3">
         {IMAGE_SIZE_MODE_OPTIONS.map((option) => {
           const active = option.value === imageSizeMode;
           return (
@@ -59,8 +59,8 @@ export function ComposerSizeSettings({
               key={option.value}
               type="button"
               className={cn(
-                "h-7 min-w-0 rounded-full px-2 text-xs font-medium text-[#45515e] transition hover:bg-black/[0.05] dark:text-muted-foreground dark:hover:bg-accent/60",
-                active && "bg-[#181e25] text-white hover:bg-[#181e25] dark:bg-foreground dark:text-background",
+                "h-7 min-w-0 rounded-md px-2 text-xs font-medium text-muted-foreground transition hover:bg-background/60 hover:text-foreground",
+                active && "bg-primary text-primary-foreground shadow-2xs hover:bg-primary hover:text-primary-foreground",
               )}
               onClick={() => {
                 onImageSizeModeChange(option.value);
@@ -73,7 +73,7 @@ export function ComposerSizeSettings({
         })}
       </div>
       {imageSizeMode === "custom" ? (
-        <div className="col-span-2 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 rounded-2xl border border-[#e5e7eb] bg-white px-3 py-2 dark:border-border dark:bg-background/70 sm:col-span-3">
+        <div className="col-span-2 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 rounded-lg border border-border/70 bg-background px-3 py-1.5 sm:col-span-3">
           <label className="min-w-0">
             <span className="sr-only">手动输入宽度</span>
             <Input
@@ -83,10 +83,10 @@ export function ComposerSizeSettings({
               step="1"
               value={imageCustomWidth}
               onChange={(event) => onImageCustomWidthChange(event.target.value)}
-              className="h-8 min-w-0 border-0 bg-transparent px-0 text-center text-xs font-semibold text-[#18181b] shadow-none focus-visible:ring-0 dark:text-foreground"
+              className="h-7 min-w-0 border-0 bg-transparent px-0 text-center text-xs font-semibold text-foreground shadow-none focus-visible:ring-0"
             />
           </label>
-          <X className="size-3.5 shrink-0 text-[#8e8e93]" />
+          <X className="size-3.5 shrink-0 text-muted-foreground" />
           <label className="min-w-0">
             <span className="sr-only">手动输入高度</span>
             <Input
@@ -96,7 +96,7 @@ export function ComposerSizeSettings({
               step="1"
               value={imageCustomHeight}
               onChange={(event) => onImageCustomHeightChange(event.target.value)}
-              className="h-8 min-w-0 border-0 bg-transparent px-0 text-center text-xs font-semibold text-[#18181b] shadow-none focus-visible:ring-0 dark:text-foreground"
+              className="h-7 min-w-0 border-0 bg-transparent px-0 text-center text-xs font-semibold text-foreground shadow-none focus-visible:ring-0"
             />
           </label>
         </div>

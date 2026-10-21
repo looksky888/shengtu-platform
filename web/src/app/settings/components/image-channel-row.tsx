@@ -27,7 +27,7 @@ export function ImageChannelRow({ channel, onEdit, onModels, onDelete }: {
   const setVideoCreditCostPerSecond = useSettingsStore((state) => state.setVideoCreditCostPerSecond);
 
   return (
-    <div className="grid gap-4 rounded-[18px] border border-border/70 bg-background px-4 py-4 transition-colors hover:border-border md:grid-cols-[minmax(0,1.35fr)_minmax(250px,.9fr)_220px] md:items-center">
+    <div className="grid gap-4 rounded-lg border border-border/60 bg-muted/20 p-4 transition-colors hover:border-border md:grid-cols-[minmax(0,1.35fr)_minmax(250px,.9fr)_220px] md:items-center">
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
           <span className="font-semibold text-foreground">{channel.name}</span>
@@ -48,7 +48,7 @@ export function ImageChannelRow({ channel, onEdit, onModels, onDelete }: {
         {!channel.system ? <Button type="button" variant="ghost" size="icon" aria-label="删除渠道" className="text-destructive" onClick={onDelete}><Trash2 className="size-4" /></Button> : null}
       </div>
       {channel.type === "grok_runtime" ? (
-        <div className="grid gap-3 rounded-2xl border border-amber-200/80 bg-amber-50/70 p-3 md:col-span-3 md:grid-cols-[minmax(0,1fr)_minmax(180px,240px)_auto] md:items-end dark:border-amber-900/50 dark:bg-amber-950/20">
+        <div className="grid gap-3 rounded-lg border border-amber-200/80 bg-amber-50/70 p-3 md:col-span-3 md:grid-cols-[minmax(0,1fr)_minmax(180px,240px)_auto] md:items-end dark:border-amber-900/50 dark:bg-amber-950/20">
           <div className="min-w-0">
             <div className="flex items-center gap-2 text-sm font-semibold text-foreground"><Coins className="size-4 text-amber-600" />Grok 本地号池 · 视频模型</div>
             <div className="mt-1 text-xs leading-5 text-muted-foreground">grok-imagine-video · 视频生成随本渠道启停，按生成时长扣除积分。</div>

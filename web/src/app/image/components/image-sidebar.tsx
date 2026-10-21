@@ -67,39 +67,39 @@ export function ImageSidebar({
 
   return (
     <aside className="h-full min-h-0 overflow-hidden">
-      <div className="flex h-full min-h-0 flex-col gap-2.5 py-1 sm:py-2">
+      <div className="flex h-full min-h-0 flex-col gap-2 py-0.5">
         {!hideActionButtons && (
           <div className="flex items-center gap-1.5">
             <Button
               variant="brand"
-              size="default"
-              className="flex-1 rounded-xl"
+              size="sm"
+              className="h-8 flex-1 justify-center gap-1.5 rounded-lg text-xs"
               onClick={onCreateDraft}
             >
-              <MessageSquarePlus className="size-4" />
+              <MessageSquarePlus className="size-3.5" />
               <span>新建对话</span>
             </Button>
             <Button
               variant="outline"
-              size="icon"
+              size="icon-sm"
               aria-label="清空历史记录"
               title="清空历史记录"
-              className="rounded-xl text-muted-foreground hover:text-destructive"
+              className="size-8 rounded-lg text-muted-foreground hover:text-destructive"
               onClick={() => setClearConfirmOpen(true)}
               disabled={conversations.length === 0}
             >
-              <Trash2 className="size-4" />
+              <Trash2 className="size-3.5" />
             </Button>
             {onCollapse ? (
               <Button
-                variant="ghost"
-                size="icon"
+                variant="outline"
+                size="icon-sm"
                 aria-label="收起会话列表"
                 title="收起会话列表"
-                className="rounded-xl text-muted-foreground"
+                className="size-8 rounded-lg text-muted-foreground"
                 onClick={onCollapse}
               >
-                <PanelLeftClose className="size-4" />
+                <PanelLeftClose className="size-3.5" />
               </Button>
             ) : null}
           </div>

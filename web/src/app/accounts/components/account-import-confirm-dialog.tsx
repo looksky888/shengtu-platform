@@ -21,7 +21,7 @@ export function AccountImportConfirmDialog({
 }: AccountImportConfirmDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="rounded-2xl p-6">
+      <DialogContent className="rounded-xl p-6">
         <DialogHeader className="gap-2">
           <DialogTitle>确认导入 CPA Token</DialogTitle>
           <DialogDescription className="text-sm leading-6">
@@ -32,14 +32,14 @@ export function AccountImportConfirmDialog({
         <DialogFooter className="pt-2">
           <Button
             variant="secondary"
-            className="h-10 rounded-xl bg-stone-100 px-5 text-stone-700 hover:bg-stone-200"
+            className="h-9 rounded-lg bg-muted px-4 text-foreground hover:bg-muted/80"
             onClick={() => onOpenChange(false)}
             disabled={isSubmitting}
           >
             返回
           </Button>
           <Button
-            className="h-10 rounded-xl bg-stone-950 px-5 text-white hover:bg-stone-800"
+            className="h-9 rounded-lg bg-primary px-4 text-primary-foreground hover:bg-primary/90"
             onClick={onConfirm}
             disabled={isSubmitting || !pendingCpaImport}
           >

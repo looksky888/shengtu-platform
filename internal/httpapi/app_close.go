@@ -8,6 +8,9 @@ import (
 )
 
 func (a *App) Close() error {
+	if a.updateAdmission != nil {
+		a.updateAdmission.beginDrain("服务正在关闭")
+	}
 	var taskErr error
 	// Stop image tasks first so in-flight work can finish or cancel with terminal state (F-03).
 	if a.closeTasks != nil {

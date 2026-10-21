@@ -90,7 +90,7 @@ export function ImportBrowserDialog() {
     <Dialog open={browserOpen} onOpenChange={setBrowserOpen}>
       <DialogContent
         showCloseButton={false}
-        className="max-h-[90vh] max-w-5xl rounded-2xl p-6"
+        className="max-h-[90vh] max-w-5xl rounded-xl p-6"
       >
         <DialogHeader className="gap-2">
           <DialogTitle>选择要导入的账号</DialogTitle>
@@ -118,7 +118,7 @@ export function ImportBrowserDialog() {
                 setPageSize(value as (typeof PAGE_SIZE_OPTIONS)[number])
               }
             >
-              <SelectTrigger className="h-11 w-[120px]">
+              <SelectTrigger className="w-[120px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -133,7 +133,6 @@ export function ImportBrowserDialog() {
             </Select>
             <Button
               variant="outline"
-              size="lg"
               onClick={() => toggleSelectAllFiltered(!allFilteredSelected)}
             >
               {allFilteredSelected ? "取消全选" : "全选筛选结果"}
@@ -187,14 +186,12 @@ export function ImportBrowserDialog() {
         <DialogFooter className="pt-2">
           <Button
             variant="secondary"
-            size="lg"
             onClick={() => setBrowserOpen(false)}
             disabled={isStartingImport}
           >
             {"取消"}
           </Button>
           <Button
-            size="lg"
             onClick={() => void startImport()}
             disabled={isStartingImport || selectedNames.length === 0}
           >

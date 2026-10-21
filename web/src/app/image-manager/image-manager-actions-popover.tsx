@@ -38,7 +38,6 @@ export function ImageManagerActionsPopover({
   hasLocalFilters,
   allSelected,
   galleryView,
-  selectedItems,
   selectedPrivateItems,
   selectedPublicItems,
   canDeleteImages,
@@ -55,27 +54,27 @@ export function ImageManagerActionsPopover({
   onRefresh,
 }: ImageManagerActionsPopoverProps) {
   return (
-    <Popover open={open} onOpenChange={onOpenChange}>
-      <div className="fixed right-4 bottom-[calc(env(safe-area-inset-bottom)+1rem)] z-40 sm:right-6 sm:bottom-6">
+    <>
+      <Popover open={open} onOpenChange={onOpenChange}>
         <PopoverTrigger asChild>
-          <Button type="button" className="h-12 rounded-full px-4 shadow-[0_18px_50px_-24px_rgba(15,23,42,0.65)]" aria-label="打开图片操作">
-            <MoreHorizontal className="size-5" />
-            <span>操作</span>
+          <Button type="button" variant="outline" className="h-9 rounded-lg px-3 text-xs" aria-label="打开图片操作">
+            <MoreHorizontal className="size-4" />
+            <span>批量操作</span>
             {selectedCount > 0 ? (
-              <span className="ml-0.5 inline-flex min-w-5 items-center justify-center rounded-full bg-white/20 px-1.5 text-xs font-semibold text-white">
+              <span className="ml-0.5 inline-flex min-w-5 items-center justify-center rounded-md bg-primary/10 px-1.5 text-xs font-semibold text-primary tabular-nums">
                 {selectedCount}
               </span>
             ) : null}
           </Button>
         </PopoverTrigger>
-        <PopoverContent align="end" side="top" sideOffset={10} className="w-[min(calc(100vw-2rem),20rem)] p-2">
-          <div className="flex flex-col gap-1">
-            <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+        <PopoverContent align="end" sideOffset={8} className="w-[min(calc(100vw-2rem),18rem)] rounded-xl p-1.5">
+          <div className="flex flex-col gap-0.5">
+            <div className="px-2.5 py-1.5 text-xs font-medium text-muted-foreground">
               {hasLocalFilters ? `显示 ${filteredCount} / ${totalCount} 张` : `共 ${totalCount} 张`}
             </div>
-            <Button type="button" variant="ghost" className="h-10 justify-start rounded-lg px-3 text-sm" disabled={filteredCount === 0 || isMutatingImages} onClick={onToggleAll}>
+            <Button type="button" variant="ghost" className="h-9 justify-start rounded-lg px-2.5 text-xs" disabled={filteredCount === 0 || isMutatingImages} onClick={onToggleAll}>
               <Check className="size-4" />
-              {allSelected ? "取消全选" : "全选"}
+              {allSelected ? "取消全选" : "全选当前页"}
             </Button>
             {galleryView === "mine" ? (
               <>
@@ -97,26 +96,46 @@ export function ImageManagerActionsPopover({
             ) : null}
             <ActionButton label={`下载已选 (${selectedCount})`} loading={downloadingKey === "selected"} disabled={selectedCount === 0 || isMutatingImages} onClick={onDownloadSelected} />
             {canDeleteImages ? (
-              <Button type="button" variant="ghost" className="h-10 justify-start rounded-lg px-3 text-sm text-rose-600 hover:bg-rose-50 hover:text-rose-700" disabled={selectedCount === 0 || isMutatingImages} onClick={onDeleteSelected}>
+              <Button type="button" variant="ghost" className="h-9 justify-start rounded-lg px-2.5 text-xs text-rose-600 hover:bg-rose-50 hover:text-rose-700" disabled={selectedCount === 0 || isMutatingImages} onClick={onDeleteSelected}>
                 <Trash2 className="size-4" />
                 删除已选 ({selectedCount})
               </Button>
             ) : null}
             <ActionButton label={`下载全部 (${filteredCount})`} loading={downloadingKey === "all"} disabled={filteredCount === 0 || isMutatingImages} onClick={onDownloadAll} />
-            <Button type="button" variant="ghost" className="h-10 justify-start rounded-lg px-3 text-sm" disabled={isLoading || isMutatingImages} onClick={onRefresh}>
+            <Button type="button" variant="ghost" className="h-9 justify-start rounded-lg px-2.5 text-xs" disabled={isLoading || isMutatingImages} onClick={onRefresh}>
               <RefreshCw className={`size-4 ${isLoading ? "animate-spin" : ""}`} />
               刷新
             </Button>
           </div>
         </PopoverContent>
-      </div>
-    </Popover>
+      </Popover>
+
+      {selectedCount > 0 ? (
+        <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+1.25rem)] left-1/2 z-40 flex -translate-x-1/2 flex-wrap items-center gap-1.5 rounded-xl border border-border/80 bg-card/95 px-3 py-2 shadow-lg backdrop-blur-md">
+          <span className="px-1.5 text-xs font-medium text-foreground tabular-nums">已选 {selectedCount} 项</span>
+          <Button type="button" variant="outline" className="h-8 rounded-lg px-2.5 text-xs" disabled={isMutatingImages} onClick={onToggleAll}>
+            <Check className="size-3.5" />
+            {allSelected ? "取消全选" : "全选"}
+          </Button>
+          <Button type="button" variant="outline" className="h-8 rounded-lg px-2.5 text-xs" disabled={isMutatingImages || downloadingKey === "selected"} onClick={onDownloadSelected}>
+            {downloadingKey === "selected" ? <LoaderCircle className="size-3.5 animate-spin" /> : <Download className="size-3.5" />}
+            下载
+          </Button>
+          {canDeleteImages ? (
+            <Button type="button" variant="destructive-outline" className="h-8 rounded-lg px-2.5 text-xs" disabled={isMutatingImages} onClick={onDeleteSelected}>
+              <Trash2 className="size-3.5" />
+              删除
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+    </>
   );
 }
 
 function ActionButton({ label, loading, disabled, onClick }: { label: string; loading: boolean; disabled: boolean; onClick: () => void }) {
   return (
-    <Button type="button" variant="ghost" className="h-10 justify-start rounded-lg px-3 text-sm" disabled={disabled} onClick={onClick}>
+    <Button type="button" variant="ghost" className="h-9 justify-start rounded-lg px-2.5 text-xs" disabled={disabled} onClick={onClick}>
       {loading ? <LoaderCircle className="size-4 animate-spin" /> : <Download className="size-4" />}
       {label}
     </Button>
@@ -125,7 +144,7 @@ function ActionButton({ label, loading, disabled, onClick }: { label: string; lo
 
 function VisibilityButton({ label, loading, disabled, icon, onClick }: { label: string; loading: boolean; disabled: boolean; icon: "public" | "private"; onClick: () => void }) {
   return (
-    <Button type="button" variant="ghost" className="h-10 justify-start rounded-lg px-3 text-sm" disabled={disabled} onClick={onClick}>
+    <Button type="button" variant="ghost" className="h-9 justify-start rounded-lg px-2.5 text-xs" disabled={disabled} onClick={onClick}>
       {loading ? <LoaderCircle className="size-4 animate-spin" /> : icon === "public" ? <Globe2 className="size-4" /> : <Lock className="size-4" />}
       {label}
     </Button>

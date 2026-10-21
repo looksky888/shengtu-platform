@@ -22,19 +22,19 @@ export function AnnouncementPopover({ announcements, className, onOpenAnnounceme
           type="button"
           variant="outline"
           className={cn(
-            "relative size-10 rounded-full border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50 p-0 text-amber-800 shadow-sm hover:from-amber-100 hover:to-orange-100 hover:text-amber-900",
+            "relative size-9 rounded-lg border-amber-200/80 bg-amber-50/80 p-0 text-amber-800 shadow-2xs hover:bg-amber-100/80 hover:text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200",
             className,
           )}
           aria-label={`查看 ${announcements.length} 条公告`}
         >
           <Bell className="size-4" />
-          <span className="absolute -right-1 -top-1 flex min-w-5 items-center justify-center rounded-full bg-amber-600 px-1.5 text-[10px] font-semibold leading-5 text-white shadow-sm">
+          <span className="absolute -right-1 -top-1 flex min-w-5 items-center justify-center rounded-full bg-amber-600 px-1.5 text-[10px] font-semibold leading-5 text-white shadow-2xs">
             {announcements.length}
           </span>
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-[min(calc(100vw-2rem),440px)] overflow-hidden rounded-2xl p-0">
-        <div className="border-b border-amber-100 bg-gradient-to-r from-amber-50 via-orange-50 to-white px-4 py-3 dark:border-amber-900/40 dark:from-amber-950/30 dark:via-orange-950/20 dark:to-background">
+      <PopoverContent align="end" className="w-[min(calc(100vw-2rem),440px)] overflow-hidden rounded-xl p-0">
+        <div className="border-b border-border/70 bg-muted/30 px-4 py-3">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
               <Bell className="size-4 text-amber-700 dark:text-amber-300" />
@@ -44,7 +44,7 @@ export function AnnouncementPopover({ announcements, className, onOpenAnnounceme
           </div>
         </div>
         <div aria-live="polite" className="max-h-[min(64vh,520px)] overflow-y-auto p-3">
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2.5">
             {announcements.map((announcement, index) => (
               <AnnouncementListItem
                 key={announcement.id}
@@ -65,9 +65,9 @@ function AnnouncementListItem({ announcement, index, onClick }: { announcement: 
     <button
       type="button"
       onClick={onClick}
-      className="group flex gap-3 rounded-2xl border border-amber-200/80 bg-amber-50/80 px-4 py-3 text-left transition hover:-translate-y-0.5 hover:bg-amber-50 hover:shadow-sm dark:border-amber-900/50 dark:bg-amber-950/20 dark:hover:bg-amber-950/30"
+      className="group flex gap-3 rounded-xl border border-amber-200/80 bg-amber-50/60 px-3.5 py-3 text-left transition hover:bg-amber-50 hover:shadow-2xs dark:border-amber-900/50 dark:bg-amber-950/20 dark:hover:bg-amber-950/30"
     >
-      <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-800 ring-1 ring-amber-200/70 dark:bg-amber-950/50 dark:text-amber-200 dark:ring-amber-900/50">
+      <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-800 ring-1 ring-amber-200/70 dark:bg-amber-950/50 dark:text-amber-200 dark:ring-amber-900/50">
         <Megaphone className="size-4" />
       </div>
       <div className="min-w-0 flex-1">
@@ -78,7 +78,7 @@ function AnnouncementListItem({ announcement, index, onClick }: { announcement: 
         <p className="mt-1 line-clamp-2 whitespace-pre-wrap break-words text-sm leading-6 text-muted-foreground">{announcement.content}</p>
         <div className="mt-2 text-xs text-muted-foreground">{formatAnnouncementDate(announcement.updated_at || announcement.created_at)}</div>
         {announcement.image_url ? (
-          <img src={announcement.image_url} alt="" className="mt-3 max-h-32 w-full rounded-xl object-cover ring-1 ring-amber-200/70 dark:ring-amber-900/50" />
+          <img src={announcement.image_url} alt="" className="mt-3 max-h-32 w-full rounded-lg object-cover ring-1 ring-amber-200/70 dark:ring-amber-900/50" />
         ) : null}
       </div>
     </button>

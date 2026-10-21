@@ -70,7 +70,7 @@ function VideoAssetCard({
   const deleting = controller.deletingTaskID === asset.id;
   const updatingVisibility = controller.visibilityMutatingID === asset.id;
   return (
-    <article className="overflow-hidden rounded-[20px] border border-border bg-card shadow-[0_10px_30px_-24px_rgba(44,30,116,0.32)]">
+    <article className="overflow-hidden rounded-xl border border-border/70 bg-card shadow-2xs">
       <div className="group relative aspect-video w-full bg-black text-white">
         <Checkbox
           checked={Boolean(controller.selectedIDs[asset.id])}
@@ -133,7 +133,7 @@ function VideoAssetCard({
 
 function LibraryState({ icon, title, detail, action }: { icon: ReactNode; title: string; detail?: string; action?: ReactNode }) {
   return (
-    <div className="flex min-h-64 flex-col items-center justify-center gap-3 rounded-[20px] border border-dashed px-4 text-center text-muted-foreground">
+    <div className="flex min-h-64 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border/80 bg-card/50 px-4 text-center text-muted-foreground">
       <span>{icon}</span>
       <p className="text-sm font-medium text-foreground">{title}</p>
       {detail ? <p className="max-w-lg text-xs leading-5">{detail}</p> : null}

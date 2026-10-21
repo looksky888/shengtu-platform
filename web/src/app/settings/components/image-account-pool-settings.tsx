@@ -39,11 +39,11 @@ export function ImageAccountPoolSettings() {
   const fallbackModels = Array.isArray(config.image_fallback_model_slugs) ? config.image_fallback_model_slugs : [];
 
   return (
-    <div className="grid gap-4 rounded-[18px] border border-border/80 bg-muted/25 p-4">
+    <div className="grid gap-4">
       <div className="grid gap-4 md:grid-cols-2">
         <Field>
           <FieldLabel>生图默认模型</FieldLabel>
-          <div className="flex h-10 items-center rounded-[13px] border border-input bg-muted/40 px-3 text-sm text-muted-foreground">
+          <div className="flex h-9 items-center rounded-lg border border-input bg-muted/40 px-3 text-sm text-muted-foreground">
             {String(config.image_default_model || DEFAULT_IMAGE_MODEL)}
           </div>
           <FieldDescription>

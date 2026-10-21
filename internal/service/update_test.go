@@ -25,7 +25,12 @@ func TestCompareVersions(t *testing.T) {
 		{name: "older minor", current: "1.2.9", latest: "1.3.0", want: -1},
 		{name: "same with v prefix", current: "v1.2.3", latest: "1.2.3", want: 0},
 		{name: "newer", current: "2.0.0", latest: "1.9.9", want: 1},
-		{name: "pre release trims suffix", current: "1.2.3-dev", latest: "1.2.3", want: 0},
+		{name: "pre release before stable", current: "1.2.3-dev", latest: "1.2.3", want: -1},
+		{name: "older dated build", current: "4.5-20260925-ui-workspace", latest: "4.5-20261016-update-center", want: -1},
+		{name: "newer dated build", current: "4.5-20261016-update-center", latest: "4.5-20260925-ui-workspace", want: 1},
+		{name: "same dated build", current: "v4.5-20260925-ui-workspace", latest: "4.5-20260925-ui-workspace", want: 0},
+		{name: "patch release after dated build", current: "4.5-20261017-security-remediation", latest: "4.5.1-20261017-backup-retention", want: -1},
+		{name: "newer patch release", current: "4.5.1-20261017-backup-retention", latest: "4.5.2-20261017-public-updater", want: -1},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			got := compareVersions(tc.current, tc.latest)
@@ -33,6 +38,20 @@ func TestCompareVersions(t *testing.T) {
 				t.Fatalf("compareVersions(%q, %q) = %d, want %d", tc.current, tc.latest, got, tc.want)
 			}
 		})
+	}
+}
+
+func TestDockerUpdateIsReadOnly(t *testing.T) {
+	service := NewUpdateService(UpdateOptions{
+		CurrentVersion: "4.5-20260925-ui-workspace",
+		BuildType:      "release",
+		Deployment:     "docker",
+	})
+	if service.automaticUpdateSupported() {
+		t.Fatal("docker deployment reported automatic update support")
+	}
+	if err := service.EnsureAutomaticUpdateSupported(); err == nil || !strings.Contains(err.Error(), "Host Updater") {
+		t.Fatalf("EnsureAutomaticUpdateSupported() error = %v", err)
 	}
 }
 

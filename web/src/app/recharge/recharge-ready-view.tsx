@@ -44,18 +44,18 @@ export function RechargeReadyView({
   onRefresh: () => void;
 }) {
   return (
-    <main className="mx-auto max-w-6xl space-y-8 p-6 md:p-10">
-      <header className="rounded-3xl border border-border bg-card p-6 shadow-sm md:p-8">
-        <div className="flex items-center gap-3 text-primary"><WalletCards className="size-5" /><span className="text-xs font-semibold tracking-[0.16em]">PAYMENT CENTER</span></div>
-        <h1 className="mt-3 text-3xl font-semibold tracking-tight">充值中心</h1>
-        <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground">购买积分或云存储套餐，使用微信或支付宝扫码支付，到账后权益自动更新。</p>
+    <main className="mx-auto max-w-6xl space-y-6 p-6 md:p-8">
+      <header className="rounded-xl border border-border/70 bg-card p-5 shadow-2xs">
+        <div className="flex items-center gap-2.5 text-primary"><WalletCards className="size-4.5" /><span className="text-xs font-semibold tracking-[0.16em]">PAYMENT CENTER</span></div>
+        <h1 className="mt-2 text-2xl font-semibold tracking-tight">充值中心</h1>
+        <p className="mt-1.5 max-w-xl text-sm leading-6 text-muted-foreground">购买积分或云存储套餐，使用微信或支付宝扫码支付，到账后权益自动更新。</p>
       </header>
       {error ? <RechargeErrorPanel message={error} /> : null}
       {storageEntitlement && storageEntitlement.storage_bytes > 0 ? (
 		<StorageEntitlementPanel entitlement={storageEntitlement} />
       ) : null}
       {!order && channels.length > 0 ? (
-        <section className="flex flex-wrap items-center gap-3 rounded-2xl border bg-card p-4 shadow-sm">
+        <section className="flex flex-wrap items-center gap-3 rounded-xl border border-border/70 bg-card p-4 shadow-2xs">
           <span className="text-sm font-medium">支付方式</span>
           {channels.map((channel) => (
             <Button key={channel.id} type="button" size="sm" variant={selectedChannelID === channel.id ? "default" : "outline"} onClick={() => onChannelChange(channel.id)} disabled={submitting}>
@@ -66,9 +66,9 @@ export function RechargeReadyView({
       ) : null}
       {!order ? (
         <>
-          <section className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+          <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {products.length > 0 ? products.map((product) => <ProductTile key={product.id} product={product} disabled={submitting} onSubmit={onSubmit} />) : (
-              <div className="rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground md:col-span-2 lg:col-span-3">暂无可购买套餐，请稍后再试。</div>
+              <div className="rounded-xl border border-dashed border-border/70 bg-card p-8 text-center text-sm text-muted-foreground md:col-span-2 lg:col-span-3">暂无可购买套餐，请稍后再试。</div>
             )}
           </section>
           {settings.custom_credits_enabled ? <CustomCreditsPanel settings={settings} value={custom} disabled={submitting} onChange={onCustomChange} onSubmit={() => onSubmit()} /> : null}

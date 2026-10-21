@@ -115,7 +115,7 @@ export function buildHeroSphereGeometry(lite: boolean): HeroSphereGeometry {
     size: 0.85 + Math.random() * 2.6,
     phase: Math.random() * Math.PI * 2,
     speed: 0.1 + Math.random() * 0.42,
-    hue: 24 + Math.random() * 34,
+    hue: 208 + Math.random() * 28,
     twinkle: 0.55 + Math.random() * 1.5,
     trail: Math.random(),
   }));

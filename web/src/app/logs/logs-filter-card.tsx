@@ -62,11 +62,11 @@ export function LogsFilterCard({ filters, isLoading, onSubmit, onUpdateFilter, o
             />
           </div>
           <div className="flex gap-2 md:col-span-2 xl:col-span-2">
-            <Button type="submit" disabled={isLoading} className="h-10 rounded-lg">
+            <Button type="submit" disabled={isLoading} className="h-9 rounded-lg">
               {isLoading ? <LoaderCircle className="size-4 animate-spin" /> : <Search className="size-4" />}
               {"查询"}
             </Button>
-            <Button type="button" variant="outline" onClick={onClearFilters} className="h-10 rounded-lg">
+            <Button type="button" variant="outline" onClick={onClearFilters} className="h-9 rounded-lg">
               <X className="size-4" />
               {"清空"}
             </Button>

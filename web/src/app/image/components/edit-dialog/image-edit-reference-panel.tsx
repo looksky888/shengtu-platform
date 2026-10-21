@@ -27,12 +27,12 @@ export function ImageEditReferencePanel({
         }}
       />
       <div className="flex items-center justify-between gap-3">
-        <div className="text-sm font-medium text-stone-700">参考图</div>
+        <div className="text-sm font-medium text-foreground">参考图</div>
         <Button
           type="button"
           variant="outline"
           size="sm"
-          className="rounded-full border-stone-200 bg-white"
+          className="rounded-lg"
           onClick={() => editFileInputRef.current?.click()}
         >
           <ImagePlus className="size-4" />
@@ -45,7 +45,7 @@ export function ImageEditReferencePanel({
             <div key={`${image.name}-${index}`} className="relative size-20 shrink-0">
               <button
                 type="button"
-                className="size-20 overflow-hidden rounded-2xl border border-stone-200 bg-stone-100"
+                className="size-20 overflow-hidden rounded-xl border border-border/70 bg-muted/40"
                 onClick={() =>
                   onOpenLightbox(
                     draft.referenceImages.map((item, itemIndex) => ({
@@ -66,7 +66,7 @@ export function ImageEditReferencePanel({
               <button
                 type="button"
                 onClick={() => onRemoveReferenceImage(index)}
-                className="absolute -top-1 -right-1 z-10 inline-flex size-6 items-center justify-center rounded-full border border-stone-200 bg-white text-stone-500 shadow-sm transition hover:text-stone-900"
+                className="absolute -top-1 -right-1 z-10 inline-flex size-5 items-center justify-center rounded-md border border-border/70 bg-card text-muted-foreground shadow-2xs transition hover:text-foreground"
                 aria-label={`移除参考图 ${image.name || index + 1}`}
               >
                 <X className="size-3.5" />

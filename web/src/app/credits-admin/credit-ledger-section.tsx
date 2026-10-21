@@ -23,7 +23,7 @@ export function CreditLedgerSection({ state }: { state: CreditsAdminState }) {
       <CardHeader className="border-b border-border px-5 py-4">
         <div className="flex flex-col gap-1.5">
           <CardTitle className="flex items-center gap-2 text-lg">
-            <Coins className="size-5 text-[#1456f0]" />
+            <Coins className="size-5 text-primary" />
             积分流水
           </CardTitle>
           <CardDescription>服务端分页；正数表示入账，负数表示扣减。</CardDescription>
@@ -38,11 +38,11 @@ export function CreditLedgerSection({ state }: { state: CreditsAdminState }) {
               value={state.ledgerSearch}
               onChange={(event) => state.setLedgerSearch(event.target.value)}
               placeholder="搜索用户、引用或原因"
-              className="h-10 rounded-lg pl-9"
+              className="h-9 rounded-lg pl-9"
             />
           </div>
           <Select value={state.ledgerReason} onValueChange={state.setLedgerReason}>
-            <SelectTrigger aria-label="积分流水原因筛选" className="h-10 rounded-lg">
+            <SelectTrigger aria-label="积分流水原因筛选" className="h-9 rounded-lg">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -58,7 +58,7 @@ export function CreditLedgerSection({ state }: { state: CreditsAdminState }) {
             </SelectContent>
           </Select>
           <Select value={state.ledgerTime} onValueChange={(value) => state.setLedgerTime(value as TimeFilter)}>
-            <SelectTrigger aria-label="积分流水时间筛选" className="h-10 rounded-lg">
+            <SelectTrigger aria-label="积分流水时间筛选" className="h-9 rounded-lg">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -71,7 +71,7 @@ export function CreditLedgerSection({ state }: { state: CreditsAdminState }) {
           <Button
             type="button"
             variant="outline"
-            className="h-10 rounded-lg px-3"
+            className="h-9 rounded-lg px-3"
             disabled={!state.ledgerSearch.trim() && state.ledgerReason === "all" && state.ledgerTime === "all"}
             onClick={() => {
               state.setLedgerSearch("");

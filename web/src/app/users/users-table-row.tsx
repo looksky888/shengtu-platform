@@ -78,7 +78,7 @@ function UserIdentity({ user }: { user: ManagedUser }) {
     <div className="min-w-0 space-y-1">
       <div className="truncate font-medium text-foreground">{user.name || "普通用户"}</div>
       {user.email ? (
-        <div className="flex items-center gap-1.5 text-xs font-medium text-[#1456f0]">
+        <div className="flex items-center gap-1.5 text-xs font-medium text-primary">
           <Mail className="size-3.5" />
           <span className="truncate">{user.email}</span>
         </div>
@@ -138,27 +138,27 @@ function UserActions({ user, isPending, permissions, onAdjustCredits, onRole, on
     <div className="flex flex-wrap justify-end gap-2">
       {permissions.canAdjustCredits ? (
         <>
-          <Button type="button" variant="outline" className="h-8 rounded-lg px-3" onClick={() => onAdjustCredits(user, "add")} disabled={isPending}>
+          <Button type="button" variant="outline" className="h-8 rounded-md px-3" onClick={() => onAdjustCredits(user, "add")} disabled={isPending}>
             <Coins className="size-4" />加积分
           </Button>
-          <Button type="button" variant="outline" className="h-8 rounded-lg border-rose-200 px-3 text-rose-600 hover:bg-rose-50 hover:text-rose-700" onClick={() => onAdjustCredits(user, "deduct")} disabled={isPending}>
+          <Button type="button" variant="outline" className="h-8 rounded-md border-rose-200 px-3 text-rose-600 hover:bg-rose-50 hover:text-rose-700" onClick={() => onAdjustCredits(user, "deduct")} disabled={isPending}>
             <Minus className="size-4" />减积分
           </Button>
         </>
       ) : null}
       {permissions.canUpdateUser ? (
         <>
-          <Button type="button" variant="outline" className="h-8 rounded-lg px-3" onClick={() => onRole(user)} disabled={isPending}>
+          <Button type="button" variant="outline" className="h-8 rounded-md px-3" onClick={() => onRole(user)} disabled={isPending}>
             <ShieldCheck className="size-4" />角色
           </Button>
-          <Button type="button" variant="outline" className="h-8 rounded-lg px-3" onClick={() => onToggle(user)} disabled={isPending}>
+          <Button type="button" variant="outline" className="h-8 rounded-md px-3" onClick={() => onToggle(user)} disabled={isPending}>
             {isPending ? <LoaderCircle className="size-4 animate-spin" /> : user.enabled ? <Ban className="size-4" /> : <CheckCircle2 className="size-4" />}
             {user.enabled ? "禁用" : "启用"}
           </Button>
         </>
       ) : null}
       {permissions.canDeleteUser ? (
-        <Button type="button" variant="outline" className="h-8 rounded-lg border-rose-200 px-3 text-rose-600 hover:bg-rose-50 hover:text-rose-700" onClick={() => onDelete(user)} disabled={isPending}>
+        <Button type="button" variant="outline" className="h-8 rounded-md border-rose-200 px-3 text-rose-600 hover:bg-rose-50 hover:text-rose-700" onClick={() => onDelete(user)} disabled={isPending}>
           <Trash2 className="size-4" />删除
         </Button>
       ) : null}

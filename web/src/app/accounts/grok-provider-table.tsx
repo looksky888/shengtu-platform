@@ -63,7 +63,7 @@ function CapabilityCell({ account }: { account: GrokProviderRow }) {
   return (
     <div className="flex max-w-48 flex-wrap gap-1">
       {account.capabilities.map((item) => (
-        <Badge key={item} variant="outline" className="rounded-full font-normal">
+        <Badge key={item} variant="outline" className="rounded-md font-normal">
           {capabilityLabel(item)}
         </Badge>
       ))}
@@ -80,7 +80,7 @@ function MobileAccountCard({
 }) {
   const time = accountDisplayTime(account);
   return (
-    <article className="grid gap-3 rounded-2xl border border-border bg-surface p-4 shadow-2xs">
+    <article className="grid gap-3 rounded-xl border border-border bg-card p-4 shadow-2xs">
       <div className="flex items-start gap-3">
         <Checkbox
           aria-label={`选择 ${account.display_name || account.id}`}

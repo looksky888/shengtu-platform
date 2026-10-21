@@ -45,6 +45,25 @@ export function AccountsPageContent({ session }: { session: StoredAuthSession })
 
   return (
     <div className="flex flex-col gap-4">
+      <AccountPageHeader
+        accounts={accounts.accounts}
+        isLoading={accounts.isLoading}
+        isRefreshing={accounts.isRefreshing}
+        isDeleting={accounts.isDeleting}
+        isExporting={accounts.isExporting}
+        canImportAccounts={canImportAccounts}
+        canRefreshAccounts={canRefreshAccounts}
+        canExportTokens={canExportTokens}
+        showActions={platform === "gpt"}
+        onLoad={() => {
+          void accounts.loadAccounts();
+          void accounts.loadAccountsSummary();
+        }}
+        onRefreshAll={() => void accounts.handleRefreshAllAccounts()}
+        onExportTokens={() => void accounts.handleExportTokens()}
+        onImported={accounts.handleImported}
+      />
+
       <div className="flex flex-wrap items-center justify-between gap-3">
         <SubNav
           ariaLabel="号池平台切换"
@@ -59,24 +78,6 @@ export function AccountsPageContent({ session }: { session: StoredAuthSession })
 
       {platform === "gpt" ? (
         <>
-          <AccountPageHeader
-            accounts={accounts.accounts}
-            isLoading={accounts.isLoading}
-            isRefreshing={accounts.isRefreshing}
-            isDeleting={accounts.isDeleting}
-            isExporting={accounts.isExporting}
-            canImportAccounts={canImportAccounts}
-            canRefreshAccounts={canRefreshAccounts}
-            canExportTokens={canExportTokens}
-            onLoad={() => {
-              void accounts.loadAccounts();
-              void accounts.loadAccountsSummary();
-            }}
-            onRefreshAll={() => void accounts.handleRefreshAllAccounts()}
-            onExportTokens={() => void accounts.handleExportTokens()}
-            onImported={accounts.handleImported}
-          />
-
           <AccountEditDialog
             account={accounts.editingAccount}
             editStatus={accounts.editStatus}

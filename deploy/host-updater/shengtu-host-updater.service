@@ -1,0 +1,23 @@
+[Unit]
+Description=Shengtu Host Updater
+After=docker.service network-online.target
+Requires=docker.service
+
+[Service]
+Type=simple
+User=root
+Group=root
+EnvironmentFile=/etc/shengtu-host-updater.env
+ExecStart=/usr/local/sbin/shengtu-host-updater
+Restart=on-failure
+RestartSec=5
+RuntimeDirectory=shengtu-updater
+RuntimeDirectoryMode=0750
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/run/shengtu-updater /opt/chatgpt2api /opt/chatgpt2api/data
+
+[Install]
+WantedBy=multi-user.target

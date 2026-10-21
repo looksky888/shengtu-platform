@@ -14,7 +14,7 @@ export function ICloudSessionsPanel({ controller }: { controller: ICloudPageCont
         <Button
           size="sm"
           variant="outline"
-          className="h-8 rounded-lg"
+          className="h-8 rounded-md"
           disabled={busy || sessions.length === 0}
           onClick={() => void checkSession()}
         >

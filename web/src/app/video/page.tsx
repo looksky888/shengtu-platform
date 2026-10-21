@@ -20,13 +20,13 @@ export default function VideoPage() {
   }
 
   return (
-    <section className="space-y-4 py-3 sm:py-5">
-      <header className="flex flex-col gap-3 px-1 sm:flex-row sm:items-end sm:justify-between">
+    <section className="space-y-4 py-3 sm:py-4">
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#1456f0]"><Film className="size-3.5" />Grok Imagine</p>
-          <h1 className="font-display mt-1.5 text-2xl font-semibold tracking-tight sm:text-3xl">视频创作</h1>
+          <p className="inline-flex items-center gap-1.5 text-xs font-medium text-primary"><Film className="size-3.5" />Grok Imagine 视频工作台</p>
+          <h1 className="mt-1 text-xl font-semibold tracking-tight sm:text-2xl">视频创作</h1>
         </div>
-        <Button asChild variant="outline" className="rounded-full bg-background/80 backdrop-blur"><Link to="/video-library"><Library />视频库</Link></Button>
+        <Button asChild variant="outline" size="sm" className="rounded-lg"><Link to="/video-library"><Library className="size-4" />视频库</Link></Button>
       </header>
       <div className="grid items-start gap-4 xl:grid-cols-[minmax(350px,0.72fr)_minmax(0,1.28fr)]">
         <VideoForm controller={controller} />

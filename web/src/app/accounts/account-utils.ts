@@ -31,12 +31,12 @@ export const statusMeta: Record<AccountStatus, { icon: typeof CheckCircle2; badg
 };
 
 export const metricCards = [
-  { key: "total", label: "账户总数", icon: UserRound, className: "border-transparent bg-[linear-gradient(135deg,#181e25,#45515e)] text-white" },
-  { key: "active", label: "正常账户", icon: CheckCircle2, className: "border-transparent bg-[linear-gradient(135deg,#1456f0,#3daeff)] text-white" },
-  { key: "limited", label: "限流账户", icon: CircleAlert, className: "border-transparent bg-[linear-gradient(135deg,#f59e0b,#fb7185)] text-white" },
-  { key: "abnormal", label: "异常账户", icon: CircleOff, className: "border-transparent bg-[linear-gradient(135deg,#ea5ec1,#7c3aed)] text-white" },
-  { key: "disabled", label: "禁用账户", icon: Ban, className: "border-transparent bg-[linear-gradient(135deg,#8e8e93,#45515e)] text-white" },
-  { key: "quota", label: "剩余额度", icon: RefreshCw, className: "border-transparent bg-[linear-gradient(135deg,#17437d,#60a5fa)] text-white" },
+  { key: "total", label: "账户总数", subtitle: "已接入池内账户", icon: UserRound, iconBadgeClassName: "bg-primary/10 text-primary" },
+  { key: "active", label: "正常账户", subtitle: "当前可正常调度", icon: CheckCircle2, iconBadgeClassName: "bg-emerald-500/10 text-emerald-600" },
+  { key: "limited", label: "限流账户", subtitle: "冷却恢复中", icon: CircleAlert, iconBadgeClassName: "bg-amber-500/10 text-amber-600" },
+  { key: "abnormal", label: "异常账户", subtitle: "需检查凭据状态", icon: CircleOff, iconBadgeClassName: "bg-rose-500/10 text-rose-600" },
+  { key: "disabled", label: "禁用账户", subtitle: "已手动停用", icon: Ban, iconBadgeClassName: "bg-violet-500/10 text-violet-600" },
+  { key: "quota", label: "剩余额度", subtitle: "可用账户总额度", icon: RefreshCw, iconBadgeClassName: "bg-sky-500/10 text-sky-600" },
 ] as const;
 
 export type AccountsSummary = {

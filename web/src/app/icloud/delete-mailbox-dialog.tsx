@@ -29,10 +29,10 @@ export function DeleteMailboxDialog({
 
   return (
     <Dialog open={Boolean(mailbox)} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md rounded-2xl p-6">
+      <DialogContent className="max-w-md rounded-xl p-6">
         <DialogHeader className="gap-3">
           <div className="flex items-start gap-3">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-rose-600 ring-1 ring-rose-100 dark:bg-rose-950/40 dark:text-rose-300 dark:ring-rose-900/50">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-rose-50 text-rose-600 ring-1 ring-rose-100 dark:bg-rose-950/40 dark:text-rose-300 dark:ring-rose-900/50">
               <Trash2 className="size-4" />
             </div>
             <div className="min-w-0 space-y-1">
@@ -83,7 +83,7 @@ export function DeleteMailboxDialog({
           <Button
             type="button"
             variant="secondary"
-            className="h-10 rounded-xl px-5"
+            className="h-9 rounded-lg px-4"
             onClick={() => onOpenChange(false)}
             disabled={isPending}
           >
@@ -91,7 +91,8 @@ export function DeleteMailboxDialog({
           </Button>
           <Button
             type="button"
-            className="h-10 rounded-xl bg-rose-600 px-5 text-white hover:bg-rose-700"
+            variant="destructive"
+            className="h-9 rounded-lg px-4"
             onClick={onDelete}
             disabled={isPending}
           >

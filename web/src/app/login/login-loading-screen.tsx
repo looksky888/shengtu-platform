@@ -10,7 +10,7 @@ export function LoginLoadingScreen() {
       aria-live="polite"
       aria-label="正在检查登录状态"
     >
-      <LoaderCircle className="size-5 animate-spin text-amber-700/70 dark:text-amber-200/60" aria-hidden="true" />
+      <LoaderCircle className="size-5 animate-spin text-primary/70" aria-hidden="true" />
     </div>
   );
 }

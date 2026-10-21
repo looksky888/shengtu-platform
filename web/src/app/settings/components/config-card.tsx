@@ -102,7 +102,7 @@ export function ConfigCard() {
     <SettingsCard
       icon={Settings2}
       title="系统设置"
-      action={<MagneticButton size="lg" onClick={() => void save()} disabled={isSavingConfig || Object.keys(validationErrors).length > 0}>{isSavingConfig ? <LoaderCircle data-icon="inline-start" className="animate-spin" /> : <Save data-icon="inline-start" />}保存设置</MagneticButton>}
+      action={<MagneticButton onClick={() => void save()} disabled={isSavingConfig || Object.keys(validationErrors).length > 0}>{isSavingConfig ? <LoaderCircle data-icon="inline-start" className="animate-spin" /> : <Save data-icon="inline-start" />}保存设置</MagneticButton>}
     >
       <div className="flex flex-col gap-5">
         <div className={settingsPanelClassName}>
@@ -120,16 +120,16 @@ export function ConfigCard() {
 
         <div className={settingsPanelClassName}>
           <SettingsSectionLabel hint="控制并发与超时，避免打满号池">生图并发与超时</SettingsSectionLabel>
-          <div className="mb-4 rounded-2xl border border-border/70 bg-muted/30 p-4">
+          <div className="mb-4 rounded-lg border border-border/60 bg-background/80 p-3.5">
             <div className="flex items-center gap-2 text-sm font-medium text-foreground">
               <span className="grid size-8 place-items-center rounded-lg bg-status-info-soft text-status-info"><Gauge className="size-4" /></span>
               当前生效概览
               <SettingsHelp content="本地号池有效并发取本地号池上限、Worker、用户本地任务限制和账号池容量中的最小值；中转站使用各自渠道并发和独立 Worker。Worker 与等待队列保存后需重启，其他限制保存后立即生效。" />
             </div>
             <div className="mt-3 grid gap-2 sm:grid-cols-3">
-              <div className="rounded-xl bg-background px-3 py-2"><div className="text-xs text-muted-foreground">本地号池并发上限</div><div className="mt-1 text-lg font-semibold tabular-nums">{configuredImageCeiling === Number.POSITIVE_INFINITY ? "不限" : configuredImageCeiling}</div></div>
-              <div className="rounded-xl bg-background px-3 py-2"><div className="text-xs text-muted-foreground">图片 Worker</div><div className="mt-1 text-lg font-semibold tabular-nums">{imageWorkerCount}</div></div>
-              <div className="rounded-xl bg-background px-3 py-2"><div className="text-xs text-muted-foreground">视频 Worker</div><div className="mt-1 text-lg font-semibold tabular-nums">{Number(config.video_worker_count) || 1}</div></div>
+              <div className="rounded-lg border border-border/50 bg-background px-3 py-2"><div className="text-xs text-muted-foreground">本地号池并发上限</div><div className="mt-1 text-lg font-semibold tabular-nums">{configuredImageCeiling === Number.POSITIVE_INFINITY ? "不限" : configuredImageCeiling}</div></div>
+              <div className="rounded-lg border border-border/50 bg-background px-3 py-2"><div className="text-xs text-muted-foreground">图片 Worker</div><div className="mt-1 text-lg font-semibold tabular-nums">{imageWorkerCount}</div></div>
+              <div className="rounded-lg border border-border/50 bg-background px-3 py-2"><div className="text-xs text-muted-foreground">视频 Worker</div><div className="mt-1 text-lg font-semibold tabular-nums">{Number(config.video_worker_count) || 1}</div></div>
             </div>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -181,12 +181,12 @@ export function ConfigCard() {
           </div>
         </div>
 
-        <div className="rounded-[16px] border border-border/80 bg-muted/25 p-4">
+        <div className="rounded-lg border border-border/60 bg-muted/20 p-4">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <div>
               <div className="text-sm font-semibold text-foreground">全局代理</div>
             </div>
-            <Button type="button" variant="outline" className="h-9 rounded-xl" onClick={() => void handleTestProxy()} disabled={isTestingProxy}>
+            <Button type="button" variant="outline" size="sm" onClick={() => void handleTestProxy()} disabled={isTestingProxy}>
               {isTestingProxy ? <LoaderCircle className="size-4 animate-spin" /> : <PlugZap className="size-4" />}测试代理
             </Button>
           </div>

@@ -91,7 +91,7 @@ export function RegisterClearanceForm({
       </div>
 
       <div
-        className={`space-y-4 rounded-[16px] border p-4 transition ${
+        className={`space-y-4 rounded-lg border p-4 transition ${
           mode === "manual"
             ? "border-amber-200/80 bg-amber-50/40 dark:border-amber-900/40 dark:bg-amber-950/20"
             : "border-border/80 bg-muted/30"

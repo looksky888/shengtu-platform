@@ -112,6 +112,12 @@ const SETTINGS_SUB_COMMANDS: Array<{
     subtitle: "日志保留策略、级别开关与账号自动清理",
     keywords: ["settings", "maintenance", "logs", "维护", "日志"],
   },
+  {
+    tab: "system-update",
+    label: "设置 · 系统更新",
+    subtitle: "在线检查 GitHub Release 新版本并联动 Host Updater 无缝升级",
+    keywords: ["settings", "update", "version", "upgrade", "更新", "升级", "版本"],
+  },
 ];
 
 export function NavSearchMenu({

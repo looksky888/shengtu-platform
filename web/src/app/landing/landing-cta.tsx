@@ -27,22 +27,22 @@ export function LandingCTA({ ctaRef, entered, isDark, registrationEnabled }: Lan
     >
       <div
         className={cn(
-          "mx-auto w-full max-w-lg rounded-[28px] border px-5 py-6 backdrop-blur-xl sm:px-8 sm:py-7",
+          "mx-auto w-full max-w-lg rounded-2xl border px-5 py-6 backdrop-blur-xl sm:px-8 sm:py-7",
           isDark
-            ? "border-amber-900/40 bg-stone-950/55 shadow-[0_20px_60px_rgba(0,0,0,0.45)]"
-            : "border-white/70 bg-white/55 shadow-[0_20px_60px_rgba(120,53,15,0.08),0_4px_16px_rgba(28,25,23,0.04)]",
+            ? "border-white/10 bg-slate-950/65 shadow-[0_20px_60px_rgba(0,0,0,0.45)]"
+            : "border-slate-200/80 bg-white/75 shadow-[0_20px_60px_rgba(15,23,42,0.08),0_4px_16px_rgba(15,23,42,0.04)]",
         )}
       >
         <div className="flex flex-col items-center gap-3.5 text-center sm:gap-4">
           <div
             className={cn(
-              "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em]",
+              "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em]",
               isDark
-                ? "border-amber-800/50 bg-amber-950/50 text-amber-100/80"
-                : "border-amber-200/90 bg-amber-50/80 text-amber-900/80",
+                ? "border-blue-500/30 bg-blue-500/10 text-blue-300"
+                : "border-blue-200/90 bg-blue-50/90 text-[#1456f0]",
             )}
           >
-            <Sparkles className="size-3.5 text-amber-500" aria-hidden="true" />
+            <Sparkles className="size-3.5 text-[#1456f0] dark:text-blue-400" aria-hidden="true" />
             {LANDING_BRAND.badge}
           </div>
 
@@ -50,7 +50,7 @@ export function LandingCTA({ ctaRef, entered, isDark, registrationEnabled }: Lan
             <h1
               className={cn(
                 "text-balance text-[1.65rem] font-semibold tracking-[-0.03em] sm:text-3xl",
-                isDark ? "text-amber-50" : "text-stone-900",
+                isDark ? "text-slate-50" : "text-slate-900",
               )}
             >
               {LANDING_BRAND.headline}
@@ -58,7 +58,7 @@ export function LandingCTA({ ctaRef, entered, isDark, registrationEnabled }: Lan
             <p
               className={cn(
                 "mx-auto max-w-sm text-pretty text-sm leading-6 sm:text-[0.95rem]",
-                isDark ? "text-amber-100/55" : "text-stone-500",
+                isDark ? "text-slate-400" : "text-slate-500",
               )}
             >
               {LANDING_BRAND.tagline}
@@ -70,13 +70,13 @@ export function LandingCTA({ ctaRef, entered, isDark, registrationEnabled }: Lan
               <li
                 key={label}
                 className={cn(
-                  "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium shadow-sm",
+                  "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[11px] font-medium shadow-2xs",
                   isDark
-                    ? "border-amber-900/45 bg-stone-900/70 text-amber-100/70"
-                    : "border-stone-200/80 bg-white/80 text-stone-600",
+                    ? "border-white/10 bg-slate-900/70 text-slate-300"
+                    : "border-slate-200/80 bg-white/85 text-slate-600",
                 )}
               >
-                <Icon className="size-3 text-amber-500" aria-hidden="true" />
+                <Icon className="size-3 text-[#1456f0] dark:text-blue-400" aria-hidden="true" />
                 {label}
               </li>
             ))}
@@ -85,12 +85,7 @@ export function LandingCTA({ ctaRef, entered, isDark, registrationEnabled }: Lan
           <div className="flex w-full flex-col items-stretch justify-center gap-2.5 pt-1 sm:flex-row sm:items-center sm:justify-center">
             <Button
               asChild
-              className={cn(
-                "h-11 rounded-full px-6 text-sm font-semibold transition focus-visible:ring-2 focus-visible:ring-amber-400/50",
-                isDark
-                  ? "bg-amber-100 text-stone-900 shadow-[0_14px_36px_rgba(0,0,0,0.35)] hover:bg-amber-50"
-                  : "bg-stone-900 text-white shadow-[0_14px_36px_rgba(28,25,23,0.22)] hover:bg-stone-800",
-              )}
+              className="h-10 rounded-lg bg-[#1456f0] px-6 text-sm font-semibold text-white shadow-xs transition hover:bg-[#0f49cf] focus-visible:ring-2 focus-visible:ring-primary/50"
             >
               <Link to="/login">
                 进入控制台
@@ -102,10 +97,10 @@ export function LandingCTA({ ctaRef, entered, isDark, registrationEnabled }: Lan
                 asChild
                 variant="outline"
                 className={cn(
-                  "h-11 rounded-full px-6 text-sm font-medium transition focus-visible:ring-2 focus-visible:ring-amber-400/50",
+                  "h-10 rounded-lg px-6 text-sm font-medium transition focus-visible:ring-2 focus-visible:ring-primary/50",
                   isDark
-                    ? "border-amber-800/50 bg-stone-900/50 text-amber-50 hover:border-amber-700 hover:bg-stone-900"
-                    : "border-amber-200/90 bg-white/70 text-stone-700 hover:border-amber-300 hover:bg-white",
+                    ? "border-white/15 bg-slate-900/50 text-slate-100 hover:border-white/25 hover:bg-slate-900"
+                    : "border-slate-200 bg-white/80 text-slate-700 hover:border-slate-300 hover:bg-white",
                 )}
               >
                 <Link to="/login?register=1">创建账号</Link>
@@ -118,7 +113,7 @@ export function LandingCTA({ ctaRef, entered, isDark, registrationEnabled }: Lan
       <p
         className={cn(
           "mt-4 text-center text-[11px] tracking-wide",
-          isDark ? "text-amber-100/35" : "text-stone-400/90",
+          isDark ? "text-slate-500" : "text-slate-400",
         )}
       >
         {LANDING_BRAND.footer}

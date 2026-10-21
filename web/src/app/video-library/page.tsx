@@ -49,21 +49,21 @@ export default function VideoLibraryPage() {
         )}
       />
       <VideoLibraryTabs scope={controller.scope} isAdmin={Boolean(isAdmin)} total={controller.total} onChange={controller.changeScope} />
-      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-card/70 p-2">
-        <Input aria-label="搜索视频" value={controller.searchKeyword} onChange={(event) => controller.setSearchKeyword(event.target.value)} placeholder="搜索提示词、任务 ID、模型或用户" className="h-9 min-w-[220px] flex-1 rounded-xl" />
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border/70 bg-card p-3 shadow-2xs">
+        <Input aria-label="搜索视频" value={controller.searchKeyword} onChange={(event) => controller.setSearchKeyword(event.target.value)} placeholder="搜索提示词、任务 ID、模型或用户" className="h-9 min-w-[220px] flex-1 rounded-lg" />
         <Select value={controller.visibilityFilter} onValueChange={(value) => controller.setVisibilityFilter(value as "all" | "private" | "public")}>
-          <SelectTrigger aria-label="视频公开状态筛选" className="h-9 w-[140px] rounded-xl"><Filter className="size-3.5" /><SelectValue /></SelectTrigger>
+          <SelectTrigger aria-label="视频公开状态筛选" className="h-9 w-[140px] rounded-lg"><Filter className="size-3.5" /><SelectValue /></SelectTrigger>
           <SelectContent><SelectItem value="all">全部状态</SelectItem><SelectItem value="private">私有</SelectItem><SelectItem value="public">已公开</SelectItem></SelectContent>
         </Select>
-        <Button type="button" variant="ghost" className="h-9 rounded-xl text-xs" onClick={controller.toggleAllFiltered} disabled={!controller.filteredAssets.length}>
+        <Button type="button" variant="ghost" className="h-9 rounded-lg text-xs" onClick={controller.toggleAllFiltered} disabled={!controller.filteredAssets.length}>
           {controller.allFilteredSelected ? <Square className="size-3.5" /> : <CheckSquare className="size-3.5" />}{controller.allFilteredSelected ? "取消全选" : "全选当前"}
         </Button>
         {controller.selectedAssets.length ? (
           <>
             <span className="text-xs text-muted-foreground">已选 {controller.selectedAssets.length}</span>
-            {controller.scope === "mine" && canUpdateVisibility ? <Button type="button" variant="outline" className="h-9 rounded-xl text-xs" onClick={() => void controller.setSelectedVisibility("public")} disabled={Boolean(controller.visibilityMutatingID)}><Globe2 className="size-3.5" />公开</Button> : null}
-            {controller.scope === "mine" && canUpdateVisibility ? <Button type="button" variant="outline" className="h-9 rounded-xl text-xs" onClick={() => void controller.setSelectedVisibility("private")} disabled={Boolean(controller.visibilityMutatingID)}><Lock className="size-3.5" />设为私有</Button> : null}
-            {canDeleteVideos ? <Button type="button" variant="outline" className="h-9 rounded-xl text-xs text-rose-600" onClick={() => controller.setDeleteTargets(controller.selectedAssets)}><Trash2 className="size-3.5" />删除</Button> : null}
+            {controller.scope === "mine" && canUpdateVisibility ? <Button type="button" variant="outline" className="h-9 rounded-lg text-xs" onClick={() => void controller.setSelectedVisibility("public")} disabled={Boolean(controller.visibilityMutatingID)}><Globe2 className="size-3.5" />公开</Button> : null}
+            {controller.scope === "mine" && canUpdateVisibility ? <Button type="button" variant="outline" className="h-9 rounded-lg text-xs" onClick={() => void controller.setSelectedVisibility("private")} disabled={Boolean(controller.visibilityMutatingID)}><Lock className="size-3.5" />设为私有</Button> : null}
+            {canDeleteVideos ? <Button type="button" variant="outline" className="h-9 rounded-lg text-xs text-rose-600" onClick={() => controller.setDeleteTargets(controller.selectedAssets)}><Trash2 className="size-3.5" />删除</Button> : null}
           </>
         ) : null}
       </div>

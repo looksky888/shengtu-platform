@@ -17,14 +17,14 @@ export function AnnouncementsList({ state }: { state: AnnouncementsCardState }) 
   }
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-col gap-3 rounded-[16px] border border-border/70 bg-muted/25 p-3 sm:flex-row sm:items-center">
+      <div className="flex flex-col gap-3 rounded-lg border border-border/60 bg-muted/20 p-3 sm:flex-row sm:items-center">
         <div className="relative min-w-0 flex-1">
           <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={state.query} onChange={(event) => state.setQuery(event.target.value)} placeholder="搜索公告标题或内容" className="h-10 bg-background pl-9" aria-label="搜索公告" />
+          <Input value={state.query} onChange={(event) => state.setQuery(event.target.value)} placeholder="搜索公告标题或内容" className="bg-background pl-9" aria-label="搜索公告" />
         </div>
-        <div className="flex shrink-0 gap-1 rounded-xl bg-background p-1 ring-1 ring-border/70">
+        <div className="flex shrink-0 gap-1 rounded-lg bg-background p-1 ring-1 ring-border/70">
           {(["all", "enabled", "disabled"] as const).map((filter) => (
-            <Button key={filter} type="button" size="sm" variant={state.statusFilter === filter ? "secondary" : "ghost"} className="h-8 rounded-lg px-3 text-xs" onClick={() => state.setStatusFilter(filter)}>
+            <Button key={filter} type="button" size="sm" variant={state.statusFilter === filter ? "secondary" : "ghost"} className="h-8 rounded-md px-3 text-xs" onClick={() => state.setStatusFilter(filter)}>
               {filter === "all" ? "全部" : filter === "enabled" ? "已启用" : "已停用"}
             </Button>
           ))}

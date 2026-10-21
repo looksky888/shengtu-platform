@@ -24,7 +24,7 @@ type ProductFieldsProps = {
 
 export function ProductBasicFields({ product, onChange }: ProductFieldsProps) {
   return (
-    <section className="rounded-2xl border border-border/70 bg-muted/25 p-4">
+    <section className="rounded-xl border border-border/70 p-4">
       <SectionTitle
         icon={<PackageOpen className="size-4" />}
         title="基础信息"
@@ -94,7 +94,7 @@ export function ProductPricingFields({
   const storageGB = Number(product.storage_bytes) / 1024 ** 3 || 0;
 
   return (
-    <section className="rounded-2xl border border-border/70 bg-muted/25 p-4">
+    <section className="rounded-xl border border-border/70 p-4">
       <SectionTitle
         icon={<CircleDollarSign className="size-4" />}
         title="价格与权益"
@@ -152,13 +152,13 @@ export function ProductPricingFields({
 
 export function ProductStatusField({ product, onChange }: ProductFieldsProps) {
   return (
-    <section className="rounded-2xl border border-border/70 bg-muted/25 p-4">
+    <section className="rounded-xl border border-border/70 p-4">
       <SectionTitle
         icon={<SlidersHorizontal className="size-4" />}
         title="状态"
       />
       <label
-        className="mt-4 flex min-h-11 items-center gap-3 rounded-xl border border-border/80 bg-background px-3 text-sm font-medium"
+        className="mt-4 flex min-h-9 items-center gap-3 rounded-lg border border-border/80 bg-background px-3 text-sm font-medium"
         htmlFor="recharge-product-enabled"
       >
         <Checkbox

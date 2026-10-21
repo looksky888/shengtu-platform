@@ -22,7 +22,7 @@ export function PaymentSectionState({ mode, title, detail, onRetry, action }: Pa
   }
   if (mode === "error") {
     return (
-      <div className="flex min-h-32 flex-col items-center justify-center gap-3 rounded-2xl border border-destructive/25 bg-destructive/5 px-4 text-center" role="alert">
+      <div className="flex min-h-32 flex-col items-center justify-center gap-3 rounded-xl border border-destructive/25 bg-destructive/5 px-4 text-center" role="alert">
         <AlertCircle className="size-6 text-status-danger" />
         <div>
           <p className="text-sm font-medium text-status-danger">{title}</p>
@@ -33,7 +33,7 @@ export function PaymentSectionState({ mode, title, detail, onRetry, action }: Pa
     );
   }
   return (
-    <div className="flex min-h-32 flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border px-4 text-center">
+    <div className="flex min-h-32 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border px-4 text-center">
       <p className="text-sm text-muted-foreground">{title}</p>
       {detail ? <p className="max-w-lg text-xs text-muted-foreground">{detail}</p> : null}
       {action}

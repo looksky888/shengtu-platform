@@ -45,8 +45,8 @@ export function LoginVisualPanel({
   return (
     <section
       className={cn(
-        "relative hidden min-h-[39rem] overflow-hidden border-l lg:flex",
-        "border-amber-100/90 bg-[#fff7ed] dark:border-amber-900/35 dark:bg-[#1a120e]",
+        "relative hidden min-h-[38rem] overflow-hidden border-l lg:flex",
+        "border-slate-200/80 bg-slate-50/80 dark:border-white/10 dark:bg-[#0d1118]",
       )}
       aria-hidden="true"
     >
@@ -54,8 +54,8 @@ export function LoginVisualPanel({
         className={cn(
           "pointer-events-none absolute inset-0",
           dark
-            ? "bg-[radial-gradient(circle_at_40%_35%,rgba(251,191,36,0.14),transparent_55%),radial-gradient(circle_at_70%_80%,rgba(180,83,9,0.12),transparent_50%)]"
-            : "bg-[radial-gradient(circle_at_40%_35%,rgba(251,191,36,0.2),transparent_55%),radial-gradient(circle_at_70%_80%,rgba(249,115,22,0.1),transparent_50%)]",
+            ? "bg-[radial-gradient(circle_at_40%_35%,rgba(59,130,246,0.14),transparent_55%),radial-gradient(circle_at_70%_80%,rgba(20,86,240,0.12),transparent_50%)]"
+            : "bg-[radial-gradient(circle_at_40%_35%,rgba(59,130,246,0.16),transparent_55%),radial-gradient(circle_at_70%_80%,rgba(37,99,235,0.08),transparent_50%)]",
         )}
       />
 
@@ -66,12 +66,12 @@ export function LoginVisualPanel({
       <div
         className={cn(
           "pointer-events-none absolute inset-x-0 bottom-0 h-[55%] bg-gradient-to-t to-transparent",
-          dark ? "from-[#1a120e] via-[#1a120e]/85" : "from-[#fff7ed] via-[#fff7ed]/80",
+          dark ? "from-[#0d1118] via-[#0d1118]/85" : "from-slate-50 via-slate-50/80",
         )}
       />
 
       {hasCustomImage ? (
-        <div className="absolute right-5 top-5 z-[2] h-36 w-44 overflow-hidden rounded-2xl border border-white/50 shadow-[0_16px_40px_rgba(120,53,15,0.18)] dark:border-amber-900/40">
+        <div className="absolute right-5 top-5 z-[2] h-36 w-44 overflow-hidden rounded-xl border border-slate-200/80 shadow-md dark:border-white/15">
           <LoginPageImageStage
             src={appMeta.login_page_image_url}
             mode={appMeta.login_page_image_mode}
@@ -79,8 +79,8 @@ export function LoginVisualPanel({
             positionX={appMeta.login_page_image_position_x}
             positionY={appMeta.login_page_image_position_y}
             fillParent
-            frameClassName="rounded-2xl"
-            imageClassName="rounded-2xl"
+            frameClassName="rounded-xl"
+            imageClassName="rounded-xl"
           />
         </div>
       ) : null}
@@ -88,20 +88,20 @@ export function LoginVisualPanel({
       <div className="relative z-[2] mt-auto flex w-full flex-col gap-3 p-8">
         <div
           className={cn(
-            "inline-flex w-fit items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em]",
+            "inline-flex w-fit items-center gap-1.5 rounded-md border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em]",
             dark
-              ? "border-amber-800/50 bg-amber-950/50 text-amber-100/80"
-              : "border-amber-200/90 bg-white/70 text-amber-900/80",
+              ? "border-blue-500/30 bg-blue-500/10 text-blue-300"
+              : "border-blue-200/90 bg-white/85 text-[#1456f0]",
           )}
         >
-          <Sparkles className="size-3.5 text-amber-500" />
+          <Sparkles className="size-3.5 text-[#1456f0] dark:text-blue-400" />
           AI Image Studio
         </div>
         <div className="flex flex-col gap-1.5">
-          <p className={cn("text-2xl font-semibold tracking-[-0.03em]", dark ? "text-amber-50" : "text-stone-900")}>
+          <p className={cn("text-2xl font-semibold tracking-[-0.03em]", dark ? "text-slate-50" : "text-slate-900")}>
             {isRegisterMode ? "加入多模型生图工作台" : "多模型生图工作台"}
           </p>
-          <p className={cn("max-w-xs text-sm leading-6", dark ? "text-amber-100/55" : "text-stone-500")}>
+          <p className={cn("max-w-xs text-sm leading-6", dark ? "text-slate-400" : "text-slate-500")}>
             GPT 与 Grok 渠道一体接入，登录后即用。
           </p>
         </div>
@@ -110,13 +110,13 @@ export function LoginVisualPanel({
             <li
               key={label}
               className={cn(
-                "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium",
+                "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[11px] font-medium",
                 dark
-                  ? "border-amber-900/45 bg-stone-950/50 text-amber-100/70"
-                  : "border-amber-100 bg-white/75 text-stone-600",
+                  ? "border-white/10 bg-slate-900/60 text-slate-300"
+                  : "border-slate-200/80 bg-white/85 text-slate-600",
               )}
             >
-              <Icon className="size-3 text-amber-500" />
+              <Icon className="size-3 text-[#1456f0] dark:text-blue-400" />
               {label}
             </li>
           ))}

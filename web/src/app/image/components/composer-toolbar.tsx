@@ -1,5 +1,5 @@
 import type { RefObject } from "react";
-import { ArrowUp, Coins, ImagePlus, Plus } from "lucide-react";
+import { ArrowUp, Coins, ImagePlus } from "lucide-react";
 
 import { ComposerModeSwitch } from "@/app/image/components/composer-mode-switch";
 import { ComposerModelMenu } from "@/app/image/components/composer-model-menu";
@@ -84,7 +84,7 @@ function buildSettingsProps(props: ComposerToolbarProps) {
 export function ComposerToolbar(props: ComposerToolbarProps) {
   const selectedOption = props.imageModelOptions.find((option) => option.id === props.imageModelOptionId)
     || props.imageModelOptions.find((option) => option.value === props.imageModel);
-  const imageModelLabel = selectedOption ? `${selectedOption.label}${selectedOption.channelAlias ? ` · ${selectedOption.channelAlias}` : ""}` : props.imageModel;
+  const imageModelLabel = selectedOption ? selectedOption.label : props.imageModel;
   const submitLabel =
     props.composerMode === "chat" ? "发送对话" : props.referenceImageCount > 0 ? "编辑图片" : "生成图片";
   const selectedSize = buildImageSize({
@@ -103,8 +103,8 @@ export function ComposerToolbar(props: ComposerToolbarProps) {
     : submitLabel;
 
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 sm:gap-3">
-      <div className="flex min-w-0 flex-nowrap items-center gap-1.5 sm:gap-2">
+    <div className="flex items-center justify-between gap-2">
+      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
         <ComposerModeSwitch composerMode={props.composerMode} onComposerModeChange={props.onComposerModeChange} />
         <ComposerModelMenu
           menuRef={props.modelMenuRef}
@@ -118,36 +118,37 @@ export function ComposerToolbar(props: ComposerToolbarProps) {
           onImageModelChange={props.onImageModelChange}
         />
         {props.composerMode === "image" ? <ComposerSettingsPopover {...buildSettingsProps(props)} /> : null}
+        <button
+          type="button"
+          onClick={props.onPickReferenceImage}
+          className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-border/75 bg-background px-2.5 text-xs font-medium text-muted-foreground transition hover:bg-surface-hover hover:text-foreground"
+          aria-label="上传参考图"
+          title="上传参考图"
+        >
+          <ImagePlus className="size-3.5" />
+          <span className="hidden md:inline">参考图</span>
+        </button>
       </div>
       <div className="flex shrink-0 items-center gap-2">
         {props.composerMode === "image" && props.estimatedCreditCost > 0 ? (
           <span
-            className="hidden items-center gap-1 rounded-full border border-brand-border bg-brand-soft px-2.5 py-1 text-[11px] font-medium text-brand tabular-nums sm:inline-flex"
+            className="hidden h-8 items-center gap-1 rounded-lg border border-primary/20 bg-primary/8 px-2.5 text-xs font-medium text-primary tabular-nums sm:inline-flex"
             title={props.estimatedCreditCostDetail}
           >
-            <Coins className="size-3" />
+            <Coins className="size-3.5" />
             <span>{props.estimatedCreditCost} 积分</span>
           </span>
         ) : null}
         <button
           type="button"
-          onClick={props.onPickReferenceImage}
-          className="inline-flex size-10 items-center justify-center rounded-full text-muted-foreground transition hover:bg-surface-hover hover:text-foreground sm:size-9 sm:border sm:border-border/80 sm:bg-surface"
-          aria-label="上传参考图"
-          title="上传参考图"
-        >
-          <Plus className="size-5 sm:hidden" />
-          <ImagePlus className="hidden size-4 sm:block" />
-        </button>
-        <button
-          type="button"
           onClick={() => void props.onSubmit()}
           disabled={!props.prompt.trim() || paidSizeUnavailable}
-          className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-brand text-white shadow-sm transition hover:bg-brand/90 active:scale-[0.97] disabled:cursor-not-allowed disabled:bg-surface-active disabled:text-muted-foreground sm:size-9"
+          className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground shadow-2xs transition hover:bg-primary/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground"
           aria-label={submitLabel}
           title={submitTitle}
         >
-          <ArrowUp className="size-4.5 sm:size-4" />
+          <ArrowUp className="size-3.5" />
+          <span className="hidden sm:inline">{props.composerMode === "chat" ? "发送" : "生成"}</span>
         </button>
       </div>
     </div>

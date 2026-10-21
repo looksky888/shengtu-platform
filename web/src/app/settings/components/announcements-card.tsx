@@ -19,7 +19,7 @@ export function AnnouncementsCard() {
         icon={Megaphone}
         title="公告管理"
         tone="amber"
-        meta={<span className="rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground">{state.items.filter((item) => item.enabled).length} / {state.items.length} 已启用</span>}
+        meta={<span className="rounded-md bg-muted px-2.5 py-1 text-xs text-muted-foreground">{state.items.filter((item) => item.enabled).length} / {state.items.length} 已启用</span>}
         action={
           <Button onClick={state.openCreateDialog}>
             <Plus data-icon="inline-start" />

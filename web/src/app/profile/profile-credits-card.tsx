@@ -43,7 +43,7 @@ export function ProfileCreditsCard({
       <CardHeader className="pb-3">
         <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-brand-border bg-brand-soft text-brand">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-brand-border bg-brand-soft text-brand">
               <Coins className="size-5" />
             </div>
             <div className="min-w-0">
@@ -69,7 +69,7 @@ export function ProfileCreditsCard({
         ) : creditsError ? (
           <CreditsError message={creditsError} onRetry={onRetry} />
         ) : !credits ? (
-          <div className="rounded-xl border border-border bg-surface-muted/35 px-3 py-4 text-sm text-muted-foreground">
+          <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-4 text-sm text-muted-foreground">
             暂无积分信息。
           </div>
         ) : (
@@ -110,7 +110,7 @@ function CreditsError({
   onRetry: () => void;
 }) {
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-rose-200 bg-rose-50/70 p-4 text-sm text-rose-700 sm:flex-row sm:items-center sm:justify-between dark:border-rose-900/70 dark:bg-rose-950/20 dark:text-rose-300">
+    <div className="flex flex-col gap-3 rounded-lg border border-rose-200 bg-rose-50/70 p-4 text-sm text-rose-700 sm:flex-row sm:items-center sm:justify-between dark:border-rose-900/70 dark:bg-rose-950/20 dark:text-rose-300">
       <span>积分信息加载失败：{message}</span>
       <Button
         type="button"

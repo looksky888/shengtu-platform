@@ -35,8 +35,8 @@ export function VideoPreviewDialog({ video, onOpenChange, variant = "default", d
         </DialogHeader>
         {video ? (
           <div className="space-y-4">
-            <div className={studio ? "flex min-h-[50vh] items-center justify-center overflow-hidden rounded-[18px] bg-black" : undefined}>
-              <video controls autoPlay preload="metadata" src={video.url} className={studio ? "max-h-[74vh] max-w-full" : "max-h-[70vh] w-full rounded-[16px] bg-black"}>
+            <div className={studio ? "flex min-h-[50vh] items-center justify-center overflow-hidden rounded-xl bg-black" : undefined}>
+              <video controls autoPlay preload="metadata" src={video.url} className={studio ? "max-h-[74vh] max-w-full" : "max-h-[70vh] w-full rounded-xl bg-black"}>
                 您的浏览器不支持视频播放。
               </video>
             </div>

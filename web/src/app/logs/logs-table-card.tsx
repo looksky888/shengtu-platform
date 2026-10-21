@@ -46,7 +46,7 @@ export function LogsTableCard({
       <CardContent className="p-0">
         <div className="flex items-center justify-between border-b border-border px-5 py-4 text-sm text-muted-foreground">
           <span>{"共 "}{items.length}{" 条"}</span>
-          <Button variant="ghost" className="h-8 rounded-lg px-3" onClick={onRefresh} disabled={isLoading}>
+          <Button variant="ghost" className="h-8 rounded-md px-3" onClick={onRefresh} disabled={isLoading}>
             <RefreshCw className={`size-4 ${isLoading ? "animate-spin" : ""}`} />
             {"刷新"}
           </Button>
@@ -89,7 +89,7 @@ export function LogsTableCard({
                     <TableCell>{formatDuration(item)}</TableCell>
                     <TableCell className="max-w-[300px] truncate text-muted-foreground">{item.summary || "-"}</TableCell>
                     <TableCell>
-                      <Button variant="ghost" className="h-8 rounded-lg px-3" onClick={() => onOpenDetail(item)}>
+                      <Button variant="ghost" className="h-8 rounded-md px-3" onClick={() => onOpenDetail(item)}>
                         {"查看详情"}
                       </Button>
                     </TableCell>

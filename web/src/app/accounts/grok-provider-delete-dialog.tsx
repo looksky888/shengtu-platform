@@ -67,7 +67,7 @@ export function GrokProviderDeleteDialog({
           <DialogTitle className="flex items-center gap-2 text-rose-700"><ShieldAlert className="size-5" />删除 Provider 账号</DialogTitle>
           <DialogDescription>先选择是否连同关联账号删除，再生成一次性预览。关联变化后旧预览会失效。</DialogDescription>
         </DialogHeader>
-        <div className="rounded-2xl border border-border bg-muted/30 p-4 text-sm">
+        <div className="rounded-xl border border-border bg-muted/30 p-4 text-sm">
           <div className="font-medium">根账号：{accountIds.length} 个 {provider ? LABELS[provider] : "Provider"}</div>
           <div className="mt-3 grid gap-2">
             {peers.map((target) => (
@@ -79,7 +79,7 @@ export function GrokProviderDeleteDialog({
           </div>
         </div>
         {preview ? (
-          <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-950">
+          <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-950">
             <div className="font-semibold">最终将删除 {preview.total} 个账号</div>
             <div className="mt-1 text-xs">Web {preview.by_provider.web} · Build {preview.by_provider.build} · Console {preview.by_provider.console}</div>
             {preview.linked_accounts.length ? <div className="mt-3 max-h-28 space-y-1 overflow-auto text-xs">{preview.linked_accounts.map((item) => <div key={item.id}>{LABELS[item.provider]} · {item.display_name || item.id}</div>)}</div> : null}

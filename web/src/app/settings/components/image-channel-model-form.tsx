@@ -57,7 +57,7 @@ function ToggleList({
             <button
               key={value}
               type="button"
-              className={active ? "rounded-full bg-[#181e25] px-3 py-1.5 text-xs font-medium text-white" : "rounded-full border border-border bg-background px-3 py-1.5 text-xs text-muted-foreground"}
+              className={active ? "rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground" : "rounded-md border border-border bg-background px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted/50"}
               onClick={() => onChange(active ? selected.filter((item) => item !== value) : [...selected, value])}
             >
               {value}
@@ -98,7 +98,7 @@ export function ImageChannelModelForm({
     setInput((current) => ({ ...current, [key]: value }));
 
   return (
-    <div className="grid gap-5 rounded-[20px] border border-[#bfdbfe] bg-[#f8fbff] p-5 dark:border-sky-900/60 dark:bg-sky-950/10">
+    <div className="grid gap-4 rounded-lg border border-border/60 bg-muted/20 p-4">
       <div className="grid gap-4 sm:grid-cols-2">
         <Field>
           <FieldLabel htmlFor="channel-model-upstream">上游模型 ID</FieldLabel>

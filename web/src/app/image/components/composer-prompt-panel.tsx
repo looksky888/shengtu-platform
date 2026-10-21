@@ -42,7 +42,6 @@ export function ComposerPromptPanel({
   prompt,
   referenceImageCount,
   promptAreaHeight,
-  isPromptAreaResizing,
   isReferenceImageDragActive,
   composerPanelRef,
   composerToolbarRef,
@@ -54,20 +53,15 @@ export function ComposerPromptPanel({
   onReferenceImageDragOver,
   onReferenceImageDragLeave,
   onReferenceImageDrop,
-  onPromptResizeStart,
-  onPromptResizeMove,
-  onPromptResizeEnd,
-  onPromptResizeKeyDown,
-  onPromptResizeLostPointerCapture,
   children,
 }: ComposerPromptPanelProps) {
   return (
     <div
       ref={composerPanelRef}
       className={cn(
-        "relative overflow-visible rounded-[26px] border border-border/85 bg-surface/95 shadow-[0_20px_70px_-42px_rgba(15,23,42,0.45)] backdrop-blur-xl transition-all duration-150 focus-within:border-brand/45 focus-within:ring-2 focus-within:ring-brand/15 dark:shadow-[0_24px_80px_-38px_rgba(0,0,0,0.78)] sm:rounded-[22px]",
+        "relative overflow-visible rounded-2xl border border-border/85 bg-card/95 shadow-[0_12px_40px_-18px_rgba(15,23,42,0.22)] backdrop-blur-xl transition-all duration-150 focus-within:border-primary/45 focus-within:ring-2 focus-within:ring-primary/12 dark:shadow-[0_16px_48px_-20px_rgba(0,0,0,0.65)]",
         isReferenceImageDragActive &&
-          "border-brand bg-brand-soft/90 dark:border-brand dark:bg-brand-soft/60",
+          "border-primary bg-primary/5 dark:border-primary dark:bg-primary/10",
       )}
       onDragEnter={onReferenceImageDragEnter}
       onDragOver={onReferenceImageDragOver}
@@ -75,30 +69,13 @@ export function ComposerPromptPanel({
       onDrop={onReferenceImageDrop}
     >
       {isReferenceImageDragActive ? (
-        <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center rounded-[26px] border-2 border-dashed border-brand/70 bg-surface/80 text-sm font-medium text-brand backdrop-blur-sm sm:rounded-[22px]">
-          <span className="inline-flex items-center gap-2 rounded-full bg-surface px-4 py-2 shadow-md">
+        <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center rounded-2xl border-2 border-dashed border-primary/70 bg-card/85 text-sm font-medium text-primary backdrop-blur-xs">
+          <span className="inline-flex items-center gap-2 rounded-lg bg-card px-3.5 py-2 shadow-sm">
             <ImagePlus className="size-4" />
             松开上传参考图片
           </span>
         </div>
       ) : null}
-      <button
-        type="button"
-        className={cn(
-          "hidden h-3.5 w-full cursor-[ns-resize] touch-none select-none items-center justify-center rounded-t-[22px] focus-visible:outline-none sm:flex",
-          isPromptAreaResizing && "cursor-row-resize",
-        )}
-        onPointerDown={onPromptResizeStart}
-        onPointerMove={onPromptResizeMove}
-        onPointerUp={onPromptResizeEnd}
-        onPointerCancel={onPromptResizeEnd}
-        onLostPointerCapture={onPromptResizeLostPointerCapture}
-        onKeyDown={onPromptResizeKeyDown}
-        aria-label="调整提示词输入区域高度"
-        title="拖动调整输入区域高度"
-      >
-        <span className="h-1 w-9 rounded-full bg-muted-foreground/30 transition-colors hover:bg-muted-foreground/50" />
-      </button>
       <div className="cursor-text" onClick={() => textareaRef.current?.focus()}>
         <Textarea
           aria-label={composerMode === "chat" ? "聊天消息" : "图像提示词"}
@@ -111,7 +88,7 @@ export function ComposerPromptPanel({
               ? "输入消息与 AI 对话（Enter 发送，Shift+Enter 换行）"
               : referenceImageCount > 0
                 ? "描述你希望如何修改参考图（Enter 发送，Shift+Enter 换行）"
-                : "输入你想要生成的画面，支持直接粘贴或拖拽参考图片…"
+                : "描述想要生成的画面细节，支持粘贴或拖拽参考图（Enter 发送，Shift+Enter 换行）…"
           }
           onKeyDown={(event) => {
             if (isImeComposing(event)) {
@@ -122,13 +99,13 @@ export function ComposerPromptPanel({
               void onSubmit();
             }
           }}
-          className="min-h-[88px] resize-none rounded-none border-0 bg-transparent px-5 pt-4 pb-2 text-[16px] leading-6 text-foreground shadow-none placeholder:text-muted-foreground focus-visible:ring-0 sm:min-h-0 sm:px-5 sm:py-3 sm:text-[15px] sm:leading-6"
-          style={{ height: promptAreaHeight }}
+          className="min-h-[68px] resize-none rounded-none border-0 bg-transparent px-4 pt-3.5 pb-1.5 text-[15px] leading-6 text-foreground shadow-none placeholder:text-muted-foreground/80 focus-visible:ring-0 sm:min-h-[64px] sm:px-4 sm:pt-3.5 sm:pb-1.5"
+          style={{ height: Math.max(64, Math.min(promptAreaHeight, 220)) }}
         />
 
         <div
           ref={composerToolbarRef}
-          className="rounded-b-[26px] bg-transparent px-3 pt-1 pb-2.5 sm:rounded-b-[22px] sm:border-t sm:border-border/60 sm:bg-surface-muted/45 sm:px-4 sm:py-2"
+          className="rounded-b-2xl px-3 pt-1 pb-2.5 sm:px-3.5 sm:pb-3"
           onClick={(event) => event.stopPropagation()}
         >
           {children}

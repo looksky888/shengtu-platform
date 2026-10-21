@@ -21,27 +21,25 @@ export function VideoResult({ controller }: { controller: VideoCreationControlle
   const active = task?.status === "queued" || task?.status === "running";
 
   return (
-    <section className="relative flex min-h-[680px] overflow-hidden rounded-[26px] border border-[#1c2540] bg-[#070910] text-white shadow-[0_30px_90px_-55px_rgba(17,38,95,0.95)] xl:sticky xl:top-4">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_52%_45%,rgba(37,66,152,0.22),transparent_38%),radial-gradient(circle_at_48%_75%,rgba(55,48,163,0.13),transparent_34%)]" />
-      <div className="pointer-events-none absolute inset-0 opacity-[0.025] [background-image:linear-gradient(rgba(255,255,255,.8)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.8)_1px,transparent_1px)] [background-size:32px_32px]" />
-
-      <div className="relative z-10 flex w-full flex-col p-4 sm:p-6">
-        <header className="flex min-h-10 items-start justify-between gap-3">
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-blue-300/60">
-              Render stage
-            </p>
-            <p className="mt-1 text-sm font-medium text-white/80">
+    <section className="relative flex min-h-[660px] overflow-hidden rounded-xl border border-border/70 bg-card shadow-2xs xl:sticky xl:top-18">
+      <div className="relative z-10 flex w-full flex-col p-4 sm:p-5">
+        <header className="flex min-h-9 items-center justify-between gap-3 border-b border-border/60 pb-3">
+          <div className="flex items-center gap-2.5">
+            <span className="inline-flex size-2 rounded-full bg-primary" />
+            <p className="text-sm font-semibold text-foreground">
               {active
                 ? "Grok 渲染引擎工作中"
                 : task?.status === "success"
                   ? "视频已生成"
-                  : "视频预览舞台"}
+                  : "视频预览画布"}
             </p>
+            <span className="rounded-md bg-muted px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
+              {frame.ratio}
+            </span>
           </div>
           {active ? (
             <CreationTaskCancelButton
-              tone="dark"
+              tone="light"
               label="终止任务"
               onCancel={() => void controller.cancel()}
             />
@@ -50,30 +48,29 @@ export function VideoResult({ controller }: { controller: VideoCreationControlle
               asChild
               size="sm"
               variant="ghost"
-              className="rounded-full text-white/65 hover:bg-white/10 hover:text-white"
+              className="h-8 rounded-lg text-xs text-muted-foreground hover:text-foreground"
             >
               <Link to="/video-library">
-                <Library />
+                <Library className="size-3.5" />
                 视频库
               </Link>
             </Button>
           )}
         </header>
 
-        <div className="flex flex-1 items-center justify-center py-6 sm:py-8">
+        <div className="flex flex-1 items-center justify-center rounded-lg bg-muted/25 p-4 sm:p-6 my-3 border border-border/50">
           <div
             className={cn(
-              "relative flex w-full items-center justify-center overflow-hidden rounded-[24px] border border-indigo-500/55 bg-[#0c0e13] shadow-[0_0_0_1px_rgba(98,77,230,0.12),0_0_55px_-20px_rgba(78,76,217,0.55)]",
+              "relative flex w-full items-center justify-center overflow-hidden rounded-xl border border-border/80 bg-zinc-950 text-white shadow-sm",
               frame.frameClass,
               frame.ratio === "9:16"
-                ? "max-w-[340px]"
+                ? "max-w-[330px]"
                 : frame.ratio === "1:1"
-                  ? "max-w-[560px]"
-                  : "max-w-[780px]",
+                  ? "max-w-[520px]"
+                  : "max-w-[760px]",
             )}
           >
-            <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_top,rgba(62,69,178,0.28),transparent_48%),radial-gradient(circle_at_50%_100%,rgba(120,129,255,0.18),transparent_42%)]" />
-            <div className="video-stage-grain pointer-events-none absolute inset-0 opacity-[0.16]" />
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_35%,rgba(20,86,240,0.16),transparent_60%)]" />
             {active ? (
               <CreationTaskProgressState
                 tone="dark"
@@ -125,7 +122,7 @@ export function VideoResult({ controller }: { controller: VideoCreationControlle
           </div>
         </div>
 
-        <footer className="flex min-h-8 items-center justify-center text-center text-[11px] text-white/35">
+        <footer className="flex items-center justify-center text-center text-[11px] text-muted-foreground">
           {active
             ? "离开页面不会中断任务；刷新后可继续查看生成进度"
             : "生成的视频会自动保存到视频库"}
@@ -137,14 +134,14 @@ export function VideoResult({ controller }: { controller: VideoCreationControlle
 
 function EmptyResult({ frameLabel }: { frameLabel: string }) {
   return (
-    <div className="relative z-10 flex flex-col items-center gap-4 px-6 text-center">
-      <div className="flex size-16 items-center justify-center rounded-[20px] border border-white/10 bg-white/[0.045] text-blue-300/80 shadow-inner">
-        <Film className="size-6" />
+    <div className="relative z-10 flex flex-col items-center gap-3.5 px-6 text-center">
+      <div className="flex size-12 items-center justify-center rounded-xl border border-white/10 bg-white/[0.06] text-blue-400">
+        <Film className="size-5" />
       </div>
       <div>
-        <p className="font-display text-lg font-medium">准备生成 {frameLabel} 视频</p>
-        <p className="mt-1 max-w-xs text-xs leading-5 text-white/40">
-          在左侧设置画面、时长和首帧，然后开始生成
+        <p className="text-base font-medium text-white/90">准备生成 {frameLabel} 视频</p>
+        <p className="mt-1 max-w-xs text-xs leading-5 text-white/50">
+          在左侧设置画面描述、时长和首帧参考，点击底部按钮开始生成
         </p>
       </div>
     </div>

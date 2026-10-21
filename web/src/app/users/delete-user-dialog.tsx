@@ -29,7 +29,7 @@ export function DeleteUserDialog({
 }: DeleteUserDialogProps) {
   return (
     <Dialog open={Boolean(user)} onOpenChange={onOpenChange}>
-      <DialogContent className="rounded-2xl p-6">
+      <DialogContent className="rounded-xl p-6">
         <DialogHeader className="gap-2">
           <DialogTitle>删除用户</DialogTitle>
           <DialogDescription className="space-y-2 text-sm leading-6">
@@ -51,7 +51,7 @@ export function DeleteUserDialog({
           <Button
             type="button"
             variant="secondary"
-            className="h-10 rounded-xl px-5"
+            className="h-9 rounded-lg px-4"
             onClick={() => onOpenChange(false)}
             disabled={isPending}
           >
@@ -59,7 +59,8 @@ export function DeleteUserDialog({
           </Button>
           <Button
             type="button"
-            className="h-10 rounded-xl bg-rose-600 px-5 text-white hover:bg-rose-700"
+            variant="destructive"
+            className="h-9 rounded-lg px-4"
             onClick={onDelete}
             disabled={isPending}
           >

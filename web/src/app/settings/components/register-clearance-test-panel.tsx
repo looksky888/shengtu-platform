@@ -26,7 +26,7 @@ export function RegisterClearanceTestPanel({
   onTest: () => void;
 }) {
   return (
-    <div className="space-y-3 rounded-[16px] border border-border/80 bg-background/70 p-4">
+    <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-4">
       <div className="flex items-center gap-2 text-sm font-semibold">
         <PlugZap className="size-4 text-sky-600" />
         连通性自检
@@ -42,7 +42,6 @@ export function RegisterClearanceTestPanel({
         <Button
           type="button"
           variant="outline"
-          className="rounded-xl"
           disabled={isTesting || isRegisterRunning || !clearanceEnabled || mode === "none"}
           onClick={onTest}
         >

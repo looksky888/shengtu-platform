@@ -27,15 +27,15 @@ export function drawHeroSphereAtmosphereAndOrbits({
 }: HeroSphereShellFrame) {
   const bloom = ctx.createRadialGradient(cx, cy, scale * 0.05, cx, cy, scale * 1.7);
   if (isDark) {
-    bloom.addColorStop(0, "rgba(253, 224, 71, 0.28)");
-    bloom.addColorStop(0.25, "rgba(245, 158, 11, 0.12)");
-    bloom.addColorStop(0.55, "rgba(180, 83, 9, 0.06)");
-    bloom.addColorStop(1, "rgba(12, 10, 9, 0)");
+    bloom.addColorStop(0, "rgba(59, 130, 246, 0.26)");
+    bloom.addColorStop(0.25, "rgba(37, 99, 235, 0.12)");
+    bloom.addColorStop(0.55, "rgba(20, 86, 240, 0.06)");
+    bloom.addColorStop(1, "rgba(9, 11, 16, 0)");
   } else {
-    bloom.addColorStop(0, "rgba(255, 240, 170, 0.34)");
-    bloom.addColorStop(0.25, "rgba(251, 191, 36, 0.13)");
-    bloom.addColorStop(0.55, "rgba(251, 146, 60, 0.05)");
-    bloom.addColorStop(1, "rgba(255, 248, 240, 0)");
+    bloom.addColorStop(0, "rgba(191, 219, 254, 0.38)");
+    bloom.addColorStop(0.25, "rgba(96, 165, 250, 0.13)");
+    bloom.addColorStop(0.55, "rgba(59, 130, 246, 0.05)");
+    bloom.addColorStop(1, "rgba(248, 250, 252, 0)");
   }
   ctx.fillStyle = bloom;
   ctx.beginPath();
@@ -43,9 +43,9 @@ export function drawHeroSphereAtmosphereAndOrbits({
   ctx.fill();
 
   const halo = ctx.createRadialGradient(cx, cy, scale * 0.92, cx, cy, scale * 1.25);
-  halo.addColorStop(0, "rgba(251, 191, 36, 0)");
-  halo.addColorStop(0.55, isDark ? "rgba(251, 191, 36, 0.1)" : "rgba(251, 191, 36, 0.06)");
-  halo.addColorStop(1, "rgba(251, 191, 36, 0)");
+  halo.addColorStop(0, "rgba(59, 130, 246, 0)");
+  halo.addColorStop(0.55, isDark ? "rgba(96, 165, 250, 0.1)" : "rgba(59, 130, 246, 0.06)");
+  halo.addColorStop(1, "rgba(59, 130, 246, 0)");
   ctx.fillStyle = halo;
   ctx.beginPath();
   ctx.arc(cx, cy, scale * 1.25, 0, Math.PI * 2);
@@ -60,15 +60,15 @@ export function drawHeroSphereAtmosphereAndOrbits({
     scale * 1.02,
   );
   if (isDark) {
-    volume.addColorStop(0, "rgba(255, 251, 235, 0.22)");
-    volume.addColorStop(0.35, "rgba(253, 224, 71, 0.1)");
-    volume.addColorStop(0.72, "rgba(180, 83, 9, 0.06)");
-    volume.addColorStop(1, "rgba(28, 20, 16, 0)");
+    volume.addColorStop(0, "rgba(239, 246, 255, 0.2)");
+    volume.addColorStop(0.35, "rgba(96, 165, 250, 0.1)");
+    volume.addColorStop(0.72, "rgba(20, 86, 240, 0.06)");
+    volume.addColorStop(1, "rgba(15, 23, 42, 0)");
   } else {
-    volume.addColorStop(0, "rgba(255, 252, 240, 0.62)");
-    volume.addColorStop(0.35, "rgba(254, 243, 199, 0.22)");
-    volume.addColorStop(0.72, "rgba(253, 230, 138, 0.08)");
-    volume.addColorStop(1, "rgba(253, 230, 138, 0)");
+    volume.addColorStop(0, "rgba(255, 255, 255, 0.65)");
+    volume.addColorStop(0.35, "rgba(219, 234, 254, 0.24)");
+    volume.addColorStop(0.72, "rgba(147, 197, 253, 0.08)");
+    volume.addColorStop(1, "rgba(147, 197, 253, 0)");
   }
   ctx.fillStyle = volume;
   ctx.beginPath();
@@ -87,13 +87,13 @@ export function drawHeroSphereAtmosphereAndOrbits({
     ctx.save();
     ctx.rotate(tilt);
     ctx.strokeStyle = isDark
-      ? `rgba(253, 224, 71, ${0.18 - i * 0.03})`
-      : `rgba(217, 119, 6, ${0.15 - i * 0.026})`;
+      ? `rgba(96, 165, 250, ${0.18 - i * 0.03})`
+      : `rgba(20, 86, 240, ${0.15 - i * 0.026})`;
     ctx.lineWidth = 1.1 - i * 0.08;
     ctx.beginPath();
     ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
     ctx.stroke();
-    ctx.strokeStyle = `rgba(253, 224, 71, ${isDark ? 0.22 - i * 0.03 : 0.14 - i * 0.022})`;
+    ctx.strokeStyle = `rgba(59, 130, 246, ${isDark ? 0.22 - i * 0.03 : 0.14 - i * 0.022})`;
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.ellipse(0, 0, rx, ry, 0, -0.55 + i * 0.08 + t * 0.15, 0.75 + i * 0.06 + t * 0.15);
@@ -104,8 +104,8 @@ export function drawHeroSphereAtmosphereAndOrbits({
       const by = Math.sin(ang) * ry;
       const bead = ctx.createRadialGradient(bx, by, 0, bx, by, 5);
       bead.addColorStop(0, "rgba(255, 255, 255, 0.9)");
-      bead.addColorStop(0.35, "rgba(253, 224, 71, 0.6)");
-      bead.addColorStop(1, "rgba(253, 224, 71, 0)");
+      bead.addColorStop(0.35, "rgba(96, 165, 250, 0.6)");
+      bead.addColorStop(1, "rgba(96, 165, 250, 0)");
       ctx.fillStyle = bead;
       ctx.beginPath();
       ctx.arc(bx, by, 5, 0, Math.PI * 2);
@@ -129,10 +129,10 @@ export function drawHeroSphereCore({
   const coreRadius = scale * 0.2 * corePulse;
   const core = ctx.createRadialGradient(cx, cy, 0, cx, cy, coreRadius * 1.45);
   core.addColorStop(0, "rgba(255, 255, 255, 0.97)");
-  core.addColorStop(0.15, "rgba(255, 251, 235, 0.88)");
-  core.addColorStop(0.4, "rgba(253, 224, 71, 0.4)");
-  core.addColorStop(0.7, "rgba(251, 191, 36, 0.1)");
-  core.addColorStop(1, "rgba(251, 191, 36, 0)");
+  core.addColorStop(0.15, "rgba(239, 246, 255, 0.88)");
+  core.addColorStop(0.4, "rgba(96, 165, 250, 0.4)");
+  core.addColorStop(0.7, "rgba(59, 130, 246, 0.1)");
+  core.addColorStop(1, "rgba(59, 130, 246, 0)");
   ctx.fillStyle = core;
   ctx.beginPath();
   ctx.arc(cx, cy, coreRadius * 1.45, 0, Math.PI * 2);
@@ -164,12 +164,12 @@ export function drawHeroSphereCore({
 }
 
 export function drawHeroSphereRim({ ctx, cx, cy, scale, isDark }: HeroSphereShellFrame) {
-  ctx.strokeStyle = isDark ? "rgba(253, 224, 71, 0.22)" : "rgba(180, 83, 9, 0.14)";
+  ctx.strokeStyle = isDark ? "rgba(96, 165, 250, 0.22)" : "rgba(20, 86, 240, 0.14)";
   ctx.lineWidth = 1.25;
   ctx.beginPath();
   ctx.arc(cx, cy, scale * 0.998, 0, Math.PI * 2);
   ctx.stroke();
-  ctx.strokeStyle = isDark ? "rgba(251, 191, 36, 0.14)" : "rgba(251, 191, 36, 0.08)";
+  ctx.strokeStyle = isDark ? "rgba(59, 130, 246, 0.14)" : "rgba(59, 130, 246, 0.08)";
   ctx.lineWidth = 2.5;
   ctx.beginPath();
   ctx.arc(cx, cy, scale * 1.02, 0, Math.PI * 2);

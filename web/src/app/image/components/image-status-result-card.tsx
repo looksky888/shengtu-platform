@@ -24,7 +24,7 @@ export function ImageStatusResultCard({
 }: ImageStatusResultCardProps) {
   if (image.status === "cancelled") {
     return (
-      <div className="mb-3 inline-flex min-h-[190px] w-full break-inside-avoid items-center justify-center overflow-hidden rounded-[18px] border border-amber-200 bg-amber-50 sm:mb-4">
+      <div className="mb-3 inline-flex min-h-[190px] w-full break-inside-avoid items-center justify-center overflow-hidden rounded-xl border border-amber-200 bg-amber-50 sm:mb-4 dark:border-amber-500/30 dark:bg-amber-500/10">
         <CreationTaskMessageState
           icon={<Clock3 className="size-5 text-amber-600" />}
           title="任务已终止"
@@ -36,7 +36,7 @@ export function ImageStatusResultCard({
 
   if (image.status === "error") {
     return (
-      <div className="mb-3 inline-flex min-h-[190px] w-full break-inside-avoid items-center justify-center overflow-hidden rounded-[18px] border border-rose-200 bg-rose-50 sm:mb-4">
+      <div className="mb-3 inline-flex min-h-[190px] w-full break-inside-avoid items-center justify-center overflow-hidden rounded-xl border border-rose-200 bg-rose-50 sm:mb-4 dark:border-rose-500/30 dark:bg-rose-500/10">
         <CreationTaskMessageState
           icon={<AlertCircle className="size-5 text-rose-600" />}
           title="图片生成失败"
@@ -50,7 +50,7 @@ export function ImageStatusResultCard({
   }
 
   return (
-    <div className="mb-3 inline-block min-h-[190px] w-full break-inside-avoid overflow-hidden rounded-[18px] border border-stone-200/80 bg-stone-100/80 sm:mb-4">
+    <div className="mb-3 inline-block min-h-[190px] w-full break-inside-avoid overflow-hidden rounded-xl border border-border/70 bg-muted/40 sm:mb-4">
       <CreationTaskProgressState
         compact
         progress={0}

@@ -28,7 +28,7 @@ type AdjustCreditsDialogProps = {
 export function AdjustCreditsDialog({ user, balance, delta, reason, isAdjusting, onOpenChange, onDeltaChange, onReasonChange, onSave }: AdjustCreditsDialogProps) {
   return (
     <Dialog open={Boolean(user)} onOpenChange={onOpenChange}>
-      <DialogContent className="rounded-2xl p-6">
+      <DialogContent className="rounded-xl p-6">
         <DialogHeader className="gap-2">
           <DialogTitle>调整用户积分</DialogTitle>
           <DialogDescription className="text-sm leading-6">
@@ -38,16 +38,16 @@ export function AdjustCreditsDialog({ user, balance, delta, reason, isAdjusting,
         <div className="grid gap-4">
           <div className="space-y-2">
             <label className="text-sm font-medium text-stone-700 dark:text-foreground">调整值</label>
-            <Input value={delta} onChange={(event) => onDeltaChange(event.target.value)} placeholder="正数增加，负数扣减，例如 10 或 -5" className="h-11 rounded-xl" inputMode="numeric" />
+            <Input value={delta} onChange={(event) => onDeltaChange(event.target.value)} placeholder="正数增加，负数扣减，例如 10 或 -5" className="h-9 rounded-lg" inputMode="numeric" />
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium text-stone-700 dark:text-foreground">原因说明（可选）</label>
-            <Input value={reason} onChange={(event) => onReasonChange(event.target.value)} placeholder="例如：后台补偿、人工扣减、活动发放" className="h-11 rounded-xl" />
+            <Input value={reason} onChange={(event) => onReasonChange(event.target.value)} placeholder="例如：后台补偿、人工扣减、活动发放" className="h-9 rounded-lg" />
           </div>
         </div>
         <DialogFooter>
-          <Button type="button" variant="secondary" className="h-10 rounded-xl px-5" onClick={() => onOpenChange(false)} disabled={isAdjusting}>取消</Button>
-          <Button type="button" className="h-10 rounded-xl px-5" onClick={onSave} disabled={isAdjusting || !user}>
+          <Button type="button" variant="secondary" className="h-9 rounded-lg px-4" onClick={() => onOpenChange(false)} disabled={isAdjusting}>取消</Button>
+          <Button type="button" className="h-9 rounded-lg px-4" onClick={onSave} disabled={isAdjusting || !user}>
             {isAdjusting ? <LoaderCircle className="size-4 animate-spin" /> : <Coins className="size-4" />}
             保存调整
           </Button>

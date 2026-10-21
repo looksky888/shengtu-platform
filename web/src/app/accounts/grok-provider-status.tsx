@@ -20,7 +20,7 @@ function providerStatusTone(status: GrokProviderRow["status"]): string {
 }
 
 export function GrokProviderTypeBadge({ account }: { account: GrokProviderRow }) {
-  return <span className="inline-flex rounded-full border border-border bg-background px-2 py-0.5 text-[11px] text-muted-foreground">{accountTypeLabel(account)}</span>;
+  return <span className="inline-flex rounded-md border border-border bg-background px-2 py-0.5 text-[11px] text-muted-foreground">{accountTypeLabel(account)}</span>;
 }
 
 export function GrokProviderStatusBadge({ account }: { account: GrokProviderRow }) {
@@ -28,7 +28,7 @@ export function GrokProviderStatusBadge({ account }: { account: GrokProviderRow 
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <button type="button" className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs outline-none focus-visible:ring-2 focus-visible:ring-[#1456f0]/30", providerStatusTone(account.status))}>
+        <button type="button" className={cn("inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs outline-none focus-visible:ring-2 focus-visible:ring-primary/30", providerStatusTone(account.status))}>
           {account.status === "active" ? <CheckCircle2 className="size-3" /> : account.status === "error" ? <CircleAlert className="size-3" /> : <ShieldQuestion className="size-3" />}
           {STATUS_LABELS[account.status]}
         </button>

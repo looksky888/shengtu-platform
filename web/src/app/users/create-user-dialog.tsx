@@ -29,7 +29,7 @@ type CreateUserDialogProps = {
 export function CreateUserDialog({ open, form, errors, roles, isCreating, onOpenChange, onFieldChange, onCreate }: CreateUserDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="rounded-2xl p-6 sm:max-w-2xl">
+      <DialogContent className="rounded-xl p-6 sm:max-w-2xl">
         <DialogHeader className="gap-2">
           <DialogTitle>创建用户</DialogTitle>
           <DialogDescription className="text-sm leading-6">创建本地登录用户并绑定角色。</DialogDescription>
@@ -47,8 +47,8 @@ export function CreateUserDialog({ open, form, errors, roles, isCreating, onOpen
           <StatusSelect enabled={form.enabled} onChange={(value) => onFieldChange("enabled", value)} />
         </div>
         <DialogFooter>
-          <Button type="button" variant="secondary" className="h-10 rounded-xl px-5" onClick={() => onOpenChange(false)} disabled={isCreating}>取消</Button>
-          <Button type="button" className="h-10 rounded-xl px-5" onClick={onCreate} disabled={isCreating}>
+          <Button type="button" variant="secondary" className="h-9 rounded-lg px-4" onClick={() => onOpenChange(false)} disabled={isCreating}>取消</Button>
+          <Button type="button" className="h-9 rounded-lg px-4" onClick={onCreate} disabled={isCreating}>
             {isCreating ? <LoaderCircle className="size-4 animate-spin" /> : <Plus className="size-4" />}
             创建
           </Button>
@@ -73,7 +73,7 @@ function TextField({ label, value, onChange, placeholder, type = "text", autoCom
       <label className="text-sm font-medium text-stone-700 dark:text-foreground">{label}</label>
       <div className={icon ? "relative" : undefined}>
         {icon}
-        <Input value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} type={type} autoComplete={autoComplete} className={`h-11 rounded-xl ${icon ? "pl-9" : ""}`} aria-invalid={Boolean(error)} />
+        <Input value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} type={type} autoComplete={autoComplete} className={`h-9 rounded-lg ${icon ? "pl-9" : ""}`} aria-invalid={Boolean(error)} />
       </div>
       {error ? <p className="text-xs leading-5 text-destructive">{error}</p> : null}
     </div>
@@ -85,7 +85,7 @@ function RoleSelect({ value, roles, onChange }: { value: string; roles: ManagedR
     <div className="space-y-2">
       <label className="text-sm font-medium text-stone-700 dark:text-foreground">角色</label>
       <Select value={value} onValueChange={onChange}>
-        <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="选择角色" /></SelectTrigger>
+        <SelectTrigger className="h-9 rounded-lg"><SelectValue placeholder="选择角色" /></SelectTrigger>
         <SelectContent>{roles.map((role) => <SelectItem key={role.id} value={role.id}>{role.name}</SelectItem>)}</SelectContent>
       </Select>
     </div>
@@ -97,7 +97,7 @@ function StatusSelect({ enabled, onChange }: { enabled: boolean; onChange: (valu
     <div className="space-y-2">
       <label className="text-sm font-medium text-stone-700 dark:text-foreground">状态</label>
       <Select value={enabled ? "true" : "false"} onValueChange={(value) => onChange(value === "true")}>
-        <SelectTrigger className="h-11 rounded-xl"><SelectValue /></SelectTrigger>
+        <SelectTrigger className="h-9 rounded-lg"><SelectValue /></SelectTrigger>
         <SelectContent><SelectItem value="true">已启用</SelectItem><SelectItem value="false">已禁用</SelectItem></SelectContent>
       </Select>
     </div>

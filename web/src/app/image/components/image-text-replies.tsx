@@ -32,11 +32,11 @@ export function ImageTextReplies({
       {textReplyImages.map(({ image, index }) => (
         <div
           key={image.id}
-          className="w-full max-w-[min(94%,760px)] rounded-[20px] border border-[#f2f3f5] bg-white px-4 py-3 text-left text-sm leading-6 text-[#45515e] shadow-[0_4px_6px_rgba(0,0,0,0.08)]"
+          className="w-full max-w-[min(94%,760px)] rounded-xl border border-border/70 bg-card px-4 py-3 text-left text-sm leading-6 text-foreground shadow-2xs"
         >
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-stone-500">
-              <span className="rounded-full bg-stone-100 px-2.5 py-0.5 text-stone-600">
+            <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+              <span className="rounded-md bg-muted px-2 py-0.5 text-foreground/80">
                 {turn.mode === "chat" ? "对话回复" : "模型文本回复"}
               </span>
             </div>
@@ -44,7 +44,7 @@ export function ImageTextReplies({
               type="button"
               variant="outline"
               size="sm"
-              className="h-8 rounded-full border-[#e5e7eb] bg-white px-3 text-xs text-[#45515e] shadow-none hover:bg-black/[0.05] hover:text-[#18181b]"
+              className="h-8 rounded-lg px-2.5 text-xs"
               disabled={turnBusy || !turn.prompt.trim()}
               onClick={() => void onRetryImage(conversationId, turn.id, index)}
             >

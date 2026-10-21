@@ -97,6 +97,8 @@ func main() {
 	var serveErr error
 	select {
 	case <-stop:
+	case <-app.ShutdownRequested():
+		logger.Info("graceful restart requested")
 	case failure := <-serverFailures:
 		logger.Error("listen failed", "name", failure.name, "error", failure.err)
 		serveErr = fmt.Errorf("%s server: %w", failure.name, failure.err)

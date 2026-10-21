@@ -46,13 +46,13 @@ export function drawHeroSphereNodesAndSparkles({
     );
     const alpha = (0.14 + node.depth * 0.5) * lit * (isDark ? 1.15 : 1);
     const radius = 0.75 + node.depth * 1.45;
-    ctx.fillStyle = `rgba(251, 191, 36, ${alpha * 0.28})`;
+    ctx.fillStyle = `rgba(59, 130, 246, ${alpha * 0.28})`;
     ctx.beginPath();
     ctx.arc(node.x, node.y, radius * 2.1, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = isDark
-      ? `rgba(253, 224, 71, ${alpha})`
-      : `rgba(180, 83, 9, ${alpha})`;
+      ? `rgba(96, 165, 250, ${alpha})`
+      : `rgba(20, 86, 240, ${alpha})`;
     ctx.beginPath();
     ctx.arc(node.x, node.y, radius, 0, Math.PI * 2);
     ctx.fill();
@@ -70,7 +70,7 @@ export function drawHeroSphereNodesAndSparkles({
     const sparkle = project(rotated, scale, cx, cy);
     const pulse = 0.5 + 0.5 * Math.sin(t * 1.25 + point.x * 7 + point.y * 5);
     const alpha = (0.07 + sparkle.depth * 0.26) * (0.4 + pulse * 0.6);
-    ctx.fillStyle = `rgba(253, 224, 71, ${alpha})`;
+    ctx.fillStyle = `rgba(96, 165, 250, ${alpha})`;
     ctx.beginPath();
     ctx.arc(sparkle.x, sparkle.y, 0.5 + sparkle.depth * 0.85 * pulse, 0, Math.PI * 2);
     ctx.fill();
@@ -142,7 +142,7 @@ export function drawHeroSphereDust({
           const distance = Math.sqrt(dist2);
           const alpha =
             (1 - distance / maxDistance) * 0.08 * Math.min(a.alpha, b.alpha) * 2.5;
-          ctx.strokeStyle = `rgba(217, 119, 6, ${alpha})`;
+          ctx.strokeStyle = `rgba(59, 130, 246, ${alpha})`;
           ctx.lineWidth = 0.6;
           ctx.beginPath();
           ctx.moveTo(a.x, a.y);

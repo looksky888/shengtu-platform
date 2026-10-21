@@ -53,7 +53,7 @@ export function LoginFormPanel({ appMeta, state }: { appMeta: LoginAppMeta; stat
           {!state.isRegisterMode && state.passwordResetEnabled === true ? (
             <button
               type="button"
-              className="-mt-2 self-end rounded-md px-1 py-0.5 text-xs font-semibold text-amber-700 transition hover:text-amber-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/45 dark:text-amber-300 dark:hover:text-amber-100"
+              className="-mt-2 self-end rounded-md px-1 py-0.5 text-xs font-semibold text-[#1456f0] transition hover:text-[#0f49cf] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45 dark:text-blue-400 dark:hover:text-blue-300"
               onClick={() => state.openPasswordReset(state.username)}
               disabled={state.isSubmitting}
             >
@@ -80,7 +80,7 @@ export function LoginFormPanel({ appMeta, state }: { appMeta: LoginAppMeta; stat
 function ModeTabs({ state }: { state: LoginPageState }) {
   return (
     <div
-      className="grid grid-cols-2 rounded-2xl border border-amber-100/90 bg-amber-50/50 p-1 dark:border-amber-900/40 dark:bg-amber-950/30"
+      className="grid grid-cols-2 rounded-xl border border-slate-200/80 bg-slate-100/70 p-1 dark:border-white/10 dark:bg-white/[0.04]"
       role="tablist"
       aria-label="登录或注册"
     >
@@ -89,10 +89,10 @@ function ModeTabs({ state }: { state: LoginPageState }) {
         role="tab"
         aria-selected={!state.isRegisterMode}
         className={cn(
-          "h-9 rounded-xl text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/45",
+          "h-8.5 rounded-lg text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45",
           !state.isRegisterMode
-            ? "bg-white text-stone-900 shadow-sm dark:bg-stone-900 dark:text-amber-50"
-            : "text-stone-500 hover:text-stone-800 dark:text-amber-100/50 dark:hover:text-amber-50",
+            ? "bg-white text-slate-900 shadow-2xs dark:bg-slate-800 dark:text-white"
+            : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white",
         )}
         onClick={() => state.setIsRegisterMode(false)}
         disabled={state.isSubmitting}
@@ -104,10 +104,10 @@ function ModeTabs({ state }: { state: LoginPageState }) {
         role="tab"
         aria-selected={state.isRegisterMode}
         className={cn(
-          "h-9 rounded-xl text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/45",
+          "h-8.5 rounded-lg text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45",
           state.isRegisterMode
-            ? "bg-white text-stone-900 shadow-sm dark:bg-stone-900 dark:text-amber-50"
-            : "text-stone-500 hover:text-stone-800 dark:text-amber-100/50 dark:hover:text-amber-50",
+            ? "bg-white text-slate-900 shadow-2xs dark:bg-slate-800 dark:text-white"
+            : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white",
         )}
         onClick={() => state.setIsRegisterMode(true)}
         disabled={state.isSubmitting}
@@ -125,13 +125,13 @@ function LoginBrand({ appMeta }: { appMeta: LoginAppMeta }) {
         src="/logo-mark.svg"
         alt=""
         aria-hidden="true"
-        className="size-10 rounded-[14px] shadow-[0_12px_16px_-4px_rgba(180,83,9,0.16)] sm:size-11 sm:rounded-[16px]"
+        className="size-9 rounded-xl shadow-2xs sm:size-10"
       />
       <div className="grid min-w-0 leading-none">
-        <div className="truncate text-sm font-semibold tracking-[-0.02em] text-stone-900 dark:text-amber-50">
+        <div className="truncate text-sm font-semibold tracking-[-0.02em] text-slate-900 dark:text-slate-100">
           {appTitle(appMeta)}
         </div>
-        <div className="truncate text-[10px] font-medium tracking-[0.28em] text-stone-400 uppercase dark:text-amber-100/45">
+        <div className="mt-1 truncate text-[10px] font-medium tracking-[0.22em] text-slate-400 uppercase dark:text-slate-500">
           {projectName(appMeta)}
         </div>
       </div>
@@ -141,19 +141,19 @@ function LoginBrand({ appMeta }: { appMeta: LoginAppMeta }) {
 
 function LoginHeading({ appMeta, isRegisterMode }: { appMeta: LoginAppMeta; isRegisterMode: boolean }) {
   return (
-    <div className="flex flex-col gap-3">
-      <div className="inline-flex w-fit items-center gap-2 rounded-full border border-amber-200/90 bg-amber-50/90 px-3 py-1 text-[11px] font-semibold tracking-[0.18em] text-amber-900/80 uppercase shadow-[0_4px_12px_rgba(180,83,9,0.06)] dark:border-amber-800/50 dark:bg-amber-950/50 dark:text-amber-100/80">
-        <ShieldCheck className="size-3.5 text-amber-600 dark:text-amber-300" aria-hidden="true" />
+    <div className="flex flex-col gap-2.5">
+      <div className="inline-flex w-fit items-center gap-1.5 rounded-md border border-blue-200/80 bg-blue-50/80 px-2.5 py-1 text-[11px] font-semibold tracking-[0.14em] text-[#1456f0] uppercase dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-300">
+        <ShieldCheck className="size-3.5 text-[#1456f0] dark:text-blue-400" aria-hidden="true" />
         Secure Access
       </div>
       <div className="flex flex-col gap-1.5">
         <h1
           id="login-heading"
-          className="text-[1.85rem] leading-[1.12] font-semibold tracking-[-0.04em] text-stone-900 transition-opacity duration-200 dark:text-amber-50 sm:text-[2.35rem]"
+          className="text-2xl leading-tight font-semibold tracking-tight text-slate-900 transition-opacity duration-200 dark:text-white sm:text-3xl"
         >
           {isRegisterMode ? "创建账号" : "欢迎回来"}
         </h1>
-        <p className="max-w-[22rem] text-sm leading-6 text-stone-500 dark:text-amber-100/55">
+        <p className="max-w-[22rem] text-sm leading-6 text-slate-500 dark:text-slate-400">
           {isRegisterMode
             ? `注册后即可使用 ${appTitle(appMeta)} 多模型生图工作台。`
             : `登录后进入 ${appTitle(appMeta)} · GPT 与 Grok 渠道一体接入。`}

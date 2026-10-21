@@ -76,7 +76,7 @@ export function ImageSuccessResultCard({
   return (
     <figure
       className={cn(
-        "group relative mb-3 inline-block w-full break-inside-avoid overflow-hidden rounded-[20px] border border-border/60 bg-surface-muted shadow-sm transition-shadow hover:shadow-md sm:mb-4",
+        "group relative mb-3 inline-block w-full break-inside-avoid overflow-hidden rounded-xl border border-border/60 bg-surface-muted shadow-2xs transition-shadow hover:shadow-md sm:mb-4",
         selected && "ring-2 ring-brand ring-offset-2 ring-offset-background",
       )}
     >

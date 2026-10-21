@@ -32,7 +32,7 @@ export default function LoginPage() {
     >
       <a
         href="#login-form"
-        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[60] focus:rounded-full focus:bg-stone-900 focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white focus:shadow-lg focus:outline-none focus:ring-2 focus:ring-amber-400/50 dark:focus:bg-amber-100 dark:focus:text-stone-900"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[60] focus:rounded-lg focus:bg-slate-900 focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white focus:shadow-lg focus:outline-none focus:ring-2 focus:ring-primary/50 dark:focus:bg-slate-100 dark:focus:text-slate-900"
       >
         跳到{modeLabel}表单
       </a>

@@ -40,7 +40,7 @@ export function UpstreamProxyRuntimeStatus({
     <>
       <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
         {summary.map((item) => (
-          <div key={item.label} className="min-w-0 rounded-xl border border-border/70 bg-background/80 px-3 py-2.5 shadow-sm">
+          <div key={item.label} className="min-w-0 rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5">
             <p className="text-[11px] text-muted-foreground">{item.label}</p>
             <p className={`mt-1 truncate text-sm font-semibold ${item.ok ? "text-emerald-600" : "text-amber-600"}`}>
               {item.value}
@@ -64,7 +64,7 @@ export function UpstreamProxyRuntimeStatus({
         （容器内）或宿主机映射端口。Cookie 明文不会在测试接口中返回。
       </SettingsNotice>
 
-      <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-6 text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-100">
+      <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-6 text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-100">
         <AlertTriangle className="mt-0.5 size-4 shrink-0" />
         <span>
           使用 WARP 前请 <code className="rounded bg-white/80 px-1 dark:bg-black/20">docker compose -f docker-compose.warp.yml up -d</code>

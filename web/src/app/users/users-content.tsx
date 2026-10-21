@@ -23,7 +23,7 @@ export function UsersContent({ session }: { session: StoredAuthSession }) {
         title="用户管理"
         actions={
           <>
-            <Button variant="outline" onClick={() => void users.loadUsers()} disabled={users.isLoading} className="h-10 rounded-lg">
+            <Button variant="outline" onClick={() => void users.loadUsers()} disabled={users.isLoading} className="h-9 rounded-lg">
               <RefreshCw className={`size-4 ${users.isLoading ? "animate-spin" : ""}`} />
               刷新列表
             </Button>
@@ -42,7 +42,7 @@ export function UsersContent({ session }: { session: StoredAuthSession }) {
                         ? "重新统计本页用户近 14 天用量"
                         : "按需统计本页用量（打开列表不会扫日志）"
               }
-              className="h-10 rounded-lg"
+              className="h-9 rounded-lg"
             >
               <RefreshCw className={`size-4 ${users.isLoadingUsage ? "animate-spin" : ""}`} />
               {users.isLoading
@@ -56,7 +56,7 @@ export function UsersContent({ session }: { session: StoredAuthSession }) {
                       : "加载用量"}
             </Button>
             {users.permissions.canCreateUser ? (
-              <Button onClick={users.openCreateDialog} className="h-10 rounded-lg">
+              <Button onClick={users.openCreateDialog} className="h-9 rounded-lg">
                 <Plus className="size-4" />
                 创建用户
               </Button>

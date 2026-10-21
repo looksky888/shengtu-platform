@@ -17,11 +17,11 @@ export function ProfileCreditBalanceSummary({
 }) {
   return (
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-      <div className="rounded-2xl border border-[#dbeafe] bg-[#f8fbff] px-4 py-3 dark:border-sky-900/70 dark:bg-sky-950/20 sm:col-span-2 xl:col-span-1">
-        <div className="text-xs text-[#59708a] dark:text-sky-200/80">当前余额</div>
+      <div className="rounded-xl border border-border/70 bg-card p-5 sm:col-span-2 xl:col-span-1">
+        <div className="text-xs text-muted-foreground">当前余额</div>
         <div className="mt-1 flex flex-wrap items-end gap-2">
-          <span className="text-3xl font-semibold tracking-tight text-foreground">{formatCreditNumber(credits.balance)}</span>
-          <Badge variant="info" className="mb-1 rounded-md">
+          <span className="text-2xl font-semibold tracking-tight text-foreground">{formatCreditNumber(credits.balance)}</span>
+          <Badge variant="info" className="mb-0.5 rounded-md">
             {formatCreditBalance(credits.balance)}
           </Badge>
         </div>
@@ -31,7 +31,7 @@ export function ProfileCreditBalanceSummary({
       <MetaTile label="最近更新" value={formatDateTime(credits.account.updated_at)} />
       <MetaTile label="账户创建" value={formatDateTime(credits.account.created_at)} />
 
-      <div className="rounded-xl border border-border bg-muted/20 px-4 py-3">
+      <div className="rounded-xl border border-border/70 bg-card p-5">
         <div className="text-xs text-muted-foreground">最近一笔变动</div>
         {latest ? (
           <div className="mt-1.5 flex min-w-0 flex-wrap items-center justify-between gap-2">
@@ -53,7 +53,7 @@ export function ProfileCreditBalanceSummary({
 
 function MetaTile({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-border bg-muted/20 px-4 py-3">
+    <div className="rounded-xl border border-border/70 bg-card p-5">
       <div className="text-xs text-muted-foreground">{label}</div>
       <div className="mt-1.5 truncate text-sm font-medium text-foreground" title={value}>
         {value || "—"}

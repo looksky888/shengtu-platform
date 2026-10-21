@@ -21,7 +21,7 @@ type Props = {
 };
 
 function ActionButton({ children, danger = false, ...props }: ComponentProps<"button"> & { danger?: boolean }) {
-  return <button type="button" className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1456f0]/30 ${danger ? "text-rose-700" : "text-foreground"}`} {...props}>{children}</button>;
+  return <button type="button" className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 ${danger ? "text-rose-700" : "text-foreground"}`} {...props}>{children}</button>;
 }
 
 export function GrokProviderRowActions({ account, controller, canWrite, canDelete, isAdmin, onConfigure, onDelete }: Props) {
@@ -32,7 +32,7 @@ export function GrokProviderRowActions({ account, controller, canWrite, canDelet
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className="size-8 rounded-full" aria-label={`管理 ${account.display_name || account.id}`}>
+        <Button variant="ghost" size="icon" className="size-8 rounded-lg" aria-label={`管理 ${account.display_name || account.id}`}>
           <MoreHorizontal className="size-4" />
         </Button>
       </PopoverTrigger>

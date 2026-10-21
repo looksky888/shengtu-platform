@@ -146,14 +146,13 @@ export function UpstreamProxyRuntimeForm(props: UpstreamProxyRuntimeFormProps) {
       </div>
 
       <div className="flex flex-wrap gap-2">
-        <Button type="button" variant="outline" className="rounded-xl" onClick={onTestProxy} disabled={isTestingProxy}>
+        <Button type="button" variant="outline" onClick={onTestProxy} disabled={isTestingProxy}>
           {isTestingProxy ? <LoaderCircle className="size-4 animate-spin" /> : <ShieldCheck className="size-4" />}
           测试代理
         </Button>
         <Button
           type="button"
           variant="outline"
-          className="rounded-xl"
           onClick={onTestClearance}
           disabled={isTestingClearance || !enabled || mode !== "flaresolverr"}
         >
@@ -163,7 +162,6 @@ export function UpstreamProxyRuntimeForm(props: UpstreamProxyRuntimeFormProps) {
         <Button
           type="button"
           variant="outline"
-          className="rounded-xl"
           onClick={onWarmUp}
           disabled={isWarming || !enabled || mode !== "flaresolverr"}
         >

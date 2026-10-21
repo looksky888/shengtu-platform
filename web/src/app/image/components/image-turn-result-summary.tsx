@@ -41,23 +41,23 @@ export function ImageTurnResultSummary({
 
   return (
     <div className="mb-3 flex flex-wrap items-center justify-between gap-2 sm:mb-4">
-      <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-[#45515e] sm:gap-2 sm:text-xs">
-        <span className="font-medium text-[#222222]">生成结果</span>
-        <span className="rounded-full bg-[#f0f0f0] px-3 py-1">{resultCount} 张</span>
-        {turn.count !== resultCount ? <span className="rounded-full bg-[#f0f0f0] px-3 py-1">目标 {turn.count} 张</span> : null}
-        {resultSizeLabel ? <span className="rounded-full bg-[#f0f0f0] px-3 py-1">{resultSizeLabel}</span> : null}
-        {turn.quality ? <span className="rounded-full bg-[#f0f0f0] px-3 py-1">Quality {turn.quality}</span> : null}
-        {turn.outputFormat ? <span className="rounded-full bg-[#f0f0f0] px-3 py-1">{turn.outputFormat.toUpperCase()}</span> : null}
+      <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground sm:gap-2 sm:text-xs">
+        <span className="font-medium text-foreground">生成结果</span>
+        <span className="rounded-md bg-muted px-2.5 py-0.5">{resultCount} 张</span>
+        {turn.count !== resultCount ? <span className="rounded-md bg-muted px-2.5 py-0.5">目标 {turn.count} 张</span> : null}
+        {resultSizeLabel ? <span className="rounded-md bg-muted px-2.5 py-0.5">{resultSizeLabel}</span> : null}
+        {turn.quality ? <span className="rounded-md bg-muted px-2.5 py-0.5">Quality {turn.quality}</span> : null}
+        {turn.outputFormat ? <span className="rounded-md bg-muted px-2.5 py-0.5">{turn.outputFormat.toUpperCase()}</span> : null}
         {turn.outputCompression != null && turn.outputFormat && turn.outputFormat !== "png" ? (
-          <span className="rounded-full bg-[#f0f0f0] px-3 py-1">压缩 {turn.outputCompression}</span>
+          <span className="rounded-md bg-muted px-2.5 py-0.5">压缩 {turn.outputCompression}</span>
         ) : null}
-        {outcomeLabel ? <span className="rounded-full bg-[#f0f0f0] px-3 py-1">{outcomeLabel}</span> : null}
-        <span className={cn("rounded-full px-3 py-1", getStatusChipClass(turn.status))}>{getTurnStatusLabel(turn.status)}</span>
+        {outcomeLabel ? <span className="rounded-md bg-muted px-2.5 py-0.5">{outcomeLabel}</span> : null}
+        <span className={cn("rounded-md px-2.5 py-0.5", getStatusChipClass(turn.status))}>{getTurnStatusLabel(turn.status)}</span>
       </div>
       {turnBusy || downloadableImages.length > 0 ? (
         <div className="flex flex-wrap items-center justify-end gap-2">
           {turnBusy ? (
-            <span className="w-fit whitespace-nowrap rounded-full bg-amber-50 px-3 py-1 text-[11px] text-amber-700 sm:text-xs">
+            <span className="w-fit whitespace-nowrap rounded-md bg-amber-50 px-2.5 py-1 text-[11px] text-amber-700 sm:text-xs dark:bg-amber-500/10 dark:text-amber-300">
               {progressMessage}
             </span>
           ) : null}
@@ -66,7 +66,7 @@ export function ImageTurnResultSummary({
               <Button
                 type="button"
                 size="sm"
-                className="h-8 rounded-full bg-[#1456f0] px-2.5 text-[11px] text-white shadow-sm hover:bg-[#2563eb]"
+                className="h-8 rounded-lg px-2.5 text-[11px]"
                 disabled={selectedDownloadableImages.length === 0 || downloadingKey !== null}
                 onClick={() => onDownloadItems(selectedDownloadKey, selectedDownloadableImages)}
               >
@@ -77,7 +77,7 @@ export function ImageTurnResultSummary({
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-8 rounded-full border-[#e5e7eb] bg-white px-2.5 text-[11px] text-[#45515e] shadow-sm hover:bg-black/[0.05]"
+                className="h-8 rounded-lg px-2.5 text-[11px]"
                 disabled={downloadingKey !== null}
                 onClick={() => onDownloadItems(allDownloadKey, downloadableImages)}
               >

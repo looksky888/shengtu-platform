@@ -19,7 +19,7 @@ export function ImportBrowserFileList({
   onToggleFile,
 }: ImportBrowserFileListProps) {
   return (
-    <div className="rounded-[16px] border border-border/80">
+    <div className="rounded-lg border border-border/70">
       <div className="flex items-center justify-between border-b border-[#f2f3f5] px-4 py-3 text-sm text-muted-foreground">
         <div className="flex items-center gap-3">
           <Checkbox checked={allFilteredSelected} onCheckedChange={(checked) => onToggleSelectAllFiltered(Boolean(checked))} />

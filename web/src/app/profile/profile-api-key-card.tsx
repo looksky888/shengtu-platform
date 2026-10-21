@@ -108,7 +108,7 @@ export function ProfileApiKeyCard({
       <CardHeader>
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-brand-border bg-brand-soft text-brand">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-brand-border bg-brand-soft text-brand">
               <KeyRound className="size-5" />
             </div>
             <div className="min-w-0">
@@ -155,7 +155,7 @@ export function ProfileApiKeyCard({
         ) : (
           <>
             {justGeneratedKey ? (
-              <div className="flex flex-col gap-2.5 rounded-xl border border-emerald-500/35 bg-emerald-500/10 p-3.5 text-xs text-emerald-950 dark:text-emerald-100">
+              <div className="flex flex-col gap-2.5 rounded-lg border border-emerald-500/35 bg-emerald-500/10 p-3.5 text-xs text-emerald-950 dark:text-emerald-100">
                 <div className="flex items-center justify-between gap-2 font-semibold">
                   <span className="inline-flex items-center gap-1.5">
                     <Sparkles className="size-4 text-emerald-600 dark:text-emerald-400" />
@@ -320,7 +320,7 @@ function BearerTokenBox({
   const canCopyPlaintext = Boolean(activePlaintextKey);
 
   return (
-    <div className="flex min-w-0 flex-col gap-3 rounded-xl border border-border/80 bg-surface-muted/45 p-3.5">
+    <div className="flex min-w-0 flex-col gap-3 rounded-lg border border-border/60 bg-muted/20 p-3.5">
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
         <span className="font-medium text-foreground">
           Bearer Token / X-API-Key

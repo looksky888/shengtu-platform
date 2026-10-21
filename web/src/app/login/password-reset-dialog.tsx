@@ -16,9 +16,9 @@ import { Input } from "@/components/ui/input";
 export function PasswordResetDialog({ state }: { state: LoginPageState }) {
   return (
     <Dialog open={state.passwordResetOpen} onOpenChange={state.setPasswordResetOpen}>
-      <DialogContent className="max-h-[90svh] overflow-y-auto border-amber-100 bg-white dark:border-amber-900/50 dark:bg-stone-950">
+      <DialogContent className="max-h-[90svh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-stone-900 dark:text-amber-50">找回密码</DialogTitle>
+          <DialogTitle>找回密码</DialogTitle>
           <DialogDescription className="leading-6">
             输入注册邮箱并获取验证码。旧用户名账号尚未绑定邮箱，请联系管理员重置。
           </DialogDescription>
@@ -44,18 +44,18 @@ export function PasswordResetDialog({ state }: { state: LoginPageState }) {
             placeholder="请输入注册邮箱"
           />
 
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-1.5">
             <div className="flex items-baseline justify-between gap-2">
-              <label htmlFor="reset-email-code" className="text-sm font-semibold text-stone-800 dark:text-amber-50/90">
+              <label htmlFor="reset-email-code" className="text-xs font-semibold text-slate-800 dark:text-slate-200">
                 邮箱验证码
               </label>
-              <span className="text-[11px] font-medium text-stone-400 dark:text-amber-100/40">
+              <span className="text-[11px] font-medium text-slate-400 dark:text-slate-500">
                 {state.passwordResetCodeLength} 位
               </span>
             </div>
             <div className="grid grid-cols-[minmax(0,1fr)_7rem] gap-2">
               <div className="relative">
-                <BadgeCheck className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-stone-400" />
+                <BadgeCheck className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
                 <Input
                   id="reset-email-code"
                   inputMode="numeric"
@@ -66,13 +66,13 @@ export function PasswordResetDialog({ state }: { state: LoginPageState }) {
                     event.target.value.replace(/\D/g, "").slice(0, state.passwordResetCodeLength),
                   )}
                   placeholder="验证码"
-                  className="h-12 rounded-[16px] border-amber-100/90 bg-white/95 pl-10 dark:border-amber-900/40 dark:bg-amber-950/30"
+                  className="h-10 rounded-lg pl-10"
                 />
               </div>
               <Button
                 type="button"
                 variant="outline"
-                className="h-12 rounded-[16px] border-amber-200 bg-white/90 text-xs dark:border-amber-800/60 dark:bg-amber-950/30"
+                className="h-10 rounded-lg text-xs"
                 disabled={state.isSendingResetCode || state.resetCodeCountdown > 0 || state.passwordResetEnabled === false}
                 onClick={() => void state.sendResetCode()}
               >

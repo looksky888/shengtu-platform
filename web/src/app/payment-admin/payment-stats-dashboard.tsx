@@ -59,10 +59,10 @@ export function PaymentStatsDashboard({
         ))}
       </div>
       <div className="grid gap-5 xl:grid-cols-[1.3fr_1fr]">
-        <Card className="rounded-2xl">
+        <Card className="rounded-xl">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="size-5 text-[#1456f0]" />近 7 日收入趋势
+              <BarChart3 className="size-5 text-primary" />近 7 日收入趋势
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -79,7 +79,7 @@ export function PaymentStatsDashboard({
                   >
                     <div className="relative flex w-full flex-1 items-end">
                       <div
-                        className="w-full rounded-t-lg bg-primary/80 transition-all group-hover:bg-primary"
+                        className="w-full rounded-t-md bg-primary/80 transition-all group-hover:bg-primary"
                         style={{ height: `${height}px` }}
                         title={`${item.date} ${money(item.succeeded_amount_fen)} · ${item.succeeded_orders} 笔`}
                       />
@@ -93,10 +93,10 @@ export function PaymentStatsDashboard({
             </div>
           </CardContent>
         </Card>
-        <Card className="rounded-2xl">
+        <Card className="rounded-xl">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <CircleDollarSign className="size-5 text-[#1456f0]" />
+              <CircleDollarSign className="size-5 text-primary" />
               渠道表现
             </CardTitle>
           </CardHeader>
@@ -129,9 +129,9 @@ export function PaymentStatsDashboard({
                       </p>
                     </div>
                   </div>
-                  <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted">
+                  <div className="mt-3 h-1.5 overflow-hidden rounded-md bg-muted">
                     <div
-                      className="h-full rounded-full bg-primary"
+                      className="h-full rounded-md bg-primary"
                       style={{
                         width: `${Math.min(100, Math.max(0, item.success_rate))}%`,
                       }}
@@ -157,32 +157,28 @@ function StatsCard({
   featured?: boolean;
 }) {
   return (
-    <Card
-      className={`rounded-2xl ${featured ? "border-primary/30 bg-primary/5" : ""}`}
+    <div
+      className={`rounded-xl border border-border/70 bg-card p-4 shadow-2xs ${featured ? "border-primary/30 bg-primary/5" : ""}`}
     >
-      <CardHeader className="pb-2">
-        <CardTitle className="text-sm text-muted-foreground">{label}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="text-2xl font-semibold tabular-nums tracking-tight">
-          {money(data.succeeded_amount_fen)}
-        </div>
-        <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
-          <span className="inline-flex items-center gap-1 text-emerald-700">
-            <CheckCircle2 className="size-3.5" />
-            成功 {data.succeeded_orders} 笔
-          </span>
-          <span className="inline-flex items-center gap-1 text-rose-700">
-            <XCircle className="size-3.5" />
-            失败 {data.failed_orders} 笔
-          </span>
-          <span>关闭 {data.closed_orders} 笔</span>
-        </div>
-        <div className="mt-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
-          <span>成功率 {percent(data.success_rate)}</span>
-          <span>到账 {data.credited_credits} 积分</span>
-        </div>
-      </CardContent>
-    </Card>
+      <div className="text-sm font-medium text-muted-foreground">{label}</div>
+      <div className="mt-2 text-2xl font-semibold tabular-nums tracking-tight">
+        {money(data.succeeded_amount_fen)}
+      </div>
+      <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+        <span className="inline-flex items-center gap-1 text-emerald-700">
+          <CheckCircle2 className="size-3.5" />
+          成功 {data.succeeded_orders} 笔
+        </span>
+        <span className="inline-flex items-center gap-1 text-rose-700">
+          <XCircle className="size-3.5" />
+          失败 {data.failed_orders} 笔
+        </span>
+        <span>关闭 {data.closed_orders} 笔</span>
+      </div>
+      <div className="mt-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
+        <span>成功率 {percent(data.success_rate)}</span>
+        <span>到账 {data.credited_credits} 积分</span>
+      </div>
+    </div>
   );
 }

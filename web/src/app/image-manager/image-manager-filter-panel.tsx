@@ -1,9 +1,7 @@
-import type { CSSProperties } from "react";
-import { Search, X } from "lucide-react";
+import { RotateCcw, Search, X } from "lucide-react";
 
 import { ImageManagerAutoRefreshControls } from "@/app/image-manager/image-manager-auto-refresh-controls";
 import { ImageManagerFilterSelects } from "@/app/image-manager/image-manager-filter-selects";
-import { ImageManagerGalleryViewTabs } from "@/app/image-manager/image-manager-gallery-view-tabs";
 import { ImageManagerMobileFilters } from "@/app/image-manager/image-manager-mobile-filters";
 import {
   type AutoRefreshMenuScope,
@@ -15,9 +13,9 @@ import {
   type ImageVisibilityFilter,
 } from "@/app/image-manager/image-manager-types";
 import { DateRangeFilter } from "@/components/date-range-filter";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { ImageGalleryView } from "@/lib/image-manager-cache";
-import { cn } from "@/lib/utils";
 
 type ImageManagerFilterPanelProps = {
   galleryView: ImageGalleryView;
@@ -64,20 +62,20 @@ type ImageManagerFilterPanelProps = {
 };
 
 export function ImageManagerFilterPanel(props: ImageManagerFilterPanelProps) {
-  const renderSearchFilter = (placeholder = "搜索文件、路径、作者、日期、尺寸") => (
-    <div className="relative min-w-0">
-      <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+  const renderSearchFilter = (placeholder = "搜索文件、路径、作者…", className = "w-full md:w-56") => (
+    <div className={`relative min-w-0 ${className}`}>
+      <Search className="pointer-events-none absolute top-1/2 left-3 size-3.5 -translate-y-1/2 text-muted-foreground" />
       <Input
         aria-label="搜索图片"
         value={props.searchKeyword}
         onChange={(event) => props.onSearchKeywordChange(event.target.value)}
         placeholder={placeholder}
-        className="h-10 rounded-lg pr-9 pl-9"
+        className="h-9 rounded-lg pr-8 pl-8 text-xs"
       />
       {props.searchKeyword ? (
         <button
           type="button"
-          className="absolute top-1/2 right-2 inline-flex size-6 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-foreground"
+          className="absolute top-1/2 right-1.5 inline-flex size-6 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground"
           onClick={() => props.onSearchKeywordChange("")}
           aria-label="清空搜索"
           title="清空搜索"
@@ -88,7 +86,7 @@ export function ImageManagerFilterPanel(props: ImageManagerFilterPanelProps) {
     </div>
   );
 
-  const renderDateRangeFilter = (className = "w-full sm:w-full") => (
+  const renderDateRangeFilter = (className = "w-full sm:w-[210px]") => (
     <DateRangeFilter
       className={className}
       startDate={props.startDate}
@@ -115,93 +113,58 @@ export function ImageManagerFilterPanel(props: ImageManagerFilterPanelProps) {
     />
   );
 
-  // Keep the view switcher wide enough for all tabs; the tab buttons also shrink safely.
-  const railStyle = {
-    ["--gallery-rail-min" as string]: props.isAdmin ? "24rem" : "17rem",
-    ["--gallery-rail-max" as string]: props.isAdmin ? "27rem" : "20rem",
-  } as CSSProperties;
-
   return (
-    <section
-      className={cn(
-        "grid gap-4 rounded-[18px] border border-border bg-background/80 p-3 shadow-[0_6px_20px_rgba(15,23,42,0.04)] sm:p-4 xl:items-start",
-        "xl:[grid-template-columns:minmax(var(--gallery-rail-min),var(--gallery-rail-max))_minmax(0,1fr)]",
-      )}
-      style={railStyle}
-    >
-      <ImageManagerGalleryViewTabs
-        galleryView={props.galleryView}
-        isAdmin={props.isAdmin}
-        itemsCount={props.itemsCount}
-        filteredCount={props.filteredCount}
-        hasLocalFilters={props.hasLocalFilters}
-        serverTotal={props.serverTotal}
-        serverHasMore={props.serverHasMore}
-        currentPage={props.currentPage}
-        onGalleryViewChange={props.onGalleryViewChange}
-      />
-      <div className="flex min-w-0 flex-col gap-2">
-        <FilterHeader hasActiveFilters={props.hasActiveFilters} onClearFilters={props.onClearFilters} />
-        <div className="md:hidden">
-          <ImageManagerMobileFilters
-            isMobileFiltersOpen={props.isMobileFiltersOpen}
-            activeFilterLabels={props.activeFilterLabels}
-            activeFilterCount={props.activeFilterCount}
-            hasActiveFilters={props.hasActiveFilters}
-            visibilityFilter={props.visibilityFilter}
-            formatFilter={props.formatFilter}
-            orientationFilter={props.orientationFilter}
-            resolutionFilter={props.resolutionFilter}
-            aspectRatioFilter={props.aspectRatioFilter}
-            onMobileFiltersOpenChange={props.onMobileFiltersOpenChange}
-            onClearFilters={props.onClearFilters}
-            onVisibilityFilterChange={props.onVisibilityFilterChange}
-            onFormatFilterChange={props.onFormatFilterChange}
-            onOrientationFilterChange={props.onOrientationFilterChange}
-            onResolutionFilterChange={props.onResolutionFilterChange}
-            onAspectRatioFilterChange={props.onAspectRatioFilterChange}
-            renderSearchFilter={renderSearchFilter}
-            renderDateRangeFilter={renderDateRangeFilter}
-            renderAutoRefreshControls={renderAutoRefreshControls}
-            autoRefreshInterval={props.autoRefreshInterval}
-          />
-        </div>
-        <div className="hidden flex-col gap-2 md:flex">
-          <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
-            {renderDateRangeFilter("w-full sm:w-full")}
-            {renderSearchFilter()}
-          </div>
-          <div className="grid grid-cols-2 gap-2 lg:grid-cols-6">
-            <ImageManagerFilterSelects
-              visibilityFilter={props.visibilityFilter}
-              formatFilter={props.formatFilter}
-              orientationFilter={props.orientationFilter}
-              resolutionFilter={props.resolutionFilter}
-              aspectRatioFilter={props.aspectRatioFilter}
-              onVisibilityFilterChange={props.onVisibilityFilterChange}
-              onFormatFilterChange={props.onFormatFilterChange}
-              onOrientationFilterChange={props.onOrientationFilterChange}
-              onResolutionFilterChange={props.onResolutionFilterChange}
-              onAspectRatioFilterChange={props.onAspectRatioFilterChange}
-            />
-            {renderAutoRefreshControls("desktop", "col-span-2 flex min-w-0 items-center gap-2")}
-          </div>
-        </div>
+    <section className="rounded-xl border border-border/70 bg-card p-3 shadow-2xs">
+      <div className="md:hidden">
+        <ImageManagerMobileFilters
+          isMobileFiltersOpen={props.isMobileFiltersOpen}
+          activeFilterLabels={props.activeFilterLabels}
+          activeFilterCount={props.activeFilterCount}
+          hasActiveFilters={props.hasActiveFilters}
+          visibilityFilter={props.visibilityFilter}
+          formatFilter={props.formatFilter}
+          orientationFilter={props.orientationFilter}
+          resolutionFilter={props.resolutionFilter}
+          aspectRatioFilter={props.aspectRatioFilter}
+          onMobileFiltersOpenChange={props.onMobileFiltersOpenChange}
+          onClearFilters={props.onClearFilters}
+          onVisibilityFilterChange={props.onVisibilityFilterChange}
+          onFormatFilterChange={props.onFormatFilterChange}
+          onOrientationFilterChange={props.onOrientationFilterChange}
+          onResolutionFilterChange={props.onResolutionFilterChange}
+          onAspectRatioFilterChange={props.onAspectRatioFilterChange}
+          renderSearchFilter={(placeholder) => renderSearchFilter(placeholder, "w-full")}
+          renderDateRangeFilter={renderDateRangeFilter}
+          renderAutoRefreshControls={renderAutoRefreshControls}
+          autoRefreshInterval={props.autoRefreshInterval}
+        />
+      </div>
+      <div className="hidden flex-wrap items-center gap-2 md:flex">
+        {renderSearchFilter()}
+        <ImageManagerFilterSelects
+          visibilityFilter={props.visibilityFilter}
+          formatFilter={props.formatFilter}
+          orientationFilter={props.orientationFilter}
+          resolutionFilter={props.resolutionFilter}
+          aspectRatioFilter={props.aspectRatioFilter}
+          onVisibilityFilterChange={props.onVisibilityFilterChange}
+          onFormatFilterChange={props.onFormatFilterChange}
+          onOrientationFilterChange={props.onOrientationFilterChange}
+          onResolutionFilterChange={props.onResolutionFilterChange}
+          onAspectRatioFilterChange={props.onAspectRatioFilterChange}
+        />
+        {renderDateRangeFilter("w-[210px]")}
+        <Button
+          type="button"
+          variant="ghost"
+          className="h-9 rounded-lg px-2.5 text-xs text-muted-foreground hover:text-foreground"
+          onClick={props.onClearFilters}
+          disabled={!props.hasActiveFilters}
+        >
+          <RotateCcw className="size-3.5" />
+          重置
+        </Button>
       </div>
     </section>
-  );
-}
-
-function FilterHeader({ hasActiveFilters, onClearFilters }: Pick<ImageManagerFilterPanelProps, "hasActiveFilters" | "onClearFilters">) {
-  return (
-    <div className="flex items-center justify-between gap-2">
-      <div className="text-sm font-medium text-foreground">筛选项</div>
-      {hasActiveFilters ? (
-        <button type="button" className="inline-flex h-7 shrink-0 items-center gap-1 rounded-full px-2 text-xs text-muted-foreground transition hover:bg-muted hover:text-foreground" onClick={onClearFilters}>
-          <X className="size-3.5" />
-          清空
-        </button>
-      ) : null}
-    </div>
   );
 }

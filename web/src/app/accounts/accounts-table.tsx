@@ -47,7 +47,7 @@ type AccountsTableProps = {
 
 export function AccountsTable(props: AccountsTableProps) {
   return (
-    <Card className={cn("overflow-hidden", props.isHidden ? "hidden" : "")}>
+    <Card className={cn("overflow-hidden rounded-xl border border-border/70 shadow-2xs", props.isHidden ? "hidden" : "")}>
       <CardContent className="space-y-0 p-0">
         <AccountsBulkActions
           selectedCount={props.selectedIds.length}

@@ -34,18 +34,18 @@ export function LoginIdentityFields({ state }: { state: LoginPageState }) {
         onChange={state.setEmail}
         placeholder="用于注册和后续登录"
       />
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-1.5">
         <div className="flex items-baseline justify-between gap-2">
-          <label htmlFor="register-email-code" className="text-sm font-semibold text-stone-800 dark:text-amber-50/90">
+          <label htmlFor="register-email-code" className="text-xs font-semibold text-slate-800 dark:text-slate-200">
             邮箱验证码
           </label>
-          <span className="text-[11px] font-medium text-stone-400 dark:text-amber-100/40">
+          <span className="text-[11px] font-medium text-slate-400 dark:text-slate-500">
             {state.emailCodeLength} 位
           </span>
         </div>
         <div className="grid grid-cols-[minmax(0,1fr)_7rem] gap-2">
           <div className="relative">
-            <BadgeCheck className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-stone-400" />
+            <BadgeCheck className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
             <Input
               id="register-email-code"
               inputMode="numeric"
@@ -54,13 +54,13 @@ export function LoginIdentityFields({ state }: { state: LoginPageState }) {
               maxLength={state.emailCodeLength}
               onChange={(event) => state.setEmailCode(event.target.value.replace(/\D/g, "").slice(0, state.emailCodeLength))}
               placeholder="验证码"
-              className="h-12 rounded-[16px] border-amber-100/90 bg-white/95 pl-10 dark:border-amber-900/40 dark:bg-amber-950/30"
+              className="h-10 rounded-lg border-slate-200 bg-white pl-10 dark:border-white/10 dark:bg-white/[0.04]"
             />
           </div>
           <Button
             type="button"
             variant="outline"
-            className="h-12 rounded-[16px] border-amber-200 bg-white/90 text-xs dark:border-amber-800/60 dark:bg-amber-950/30"
+            className="h-10 rounded-lg text-xs"
             disabled={state.isSendingEmailCode || state.emailCodeCountdown > 0 || state.emailRegistrationEnabled === false}
             onClick={() => void state.sendEmailCode()}
           >

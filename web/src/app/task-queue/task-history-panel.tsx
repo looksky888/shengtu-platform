@@ -87,7 +87,7 @@ export function TaskHistoryPanel({ embedded = false, reloadKey = 0 }: { embedded
   };
 
   return (
-    <div className="flex min-w-0 flex-col gap-5">
+    <div className="flex min-w-0 flex-col gap-4">
       {!embedded ? (
         <>
           <PageHeader
@@ -95,10 +95,10 @@ export function TaskHistoryPanel({ embedded = false, reloadKey = 0 }: { embedded
             title="任务历史"
             actions={
               <div className="flex flex-wrap gap-2">
-                <Button variant="outline" onClick={() => void load()} disabled={isLoading} className="h-10 rounded-lg">
+                <Button variant="outline" onClick={() => void load()} disabled={isLoading} className="h-9 rounded-lg">
                   <RefreshCw className={`size-4 ${isLoading ? "animate-spin" : ""}`} />刷新
                 </Button>
-                <Button variant="outline" onClick={() => setClearConfirmOpen(true)} disabled={clearing || isLoading} className="h-10 rounded-lg">
+                <Button variant="outline" onClick={() => setClearConfirmOpen(true)} disabled={clearing || isLoading} className="h-9 rounded-lg">
                   <X className={`size-4 ${clearing ? "animate-spin" : ""}`} />清理已完成
                 </Button>
               </div>
@@ -119,28 +119,28 @@ export function TaskHistoryPanel({ embedded = false, reloadKey = 0 }: { embedded
           </div>
         </div>
       )}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card><CardContent className="p-5"><div className="text-sm text-muted-foreground">当前结果</div><div className="mt-1 text-2xl font-semibold">{summary.total}</div></CardContent></Card>
-        <Card><CardContent className="p-5"><div className="text-sm text-muted-foreground">失败任务</div><div className="mt-1 text-2xl font-semibold text-rose-600">{summary.failed}</div></CardContent></Card>
-        <Card><CardContent className="p-5"><div className="text-sm text-muted-foreground">处理中</div><div className="mt-1 text-2xl font-semibold text-amber-600">{summary.running}</div></CardContent></Card>
+      <div className="grid gap-3 md:grid-cols-3">
+        <div className="rounded-xl border border-border/70 bg-card p-4 shadow-2xs"><div className="text-xs font-medium text-muted-foreground">当前结果</div><div className="mt-1.5 text-2xl font-semibold tracking-tight text-foreground tabular-nums">{summary.total}</div></div>
+        <div className="rounded-xl border border-border/70 bg-card p-4 shadow-2xs"><div className="text-xs font-medium text-muted-foreground">失败任务</div><div className="mt-1.5 text-2xl font-semibold tracking-tight text-rose-600 tabular-nums">{summary.failed}</div></div>
+        <div className="rounded-xl border border-border/70 bg-card p-4 shadow-2xs"><div className="text-xs font-medium text-muted-foreground">处理中</div><div className="mt-1.5 text-2xl font-semibold tracking-tight text-amber-600 tabular-nums">{summary.running}</div></div>
       </div>
 
-      <Card className="overflow-hidden">
+      <Card className="overflow-hidden rounded-xl border border-border/70 shadow-2xs">
         <CardContent className="p-0">
-          <div className="grid gap-2 border-b border-border px-5 py-4 xl:grid-cols-[minmax(16rem,1fr)_140px_160px_160px_140px_auto]">
-            <div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input aria-label="搜索任务历史" value={q} onChange={(event) => { setQ(event.target.value); setPage(1); }} placeholder="搜索任务 ID、错误码、Request ID" className="h-10 rounded-lg pl-9" /></div>
-            <Select value={status} onValueChange={(value) => { setStatus(value); setPage(1); }}><SelectTrigger aria-label="任务历史状态筛选" className="h-10 rounded-lg"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">全部状态</SelectItem><SelectItem value="queued">排队中</SelectItem><SelectItem value="running">处理中</SelectItem><SelectItem value="success">成功</SelectItem><SelectItem value="error">失败</SelectItem><SelectItem value="cancelled">已终止</SelectItem></SelectContent></Select>
-            <Input aria-label="任务历史用户筛选" value={user} onChange={(event) => { setUser(event.target.value); setPage(1); }} placeholder="用户" className="h-10 rounded-lg" />
-            <Input aria-label="任务历史模型筛选" value={model} onChange={(event) => { setModel(event.target.value); setPage(1); }} placeholder="模型" className="h-10 rounded-lg" />
-            <Input aria-label="任务历史尺寸筛选" value={size} onChange={(event) => { setSize(event.target.value); setPage(1); }} placeholder="尺寸" className="h-10 rounded-lg" />
-            <Button type="button" variant="outline" className="h-10 rounded-lg" disabled={!hasFilters} onClick={() => { setQ(""); setStatus("all"); setUser(""); setModel(""); setSize(""); setPage(1); }}><X className="size-4" />清除</Button>
+          <div className="grid gap-2 border-b border-border/70 px-4 py-3 xl:grid-cols-[minmax(16rem,1fr)_140px_160px_160px_140px_auto]">
+            <div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input aria-label="搜索任务历史" value={q} onChange={(event) => { setQ(event.target.value); setPage(1); }} placeholder="搜索任务 ID、错误码、Request ID" className="h-9 rounded-lg pl-9" /></div>
+            <Select value={status} onValueChange={(value) => { setStatus(value); setPage(1); }}><SelectTrigger aria-label="任务历史状态筛选" className="h-9 rounded-lg"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">全部状态</SelectItem><SelectItem value="queued">排队中</SelectItem><SelectItem value="running">处理中</SelectItem><SelectItem value="success">成功</SelectItem><SelectItem value="error">失败</SelectItem><SelectItem value="cancelled">已终止</SelectItem></SelectContent></Select>
+            <Input aria-label="任务历史用户筛选" value={user} onChange={(event) => { setUser(event.target.value); setPage(1); }} placeholder="用户" className="h-9 rounded-lg" />
+            <Input aria-label="任务历史模型筛选" value={model} onChange={(event) => { setModel(event.target.value); setPage(1); }} placeholder="模型" className="h-9 rounded-lg" />
+            <Input aria-label="任务历史尺寸筛选" value={size} onChange={(event) => { setSize(event.target.value); setPage(1); }} placeholder="尺寸" className="h-9 rounded-lg" />
+            <Button type="button" variant="outline" className="h-9 rounded-lg" disabled={!hasFilters} onClick={() => { setQ(""); setStatus("all"); setUser(""); setModel(""); setSize(""); setPage(1); }}><X className="size-4" />清除</Button>
           </div>
           <TaskHistoryResultsTable items={items} isLoading={isLoading} onCopyTroubleshooting={copyTroubleshooting} />
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-5 py-4 text-sm text-muted-foreground">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/70 px-4 py-3 text-xs text-muted-foreground">
             <span>每页 {pageSize} 条，共 {total} 条；第 {safePage} / {totalPages} 页</span>
             <div className="flex items-center gap-2">
-              <Button type="button" variant="outline" size="sm" disabled={safePage <= 1 || isLoading} onClick={() => setPage((value) => Math.max(1, value - 1))}>上一页</Button>
-              <Button type="button" variant="outline" size="sm" disabled={safePage >= totalPages || isLoading} onClick={() => setPage((value) => Math.min(totalPages, value + 1))}>下一页</Button>
+              <Button type="button" variant="outline" className="h-9 rounded-lg px-3 text-xs" disabled={safePage <= 1 || isLoading} onClick={() => setPage((value) => Math.max(1, value - 1))}>上一页</Button>
+              <Button type="button" variant="outline" className="h-9 rounded-lg px-3 text-xs" disabled={safePage >= totalPages || isLoading} onClick={() => setPage((value) => Math.min(totalPages, value + 1))}>下一页</Button>
             </div>
           </div>
         </CardContent>

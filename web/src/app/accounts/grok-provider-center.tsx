@@ -28,7 +28,7 @@ export function GrokProviderCenter({ session }: { session: StoredAuthSession }) 
   const openConfig = (kind: GrokConfigDialogKind, account?: GrokProviderRow) => { setActionAccount(account || null); setConfigKind(kind); };
   const openDelete = (account?: GrokProviderRow) => { setActionAccount(account || null); setDeleteOpen(true); };
   return (
-    <section className="overflow-hidden rounded-[22px] border border-border/80 bg-surface shadow-xs">
+    <section className="overflow-hidden rounded-xl border border-border/70 bg-card shadow-2xs">
       <header className="flex flex-wrap items-start justify-between gap-3 border-b border-border/70 px-5 py-4 lg:px-6">
         <div>
           <div className="flex flex-wrap items-center gap-2"><ServerCog className="size-5 text-brand" /><h2 className="text-lg font-semibold tracking-tight">上游账号</h2></div>
@@ -36,7 +36,7 @@ export function GrokProviderCenter({ session }: { session: StoredAuthSession }) 
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
           {task ? <GrokProviderTaskProgress task={task} defaultOpen={controller.taskAutoOpen} /> : null}
-          {controller.data ? <div className="inline-flex items-center gap-1.5 rounded-full border border-border/80 bg-surface-muted/60 px-3 py-1 text-xs text-muted-foreground">{controller.data.projection.status === "success" ? <CheckCircle2 className="size-3.5 text-emerald-600" /> : <AlertCircle className="size-3.5 text-rose-600" />}投影{controller.data.projection.status === "success" ? "正常" : "异常"}</div> : null}
+          {controller.data ? <div className="inline-flex items-center gap-1.5 rounded-lg border border-border/80 bg-surface-muted/60 px-3 py-1 text-xs text-muted-foreground">{controller.data.projection.status === "success" ? <CheckCircle2 className="size-3.5 text-emerald-600" /> : <AlertCircle className="size-3.5 text-rose-600" />}投影{controller.data.projection.status === "success" ? "正常" : "异常"}</div> : null}
         </div>
       </header>
 

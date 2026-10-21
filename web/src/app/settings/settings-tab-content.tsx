@@ -20,6 +20,7 @@ import {
   LogGovernanceCard,
   MediaStorageCard,
   RegisterClearanceCard,
+  SystemUpdateCard,
   UpstreamProxyRuntimeCard,
 } from "./settings-tab-lazy";
 import { EmailRegistrationTab } from "./email-registration-tab";
@@ -28,7 +29,7 @@ import { CanvasLinkCard } from "./components/canvas-link-card";
 
 function TabLoading() {
   return (
-    <div className="flex min-h-52 items-center justify-center rounded-[22px] border border-border/70 bg-card/80 text-sm text-muted-foreground">
+    <div className="flex min-h-52 items-center justify-center rounded-xl border border-border/70 bg-card/80 text-sm text-muted-foreground">
       <LoaderCircle className="mr-2 size-5 animate-spin" />
       正在加载设置模块...
     </div>
@@ -75,7 +76,7 @@ function ImageTab({ active }: { active: boolean }) {
 
 function StorageTab({ canManageSystem }: { canManageSystem: boolean }) {
   if (!canManageSystem) {
-    return <div className="rounded-[20px] border border-border/70 bg-card p-6 text-sm text-muted-foreground">只有管理员可以管理媒体存储和旧图片迁移。</div>;
+    return <div className="rounded-xl border border-border/70 bg-card p-5 text-sm text-muted-foreground shadow-2xs">只有管理员可以管理媒体存储和旧图片迁移。</div>;
   }
   return <section className="grid gap-5 md:grid-cols-2"><MediaStorageCard /></section>;
 }
@@ -115,7 +116,7 @@ function BackupTab() {
 function MaintenanceTab({ canManageSystem }: { canManageSystem: boolean }) {
   return (
     <section className="grid gap-5 md:grid-cols-2">
-      <div className="rounded-[22px] border border-border/70 bg-gradient-to-br from-card to-muted/30 p-5 shadow-[0_8px_24px_rgba(15,23,42,0.04)] md:col-span-2">
+      <div className="rounded-xl border border-border/70 bg-card p-5 shadow-2xs md:col-span-2">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
             <div className="text-base font-semibold text-foreground">
@@ -123,13 +124,13 @@ function MaintenanceTab({ canManageSystem }: { canManageSystem: boolean }) {
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button asChild variant="outline" className="rounded-xl">
+            <Button asChild variant="outline" className="rounded-lg">
               <Link to="/logs">
                 <FileClock className="size-4" />
                 日志管理
               </Link>
             </Button>
-            <Button asChild variant="outline" className="rounded-xl">
+            <Button asChild variant="outline" className="rounded-lg">
               <Link to="/task-queue?tab=history">
                 <ListChecks className="size-4" />
                 任务历史
@@ -139,6 +140,21 @@ function MaintenanceTab({ canManageSystem }: { canManageSystem: boolean }) {
         </div>
       </div>
       <LogGovernanceCard />
+    </section>
+  );
+}
+
+function SystemUpdateTab({ canManageSystem }: { canManageSystem: boolean }) {
+  if (!canManageSystem) {
+    return (
+      <div className="rounded-xl border border-border/70 bg-card p-6 text-sm text-muted-foreground">
+        只有管理员可以查看版本信息并执行系统在线更新。
+      </div>
+    );
+  }
+  return (
+    <section className="grid gap-5 md:grid-cols-2">
+      <SystemUpdateCard />
     </section>
   );
 }
@@ -180,6 +196,9 @@ export function SettingsTabContent({
       break;
     case "maintenance":
       content = <MaintenanceTab canManageSystem={canManageSystem} />;
+      break;
+    case "system-update":
+      content = <SystemUpdateTab canManageSystem={canManageSystem} />;
       break;
   }
   return <Suspense fallback={<TabLoading />}>{content}</Suspense>;

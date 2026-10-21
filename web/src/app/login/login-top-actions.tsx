@@ -13,7 +13,7 @@ export function LoginTopActions({ state }: { state: LoginPageState }) {
         type="button"
         variant="outline"
         size="icon"
-        className="rounded-full border-amber-200/80 bg-white/80 shadow-sm backdrop-blur hover:border-amber-300 hover:bg-white dark:border-amber-800/50 dark:bg-stone-900/70 dark:hover:border-amber-700 dark:hover:bg-stone-900"
+        className="size-9 rounded-lg border-slate-200/80 bg-white/85 shadow-2xs backdrop-blur hover:border-slate-300 hover:bg-white dark:border-white/10 dark:bg-slate-900/75 dark:hover:border-white/20 dark:hover:bg-slate-900"
         aria-label="返回品牌首页"
         title="返回首页"
       >
@@ -28,7 +28,7 @@ export function LoginTopActions({ state }: { state: LoginPageState }) {
         type="button"
         variant="outline"
         size="icon"
-        className="relative rounded-full border-amber-200/80 bg-white/80 shadow-sm backdrop-blur hover:border-amber-300 hover:bg-white dark:border-amber-800/50 dark:bg-stone-900/70 dark:hover:border-amber-700 dark:hover:bg-stone-900"
+        className="relative size-9 rounded-lg border-slate-200/80 bg-white/85 shadow-2xs backdrop-blur hover:border-slate-300 hover:bg-white dark:border-white/10 dark:bg-slate-900/75 dark:hover:border-white/20 dark:hover:bg-slate-900"
         onClick={state.handleThemeToggle}
         aria-label={state.theme === "dark" ? "切换到浅色模式" : "切换到深色模式"}
         title={state.theme === "dark" ? "浅色模式" : "深色模式"}

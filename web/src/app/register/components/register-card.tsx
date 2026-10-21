@@ -35,9 +35,9 @@ export function RegisterCard() {
               state.setTarget(tab.id);
             }}
             className={cn(
-              "rounded-full px-4 py-2 text-sm font-medium transition",
+              "h-9 rounded-lg px-4 text-sm font-medium transition",
               target === tab.id
-                ? "bg-[#1456f0] text-white shadow-sm"
+                ? "bg-primary text-primary-foreground shadow-2xs"
                 : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground",
               state.config!.enabled && "cursor-not-allowed opacity-60",
             )}
@@ -50,7 +50,7 @@ export function RegisterCard() {
         </Badge>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card px-4 py-3 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/70 bg-card px-4 py-3 shadow-2xs">
         <div>
           <h2 className="text-lg font-semibold tracking-tight">注册账号</h2>
           <p className="mt-0.5 text-xs text-muted-foreground">
@@ -66,7 +66,7 @@ export function RegisterCard() {
         ) : null}
       </div>
 
-      <div className="grid min-h-[640px] items-stretch gap-0 overflow-hidden rounded-[24px] border border-[#f2f3f5] bg-card shadow-[0_0_15px_rgba(44,30,116,0.12)] xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
+      <div className="grid min-h-[640px] items-stretch gap-0 overflow-hidden rounded-xl border border-border/70 bg-card shadow-2xs xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
         <RegisterConfigPanel state={state} />
         <RegisterResultsPanel state={state} />
       </div>

@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 export function GeneratedCreditCardsDialog({ state }: { state: CreditsAdminState }) {
   return (
     <Dialog open={state.generatedCards.length > 0} onOpenChange={(open) => (!open ? state.setGeneratedCards([]) : null)}>
-      <DialogContent className="max-w-3xl rounded-2xl p-6">
+      <DialogContent className="max-w-3xl rounded-xl p-6">
         <DialogHeader className="gap-2">
           <DialogTitle>新生成的兑换码</DialogTitle>
           <DialogDescription className="text-sm leading-6">这些明文兑换码已同步保存到管理员卡密列表，建议仍立即复制或导出保存。</DialogDescription>
@@ -29,8 +29,8 @@ export function GeneratedCreditCardsDialog({ state }: { state: CreditsAdminState
           ))}
         </div>
         <DialogFooter>
-          <Button type="button" variant="secondary" className="h-10 rounded-xl px-5" onClick={() => state.setGeneratedCards([])}>关闭</Button>
-          <Button type="button" className="h-10 rounded-xl px-5" onClick={() => void state.handleCopy(state.copyGeneratedKeysText(state.generatedCards))}><Copy className="size-4" />复制全部</Button>
+          <Button type="button" variant="secondary" className="h-9 rounded-lg px-4" onClick={() => state.setGeneratedCards([])}>关闭</Button>
+          <Button type="button" className="h-9 rounded-lg px-4" onClick={() => void state.handleCopy(state.copyGeneratedKeysText(state.generatedCards))}><Copy className="size-4" />复制全部</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

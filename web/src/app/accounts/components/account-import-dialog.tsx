@@ -123,10 +123,10 @@ export function AccountImportDialog({ disabled, onImported }: AccountImportDialo
   return (
     <>
       <Dialog open={open} onOpenChange={handleOpenChange}>
-        <Button className="h-10 rounded-xl bg-stone-950 px-4 text-white hover:bg-stone-800" onClick={() => setOpen(true)} disabled={disabled}>
+        <Button className="h-9 rounded-lg bg-primary px-3.5 text-primary-foreground hover:bg-primary/90" onClick={() => setOpen(true)} disabled={disabled}>
           <Upload className="size-4" />导入
         </Button>
-        <DialogContent showCloseButton={false} className="rounded-2xl p-6">
+        <DialogContent showCloseButton={false} className="rounded-xl p-6">
           <DialogHeader className="gap-2">
             <DialogTitle>{copy.title}</DialogTitle>
             <DialogDescription className="text-sm leading-6">{copy.description}</DialogDescription>

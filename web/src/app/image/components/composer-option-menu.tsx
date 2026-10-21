@@ -104,14 +104,14 @@ export function ComposerOptionMenu<T extends string>({
     <>
       <div
         ref={menuRef}
-        className="relative flex h-9 min-w-0 items-center justify-between gap-1.5 rounded-full border border-[#e5e7eb] bg-white px-2.5 text-[11px] dark:border-border dark:bg-background/70"
+        className="relative flex h-8.5 min-w-0 items-center justify-between gap-1.5 rounded-lg border border-border/70 bg-background px-2.5 text-[11px]"
       >
-        <span className="flex shrink-0 items-center gap-1 font-medium text-[#45515e] dark:text-muted-foreground">
+        <span className="flex shrink-0 items-center gap-1 font-medium text-muted-foreground">
           {label}
         </span>
         <button
           type="button"
-          className="flex h-7 min-w-0 flex-1 items-center justify-end gap-1 bg-transparent text-right text-xs font-semibold text-[#18181b] dark:text-foreground"
+          className="flex h-7 min-w-0 flex-1 items-center justify-end gap-1 bg-transparent text-right text-xs font-semibold text-foreground"
           onClick={onToggle}
           aria-label={buttonAriaLabel}
           aria-expanded={open}
@@ -122,7 +122,7 @@ export function ComposerOptionMenu<T extends string>({
         {open ? (
           <div
             className={cn(
-              "absolute bottom-[calc(100%+0.5rem)] z-[90] hidden max-h-[14rem] overflow-y-auto rounded-[16px] border border-[#e5e7eb] bg-white p-1.5 shadow-[0_18px_46px_-26px_rgba(15,23,42,0.35)] dark:border-border dark:bg-card dark:shadow-[0_18px_46px_-24px_rgba(0,0,0,0.72)] sm:block",
+              "absolute bottom-[calc(100%+0.5rem)] z-[90] hidden max-h-[14rem] overflow-y-auto rounded-xl border border-border/80 bg-card p-1.5 shadow-lg sm:block",
               desktopAlign === "left" ? "left-0" : "right-0",
               desktopWidthClass,
             )}
@@ -133,7 +133,7 @@ export function ComposerOptionMenu<T extends string>({
       </div>
       {open ? (
         <div
-          className="col-span-2 grid max-h-[13rem] overflow-y-auto rounded-[16px] border border-[#e5e7eb] bg-white p-1.5 dark:border-border dark:bg-background/70 sm:hidden"
+          className="col-span-2 grid max-h-[13rem] overflow-y-auto rounded-xl border border-border/80 bg-card p-1.5 sm:hidden"
           onMouseDown={(event) => event.stopPropagation()}
         >
           <ComposerOptionList {...listProps} />

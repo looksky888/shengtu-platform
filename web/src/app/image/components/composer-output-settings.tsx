@@ -28,7 +28,7 @@ export function ComposerOutputSettings({
 }: ComposerOutputSettingsProps) {
   return (
     <>
-      <div className="flex h-9 min-w-0 items-center justify-between gap-1.5 rounded-full border border-border/80 bg-surface px-2.5 text-[11px]">
+      <div className="flex h-8.5 min-w-0 items-center justify-between gap-1.5 rounded-lg border border-border/70 bg-background px-2.5 text-[11px]">
         <span className="shrink-0 font-medium text-muted-foreground">格式</span>
         <Select
           value={imageOutputFormat}
@@ -58,7 +58,7 @@ export function ComposerOutputSettings({
       </div>
       <label
         className={cn(
-          "flex h-9 min-w-0 items-center justify-between gap-1.5 rounded-full border border-border/80 bg-surface px-2.5 text-[11px]",
+          "flex h-8.5 min-w-0 items-center justify-between gap-1.5 rounded-lg border border-border/70 bg-background px-2.5 text-[11px]",
           compressionDisabled && "opacity-55",
         )}
         title={compressionDisabled ? "PNG 不支持压缩率参数" : "JPEG / WebP 压缩率，0-100"}
@@ -78,7 +78,7 @@ export function ComposerOutputSettings({
           className="h-7 w-[4.25rem] border-0 bg-transparent px-0 text-right text-xs font-semibold text-foreground shadow-none focus-visible:ring-0 disabled:cursor-not-allowed"
         />
       </label>
-      <div className="flex h-9 min-w-0 items-center justify-between gap-1.5 rounded-full border border-border/80 bg-surface px-2.5 text-[11px]">
+      <div className="flex h-8.5 min-w-0 items-center justify-between gap-1.5 rounded-lg border border-border/70 bg-background px-2.5 text-[11px]">
         <span className="shrink-0 font-medium text-muted-foreground">输出</span>
         <span className="min-w-0 truncate text-right text-xs font-semibold text-foreground">
           {compressionDisabled || !imageOutputCompression.trim()

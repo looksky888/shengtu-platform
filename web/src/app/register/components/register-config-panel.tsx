@@ -26,7 +26,7 @@ export function RegisterConfigPanel({ state }: { state: RegisterCardState }) {
             </div>
           </div>
           <Button
-            className="h-9 rounded-xl bg-stone-950 px-4 text-white hover:bg-stone-800"
+            className="h-9 rounded-lg px-4"
             onClick={() => void state.save()}
             disabled={state.isSaving || config.enabled}
           >
@@ -48,7 +48,7 @@ export function RegisterConfigPanel({ state }: { state: RegisterCardState }) {
           <Button
             type="button"
             variant="outline"
-            className="h-8 rounded-lg"
+            className="h-8 rounded-md"
             disabled={config.enabled}
             onClick={() => state.addProvider()}
           >
@@ -71,7 +71,7 @@ function RegisterBaseFields({ state }: { state: RegisterCardState }) {
       <div className="space-y-2">
         <label className="text-sm text-stone-700">注册模式</label>
         <Select value={config.mode || "total"} onValueChange={(value) => state.setMode(value as "total" | "quota" | "available")} disabled={config.enabled}>
-          <SelectTrigger aria-label="注册模式" className="h-10 rounded-xl border-stone-200 bg-white"><SelectValue /></SelectTrigger>
+          <SelectTrigger aria-label="注册模式" className="h-9 rounded-lg"><SelectValue /></SelectTrigger>
           <SelectContent><SelectItem value="total">注册总数</SelectItem><SelectItem value="quota">号池剩余额度</SelectItem><SelectItem value="available">可用账号数量</SelectItem></SelectContent>
         </Select>
       </div>
@@ -89,7 +89,7 @@ function RegisterClearanceToggle({ state }: { state: RegisterCardState }) {
   const { config } = state;
   if (!config) return null;
   return (
-    <div className="space-y-3 rounded-[18px] border border-amber-100 bg-amber-50/45 p-4">
+    <div className="space-y-3 rounded-xl border border-amber-100 bg-amber-50/45 p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <h3 className="text-sm font-semibold text-stone-800">Cloudflare / FlareSolverr</h3>

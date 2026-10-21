@@ -18,7 +18,7 @@ export function AnnouncementFormDialog({ state }: { state: AnnouncementsCardStat
 
   return (
     <Dialog open={state.dialogOpen} onOpenChange={state.setDialogOpen}>
-      <DialogContent className="rounded-2xl p-6">
+      <DialogContent className="rounded-xl p-6">
         <DialogHeader className="gap-2">
           <DialogTitle>{state.editingItem ? "编辑公告" : "添加公告"}</DialogTitle>
           <DialogDescription className="text-sm leading-6">公告内容会按勾选位置显示给对应页面的用户。</DialogDescription>
@@ -35,8 +35,8 @@ export function AnnouncementFormDialog({ state }: { state: AnnouncementsCardStat
           </Field>
           <Field>
             <FieldLabel htmlFor="announcement-image-file">公告图片</FieldLabel>
-            <div className="flex flex-col gap-3 rounded-2xl border border-dashed border-border bg-muted/30 p-4">
-              {imageUrl ? <img src={imageUrl} alt="公告图片预览" className="max-h-56 w-full rounded-2xl object-cover ring-1 ring-border" /> : <div className="flex min-h-28 items-center justify-center rounded-2xl bg-background text-sm text-muted-foreground ring-1 ring-border">暂未上传公告图片</div>}
+            <div className="flex flex-col gap-3 rounded-lg border border-dashed border-border bg-muted/20 p-4">
+              {imageUrl ? <img src={imageUrl} alt="公告图片预览" className="max-h-56 w-full rounded-lg object-cover ring-1 ring-border" /> : <div className="flex min-h-28 items-center justify-center rounded-lg bg-background text-sm text-muted-foreground ring-1 ring-border">暂未上传公告图片</div>}
               <div className="flex flex-wrap items-center gap-2">
                 <input ref={fileInputRef} id="announcement-image-file" type="file" accept={settingsRasterImageAccept} className="hidden" disabled={state.isUploadingImage} onChange={(event) => { const file = event.target.files?.[0]; void state.handleImageUpload(file); event.currentTarget.value = ""; }} />
                 <Button type="button" variant="outline" disabled={state.isUploadingImage} onClick={() => fileInputRef.current?.click()}>
@@ -54,8 +54,8 @@ export function AnnouncementFormDialog({ state }: { state: AnnouncementsCardStat
           </div>
         </FieldGroup>
         <DialogFooter>
-          <Button type="button" variant="secondary" size="lg" onClick={() => state.setDialogOpen(false)} disabled={state.isSaving}>取消</Button>
-          <Button type="button" size="lg" onClick={() => void state.handleSave()} disabled={state.isSaving}>
+          <Button type="button" variant="secondary" onClick={() => state.setDialogOpen(false)} disabled={state.isSaving}>取消</Button>
+          <Button type="button" onClick={() => void state.handleSave()} disabled={state.isSaving}>
             {state.isSaving ? <LoaderCircle data-icon="inline-start" className="animate-spin" /> : <Save data-icon="inline-start" />}保存
           </Button>
         </DialogFooter>

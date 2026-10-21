@@ -63,7 +63,7 @@ function RBACContent() {
       </div>
 
       {rbac.isDirty && rbac.selectedRole ? (
-        <div className="sticky bottom-4 z-30 mx-auto flex w-full max-w-3xl flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-500/40 bg-background/95 px-4 py-3 shadow-lg backdrop-blur-md">
+        <div className="sticky bottom-4 z-30 mx-auto flex w-full max-w-3xl flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/40 bg-background/95 px-4 py-3 shadow-lg backdrop-blur-md">
           <div className="flex items-center gap-2.5 text-sm">
             <AlertTriangle className="size-4 shrink-0 text-amber-500" />
             <span className="font-medium text-foreground">

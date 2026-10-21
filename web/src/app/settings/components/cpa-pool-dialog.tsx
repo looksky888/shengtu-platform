@@ -34,7 +34,7 @@ export function CPAPoolDialog() {
 
   return (
     <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-      <DialogContent showCloseButton={false} className="rounded-2xl p-6">
+      <DialogContent showCloseButton={false} className="rounded-xl p-6">
         <DialogHeader className="gap-2">
           <DialogTitle>{editingPool ? "编辑连接" : "添加连接"}</DialogTitle>
           <DialogDescription className="text-sm leading-6">
@@ -104,14 +104,12 @@ export function CPAPoolDialog() {
         <DialogFooter className="pt-2">
           <Button
             variant="secondary"
-            size="lg"
             onClick={() => setDialogOpen(false)}
             disabled={isSavingPool}
           >
             取消
           </Button>
           <Button
-            size="lg"
             onClick={() => void savePool()}
             disabled={isSavingPool}
           >

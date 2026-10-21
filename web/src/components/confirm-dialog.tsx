@@ -88,13 +88,13 @@ export function ConfirmDialog({
             cancelRef.current.focus();
           }
         }}
-        className="max-w-md rounded-2xl p-6"
+        className="max-w-md rounded-xl p-6"
       >
         <DialogHeader className="gap-2.5 text-left">
           <div className="flex items-start gap-3">
             <div
               className={cn(
-                "mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl border",
+                "mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg border",
                 resolvedTone === "destructive" &&
                   "border-destructive/25 bg-destructive/10 text-destructive",
                 resolvedTone === "warning" &&

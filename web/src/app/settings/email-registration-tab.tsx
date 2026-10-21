@@ -8,7 +8,7 @@ import {
 export function EmailRegistrationTab({ canManageSystem }: { canManageSystem: boolean }) {
   if (!canManageSystem) {
     return (
-      <div className="rounded-[22px] border border-border bg-card p-6 text-sm text-muted-foreground">
+      <div className="rounded-xl border border-border/70 bg-card p-5 text-sm text-muted-foreground shadow-2xs">
         仅管理员可配置邮箱注册、注册风控和封禁记录。
       </div>
     );

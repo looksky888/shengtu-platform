@@ -38,31 +38,31 @@ export function TaskQueueTable({
   } = live;
 
   return (
-    <Card className="max-w-full overflow-hidden border-stone-200/90 bg-white shadow-none">
+    <Card className="max-w-full overflow-hidden rounded-xl border border-border/70 bg-card shadow-2xs">
       <div className="max-w-full overflow-x-auto">
         <Table>
           <TableHeader>
-            <TableRow className="border-stone-100 hover:bg-transparent">
-              <TableHead className="h-10 w-10 bg-stone-50/80" />
-              <TableHead className="h-10 min-w-[200px] bg-stone-50/80 text-xs font-medium text-stone-400">任务 ID</TableHead>
-              <TableHead className="h-10 min-w-[190px] bg-stone-50/80 text-xs font-medium text-stone-400">类型 / 模型</TableHead>
-              <TableHead className="h-10 min-w-[190px] bg-stone-50/80 text-xs font-medium text-stone-400">状态 / 进度</TableHead>
-              <TableHead className="h-10 min-w-[220px] bg-stone-50/80 text-xs font-medium text-stone-400">阶段 / 账号</TableHead>
-              <TableHead className="h-10 min-w-[150px] bg-stone-50/80 text-xs font-medium text-stone-400">耗时 / 尝试</TableHead>
-              <TableHead className="h-10 bg-stone-50/80 text-xs font-medium text-stone-400">时间</TableHead>
-              <TableHead className="h-10 bg-stone-50/80 text-right text-xs font-medium text-stone-400">操作</TableHead>
+            <TableRow className="border-border/70 hover:bg-transparent">
+              <TableHead className="h-9 w-10 bg-muted/40" />
+              <TableHead className="h-9 min-w-[200px] bg-muted/40 text-xs font-medium text-muted-foreground">任务 ID</TableHead>
+              <TableHead className="h-9 min-w-[190px] bg-muted/40 text-xs font-medium text-muted-foreground">类型 / 模型</TableHead>
+              <TableHead className="h-9 min-w-[190px] bg-muted/40 text-xs font-medium text-muted-foreground">状态 / 进度</TableHead>
+              <TableHead className="h-9 min-w-[220px] bg-muted/40 text-xs font-medium text-muted-foreground">阶段 / 账号</TableHead>
+              <TableHead className="h-9 min-w-[150px] bg-muted/40 text-xs font-medium text-muted-foreground">耗时 / 尝试</TableHead>
+              <TableHead className="h-9 bg-muted/40 text-xs font-medium text-muted-foreground">时间</TableHead>
+              <TableHead className="h-9 bg-muted/40 text-right text-xs font-medium text-muted-foreground">操作</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
               <TableRow>
-                  <TableCell colSpan={8} className="h-24 text-center text-sm text-stone-400">
+                  <TableCell colSpan={8} className="h-24 text-center text-sm text-muted-foreground">
                   加载中…
                 </TableCell>
               </TableRow>
             ) : pageItems.length === 0 ? (
               <TableRow>
-                  <TableCell colSpan={8} className="h-24 text-center text-sm text-stone-400">
+                  <TableCell colSpan={8} className="h-24 text-center text-sm text-muted-foreground">
                   暂无任务
                 </TableCell>
               </TableRow>
@@ -70,7 +70,7 @@ export function TaskQueueTable({
               pageItems.map((item) => {
                 const active = item.status === "running" || item.status === "queued";
                 return (
-                  <TableRow key={item.id} className="border-stone-100">
+                  <TableRow key={item.id} className="border-border/70">
                     <TableCell className="align-top">
                       <Checkbox
                         aria-label={`选择任务 ${item.id}`}
@@ -80,14 +80,14 @@ export function TaskQueueTable({
                       />
                     </TableCell>
                     <TableCell className="align-top">
-                      <div className="font-mono text-xs text-stone-700">{item.id}</div>
-                      <div className="mt-0.5 text-xs text-stone-400">{item.owner_name || item.owner_id || "—"}</div>
+                      <div className="font-mono text-xs text-foreground">{item.id}</div>
+                      <div className="mt-0.5 text-xs text-muted-foreground">{item.owner_name || item.owner_id || "—"}</div>
                     </TableCell>
                     <TableCell className="align-top">
                       <div className="space-y-1.5">
                         <TypePill mode={item.mode} />
-                        <div className="truncate text-xs text-stone-600">{item.effective_model || item.model || "—"}</div>
-                        <div className="text-xs text-stone-400">{item.size || "—"}{item.count ? ` · ${item.count} 张` : ""}</div>
+                        <div className="truncate text-xs text-foreground">{item.effective_model || item.model || "—"}</div>
+                        <div className="text-xs text-muted-foreground">{item.size || "—"}{item.count ? ` · ${item.count} 张` : ""}</div>
                       </div>
                     </TableCell>
                     <TableCell className="align-top">
@@ -99,14 +99,14 @@ export function TaskQueueTable({
                     <TableCell className="align-top">
                       <MessageCell item={item} />
                     </TableCell>
-                    <TableCell className="align-top text-xs text-stone-600">
+                    <TableCell className="align-top text-xs text-foreground">
                       <div className="font-mono tabular-nums">{formatDuration(item)}</div>
-                      <div className="mt-1 text-stone-400">
+                      <div className="mt-1 text-muted-foreground">
                         重试 {typeof item.retry_index === "number" ? item.retry_index : "—"} / {typeof item.attempt_count === "number" ? item.attempt_count : "—"}
                       </div>
                       {(item.account_switch_count || 0) > 0 ? <div className="mt-1 text-amber-600">换号 {item.account_switch_count}</div> : null}
                     </TableCell>
-                    <TableCell className="align-top text-xs text-stone-500">{formatDateTime(item.created_at)}</TableCell>
+                    <TableCell className="align-top text-xs text-muted-foreground">{formatDateTime(item.created_at)}</TableCell>
                     <TableCell className="align-top text-right">
                       <div className="flex flex-wrap justify-end gap-1">
                         <Button type="button" variant="ghost" className="h-8 rounded-lg px-2 text-xs" onClick={() => setDetailId(item.id)}>
@@ -143,7 +143,7 @@ export function TaskQueueTable({
           </TableBody>
         </Table>
       </div>
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-stone-100 px-3 py-2 text-xs text-stone-500">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/70 px-3 py-2 text-xs text-muted-foreground">
         <span>
           每页 {pageSize} 条，共 {filteredCount} 条；第 {page} / {totalPages} 页
         </span>

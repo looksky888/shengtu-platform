@@ -127,47 +127,42 @@ export function CPAPoolsCard() {
                   </div>
 
                   {importJob ? (
-                    <div className="flex flex-col gap-2 rounded-[16px] border border-[#f2f3f5] bg-muted/55 px-3 py-3">
-                      <div className="text-xs font-medium tracking-[0.16em] text-muted-foreground uppercase">
-                        导入任务
-                      </div>
-                      <div className="rounded-[13px] border border-border/80 bg-background px-3 py-3">
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="min-w-0">
-                            <div className="text-sm font-medium text-foreground">
-                              状态 {importJob.status}，已处理{" "}
-                              {importJob.completed}/{importJob.total}
-                            </div>
-                            <div className="truncate text-xs text-muted-foreground">
-                              任务 {importJob.job_id.slice(0, 8)} ·{" "}
-                              {importJob.created_at}
-                            </div>
+                    <div className="rounded-lg border border-border/60 bg-background p-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium text-foreground">
+                            导入状态 {importJob.status}，已处理{" "}
+                            {importJob.completed}/{importJob.total}
                           </div>
-                          <Badge
-                            variant={
-                              importJob.status === "completed"
-                                ? "success"
-                                : importJob.status === "failed"
-                                  ? "danger"
-                                  : "info"
-                            }
-                            className="rounded-md"
-                          >
-                            {progress}%
-                          </Badge>
+                          <div className="truncate text-xs text-muted-foreground">
+                            任务 {importJob.job_id.slice(0, 8)} ·{" "}
+                            {importJob.created_at}
+                          </div>
                         </div>
-                        <div className="mt-3 h-2 overflow-hidden rounded-full bg-secondary">
-                          <div
-                            className="h-full rounded-full bg-[#1456f0] transition-all"
-                            style={{ width: `${progress}%` }}
-                          />
-                        </div>
-                        <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
-                          <span>新增 {importJob.added}</span>
-                          <span>跳过 {importJob.skipped}</span>
-                          <span>刷新 {importJob.refreshed}</span>
-                          <span>失败 {importJob.failed}</span>
-                        </div>
+                        <Badge
+                          variant={
+                            importJob.status === "completed"
+                              ? "success"
+                              : importJob.status === "failed"
+                                ? "danger"
+                                : "info"
+                          }
+                          className="rounded-md"
+                        >
+                          {progress}%
+                        </Badge>
+                      </div>
+                      <div className="mt-3 h-2 overflow-hidden rounded-full bg-secondary">
+                        <div
+                          className="h-full rounded-full bg-primary transition-all"
+                          style={{ width: `${progress}%` }}
+                        />
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                        <span>新增 {importJob.added}</span>
+                        <span>跳过 {importJob.skipped}</span>
+                        <span>刷新 {importJob.refreshed}</span>
+                        <span>失败 {importJob.failed}</span>
                       </div>
                     </div>
                   ) : null}

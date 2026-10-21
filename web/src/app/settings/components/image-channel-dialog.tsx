@@ -100,7 +100,7 @@ export function ImageChannelDialog({
           </div>
 
           {relay ? (
-            <div className="grid gap-4 rounded-[18px] border border-border/70 bg-muted/30 p-4 sm:grid-cols-2">
+            <div className="grid gap-4 rounded-lg border border-border/60 bg-muted/20 p-4 sm:grid-cols-2">
               <Field>
                 <FieldLabel htmlFor="channel-base-url">Base URL</FieldLabel>
                 <Input id="channel-base-url" value={input.base_url} onChange={(event) => set("base_url", event.target.value)} className={settingsDialogInputClassName} placeholder="https://api.example.com/v1" />

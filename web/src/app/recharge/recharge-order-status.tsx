@@ -80,9 +80,9 @@ export function RechargeOrderStatus({
 
   const paymentName = provider === "alipay" ? "支付宝" : "微信支付";
   return (
-    <section className="mx-auto w-full max-w-2xl rounded-3xl border bg-card p-6 shadow-sm">
+    <section className="mx-auto w-full max-w-2xl rounded-xl border border-border/70 bg-card p-5 shadow-2xs">
       <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2 text-lg font-semibold">
+        <div className="flex items-center gap-2 text-base font-semibold">
           {success ? (
             <CheckCircle2 className="size-5 text-emerald-600" />
           ) : (
@@ -90,7 +90,7 @@ export function RechargeOrderStatus({
               className={
                 terminal
                   ? "size-5 text-muted-foreground"
-                  : "size-5 animate-spin text-[#1456f0]"
+                  : "size-5 animate-spin text-primary"
               }
             />
           )}
@@ -112,8 +112,8 @@ export function RechargeOrderStatus({
         </Badge>
       </div>
       {!success && !qrUnavailable ? (
-        <div className="mt-6 flex flex-col items-center gap-5 sm:flex-row sm:items-start">
-          <div className="flex size-56 shrink-0 items-center justify-center rounded-2xl border bg-white p-3">
+        <div className="mt-5 flex flex-col items-center gap-5 sm:flex-row sm:items-start">
+          <div className="flex size-56 shrink-0 items-center justify-center rounded-lg border bg-white p-3">
             {qrCode ? (
               <img
                 src={qrCode}
@@ -128,25 +128,25 @@ export function RechargeOrderStatus({
             <p className="text-sm leading-6 text-muted-foreground">
               请使用{paymentName}扫描二维码完成支付，页面会自动查询到账状态。
             </p>
-            <div className="flex items-center justify-between gap-3 rounded-xl bg-blue-50 px-3 py-2 text-sm text-blue-700 dark:bg-blue-950/35 dark:text-blue-300">
+            <div className="flex items-center justify-between gap-3 rounded-lg bg-blue-50 px-3 py-2 text-sm text-blue-700 dark:bg-blue-950/35 dark:text-blue-300">
               <span>支付剩余时间</span>
               <strong className="tabular-nums">
                 {formatPaymentCountdown(remainingMs)}
               </strong>
             </div>
-            <p className="break-all rounded-xl bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+            <p className="break-all rounded-lg bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
               订单号：{order.out_trade_no}
             </p>
           </div>
         </div>
       ) : null}
       {expired && !terminal && !closing ? (
-        <p className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-300">
+        <p className="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-300">
           订单已到期，正在确认支付结果并关闭二维码，请勿重复下单。
         </p>
       ) : null}
       {closing ? (
-        <p className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-300">
+        <p className="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-300">
           支付平台正在确认关单结果，页面会自动更新状态。
         </p>
       ) : null}

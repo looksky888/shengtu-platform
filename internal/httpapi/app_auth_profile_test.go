@@ -214,7 +214,7 @@ func TestAppAuthAndSPACompatibility(t *testing.T) {
 
 func TestAdminSystemCheckUpdates(t *testing.T) {
 	releaseAPI := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/repos/ZyphrZero/chatgpt2api/releases/latest" {
+		if r.URL.Path != "/repos/looksky888/shengtu-platform/releases/latest" {
 			http.NotFound(w, r)
 			return
 		}

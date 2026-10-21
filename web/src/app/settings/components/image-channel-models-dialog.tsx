@@ -142,7 +142,7 @@ export function ImageChannelModelsDialog({
         </div>
 
         {suggestions.length > 0 ? (
-          <div className="rounded-[16px] border border-dashed border-border bg-surface-muted/40 p-3">
+          <div className="rounded-lg border border-dashed border-border bg-muted/20 p-3">
             <div className="mb-2 text-xs font-medium text-muted-foreground">已发现的上游模型（点击后填入表单，保存后才会出现在创作台）</div>
             <div className="flex flex-wrap gap-2">
               {suggestions.map((suggestion) => (
@@ -169,7 +169,7 @@ export function ImageChannelModelsDialog({
         ) : models.length === 0 ? (
           <SettingsEmptyState icon={Boxes} title="尚未配置模型" description="添加模型后，它会出现在图片创作台的对应渠道中。" />
         ) : (
-          <div className="overflow-x-auto rounded-[18px] border border-border/70">
+          <div className="overflow-x-auto rounded-lg border border-border/70">
             <Table>
               <TableHeader><TableRow><TableHead>模型</TableHead><TableHead>能力</TableHead><TableHead>规格价格</TableHead><TableHead>状态</TableHead><TableHead className="text-right">操作</TableHead></TableRow></TableHeader>
               <TableBody>{models.map((model) => (

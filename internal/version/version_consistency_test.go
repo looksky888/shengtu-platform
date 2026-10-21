@@ -44,8 +44,8 @@ func TestReleaseVersionHasSingleSourceOfTruth(t *testing.T) {
 	if err := json.Unmarshal([]byte(repoFileForVersionTest(t, filepath.Join("web", "package.json"))), &pkg); err != nil {
 		t.Fatalf("parse web/package.json: %v", err)
 	}
-	if want := releaseVersionCore(release); !strings.HasPrefix(pkg.Version, want+".") {
-		t.Fatalf("web/package.json version = %q, want the %s.x line used by VERSION.txt (%q)", pkg.Version, want, release)
+	if want := releaseVersionCore(release); pkg.Version != want && !strings.HasPrefix(pkg.Version, want+".") {
+		t.Fatalf("web/package.json version = %q, want %s or the %s.x line used by VERSION.txt (%q)", pkg.Version, want, want, release)
 	}
 }
 

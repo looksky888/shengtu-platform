@@ -8,6 +8,7 @@ export const SETTINGS_TABS = [
   { key: "announcement", label: "公告" },
   { key: "backup", label: "备份" },
   { key: "maintenance", label: "维护与日志" },
+  { key: "system-update", label: "系统更新" },
 ] as const;
 
 export type SettingsTabKey = (typeof SETTINGS_TABS)[number]["key"];

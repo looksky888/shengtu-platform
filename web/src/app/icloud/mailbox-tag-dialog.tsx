@@ -86,7 +86,7 @@ export function MailboxTagDialog({
 
   return (
     <Dialog open={Boolean(mailbox)} onOpenChange={(open) => !pending && onOpenChange(open)}>
-      <DialogContent className="max-w-md rounded-2xl p-6">
+      <DialogContent className="max-w-md rounded-xl p-6">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2"><Tag className="size-4 text-blue-500" />标记邮箱</DialogTitle>
           <DialogDescription>标记不会被同步覆盖；选择 GPT/Grok 已注册后会归入“已使用”。</DialogDescription>
@@ -94,7 +94,7 @@ export function MailboxTagDialog({
         <div className="space-y-4">
           <div className="flex flex-wrap gap-2">
             {tagPresets.map((preset) => (
-              <Button key={preset.tag} type="button" size="sm" variant="outline" className="h-8 rounded-full text-xs" onClick={() => { setTag(preset.tag); setColor(preset.color); }}>
+              <Button key={preset.tag} type="button" size="sm" variant="outline" className="h-8 rounded-md text-xs" onClick={() => { setTag(preset.tag); setColor(preset.color); }}>
                 {preset.tag}
               </Button>
             ))}
@@ -107,7 +107,7 @@ export function MailboxTagDialog({
             <legend className="text-sm font-medium">标记颜色</legend>
             <div className="flex flex-wrap gap-2">
               {tagColors.map((item) => (
-                <button key={item.value} type="button" aria-label={item.label} aria-pressed={color === item.value} className={cn("grid size-9 place-items-center rounded-full border transition", color === item.value ? "border-foreground ring-2 ring-ring/25" : "border-border")} onClick={() => setColor(item.value)}>
+                <button key={item.value} type="button" aria-label={item.label} aria-pressed={color === item.value} className={cn("grid size-9 place-items-center rounded-lg border transition", color === item.value ? "border-foreground ring-2 ring-ring/25" : "border-border")} onClick={() => setColor(item.value)}>
                   <span className={cn("size-4 rounded-full", item.dot)} />
                 </button>
               ))}

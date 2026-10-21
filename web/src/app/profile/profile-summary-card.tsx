@@ -35,7 +35,7 @@ export function ProfileSummaryCard({
       <CardHeader>
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-brand-border bg-brand text-white shadow-xs">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-brand-border bg-brand text-white shadow-xs">
               <UserCircle2 className="size-5" />
             </div>
             <div className="min-w-0">
@@ -71,7 +71,7 @@ export function ProfileSummaryCard({
           value={formatCreditBalance(credits?.balance)}
         />
         {onCheckin ? (
-          <div className="flex items-center justify-between gap-3 rounded-xl border border-border/80 bg-surface-muted/50 p-3">
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-muted/20 p-3">
             <div className="min-w-0">
               <div className="text-xs font-semibold text-foreground">
                 每日签到奖励

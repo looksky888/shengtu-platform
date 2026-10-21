@@ -6,7 +6,7 @@ import type { PaymentSettings, RechargeProduct } from "@/lib/user-admin-api";
 
 export function RechargeErrorPanel({ message }: { message: string }) {
   return (
-    <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-300">
+    <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-300">
       {message}
     </div>
   );
@@ -20,7 +20,7 @@ type ProductTileProps = {
 
 export function ProductTile({ product, disabled, onSubmit }: ProductTileProps) {
   return (
-    <article className="flex flex-col justify-between gap-4 rounded-2xl border border-border bg-card p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-md">
+    <article className="flex flex-col justify-between gap-4 rounded-xl border border-border/70 bg-card p-5 shadow-2xs transition hover:-translate-y-0.5 hover:shadow-sm">
       <div>
         <div className="flex items-center justify-between gap-2">
           <h2 className="font-semibold">{product.name}</h2>
@@ -28,7 +28,7 @@ export function ProductTile({ product, disabled, onSubmit }: ProductTileProps) {
             {product.product_type === "cloud_storage" ? `${formatStorage(product.storage_bytes || 0)} · ${product.storage_days || 0} 天` : `${product.credits} 积分`}
           </Badge>
         </div>
-        <p className="mt-3 text-sm text-muted-foreground">
+        <p className="mt-2.5 text-sm text-muted-foreground">
           {product.description || "即时到账"}
         </p>
       </div>
@@ -38,7 +38,6 @@ export function ProductTile({ product, disabled, onSubmit }: ProductTileProps) {
         </strong>
         <Button
           type="button"
-          className="rounded-lg"
           disabled={disabled}
           onClick={() => onSubmit(product)}
         >
@@ -71,13 +70,13 @@ export function CustomCreditsPanel({
   onSubmit,
 }: CustomCreditsPanelProps) {
   return (
-    <section className="rounded-2xl border bg-card p-6 shadow-sm">
-      <h2 className="text-lg font-semibold">自定义积分</h2>
+    <section className="rounded-xl border border-border/70 bg-card p-5 shadow-2xs">
+      <h2 className="text-base font-semibold">自定义积分</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         ¥{(settings.credit_unit_price_fen / 100).toFixed(2)} / 积分，范围{" "}
         {settings.min_custom_credits}–{settings.max_custom_credits}
       </p>
-      <div className="mt-5 flex flex-wrap items-center gap-4">
+      <div className="mt-4 flex flex-wrap items-center gap-4">
         <input
           aria-label="自定义积分数量"
           type="number"
@@ -85,7 +84,7 @@ export function CustomCreditsPanel({
           max={settings.max_custom_credits}
           value={value}
           onChange={(event) => onChange(Number(event.target.value))}
-          className="w-44 rounded-xl border border-input bg-background px-4 py-2"
+          className="h-9 w-44 rounded-lg border border-input bg-background px-3 text-sm"
         />
         <strong>
           合计 ¥{((value * settings.credit_unit_price_fen) / 100).toFixed(2)}

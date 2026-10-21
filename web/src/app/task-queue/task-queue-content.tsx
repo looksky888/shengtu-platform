@@ -69,6 +69,7 @@ export function TaskQueueContent({ session }: { session: StoredAuthSession }) {
             <Button
               type="button"
               variant="outline"
+              className="h-9 rounded-lg"
               onClick={() =>
                 tab === "live"
                   ? void live.load()
@@ -89,6 +90,7 @@ export function TaskQueueContent({ session }: { session: StoredAuthSession }) {
                 <Button
                   type="button"
                   variant="outline"
+                  className="h-9 rounded-lg"
                   title="删除成功/失败/已取消的任务记录，不影响运行中"
                   disabled={live.clearing}
                   onClick={() => setConfirmClearScope("finished")}
@@ -98,6 +100,7 @@ export function TaskQueueContent({ session }: { session: StoredAuthSession }) {
                 <Button
                   type="button"
                   variant="destructive-outline"
+                  className="h-9 rounded-lg"
                   disabled={live.clearing}
                   onClick={() => setConfirmClearScope("failed")}
                 >
@@ -106,6 +109,7 @@ export function TaskQueueContent({ session }: { session: StoredAuthSession }) {
                 <Button
                   type="button"
                   variant="outline"
+                  className="h-9 rounded-lg"
                   disabled={!live.selectedIds.length}
                   onClick={() => void live.cancelSelected()}
                 >

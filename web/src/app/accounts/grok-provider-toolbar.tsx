@@ -97,7 +97,7 @@ export function GrokProviderToolbar({
           onValueChange={controller.setProvider}
           layoutId="grok-provider-subnav"
         />
-        <Button variant="brand" disabled={disabled} onClick={onImport}>
+        <Button variant="brand" className="h-9 rounded-lg" disabled={disabled} onClick={onImport}>
           <Plus className="size-4" />
           <span>账号接入</span>
         </Button>
@@ -106,7 +106,7 @@ export function GrokProviderToolbar({
       <div className="flex flex-wrap items-center gap-2">
         <Input
           aria-label="搜索 Grok Provider 账号"
-          className="min-w-52 flex-1 sm:max-w-xs"
+          className="h-9 min-w-52 flex-1 rounded-lg sm:max-w-xs"
           placeholder="搜索账号、掩码邮箱或来源…"
           value={controller.keyword}
           onChange={(event) => controller.setKeyword(event.target.value)}
@@ -117,7 +117,7 @@ export function GrokProviderToolbar({
             controller.setStatus(value as typeof controller.status)
           }
         >
-          <SelectTrigger aria-label="Provider 状态筛选" className="w-[136px]">
+          <SelectTrigger aria-label="Provider 状态筛选" className="h-9 w-[136px] rounded-lg">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -130,6 +130,7 @@ export function GrokProviderToolbar({
         </Select>
         <Button
           variant="outline"
+          className="h-9 rounded-lg"
           disabled={controller.loading}
           onClick={() => void controller.load()}
         >
