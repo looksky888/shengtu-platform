@@ -80,7 +80,7 @@ export function useImageManagerMutations({
     if (!canDeleteImages) return;
     const paths = Array.from(new Set(targetItems.map((item) => item.path)));
     if (paths.length === 0) {
-      toast.error("\u6ca1\u6709\u53ef\u5220\u9664\u7684\u56fe\u7247");
+      toast.error("没有可删除的图片");
       return;
     }
     setDeleteTarget({ paths });
@@ -99,10 +99,10 @@ export function useImageManagerMutations({
       closeLightbox();
       setDeleteTarget(null);
       toast.success(data.missing > 0
-        ? `\u5df2\u5220\u9664 ${data.deleted} \u5f20\u56fe\u7247\uff0c${data.missing} \u5f20\u5df2\u4e0d\u5b58\u5728`
-        : `\u5df2\u5220\u9664 ${data.deleted} \u5f20\u56fe\u7247`);
+        ? `已删除 ${data.deleted} 张图片，${data.missing} 张已不存在`
+        : `已删除 ${data.deleted} 张图片`);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "\u5220\u9664\u56fe\u7247\u5931\u8d25");
+      toast.error(error instanceof Error ? error.message : "删除图片失败");
     } finally {
       setIsDeleting(false);
     }
@@ -121,9 +121,9 @@ export function useImageManagerMutations({
         updateImageManagerCache(currentCacheKey, next);
         return next;
       });
-      toast.success(visibility === "public" ? "\u5df2\u516c\u5f00\u5230\u516c\u5f00\u56fe\u5e93" : "\u5df2\u53d6\u6d88\u516c\u5f00");
+      toast.success(visibility === "public" ? "已公开到公开图库" : "已取消公开");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "\u66f4\u65b0\u516c\u5f00\u72b6\u6001\u5931\u8d25");
+      toast.error(error instanceof Error ? error.message : "更新公开状态失败");
     } finally {
       setVisibilityMutatingPath(null);
     }
@@ -154,14 +154,14 @@ export function useImageManagerMutations({
         });
       }
       if (failedCount > 0) {
-        toast.error(`\u5df2\u66f4\u65b0 ${updates.length} \u5f20\u56fe\u7247\uff0c${failedCount} \u5f20\u5931\u8d25`);
+        toast.error(`已更新 ${updates.length} 张图片，${failedCount} 张失败`);
         return;
       }
       toast.success(visibility === "public"
-        ? `\u5df2\u516c\u5f00 ${updates.length} \u5f20\u56fe\u7247`
-        : `\u5df2\u8bbe\u4e3a\u79c1\u6709 ${updates.length} \u5f20\u56fe\u7247`);
+        ? `已公开 ${updates.length} 张图片`
+        : `已设为私有 ${updates.length} 张图片`);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "\u6279\u91cf\u66f4\u65b0\u516c\u5f00\u72b6\u6001\u5931\u8d25");
+      toast.error(error instanceof Error ? error.message : "批量更新公开状态失败");
     } finally {
       setVisibilityMutatingPath(null);
     }

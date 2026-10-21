@@ -165,19 +165,31 @@ func ssrfSafeTransport(base http.RoundTripper, proxyBase string, sendAPIKey bool
 		// Unknown RoundTripper: wrap DefaultTransport for dial safety only.
 		tr = http.DefaultTransport.(*http.Transport).Clone()
 	}
-	tr.DialContext = makeSSRFSafeDialContext(proxyBase, sendAPIKey)
+	var allowedProxyHost string
+	if tr.Proxy != nil {
+		if parsed, err := url.Parse(strings.TrimSpace(proxyBase)); err == nil && parsed.Host != "" {
+			if proxyURL, proxyErr := tr.Proxy(&http.Request{URL: parsed}); proxyErr == nil && proxyURL != nil {
+				allowedProxyHost = strings.TrimSpace(proxyURL.Hostname())
+			}
+		}
+	}
+	tr.DialContext = makeSSRFSafeDialContext(proxyBase, sendAPIKey, allowedProxyHost)
 	return tr
 }
 
 // makeSSRFSafeDialContext resolves the host, filters blocked IPs (unless host is the
-// configured proxy base), then dials a concrete IP. Dialing by IP prevents a second
-// DNS lookup that could rebind to a private address after the pre-request check.
-func makeSSRFSafeDialContext(proxyBase string, sendAPIKey bool) func(ctx context.Context, network, addr string) (net.Conn, error) {
+// configured proxy base or outbound HTTP proxy), then dials a concrete IP. Dialing by IP
+// prevents a second DNS lookup that could rebind to a private address after the pre-request check.
+func makeSSRFSafeDialContext(proxyBase string, sendAPIKey bool, allowedProxyHost ...string) func(ctx context.Context, network, addr string) (net.Conn, error) {
 	dialer := &net.Dialer{
 		Timeout:   30 * time.Second,
 		KeepAlive: 30 * time.Second,
 	}
 	baseHost := proxyBaseHostname(proxyBase)
+	var outboundProxyHost string
+	if len(allowedProxyHost) > 0 {
+		outboundProxyHost = strings.TrimSpace(allowedProxyHost[0])
+	}
 	_ = sendAPIKey // host allow-list is enforced earlier; dial trusts only proxy base host.
 	return func(ctx context.Context, network, addr string) (net.Conn, error) {
 		host, port, err := net.SplitHostPort(addr)
@@ -188,8 +200,8 @@ func makeSSRFSafeDialContext(proxyBase string, sendAPIKey bool) func(ctx context
 		if host == "" {
 			return nil, fmt.Errorf("地址缺少主机")
 		}
-		// Configured relay host (name or IP): may be private / loopback for self-hosted.
-		if baseHost != "" && hostsEqual(host, baseHost) {
+		// Configured relay host or explicitly configured outbound proxy host: may be private / loopback.
+		if (baseHost != "" && hostsEqual(host, baseHost)) || (outboundProxyHost != "" && hostsEqual(host, outboundProxyHost)) {
 			return dialer.DialContext(ctx, network, addr)
 		}
 		// Literal IP target.

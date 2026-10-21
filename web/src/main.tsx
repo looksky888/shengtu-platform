@@ -14,13 +14,16 @@ const ASSET_RELOAD_COOLDOWN_MS = 60_000;
 window.addEventListener("vite:preloadError", (event) => {
   event.preventDefault();
 
-  const lastReloadAt = Number(sessionStorage.getItem(ASSET_RELOAD_AT_KEY) ?? "0");
   const now = Date.now();
-  if (now - lastReloadAt < ASSET_RELOAD_COOLDOWN_MS) {
-    return;
+  try {
+    const lastReloadAt = Number(sessionStorage.getItem(ASSET_RELOAD_AT_KEY) ?? "0");
+    if (now - lastReloadAt < ASSET_RELOAD_COOLDOWN_MS) {
+      return;
+    }
+    sessionStorage.setItem(ASSET_RELOAD_AT_KEY, String(now));
+  } catch {
+    // Ignore storage access errors in restricted browsing modes.
   }
-
-  sessionStorage.setItem(ASSET_RELOAD_AT_KEY, String(now));
   window.location.reload();
 });
 

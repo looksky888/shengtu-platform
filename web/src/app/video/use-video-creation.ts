@@ -22,7 +22,24 @@ const TERMINAL_STATUSES = new Set<CreationTask["status"]>(["success", "error", "
 
 function readTaskID(storageKey: string) {
   if (typeof window === "undefined" || !storageKey) return "";
-  return window.localStorage.getItem(storageKey) || "";
+  try {
+    return window.localStorage.getItem(storageKey) || "";
+  } catch {
+    return "";
+  }
+}
+
+function writeTaskID(storageKey: string, taskID: string) {
+  if (typeof window === "undefined" || !storageKey) return;
+  try {
+    if (taskID) {
+      window.localStorage.setItem(storageKey, taskID);
+    } else {
+      window.localStorage.removeItem(storageKey);
+    }
+  } catch {
+    // Ignore storage errors so active video tasks still proceed in memory.
+  }
 }
 
 function newTaskID() {
@@ -61,7 +78,7 @@ export function useVideoCreation(session: StoredAuthSession | null | undefined) 
   const observedActiveTaskRef = useRef(false);
 
   useEffect(() => {
-    window.localStorage.removeItem(LEGACY_VIDEO_TASK_KEY);
+    writeTaskID(LEGACY_VIDEO_TASK_KEY, "");
   }, []);
 
   useEffect(() => {
@@ -92,12 +109,12 @@ export function useVideoCreation(session: StoredAuthSession | null | undefined) 
         if (!current) {
           setTask(null);
           setTaskScope({ storageKey: taskStorageKey, taskID: "" });
-          if (taskStorageKey) window.localStorage.removeItem(taskStorageKey);
+          writeTaskID(taskStorageKey, "");
           setPollError("");
           return;
         }
         if (current.status === "success" && taskStorageKey) {
-          window.localStorage.removeItem(taskStorageKey);
+          writeTaskID(taskStorageKey, "");
         }
         if (current.status === "success" && !observedActiveTaskRef.current) {
           setTask(null);
@@ -256,7 +273,7 @@ export function useVideoCreation(session: StoredAuthSession | null | undefined) 
           : {}),
         ...(selectedReferenceAssetIds.length ? { reference_images: selectedReferenceAssetIds.map((id) => `video-ref:${id}`) } : {}),
       });
-      if (taskStorageKey) window.localStorage.setItem(taskStorageKey, id);
+      writeTaskID(taskStorageKey, id);
       observedActiveTaskRef.current = true;
       setTask(created);
       setTaskScope({ storageKey: taskStorageKey, taskID: id });
@@ -288,7 +305,7 @@ export function useVideoCreation(session: StoredAuthSession | null | undefined) 
       size,
       resolution: resolutionName,
     });
-    if (taskStorageKey) window.localStorage.removeItem(taskStorageKey);
+    writeTaskID(taskStorageKey, "");
   }
 
   function closePreview() {

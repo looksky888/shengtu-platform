@@ -24,14 +24,32 @@ func NewJSONBackend(filePath, authKeysPath string) *JSONBackend {
 }
 
 func (b *JSONBackend) LoadAccounts() ([]map[string]any, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.loadAccountsLocked()
+}
+
+func (b *JSONBackend) loadAccountsLocked() ([]map[string]any, error) {
 	return loadJSONListStrict(b.filePath)
 }
 
 func (b *JSONBackend) SaveAccounts(accounts []map[string]any) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.saveAccountsLocked(accounts)
+}
+
+func (b *JSONBackend) saveAccountsLocked(accounts []map[string]any) error {
 	return saveJSONValue(b.filePath, accounts)
 }
 
 func (b *JSONBackend) LoadAuthKeys() ([]map[string]any, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.loadAuthKeysLocked()
+}
+
+func (b *JSONBackend) loadAuthKeysLocked() ([]map[string]any, error) {
 	raw, err := loadJSONValueStrict(b.authKeysPath)
 	if err != nil {
 		return nil, err
@@ -46,6 +64,12 @@ func (b *JSONBackend) LoadAuthKeys() ([]map[string]any, error) {
 }
 
 func (b *JSONBackend) SaveAuthKeys(keys []map[string]any) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.saveAuthKeysLocked(keys)
+}
+
+func (b *JSONBackend) saveAuthKeysLocked(keys []map[string]any) error {
 	return saveJSONValue(b.authKeysPath, map[string]any{"items": keys})
 }
 
@@ -55,7 +79,9 @@ func (b *JSONBackend) UpsertAuthKey(keyID string, data map[string]any) error {
 	if keyID == "" || data == nil {
 		return fmt.Errorf("invalid auth key upsert")
 	}
-	keys, err := b.LoadAuthKeys()
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	keys, err := b.loadAuthKeysLocked()
 	if err != nil {
 		return err
 	}
@@ -70,7 +96,7 @@ func (b *JSONBackend) UpsertAuthKey(keyID string, data map[string]any) error {
 	if !found {
 		keys = append(keys, data)
 	}
-	return b.SaveAuthKeys(keys)
+	return b.saveAuthKeysLocked(keys)
 }
 
 // UpsertAccount rewrites accounts.json with one account replaced.
@@ -79,7 +105,9 @@ func (b *JSONBackend) UpsertAccount(accessToken string, data map[string]any) err
 	if accessToken == "" || data == nil {
 		return fmt.Errorf("invalid account upsert")
 	}
-	accounts, err := b.LoadAccounts()
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	accounts, err := b.loadAccountsLocked()
 	if err != nil {
 		return err
 	}
@@ -94,7 +122,7 @@ func (b *JSONBackend) UpsertAccount(accessToken string, data map[string]any) err
 	if !found {
 		accounts = append(accounts, data)
 	}
-	return b.SaveAccounts(accounts)
+	return b.saveAccountsLocked(accounts)
 }
 
 // DeleteAccount removes one account from accounts.json (full rewrite of the JSON file).
@@ -103,7 +131,9 @@ func (b *JSONBackend) DeleteAccount(accessToken string) error {
 	if accessToken == "" {
 		return fmt.Errorf("invalid account delete")
 	}
-	accounts, err := b.LoadAccounts()
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	accounts, err := b.loadAccountsLocked()
 	if err != nil {
 		return err
 	}
@@ -114,10 +144,12 @@ func (b *JSONBackend) DeleteAccount(accessToken string) error {
 		}
 		next = append(next, item)
 	}
-	return b.SaveAccounts(next)
+	return b.saveAccountsLocked(next)
 }
 
 func (b *JSONBackend) HealthCheck() BackendHealth {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	if _, err := os.Stat(b.filePath); err != nil && !os.IsNotExist(err) {
 		return BackendHealth{Status: "unhealthy", Backend: "json", Error: err.Error()}
 	}
@@ -132,6 +164,8 @@ func (b *JSONBackend) HealthCheck() BackendHealth {
 }
 
 func (b *JSONBackend) Info() BackendInfo {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	return BackendInfo{
 		Type:               "json",
 		Description:        "本地 JSON 文件存储",
@@ -143,6 +177,8 @@ func (b *JSONBackend) Info() BackendInfo {
 }
 
 func (b *JSONBackend) LoadJSONDocument(name string) (any, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	full, err := b.documentPath(name)
 	if err != nil {
 		return nil, err
@@ -158,6 +194,8 @@ func (b *JSONBackend) LoadJSONDocument(name string) (any, error) {
 }
 
 func (b *JSONBackend) SaveJSONDocument(name string, value any) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	full, err := b.documentPath(name)
 	if err != nil {
 		return err
@@ -166,6 +204,8 @@ func (b *JSONBackend) SaveJSONDocument(name string, value any) error {
 }
 
 func (b *JSONBackend) DeleteJSONDocument(name string) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	full, err := b.documentPath(name)
 	if err != nil {
 		return err
@@ -179,6 +219,8 @@ func (b *JSONBackend) DeleteJSONDocument(name string) error {
 }
 
 func (b *JSONBackend) AppendLog(item map[string]any) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	if item == nil {
 		item = map[string]any{}
 	}
@@ -204,6 +246,8 @@ func (b *JSONBackend) AppendLog(item map[string]any) error {
 }
 
 func (b *JSONBackend) QueryLogs(startDate, endDate string, limit int) ([]map[string]any, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	full, err := b.documentPath(LogEventsDocumentName)
 	if err != nil {
 		return nil, err
@@ -238,6 +282,8 @@ func (b *JSONBackend) DeleteLogsBefore(day string) (int, error) {
 	if day == "" {
 		return 0, nil
 	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	full, err := b.documentPath(LogEventsDocumentName)
 	if err != nil {
 		return 0, err

@@ -29,6 +29,7 @@ export function taskModeLabel(mode: CreationTask["mode"]) {
     case "edit": return "图生图";
     case "response-image": return "Responses 生图";
     case "chat": return "文本任务";
+    case "video": return "视频任务";
     default: return mode;
   }
 }

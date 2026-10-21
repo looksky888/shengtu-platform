@@ -20,5 +20,5 @@ export function roleSearchText(role: ManagedRole) {
 }
 
 export function permissionCountLabel(role: ManagedRole) {
-  return `${uniqueSortedStrings(role.menu_paths).length} \u83dc\u5355 / ${uniqueSortedStrings(role.api_permissions).length} API`;
+  return `${uniqueSortedStrings(role.menu_paths).length} 菜单 / ${uniqueSortedStrings(role.api_permissions).length} API`;
 }

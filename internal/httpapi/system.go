@@ -85,6 +85,27 @@ func (a *App) handleHealth(w http.ResponseWriter, _ *http.Request) {
 	util.WriteJSON(w, http.StatusOK, payload)
 }
 
+func (a *App) updateService() *service.UpdateService {
+	a.updateMu.RLock()
+	svc := a.update
+	a.updateMu.RUnlock()
+	if svc != nil {
+		return svc
+	}
+	a.updateMu.Lock()
+	defer a.updateMu.Unlock()
+	if a.update == nil {
+		a.update = newUpdateService(a.config)
+	}
+	return a.update
+}
+
+func (a *App) setUpdateService(svc *service.UpdateService) {
+	a.updateMu.Lock()
+	a.update = svc
+	a.updateMu.Unlock()
+}
+
 func (a *App) handleAdminSystem(w http.ResponseWriter, r *http.Request) {
 	// RBAC: GET/POST /api/admin/system (subtree)
 	if _, ok := a.requireIdentity(w, r, ""); !ok {
@@ -92,13 +113,14 @@ func (a *App) handleAdminSystem(w http.ResponseWriter, r *http.Request) {
 	}
 
 	base := "/api/admin/system"
+	upd := a.updateService()
 	switch r.URL.Path {
 	case base + "/version":
 		if r.Method != http.MethodGet {
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
 		}
-		info, _ := a.update.CheckUpdate(r.Context(), false)
+		info, _ := upd.CheckUpdate(r.Context(), false)
 		util.WriteJSON(w, http.StatusOK, systemVersionResponse{
 			Version: version.Get(), VersionInfo: version.GetInfo(), UpdateStatus: info,
 		})
@@ -107,7 +129,7 @@ func (a *App) handleAdminSystem(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
 		}
-		info, err := a.update.CheckUpdate(r.Context(), r.URL.Query().Get("force") == "true")
+		info, err := upd.CheckUpdate(r.Context(), r.URL.Query().Get("force") == "true")
 		if err != nil {
 			util.WriteError(w, http.StatusBadGateway, err.Error())
 			return
@@ -118,7 +140,7 @@ func (a *App) handleAdminSystem(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
 		}
-		if err := a.update.PerformUpdate(r.Context()); err != nil {
+		if err := upd.PerformUpdate(r.Context()); err != nil {
 			util.WriteError(w, http.StatusBadGateway, err.Error())
 			return
 		}
@@ -128,7 +150,7 @@ func (a *App) handleAdminSystem(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
 		}
-		if err := a.update.Rollback(); err != nil {
+		if err := upd.Rollback(); err != nil {
 			util.WriteError(w, http.StatusBadGateway, err.Error())
 			return
 		}
@@ -142,6 +164,7 @@ func (a *App) handleAdminSystem(w http.ResponseWriter, r *http.Request) {
 		// (Docker restart: unless-stopped, systemd Restart=on-success/always, etc.).
 		go func() {
 			time.Sleep(100 * time.Millisecond)
+			_ = a.Close()
 			os.Exit(0)
 		}()
 		util.WriteJSON(w, http.StatusOK, systemActionResponse{

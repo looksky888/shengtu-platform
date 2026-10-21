@@ -75,6 +75,19 @@ export function chinaTodayStartMs(now = new Date()) {
 
 export type TimeRangeFilter = "all" | "today" | "7d" | "30d";
 
+/** Date range bounds (start_at, end_at in YYYY-MM-DD China time) for server-side filter queries. */
+export function chinaTimeRangeBounds(filter: TimeRangeFilter): { start_at?: string; end_at?: string } {
+  if (filter === "all") return {};
+  if (filter === "today") {
+    const day = chinaTodayKey();
+    return { start_at: day, end_at: day };
+  }
+  const days = filter === "7d" ? 7 : 30;
+  const end = new Date();
+  const start = new Date(end.getTime() - days * 24 * 60 * 60 * 1000);
+  return { start_at: chinaTodayKey(start), end_at: chinaTodayKey(end) };
+}
+
 /** mm:ss (or hh:mm:ss past an hour) elapsed clock used by the task queue and result cards. */
 export function formatElapsedClock(totalSeconds: number) {
   const safeSeconds = Math.max(0, totalSeconds);

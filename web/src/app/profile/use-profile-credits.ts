@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { formatCreditNumber } from "@/app/profile/profile-utils";
@@ -25,6 +25,7 @@ export function useProfileCredits() {
   const [isCheckingIn, setIsCheckingIn] = useState(false);
   const [isRedeeming, setIsRedeeming] = useState(false);
   const [creditLedgerPage, setCreditLedgerPage] = useState(1);
+  const ledgerSeqRef = useRef(0);
 
   const creditLedgerPageCount = Math.max(1, Math.ceil(Math.max(ledgerTotal, 0) / CREDIT_LEDGER_PAGE_SIZE));
   const safeCreditLedgerPage = Math.min(Math.max(1, creditLedgerPage), creditLedgerPageCount);
@@ -33,9 +34,11 @@ export function useProfileCredits() {
   const displayLatestCreditEntry = latestCreditEntry || (creditLedgerPage === 1 ? creditLedger[0] : null) || null;
 
   const loadLedgerPage = useCallback(async (page: number, notifyOnError = true) => {
+    const seq = ++ledgerSeqRef.current;
     setIsLoadingLedger(true);
     try {
       const data = await fetchProfileCreditLedger({ page, page_size: CREDIT_LEDGER_PAGE_SIZE });
+      if (seq !== ledgerSeqRef.current) return;
       const items = Array.isArray(data.items) ? data.items : [];
       setCreditLedger(items);
       const total = typeof data.total === "number" ? data.total : items.length;
@@ -44,13 +47,16 @@ export function useProfileCredits() {
         setLatestCreditEntry(items[0]);
       }
     } catch (error) {
+      if (seq !== ledgerSeqRef.current) return;
       setCreditLedger([]);
       setLedgerTotal(0);
       if (notifyOnError) {
         toast.error(error instanceof Error ? error.message : "加载积分流水失败");
       }
     } finally {
-      setIsLoadingLedger(false);
+      if (seq === ledgerSeqRef.current) {
+        setIsLoadingLedger(false);
+      }
     }
   }, []);
 
@@ -75,11 +81,6 @@ export function useProfileCredits() {
     },
     [loadLedgerPage],
   );
-
-  // Initial load.
-  useEffect(() => {
-    void loadCredits(true);
-  }, [loadCredits]);
 
   // Subsequent page flips (skip page 1 here — loadCredits already fetched it).
   useEffect(() => {

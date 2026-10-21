@@ -34,7 +34,7 @@ export function LogGovernanceCard() {
 
   if (isLoadingConfig) {
     return (
-      <SettingsCard icon={ScrollText} title={"\u65e5\u5fd7\u6cbb\u7406"} tone="amber">
+      <SettingsCard icon={ScrollText} title={"日志治理"} tone="amber">
         <div className="flex items-center justify-center py-10">
           <LoaderCircle className="size-5 animate-spin text-muted-foreground" />
         </div>
@@ -45,7 +45,7 @@ export function LogGovernanceCard() {
   return (
     <SettingsCard
       icon={ScrollText}
-      title={"\u65e5\u5fd7\u6cbb\u7406"}
+      title={"日志治理"}
       tone="amber"
       action={<SaveLogConfigButton isSaving={isSavingConfig} onSave={() => void saveConfigSection(["log_retention_days", "log_levels"])} />}
     >
@@ -80,7 +80,7 @@ function SaveLogConfigButton({ isSaving, onSave }: { isSaving: boolean; onSave: 
   return (
     <Button size="lg" onClick={onSave} disabled={isSaving}>
       {isSaving ? <LoaderCircle data-icon="inline-start" className="animate-spin" /> : <Save data-icon="inline-start" />}
-      {"\u4fdd\u5b58"}
+      {"保存"}
     </Button>
   );
 }

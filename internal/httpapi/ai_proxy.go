@@ -176,7 +176,7 @@ func (a *App) chatImageViaProxy(ctx context.Context, body map[string]any, channe
 		return completion, nil, nil
 	}
 	// Proxy backends are request/response; emit a short OpenAI-compatible chat stream.
-	items := make(chan map[string]any)
+	items := make(chan map[string]any, 2)
 	errCh := make(chan error, 1)
 	go func() {
 		defer close(items)
@@ -185,8 +185,18 @@ func (a *App) chatImageViaProxy(ctx context.Context, body map[string]any, channe
 		if created == 0 {
 			created = int64(util.ToInt(completion["created"], 0))
 		}
-		items <- protocol.CompletionChunk(model, map[string]any{"role": "assistant", "content": content}, nil, id, created)
-		items <- protocol.CompletionChunk(model, map[string]any{}, "stop", id, created)
+		select {
+		case items <- protocol.CompletionChunk(model, map[string]any{"role": "assistant", "content": content}, nil, id, created):
+		case <-ctx.Done():
+			errCh <- ctx.Err()
+			return
+		}
+		select {
+		case items <- protocol.CompletionChunk(model, map[string]any{}, "stop", id, created):
+		case <-ctx.Done():
+			errCh <- ctx.Err()
+			return
+		}
 		errCh <- nil
 	}()
 	return nil, &protocol.StreamResult{Items: items, Err: errCh, Kind: "openai"}, nil

@@ -310,6 +310,13 @@ func (s *RegisterService) run() {
 				workerCfg["mail"] = mail
 			}
 			go func(index int, config map[string]any) {
+				defer func() {
+					if r := recover(); r != nil {
+						log.Printf("register worker #%d panic recovered: %v", index, r)
+						s.appendLog(fmt.Sprintf("[线程#%d] 异常崩溃已恢复: %v", index, r), "red")
+						results <- registerWorkerResult{ok: false}
+					}
+				}()
 				results <- s.runWorker(index, config)
 			}(submitted, workerCfg)
 			current = s.workerConfig()

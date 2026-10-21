@@ -93,6 +93,22 @@ func shortHeaderValue(value string) string {
 	return value
 }
 
+type bodyReadCloser struct {
+	io.Reader
+	io.Closer
+}
+
+func rewindResponseBody(resp *http.Response, preview []byte) {
+	if resp == nil || resp.Body == nil {
+		return
+	}
+	orig := resp.Body
+	resp.Body = bodyReadCloser{
+		Reader: io.MultiReader(bytes.NewReader(preview), orig),
+		Closer: orig,
+	}
+}
+
 func cloudflareBodySummary(resp *http.Response) string {
 	if resp == nil || resp.Body == nil {
 		return ""
@@ -101,7 +117,7 @@ func cloudflareBodySummary(resp *http.Response) string {
 	if err != nil {
 		return ""
 	}
-	resp.Body = io.NopCloser(io.MultiReader(bytes.NewReader(preview), resp.Body))
+	rewindResponseBody(resp, preview)
 	return summarizeUpstreamErrorBody(preview)
 }
 
@@ -120,7 +136,7 @@ func shouldRefreshCloudflare(resp *http.Response) bool {
 	if err != nil {
 		return false
 	}
-	resp.Body = io.NopCloser(io.MultiReader(bytes.NewReader(preview), resp.Body))
+	rewindResponseBody(resp, preview)
 	lower := strings.ToLower(string(preview))
 	challengeBody := strings.Contains(lower, "cf_chl") ||
 		strings.Contains(lower, "challenge-platform") ||

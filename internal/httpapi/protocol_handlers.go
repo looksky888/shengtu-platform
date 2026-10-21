@@ -45,6 +45,12 @@ func (a *App) handleImageGenerations(w http.ResponseWriter, r *http.Request) {
 		a.writeCreditBillingError(w, err)
 		return
 	}
+	defer func() {
+		if value := recover(); value != nil {
+			a.refundImageCredits(charge)
+			panic(value)
+		}
+	}()
 	result, stream, err := a.handleImageGenerationsWithChannel(r.Context(), body, model)
 	a.writeProtocol(w, r, result, stream, err, "openai", "/v1/images/generations", model, identity, "文生图", visibility, charge)
 }
@@ -85,6 +91,12 @@ func (a *App) handleImageEdits(w http.ResponseWriter, r *http.Request) {
 		a.writeCreditBillingError(w, err)
 		return
 	}
+	defer func() {
+		if value := recover(); value != nil {
+			a.refundImageCredits(charge)
+			panic(value)
+		}
+	}()
 	result, stream, err := a.handleImageEditsWithChannel(r.Context(), body, images, model)
 	a.writeProtocol(w, r, result, stream, err, "openai", "/v1/images/edits", model, identity, "图生图", visibility, charge)
 }
@@ -105,6 +117,12 @@ func (a *App) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 	model := firstNonEmpty(util.Clean(body["model"]), "auto")
 	summary := "文本生成"
 	var charge *imageCreditCharge
+	defer func() {
+		if value := recover(); value != nil {
+			a.refundImageCredits(charge)
+			panic(value)
+		}
+	}()
 	var result map[string]any
 	var stream *protocol.StreamResult
 	if protocol.IsImageChatRequest(body) {
@@ -148,6 +166,12 @@ func (a *App) handleResponses(w http.ResponseWriter, r *http.Request) {
 	model := firstNonEmpty(util.Clean(body["model"]), "auto")
 	summary := "Responses"
 	var charge *imageCreditCharge
+	defer func() {
+		if value := recover(); value != nil {
+			a.refundImageCredits(charge)
+			panic(value)
+		}
+	}()
 	if protocol.HasResponseImageGenerationTool(body) {
 		summary = "文生图"
 		c, billingErr := a.deductImageCredits(identity, body, service.CreditReasonImageGeneration, "/v1/responses")

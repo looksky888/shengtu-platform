@@ -72,6 +72,9 @@ func (s *CPAImportService) StartImport(pool map[string]any, selected []string) (
 		return nil, fmt.Errorf("请选择要导入的文件")
 	}
 	poolID := util.Clean(pool["id"])
+	if existing := s.config.GetImportJob(poolID); existing != nil && util.Clean(existing["status"]) == "running" {
+		return nil, fmt.Errorf("当前连接池已有正在执行的导入任务，请等待完成后再试")
+	}
 	job := newImportJobStruct(len(names)).toMap()
 	saved, err := s.config.SetImportJob(poolID, job)
 	if err != nil {
@@ -88,6 +91,13 @@ func (s *CPAImportService) StartImport(pool map[string]any, selected []string) (
 }
 
 func (s *CPAImportService) runImport(poolID string, pool map[string]any, names []string) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("CPA import job %s panic recovered: %v", poolID, r)
+			_ = s.appendJobError(poolID, "系统任务", fmt.Sprintf("导入异常中断: %v", r))
+			_ = s.updateJob(poolID, map[string]any{"status": "failed"})
+		}
+	}()
 	if err := s.updateJob(poolID, map[string]any{"status": "running"}); err != nil {
 		return
 	}

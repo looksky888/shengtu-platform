@@ -21,7 +21,10 @@ test("profile-user-api removes dead 404 endpoints and provides connectivity test
 
 test("profile content organizes personal center with SubNav tabs and interactive API docs", () => {
   const profileContent = readWebSource("app/profile/profile-content.tsx");
-  const docsPanel = readWebSource("app/profile/profile-api-docs-panel.tsx");
+  const docsPanel =
+    readWebSource("app/profile/profile-api-docs-panel.tsx") +
+    "\n" +
+    readWebSource("app/profile/profile-api-docs-catalog.ts");
 
   assert.match(profileContent, /SubNav/);
   assert.match(profileContent, /概览与账号安全/);

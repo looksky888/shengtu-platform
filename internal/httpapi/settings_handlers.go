@@ -7,6 +7,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"chatgpt2api/internal/config"
@@ -65,7 +66,7 @@ func (a *App) handleSettings(w http.ResponseWriter, r *http.Request) {
 			util.WriteError(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		a.update = newUpdateService(a.config)
+		a.setUpdateService(newUpdateService(a.config))
 		// Hot-apply account schedule strategy used by concurrent image locks.
 		if a.accounts != nil {
 			a.accounts.SetScheduleStrategy(service.AccountScheduleStrategy(a.config.ImageAccountSchedule()))
@@ -84,11 +85,15 @@ func (a *App) handleSettings(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+var upstreamClearanceEnvMu sync.Mutex
+
 // hotApplyUpstreamClearanceEnv mirrors saved settings into process env for clearance helpers.
 func hotApplyUpstreamClearanceEnv(cfg *config.Store) {
 	if cfg == nil {
 		return
 	}
+	upstreamClearanceEnvMu.Lock()
+	defer upstreamClearanceEnvMu.Unlock()
 	_ = os.Setenv("CHATGPT2API_PROXY", cfg.Proxy())
 	_ = os.Setenv("CHATGPT2API_FLARESOLVERR_URL", cfg.FlareSolverrURL())
 	if cfg.UpstreamClearanceEnabled() {

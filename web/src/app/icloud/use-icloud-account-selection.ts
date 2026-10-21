@@ -25,7 +25,11 @@ export function availableICloudAccountIds(selected: string[], sessions: ICloudSe
 
 function readSelection() {
   if (typeof window === "undefined") return [];
-  return parseICloudAccountSelection(window.localStorage.getItem(storageKey));
+  try {
+    return parseICloudAccountSelection(window.localStorage.getItem(storageKey));
+  } catch {
+    return [];
+  }
 }
 
 function persistSelection(accountIds: string[]) {

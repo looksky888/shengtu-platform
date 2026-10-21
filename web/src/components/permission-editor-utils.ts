@@ -13,7 +13,7 @@ export function flattenMenuPermissions(items: PermissionMenu[] | null | undefine
 
 export function groupApiPermissions(items: ApiPermission[]) {
   return items.reduce<ApiPermissionGroup[]>((groups, item) => {
-    const group = item.group || "\u5176\u4ed6";
+    const group = item.group || "其他";
     const existing = groups.find((entry) => entry.group === group);
     if (existing) {
       existing.items.push(item);

@@ -25,7 +25,7 @@ export function AnnouncementPopover({ announcements, className, onOpenAnnounceme
             "relative size-10 rounded-full border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50 p-0 text-amber-800 shadow-sm hover:from-amber-100 hover:to-orange-100 hover:text-amber-900",
             className,
           )}
-          aria-label={`\u67e5\u770b ${announcements.length} \u6761\u516c\u544a`}
+          aria-label={`查看 ${announcements.length} 条公告`}
         >
           <Bell className="size-4" />
           <span className="absolute -right-1 -top-1 flex min-w-5 items-center justify-center rounded-full bg-amber-600 px-1.5 text-[10px] font-semibold leading-5 text-white shadow-sm">
@@ -38,9 +38,9 @@ export function AnnouncementPopover({ announcements, className, onOpenAnnounceme
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
               <Bell className="size-4 text-amber-700 dark:text-amber-300" />
-              {"\u901a\u77e5\u63d0\u9192"}
+              {"通知提醒"}
             </div>
-            <Badge variant="warning" className="rounded-md">{announcements.length} {"\u6761"}</Badge>
+            <Badge variant="warning" className="rounded-md">{announcements.length} {"条"}</Badge>
           </div>
         </div>
         <div aria-live="polite" className="max-h-[min(64vh,520px)] overflow-y-auto p-3">

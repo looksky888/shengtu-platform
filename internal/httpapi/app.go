@@ -73,6 +73,7 @@ type App struct {
 	email         *service.RegistrationEmailService
 	paymentAdmin  *service.PaymentAdminService
 	paymentOrders *service.PaymentService
+	updateMu      sync.RWMutex
 	update        *service.UpdateService
 	cancel        context.CancelFunc
 	rootCtx       context.Context

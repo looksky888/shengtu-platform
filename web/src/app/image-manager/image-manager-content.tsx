@@ -71,7 +71,7 @@ export function ImageManagerContent({ cacheScope, canDeleteImages, isAdmin }: Im
 
   return (
     <section className="flex flex-col gap-5 pb-20 sm:pb-24">
-      <PageHeader eyebrow="图库" title={"\u56fe\u7247\u5e93"} />
+      <PageHeader eyebrow="图库" title={"图片库"} />
       <div className="flex flex-col gap-4">
         <ImageManagerFilterPanel
           galleryView={filters.galleryView}

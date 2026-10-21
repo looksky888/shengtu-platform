@@ -224,6 +224,15 @@ func (e *Engine) conversationEvents(ctx context.Context, client *backend.Client,
 	return out, errCh
 }
 
+func emitConversationEvent(ctx context.Context, out chan<- ConversationEvent, event ConversationEvent) error {
+	select {
+	case out <- event:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
 func IterConversationPayloads(ctx context.Context, payloads <-chan string, historyText string, historyMessages []string, out chan<- ConversationEvent) error {
 	state := &ConversationState{}
 	historyIndex := 0
@@ -234,10 +243,8 @@ func IterConversationPayloads(ctx context.Context, payloads <-chan string, histo
 		if payload == "[DONE]" {
 			event := conversationBaseEvent("conversation.done", state)
 			event["done"] = true
-			select {
-			case out <- event:
-			case <-ctx.Done():
-				return ctx.Err()
+			if err := emitConversationEvent(ctx, out, event); err != nil {
+				return err
 			}
 			break
 		}
@@ -246,14 +253,18 @@ func IterConversationPayloads(ctx context.Context, payloads <-chan string, histo
 			UpdateConversationState(state, payload, nil)
 			event := conversationBaseEvent("conversation.raw", state)
 			event["payload"] = payload
-			out <- event
+			if err := emitConversationEvent(ctx, out, event); err != nil {
+				return err
+			}
 			continue
 		}
 		eventMap, ok := raw.(map[string]any)
 		if !ok {
 			event := conversationBaseEvent("conversation.event", state)
 			event["raw"] = raw
-			out <- event
+			if err := emitConversationEvent(ctx, out, event); err != nil {
+				return err
+			}
 			continue
 		}
 		UpdateConversationState(state, payload, eventMap)
@@ -272,12 +283,16 @@ func IterConversationPayloads(ctx context.Context, payloads <-chan string, histo
 			event := conversationBaseEvent("conversation.delta", state)
 			event["raw"] = eventMap
 			event["delta"] = delta
-			out <- event
+			if err := emitConversationEvent(ctx, out, event); err != nil {
+				return err
+			}
 			continue
 		}
 		event := conversationBaseEvent("conversation.event", state)
 		event["raw"] = eventMap
-		out <- event
+		if err := emitConversationEvent(ctx, out, event); err != nil {
+			return err
+		}
 	}
 	return nil
 }

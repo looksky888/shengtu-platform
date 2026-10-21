@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CreditCard, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
@@ -28,40 +28,53 @@ export function PaymentOrdersSection() {
   const [status, setStatus] = useState("all");
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
+  const requestSeqRef = useRef(0);
   const pageSize = 20;
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setLoadError("");
-    try {
-      const channelPromise = fetchPaymentChannels().catch((error: unknown) => {
+  useEffect(() => {
+    let active = true;
+    fetchPaymentChannels()
+      .then((res) => {
+        if (active) setChannels(res.items);
+      })
+      .catch((error: unknown) => {
+        if (!active) return;
         toast.error(
           error instanceof Error
             ? error.message
             : "支付渠道暂时不可用，已使用渠道编号展示",
         );
-        return { items: [] as PaymentChannel[] };
       });
-      const [orders, channelResult] = await Promise.all([
-        fetchAdminPaymentOrders({
-          page,
-          page_size: pageSize,
-          keyword: keyword || undefined,
-          status: status === "all" ? undefined : status,
-        }),
-        channelPromise,
-      ]);
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const load = useCallback(async () => {
+    const seq = ++requestSeqRef.current;
+    setLoading(true);
+    setLoadError("");
+    try {
+      const orders = await fetchAdminPaymentOrders({
+        page,
+        page_size: pageSize,
+        keyword: keyword || undefined,
+        status: status === "all" ? undefined : status,
+      });
+      if (seq !== requestSeqRef.current) return;
       setItems(orders.items);
       setTotal(orders.total);
-      setChannels(channelResult.items);
     } catch (error) {
+      if (seq !== requestSeqRef.current) return;
       const message = error instanceof Error ? error.message : "加载支付订单失败";
       setLoadError(message);
       toast.error(message);
       setItems([]);
       setTotal(0);
     } finally {
-      setLoading(false);
+      if (seq === requestSeqRef.current) {
+        setLoading(false);
+      }
     }
   }, [keyword, page, status]);
 

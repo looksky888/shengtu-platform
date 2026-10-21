@@ -93,11 +93,11 @@ export function ImportBrowserDialog() {
         className="max-h-[90vh] max-w-5xl rounded-2xl p-6"
       >
         <DialogHeader className="gap-2">
-          <DialogTitle>{"\u9009\u62e9\u8981\u5bfc\u5165\u7684\u8d26\u53f7"}</DialogTitle>
+          <DialogTitle>选择要导入的账号</DialogTitle>
           <DialogDescription className="text-sm leading-6">
             {browserPool
-              ? `\u6765\u81ea ${browserPool.name || browserPool.base_url}`
-              : "\u8bfb\u53d6\u5230\u7684\u8fdc\u7a0b\u8d26\u53f7\u5217\u8868"}
+              ? `来自 ${browserPool.name || browserPool.base_url}`
+              : "读取到的远程账号列表"}
           </DialogDescription>
         </DialogHeader>
 
@@ -107,7 +107,7 @@ export function ImportBrowserDialog() {
             <Input
               value={fileQuery}
               onChange={(event) => setFileQuery(event.target.value)}
-              placeholder={"\u641c\u7d22 email \u6216\u6587\u4ef6\u540d"}
+              placeholder={"搜索 email 或文件名"}
               className={`${settingsDialogInputClassName} pl-10`}
             />
           </div>
@@ -125,7 +125,7 @@ export function ImportBrowserDialog() {
                 <SelectGroup>
                   {PAGE_SIZE_OPTIONS.map((item) => (
                     <SelectItem key={item} value={item}>
-                      {item} / {"\u9875"}
+                      {item} / {"页"}
                     </SelectItem>
                   ))}
                 </SelectGroup>
@@ -136,7 +136,7 @@ export function ImportBrowserDialog() {
               size="lg"
               onClick={() => toggleSelectAllFiltered(!allFilteredSelected)}
             >
-              {allFilteredSelected ? "\u53d6\u6d88\u5168\u9009" : "\u5168\u9009\u7b5b\u9009\u7ed3\u679c"}
+              {allFilteredSelected ? "取消全选" : "全选筛选结果"}
             </Button>
           </div>
         </div>
@@ -152,12 +152,12 @@ export function ImportBrowserDialog() {
 
         <div className="flex items-center justify-between text-sm text-muted-foreground">
           <span>
-            {"\u7b2c"}{" "}
+            {"第"}{" "}
             {filteredFiles.length === 0
               ? 0
               : (safeFilePage - 1) * currentPageSize + 1}{" "}
             - {Math.min(safeFilePage * currentPageSize, filteredFiles.length)}{" "}
-            {"\u6761\uff0c\u5171"} {filteredFiles.length} {"\u6761"}
+            {"条，共"} {filteredFiles.length} {"条"}
           </span>
           <div className="flex items-center gap-2">
             <Button
@@ -166,7 +166,7 @@ export function ImportBrowserDialog() {
               onClick={() => setFilePage(Math.max(1, safeFilePage - 1))}
               disabled={safeFilePage <= 1}
             >
-              {"\u4e0a\u4e00\u9875"}
+              {"上一页"}
             </Button>
             <span>
               {safeFilePage}/{filePageCount}
@@ -179,7 +179,7 @@ export function ImportBrowserDialog() {
               }
               disabled={safeFilePage >= filePageCount}
             >
-              {"\u4e0b\u4e00\u9875"}
+              {"下一页"}
             </Button>
           </div>
         </div>
@@ -191,7 +191,7 @@ export function ImportBrowserDialog() {
             onClick={() => setBrowserOpen(false)}
             disabled={isStartingImport}
           >
-            {"\u53d6\u6d88"}
+            {"取消"}
           </Button>
           <Button
             size="lg"
@@ -203,7 +203,7 @@ export function ImportBrowserDialog() {
             ) : (
               <Import data-icon="inline-start" />
             )}
-            {"\u5bfc\u5165\u9009\u4e2d\u8d26\u53f7"}
+            {"导入选中账号"}
           </Button>
         </DialogFooter>
       </DialogContent>

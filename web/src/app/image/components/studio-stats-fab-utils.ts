@@ -64,7 +64,11 @@ export function loadFabPosition(): FabPosition | null {
 
 export function saveFabPosition(pos: FabPosition) {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(FAB_POS_KEY, JSON.stringify(pos));
+  try {
+    window.localStorage.setItem(FAB_POS_KEY, JSON.stringify(pos));
+  } catch {
+    // Ignore storage access errors.
+  }
 }
 
 export function defaultFabPosition(size = 64, margin = 24): FabPosition {

@@ -20,6 +20,39 @@ export const IMAGE_QUALITY_STORAGE_KEY = "chatgpt2api:image_last_quality";
 export const IMAGE_OUTPUT_FORMAT_STORAGE_KEY = "chatgpt2api:image_last_output_format";
 export const IMAGE_OUTPUT_COMPRESSION_STORAGE_KEY = "chatgpt2api:image_last_output_compression";
 
+function safeGetLocalStorageItem(key: string): string | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+export function safeSetLocalStorageItem(key: string, value: string): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // Ignore storage quota or private mode restrictions.
+  }
+}
+
+export function safeRemoveLocalStorageItem(key: string): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+  try {
+    window.localStorage.removeItem(key);
+  } catch {
+    // Ignore storage restrictions.
+  }
+}
+
 export function pickFallbackConversationId(conversations: ImageConversation[]) {
   const activeConversation = conversations.find((conversation) =>
     conversation.turns.some((turn) => turn.status === "queued" || turn.status === "generating"),
@@ -28,10 +61,7 @@ export function pickFallbackConversationId(conversations: ImageConversation[]) {
 }
 
 export function getStoredImageModel(): ImageModel {
-  if (typeof window === "undefined") {
-    return DEFAULT_IMAGE_MODEL;
-  }
-  const storedModel = window.localStorage.getItem(IMAGE_MODEL_STORAGE_KEY);
+  const storedModel = safeGetLocalStorageItem(IMAGE_MODEL_STORAGE_KEY);
   if (isChatModel(storedModel)) return storedModel;
   // Collapse any historical grok lite/pro selection to the single studio model.
   if (isGrokImageModel(storedModel)) {
@@ -44,24 +74,15 @@ export function getStoredImageModel(): ImageModel {
 }
 
 export function getStoredImageCount() {
-  if (typeof window === "undefined") {
-    return "1";
-  }
-  return String(normalizeRequestedImageCount(window.localStorage.getItem(IMAGE_COUNT_STORAGE_KEY) || 1));
+  return String(normalizeRequestedImageCount(safeGetLocalStorageItem(IMAGE_COUNT_STORAGE_KEY) || 1));
 }
 
 export function getStoredComposerMode(): ComposerMode {
-  if (typeof window === "undefined") {
-    return "image";
-  }
-  return window.localStorage.getItem(COMPOSER_MODE_STORAGE_KEY) === "chat" ? "chat" : "image";
+  return safeGetLocalStorageItem(COMPOSER_MODE_STORAGE_KEY) === "chat" ? "chat" : "image";
 }
 
 export function getStoredImageQuality(): ImageQuality {
-  if (typeof window === "undefined") {
-    return DEFAULT_IMAGE_QUALITY;
-  }
-  const storedQuality = window.localStorage.getItem(IMAGE_QUALITY_STORAGE_KEY);
+  const storedQuality = safeGetLocalStorageItem(IMAGE_QUALITY_STORAGE_KEY);
   return isImageQuality(storedQuality) ? storedQuality : DEFAULT_IMAGE_QUALITY;
 }
 
@@ -70,21 +91,17 @@ export function normalizeRatioResolutionSelection(selection: ImageSizeSelection)
 }
 
 export function getStoredImageModelOptionId(): string {
-  if (typeof window === "undefined") return "";
-  return window.localStorage.getItem(IMAGE_MODEL_OPTION_STORAGE_KEY)?.trim() || "";
+  return safeGetLocalStorageItem(IMAGE_MODEL_OPTION_STORAGE_KEY)?.trim() || "";
 }
 
 export function getStoredImageSizeSelection(): ImageSizeSelection {
-  if (typeof window === "undefined") {
-    return getImageSizeSelectionFromSize("");
-  }
-  const fallbackSelection = getImageSizeSelectionFromSize(window.localStorage.getItem(IMAGE_SIZE_STORAGE_KEY) || "");
-  const storedSizeMode = window.localStorage.getItem(IMAGE_SIZE_MODE_STORAGE_KEY);
-  const storedAspectRatio = window.localStorage.getItem(IMAGE_ASPECT_RATIO_STORAGE_KEY) || "";
-  const storedResolution = window.localStorage.getItem(IMAGE_RESOLUTION_STORAGE_KEY);
-  const customRatio = window.localStorage.getItem(IMAGE_CUSTOM_RATIO_STORAGE_KEY) || fallbackSelection.customRatio;
-  const customWidth = window.localStorage.getItem(IMAGE_CUSTOM_WIDTH_STORAGE_KEY) || fallbackSelection.customWidth;
-  const customHeight = window.localStorage.getItem(IMAGE_CUSTOM_HEIGHT_STORAGE_KEY) || fallbackSelection.customHeight;
+  const fallbackSelection = getImageSizeSelectionFromSize(safeGetLocalStorageItem(IMAGE_SIZE_STORAGE_KEY) || "");
+  const storedSizeMode = safeGetLocalStorageItem(IMAGE_SIZE_MODE_STORAGE_KEY);
+  const storedAspectRatio = safeGetLocalStorageItem(IMAGE_ASPECT_RATIO_STORAGE_KEY) || "";
+  const storedResolution = safeGetLocalStorageItem(IMAGE_RESOLUTION_STORAGE_KEY);
+  const customRatio = safeGetLocalStorageItem(IMAGE_CUSTOM_RATIO_STORAGE_KEY) || fallbackSelection.customRatio;
+  const customWidth = safeGetLocalStorageItem(IMAGE_CUSTOM_WIDTH_STORAGE_KEY) || fallbackSelection.customWidth;
+  const customHeight = safeGetLocalStorageItem(IMAGE_CUSTOM_HEIGHT_STORAGE_KEY) || fallbackSelection.customHeight;
   if (isImageSizeMode(storedSizeMode) && isImageAspectRatio(storedAspectRatio) && isImageResolution(storedResolution)) {
     return normalizeRatioResolutionSelection({ mode: storedSizeMode, aspectRatio: storedAspectRatio, resolution: storedResolution, customRatio, customWidth, customHeight });
   }
@@ -92,18 +109,12 @@ export function getStoredImageSizeSelection(): ImageSizeSelection {
 }
 
 export function getStoredImageOutputFormat(): ImageOutputFormat {
-  if (typeof window === "undefined") {
-    return DEFAULT_IMAGE_OUTPUT_FORMAT;
-  }
-  const storedFormat = window.localStorage.getItem(IMAGE_OUTPUT_FORMAT_STORAGE_KEY);
+  const storedFormat = safeGetLocalStorageItem(IMAGE_OUTPUT_FORMAT_STORAGE_KEY);
   return isImageOutputFormat(storedFormat) ? storedFormat : DEFAULT_IMAGE_OUTPUT_FORMAT;
 }
 
 export function getStoredImageOutputCompression(): string {
-  if (typeof window === "undefined") {
-    return "";
-  }
-  const normalized = normalizeOutputCompressionValue(window.localStorage.getItem(IMAGE_OUTPUT_COMPRESSION_STORAGE_KEY));
+  const normalized = normalizeOutputCompressionValue(safeGetLocalStorageItem(IMAGE_OUTPUT_COMPRESSION_STORAGE_KEY));
   return normalized === undefined ? "" : String(normalized);
 }
 

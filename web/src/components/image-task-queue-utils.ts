@@ -38,19 +38,19 @@ export function formatQueueTime(value: string) {
 }
 
 export function getModeLabel(mode: ImageConversationMode) {
-  if (mode === "chat") return "\u5bf9\u8bdd";
-  if (mode === "edit") return "\u56fe\u751f\u56fe";
-  if (mode === "image") return "\u6587\u751f\u56fe";
-  return "\u4efb\u52a1";
+  if (mode === "chat") return "对话";
+  if (mode === "edit") return "图生图";
+  if (mode === "image") return "文生图";
+  return "任务";
 }
 
 export function getStatusLabel(status: ImageTurnStatus) {
-  if (status === "queued") return "\u6392\u961f\u4e2d";
-  if (status === "generating") return "\u751f\u6210\u4e2d";
-  if (status === "success") return "\u5df2\u5b8c\u6210";
-  if (status === "message") return "\u5df2\u56de\u590d";
-  if (status === "cancelled") return "\u5df2\u7ec8\u6b62";
-  return "\u5931\u8d25";
+  if (status === "queued") return "排队中";
+  if (status === "generating") return "生成中";
+  if (status === "success") return "已完成";
+  if (status === "message") return "已回复";
+  if (status === "cancelled") return "已终止";
+  return "失败";
 }
 
 export function getStatusClass(status: ImageTurnStatus) {
@@ -61,12 +61,12 @@ export function getStatusClass(status: ImageTurnStatus) {
 
 export function getCompletionTone(status: ImageTurnStatus) {
   if (status === "success" || status === "message") {
-    return { iconClass: "bg-emerald-50 text-emerald-700 ring-emerald-100 dark:bg-emerald-950/30 dark:text-emerald-300 dark:ring-emerald-800", badgeClass: "bg-emerald-50 text-emerald-700 ring-emerald-100 dark:bg-emerald-950/30 dark:text-emerald-300 dark:ring-emerald-800", barClass: "bg-emerald-500", message: "\u4efb\u52a1\u5df2\u5b8c\u6210" };
+    return { iconClass: "bg-emerald-50 text-emerald-700 ring-emerald-100 dark:bg-emerald-950/30 dark:text-emerald-300 dark:ring-emerald-800", badgeClass: "bg-emerald-50 text-emerald-700 ring-emerald-100 dark:bg-emerald-950/30 dark:text-emerald-300 dark:ring-emerald-800", barClass: "bg-emerald-500", message: "任务已完成" };
   }
   if (status === "cancelled") {
-    return { iconClass: "bg-amber-50 text-amber-700 ring-amber-100 dark:bg-amber-950/30 dark:text-amber-300 dark:ring-amber-800", badgeClass: "bg-amber-50 text-amber-700 ring-amber-100 dark:bg-amber-950/30 dark:text-amber-300 dark:ring-amber-800", barClass: "bg-amber-500", message: "\u4efb\u52a1\u5df2\u7ec8\u6b62" };
+    return { iconClass: "bg-amber-50 text-amber-700 ring-amber-100 dark:bg-amber-950/30 dark:text-amber-300 dark:ring-amber-800", badgeClass: "bg-amber-50 text-amber-700 ring-amber-100 dark:bg-amber-950/30 dark:text-amber-300 dark:ring-amber-800", barClass: "bg-amber-500", message: "任务已终止" };
   }
-  return { iconClass: "bg-rose-50 text-rose-700 ring-rose-100 dark:bg-rose-950/30 dark:text-rose-300 dark:ring-rose-800", badgeClass: "bg-rose-50 text-rose-700 ring-rose-100 dark:bg-rose-950/30 dark:text-rose-300 dark:ring-rose-800", barClass: "bg-rose-500", message: "\u4efb\u52a1\u5931\u8d25" };
+  return { iconClass: "bg-rose-50 text-rose-700 ring-rose-100 dark:bg-rose-950/30 dark:text-rose-300 dark:ring-rose-800", badgeClass: "bg-rose-50 text-rose-700 ring-rose-100 dark:bg-rose-950/30 dark:text-rose-300 dark:ring-rose-800", barClass: "bg-rose-500", message: "任务失败" };
 }
 
 export function getQueueItem(conversation: ImageConversation, turn: ImageTurn): TaskQueueItem {

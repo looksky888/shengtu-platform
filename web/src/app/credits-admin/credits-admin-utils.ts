@@ -2,24 +2,14 @@ import type { ComponentProps } from "react";
 
 import type { Badge } from "@/components/ui/badge";
 import type { CreditAccount, CreditCard, CreditLedgerEntry, GeneratedCreditCard } from "@/lib/api";
-import { chinaTodayKey, formatDateTime as formatBizDateTime, isWithinChinaTimeFilter, type TimeRangeFilter } from "@/lib/datetime";
+import { chinaTimeRangeBounds, formatDateTime as formatBizDateTime, isWithinChinaTimeFilter, type TimeRangeFilter } from "@/lib/datetime";
 
 export const ADMIN_TABLE_PAGE_SIZE_OPTIONS = [10, 20, 50] as const;
 export type AdminTablePageSize = typeof ADMIN_TABLE_PAGE_SIZE_OPTIONS[number];
 export type TimeFilter = TimeRangeFilter;
 export type BadgeVariant = ComponentProps<typeof Badge>["variant"];
 
-export function adminTimeBounds(filter: TimeFilter): { start_at?: string; end_at?: string } {
-  if (filter === "all") return {};
-  if (filter === "today") {
-    const day = chinaTodayKey();
-    return { start_at: day, end_at: day };
-  }
-  const days = filter === "7d" ? 7 : 30;
-  const end = new Date();
-  const start = new Date(end.getTime() - days * 24 * 60 * 60 * 1000);
-  return { start_at: chinaTodayKey(start), end_at: chinaTodayKey(end) };
-}
+export const adminTimeBounds = chinaTimeRangeBounds;
 
 export function pagedResult<T>(items: T[], total: number, page: number, pageSize: number) {
   return { currentPage: page, totalPages: getTotalPages(total, pageSize), items };

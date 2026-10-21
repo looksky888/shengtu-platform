@@ -21,7 +21,7 @@ export function MenuPermissionSection({
   return (
     <section className="min-w-0 rounded-xl border border-border">
       <PermissionSectionHeader
-        title={"\u83dc\u5355"}
+        title={"菜单"}
         selectedCount={selectedMenuPaths.length}
         totalCount={allMenuPaths.length}
         onSelectAll={() => onMenuPathsChange(allMenuPaths)}
@@ -43,7 +43,7 @@ export function MenuPermissionSection({
             </label>
           ))
         ) : (
-          <div className="px-4 py-8 text-center text-sm text-muted-foreground">{"\u6682\u65e0\u83dc\u5355\u6743\u9650"}</div>
+          <div className="px-4 py-8 text-center text-sm text-muted-foreground">暂无菜单权限</div>
         )}
       </div>
     </section>
@@ -93,7 +93,7 @@ export function ApiPermissionSection({
             </article>
           ))
         ) : (
-          <div className="px-4 py-8 text-center text-sm text-muted-foreground">{"\u6682\u65e0 API \u6743\u9650"}</div>
+          <div className="px-4 py-8 text-center text-sm text-muted-foreground">暂无 API 权限</div>
         )}
       </div>
     </section>
@@ -120,8 +120,8 @@ function PermissionSectionHeader({
         <p className="text-xs text-muted-foreground">{selectedCount} / {totalCount}</p>
       </div>
       <div className="flex shrink-0 items-center gap-1">
-        <Button type="button" variant="ghost" className="h-7 rounded-md px-2 text-xs" onClick={onSelectAll}>{"\u5168\u9009"}</Button>
-        <Button type="button" variant="ghost" className="h-7 rounded-md px-2 text-xs" onClick={onClear}>{"\u6e05\u7a7a"}</Button>
+        <Button type="button" variant="ghost" className="h-7 rounded-md px-2 text-xs" onClick={onSelectAll}>全选</Button>
+        <Button type="button" variant="ghost" className="h-7 rounded-md px-2 text-xs" onClick={onClear}>清空</Button>
       </div>
     </div>
   );

@@ -5,6 +5,7 @@ import { formatQuota, formatRestoreAt, maskToken, statusMeta } from "@/app/accou
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { TableCell, TableRow } from "@/components/ui/table";
+import { copyText } from "@/lib/clipboard";
 import { cn } from "@/lib/utils";
 import type { Account } from "@/lib/api";
 
@@ -50,7 +51,15 @@ function TokenCell({ account, canExportTokens }: { account: Account; canExportTo
     <div className="flex items-center gap-2">
       <span className="font-medium tracking-tight text-foreground">{maskToken(account.access_token || account.token_preview || account.id)}</span>
       {canExportTokens && account.access_token ? (
-        <button type="button" className="rounded-md p-1 text-muted-foreground transition hover:bg-muted hover:text-foreground" onClick={() => { void navigator.clipboard.writeText(account.access_token || ""); toast.success("token 已复制"); }}>
+        <button
+          type="button"
+          className="rounded-md p-1 text-muted-foreground transition hover:bg-muted hover:text-foreground"
+          onClick={() => {
+            void copyText(account.access_token || "")
+              .then(() => toast.success("token 已复制"))
+              .catch(() => toast.error("复制失败，请手动复制"));
+          }}
+        >
           <Copy className="size-4" />
         </button>
       ) : null}

@@ -68,7 +68,11 @@ export function ImageTaskQueue({ className }: { className?: string }) {
   }, [activeCount, hasRecentCompletion, open, pageVisible, progressByTurnKey]);
 
   const openConversation = (conversationId: string) => {
-    window.localStorage.setItem(ACTIVE_IMAGE_CONVERSATION_STORAGE_KEY, conversationId);
+    try {
+      window.localStorage.setItem(ACTIVE_IMAGE_CONVERSATION_STORAGE_KEY, conversationId);
+    } catch {
+      // Ignore storage access errors in private mode.
+    }
     window.dispatchEvent(new CustomEvent(IMAGE_ACTIVE_CONVERSATION_REQUEST_EVENT, { detail: { conversationId } }));
     setOpen(false);
     navigate("/image");
@@ -102,25 +106,25 @@ function ImageTaskQueueTrigger({ activeCount, hasRecentCompletion, className }: 
       type="button"
       variant="outline"
       className={cn("relative h-9 rounded-full px-2.5 shadow-none", activeCount > 0 ? "border-sky-200 bg-sky-50 text-[#1456f0] hover:bg-sky-100 dark:border-sky-800 dark:bg-sky-950/30 dark:text-sky-300" : hasRecentCompletion ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300" : "border-border bg-background text-muted-foreground hover:bg-accent hover:text-accent-foreground", className)}
-      aria-label={activeCount > 0 ? `\u67e5\u770b ${activeCount} \u4e2a\u6b63\u5728\u5904\u7406\u7684\u4efb\u52a1` : hasRecentCompletion ? "\u67e5\u770b\u6700\u8fd1\u5b8c\u6210\u7684\u4efb\u52a1" : "\u67e5\u770b\u4efb\u52a1\u961f\u5217"}
-      title={"\u4efb\u52a1\u961f\u5217"}
+      aria-label={activeCount > 0 ? `查看 ${activeCount} 个正在处理的任务` : hasRecentCompletion ? "查看最近完成的任务" : "查看任务队列"}
+      title="任务队列"
     >
       {hasRecentCompletion ? <span className="pointer-events-none absolute -inset-1 rounded-full border border-emerald-300/70 animate-ping" /> : null}
       {activeCount > 0 ? <LoaderCircle className="size-4 animate-spin" /> : hasRecentCompletion ? <CheckCircle2 className="size-4 animate-in zoom-in-50 duration-300" /> : <ClipboardList className="size-4" />}
-      <span className="hidden text-xs font-medium xl:inline">{"\u4efb\u52a1\u961f\u5217"}</span>
+      <span className="hidden text-xs font-medium xl:inline">任务队列</span>
       {activeCount > 0 ? <span className="absolute -top-1 -right-1 inline-flex min-w-5 items-center justify-center rounded-full bg-[#1456f0] px-1.5 text-[10px] font-semibold leading-5 text-white">{activeCount}</span> : null}
     </Button>
   );
 }
 
 function QueuePopoverHeader({ activeCount, hasRecentCompletion }: { activeCount: number; hasRecentCompletion: boolean }) {
-  const subtitle = activeCount > 0 ? `${activeCount} \u4e2a\u4efb\u52a1\u6b63\u5728\u6392\u961f\u6216\u5904\u7406` : hasRecentCompletion ? "\u6700\u8fd1\u5b8c\u6210\u7684\u4efb\u52a1" : "\u6682\u65e0\u5f85\u5904\u7406\u4efb\u52a1";
+  const subtitle = activeCount > 0 ? `${activeCount} 个任务正在排队或处理` : hasRecentCompletion ? "最近完成的任务" : "暂无待处理任务";
   return (
     <div className="flex items-center justify-between gap-3 border-b border-[#f2f3f5] px-4 py-3 dark:border-border">
       <div className="flex min-w-0 items-center gap-2">
         <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[#edf4ff] text-[#1456f0] dark:bg-sky-950/30 dark:text-sky-300"><ClipboardList className="size-4" /></span>
         <div className="min-w-0">
-          <div className="text-sm font-semibold text-[#222222] dark:text-foreground">{"\u4efb\u52a1\u961f\u5217"}</div>
+          <div className="text-sm font-semibold text-[#222222] dark:text-foreground">任务队列</div>
           <div className="text-xs text-[#8e8e93] dark:text-muted-foreground">{subtitle}</div>
         </div>
       </div>
@@ -132,10 +136,10 @@ function EmptyQueueState({ onOpenImage }: { onOpenImage: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center px-6 py-10 text-center">
       <span className="flex size-12 items-center justify-center rounded-full bg-[#f0f0f0] text-[#45515e] dark:bg-muted dark:text-muted-foreground"><CheckCircle2 className="size-5" /></span>
-      <div className="mt-3 text-sm font-semibold text-[#222222] dark:text-foreground">{"\u961f\u5217\u4e3a\u7a7a"}</div>
-      <div className="mt-1 max-w-[260px] text-xs leading-5 text-[#8e8e93] dark:text-muted-foreground">{"\u5728\u521b\u4f5c\u53f0\u63d0\u4ea4\u56fe\u7247\u6216\u5bf9\u8bdd\u4efb\u52a1\u540e\uff0c\u8fd9\u91cc\u4f1a\u663e\u793a\u5bf9\u5e94\u7684\u5904\u7406\u72b6\u6001\u548c\u8fdb\u5ea6\u3002"}</div>
+      <div className="mt-3 text-sm font-semibold text-[#222222] dark:text-foreground">队列为空</div>
+      <div className="mt-1 max-w-[260px] text-xs leading-5 text-[#8e8e93] dark:text-muted-foreground">在创作台提交图片或对话任务后，这里会显示对应的处理状态和进度。</div>
       <Button type="button" size="sm" className="mt-4 h-8 rounded-full bg-[#1456f0] px-3 text-xs text-white hover:bg-[#2563eb]" onClick={onOpenImage}>
-        <Sparkles className="size-3.5" />{"\u6253\u5f00\u521b\u4f5c\u53f0"}
+        <Sparkles className="size-3.5" />打开创作台
       </Button>
     </div>
   );

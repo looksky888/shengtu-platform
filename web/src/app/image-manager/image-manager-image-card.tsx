@@ -16,6 +16,7 @@ import {
   imageVisibilityPillClass,
 } from "@/lib/image-card-utils";
 import type { ImageGalleryView } from "@/lib/image-manager-cache";
+import { copyText } from "@/lib/clipboard";
 import { formatImageFileSize } from "@/lib/image-size";
 import { cn } from "@/lib/utils";
 
@@ -219,8 +220,9 @@ function ImageCardTopActions({
           type="button"
           onClick={(event) => {
             event.stopPropagation();
-            void navigator.clipboard.writeText(item.url);
-            toast.success("图片地址已复制");
+            void copyText(item.url)
+              .then(() => toast.success("图片地址已复制"))
+              .catch(() => toast.error("复制失败，请手动复制"));
           }}
           className="inline-flex size-7 items-center justify-center rounded-full bg-black/65 text-white shadow-sm backdrop-blur-md transition hover:bg-black/80"
           aria-label="复制图片地址"

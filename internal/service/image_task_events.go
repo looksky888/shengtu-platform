@@ -24,7 +24,7 @@ func (b *taskProgressBridge) Event(stage, message string, extra map[string]any) 
 }
 
 func (b *taskProgressBridge) BindAccount(label, tokenHash string, switchCount int) {
-	if b == nil || b.service == nil {
+	if b == nil || b.service == nil || b.key == "" {
 		return
 	}
 	updates := map[string]any{
@@ -32,8 +32,7 @@ func (b *taskProgressBridge) BindAccount(label, tokenHash string, switchCount in
 		"account_token_hash":   tokenHash,
 		"account_switch_count": switchCount,
 	}
-	b.service.updateActiveTask(b.key, updates)
-	b.Event("account_bound", "绑定账号 "+label, map[string]any{
+	b.service.updateAndAppendTaskEvent(b.key, updates, "account_bound", "绑定账号 "+label, map[string]any{
 		"account_label":        label,
 		"account_token_hash":   tokenHash,
 		"account_switch_count": switchCount,
@@ -41,7 +40,7 @@ func (b *taskProgressBridge) BindAccount(label, tokenHash string, switchCount in
 }
 
 func (b *taskProgressBridge) SetProgress(percent int, stage, message string) {
-	if b == nil || b.service == nil {
+	if b == nil || b.service == nil || b.key == "" {
 		return
 	}
 	if percent < 0 {
@@ -50,19 +49,25 @@ func (b *taskProgressBridge) SetProgress(percent int, stage, message string) {
 	if percent > 100 {
 		percent = 100
 	}
-	b.service.updateActiveTask(b.key, map[string]any{
+	b.service.updateAndAppendTaskEvent(b.key, map[string]any{
 		"progress": percent, "progress_stage": stage, "progress_message": message,
-	})
-	b.Event(stage, message, map[string]any{"progress": percent})
+	}, stage, message, map[string]any{"progress": percent})
 }
 
 func (s *ImageTaskService) appendTaskEvent(key, stage, message string, extra map[string]any) {
+	s.updateAndAppendTaskEvent(key, nil, stage, message, extra)
+}
+
+func (s *ImageTaskService) updateAndAppendTaskEvent(key string, updates map[string]any, stage, message string, extra map[string]any) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	task := s.tasks[key]
 	// Terminal tasks must not be mutated (cancel/finish already closed the lifecycle).
 	if task == nil || !isActiveTaskStatus(util.Clean(task.Status)) {
 		return
+	}
+	if len(updates) > 0 {
+		task.applyUpdates(updates)
 	}
 	event := map[string]any{
 		"time":    util.NowLocal(),

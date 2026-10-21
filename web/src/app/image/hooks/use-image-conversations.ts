@@ -88,8 +88,14 @@ export function useImageConversations({ restoreStoredComposerSettings }: UseImag
         }
 
         replaceConversations(normalizedItems);
-        const storedConversationId =
-          typeof window !== "undefined" ? window.localStorage.getItem(ACTIVE_IMAGE_CONVERSATION_STORAGE_KEY) : null;
+        let storedConversationId: string | null = null;
+        if (typeof window !== "undefined") {
+          try {
+            storedConversationId = window.localStorage.getItem(ACTIVE_IMAGE_CONVERSATION_STORAGE_KEY);
+          } catch {
+            storedConversationId = null;
+          }
+        }
         const nextSelectedConversationId =
           (storedConversationId && normalizedItems.some((conversation) => conversation.id === storedConversationId)
             ? storedConversationId
@@ -116,10 +122,14 @@ export function useImageConversations({ restoreStoredComposerSettings }: UseImag
       return;
     }
 
-    if (selectedConversationId) {
-      window.localStorage.setItem(ACTIVE_IMAGE_CONVERSATION_STORAGE_KEY, selectedConversationId);
-    } else {
-      window.localStorage.removeItem(ACTIVE_IMAGE_CONVERSATION_STORAGE_KEY);
+    try {
+      if (selectedConversationId) {
+        window.localStorage.setItem(ACTIVE_IMAGE_CONVERSATION_STORAGE_KEY, selectedConversationId);
+      } else {
+        window.localStorage.removeItem(ACTIVE_IMAGE_CONVERSATION_STORAGE_KEY);
+      }
+    } catch {
+      // Ignore storage access errors.
     }
   }, [selectedConversationId]);
 

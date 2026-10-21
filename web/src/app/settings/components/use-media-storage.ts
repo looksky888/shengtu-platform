@@ -64,24 +64,48 @@ export function useMediaStorage(config: SettingsConfig | null) {
   }, [loadOverview]);
 
   useEffect(() => {
-    if (migration.state !== "running" && cleanup.state !== "running") return;
+    const isMigrationRunning = migration.state === "running";
+    const isCleanupRunning = cleanup.state === "running";
+    if (!isMigrationRunning && !isCleanupRunning) return;
+
+    let disposed = false;
+    let timer = 0;
     const controller = new AbortController();
-    const timer = window.setTimeout(async () => {
+
+    const poll = async () => {
+      let keepPolling = false;
       try {
-        if (migration.state === "running") {
+        if (isMigrationRunning) {
           const data = await fetchMediaMigrationStatus({ signal: controller.signal });
+          if (disposed || controller.signal.aborted) return;
           setMigration(data.migration);
+          keepPolling = data.migration.state === "running";
         } else {
           const data = await fetchMediaLocalCleanupStatus({ signal: controller.signal });
+          if (disposed || controller.signal.aborted) return;
           setCleanup(data.cleanup);
+          keepPolling = data.cleanup.state === "running";
         }
       } catch (error) {
-        if (!controller.signal.aborted) {
+        if (!disposed && !controller.signal.aborted) {
           toast.error(error instanceof Error ? error.message : "刷新媒体任务进度失败");
+          keepPolling = true;
+        }
+      } finally {
+        if (!disposed && !controller.signal.aborted && keepPolling) {
+          timer = window.setTimeout(() => {
+            void poll();
+          }, 1500);
         }
       }
+    };
+
+    timer = window.setTimeout(() => {
+      void poll();
     }, 1500);
+
     return () => {
+      disposed = true;
       controller.abort();
       window.clearTimeout(timer);
     };
