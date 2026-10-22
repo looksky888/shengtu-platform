@@ -6,8 +6,9 @@ import { Link } from "react-router-dom";
 import { VideoLibraryGrid } from "@/app/video-library/video-library-grid";
 import { VideoLibraryTabs } from "@/app/video-library/video-library-tabs";
 import { useVideoLibrary } from "@/app/video-library/use-video-library";
-import { PageHeader } from "@/components/page-header";
 import { MediaDeleteDialog } from "@/components/media-delete-dialog";
+import { MediaAssetTypeSwitcher } from "@/components/media-library-tabs";
+import { PageHeader } from "@/components/page-header";
 import { VideoPreviewDialog } from "@/components/video-preview-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,20 +36,30 @@ export default function VideoLibraryPage() {
   const canDeleteVideos = hasAPIPermission(session, "DELETE", "/api/videos");
   const canUpdateVisibility = hasAPIPermission(session, "PATCH", "/api/videos/visibility");
   return (
-    <section className="flex flex-col gap-5 pb-20 pt-4 sm:pb-24 sm:pt-6">
+    <section className="flex flex-col gap-4 pb-20 sm:pb-24">
       <PageHeader
-        eyebrow="视频资产"
-        title="视频库"
+        eyebrow="资产与媒体"
+        title="素材中心"
+        badge={
+          <div className="flex flex-wrap items-center gap-2">
+            <MediaAssetTypeSwitcher current="video" />
+            <VideoLibraryTabs
+              scope={controller.scope}
+              isAdmin={Boolean(isAdmin)}
+              total={controller.total}
+              onChange={controller.changeScope}
+            />
+          </div>
+        }
         actions={(
           <>
-            <Button type="button" variant="outline" onClick={() => void controller.load()} disabled={controller.loading}>
+            <Button type="button" variant="outline" size="sm" className="h-9 rounded-lg" onClick={() => void controller.load()} disabled={controller.loading}>
               {controller.loading ? <LoaderCircle className="animate-spin" /> : <RefreshCw />}刷新
             </Button>
-            <Button asChild><Link to="/video"><Plus />创作视频</Link></Button>
+            <Button asChild size="sm" className="h-9 rounded-lg"><Link to="/video"><Plus />创作视频</Link></Button>
           </>
         )}
       />
-      <VideoLibraryTabs scope={controller.scope} isAdmin={Boolean(isAdmin)} total={controller.total} onChange={controller.changeScope} />
       <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border/70 bg-card p-3 shadow-2xs">
         <Input aria-label="搜索视频" value={controller.searchKeyword} onChange={(event) => controller.setSearchKeyword(event.target.value)} placeholder="搜索提示词、任务 ID、模型或用户" className="h-9 min-w-[220px] flex-1 rounded-lg" />
         <Select value={controller.visibilityFilter} onValueChange={(value) => controller.setVisibilityFilter(value as "all" | "private" | "public")}>

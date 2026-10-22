@@ -2,13 +2,17 @@
 
 import { useMemo, useState } from "react";
 import {
+  Images,
+  KeyRound,
   LoaderCircle,
   MessageSquarePlus,
   PanelLeftClose,
   Search,
+  Sparkles,
   Trash2,
   X,
 } from "lucide-react";
+import { Link } from "react-router-dom";
 
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/ui/button";
@@ -143,8 +147,16 @@ export function ImageSidebar({
               <span>正在读取会话记录…</span>
             </div>
           ) : conversations.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-border/70 bg-surface-muted/30 px-3 py-5 text-center text-xs leading-5 text-muted-foreground">
-              还没有创作记录，输入提示词生成后会在这里显示。
+            <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border/70 bg-surface-muted/25 px-3 py-6 text-center">
+              <span className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <Sparkles className="size-4" />
+              </span>
+              <div className="space-y-0.5">
+                <p className="text-xs font-medium text-foreground">暂无历史会话</p>
+                <p className="text-[11px] leading-4 text-muted-foreground">
+                  输入提示词或点击右侧灵感模版即可开启新会话
+                </p>
+              </div>
             </div>
           ) : filteredConversations.length === 0 ? (
             <div className="px-3 py-5 text-center text-xs text-muted-foreground">
@@ -222,6 +234,25 @@ export function ImageSidebar({
             })
           )}
         </div>
+
+        {!hideActionButtons ? (
+          <div className="flex items-center justify-between gap-1.5 border-t border-border/60 pt-2">
+            <Link
+              to="/image-manager"
+              className="inline-flex h-7 flex-1 items-center justify-center gap-1.5 rounded-lg border border-border/60 bg-muted/25 px-2 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
+            >
+              <Images className="size-3" />
+              <span>素材中心</span>
+            </Link>
+            <Link
+              to="/profile?tab=api"
+              className="inline-flex h-7 flex-1 items-center justify-center gap-1.5 rounded-lg border border-border/60 bg-muted/25 px-2 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
+            >
+              <KeyRound className="size-3" />
+              <span>API 密钥</span>
+            </Link>
+          </div>
+        ) : null}
       </div>
 
       <ConfirmDialog

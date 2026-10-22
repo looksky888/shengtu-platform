@@ -26,6 +26,7 @@ import {
   getNavItemIcon,
   groupNavItems,
   isActivePath,
+  isNavItemActive,
   NAV_ACTIVE_LAYOUT_ID,
   navActiveTransition,
   profileNavItem,
@@ -46,15 +47,18 @@ export function ThemeToggleButton({
   return (
     <Button
       type="button"
-      variant="ghost"
+      variant="outline"
       size="icon"
-      className={cn("relative size-8 rounded-lg", className)}
+      className={cn(
+        "relative size-8 rounded-lg border-border/80 bg-surface-muted/70 text-muted-foreground shadow-none hover:bg-surface-hover hover:text-foreground",
+        className
+      )}
       onClick={(event) => onToggle(event.currentTarget)}
       aria-label={dark ? "切换到浅色模式" : "切换到深色模式"}
       title={dark ? "浅色模式" : "深色模式"}
     >
-      <Sun className="size-4 scale-100 rotate-0 transition-all dark:scale-0 dark:-rotate-90" />
-      <MoonStar className="absolute size-4 scale-0 rotate-90 transition-all dark:scale-100 dark:rotate-0" />
+      <Sun className="size-3.5 scale-100 rotate-0 transition-all dark:scale-0 dark:-rotate-90" />
+      <MoonStar className="absolute size-3.5 scale-0 rotate-90 transition-all dark:scale-100 dark:rotate-0" />
       <span className="sr-only">切换界面主题</span>
     </Button>
   );
@@ -69,7 +73,7 @@ export function NavPill({
   pathname: string;
   onClick?: () => void;
 }) {
-  const active = isActivePath(pathname, item.href);
+  const active = isNavItemActive(pathname, item);
   const prefersReducedMotion = useReducedMotion();
   const Icon = getNavItemIcon(item);
 
@@ -180,14 +184,16 @@ export function MoreNavMenu({
           )}
         >
           <LayoutGrid className="size-3.5" />
-          <span>{activeItem ? activeItem.label : "管理与运维"}</span>
+          <span>
+            {activeItem ? `管理控制台 · ${activeItem.label}` : "管理控制台"}
+          </span>
           <ChevronDown className="size-3.5 opacity-75" />
         </Button>
       </PopoverTrigger>
       <PopoverContent
         align="start"
         sideOffset={8}
-        className="w-[min(32rem,calc(100vw-1.5rem))] rounded-2xl p-3"
+        className="w-[min(32rem,calc(100vw-1.5rem))] rounded-xl p-3"
       >
         <div className="space-y-3">
           {grouped.map((group) => (
@@ -206,7 +212,7 @@ export function MoreNavMenu({
                       onMouseEnter={() => preloadRoute(item.href)}
                       onClick={() => setOpen(false)}
                       className={cn(
-                        "group flex items-start gap-2.5 rounded-xl px-2.5 py-2 transition-colors",
+                        "group flex items-start gap-2.5 rounded-lg px-2.5 py-2 transition-colors",
                         itemActive
                           ? "bg-brand-soft text-brand"
                           : "text-foreground hover:bg-surface-hover"
@@ -227,9 +233,9 @@ export function MoreNavMenu({
                           <span className="truncate text-[13px] font-medium">
                             {item.label}
                           </span>
-                          <span className="font-mono text-[10px] text-muted-foreground/70">
-                            {item.href}
-                          </span>
+                          {itemActive ? (
+                            <span className="size-1.5 shrink-0 rounded-full bg-brand" />
+                          ) : null}
                         </div>
                         {item.description ? (
                           <p className="mt-0.5 line-clamp-1 text-[11px] text-muted-foreground">

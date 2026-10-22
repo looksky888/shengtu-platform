@@ -45,7 +45,7 @@ export function RBACRoleList({
             />
           </div>
         </div>
-        <div className="max-h-[calc(100vh-18rem)] min-h-[360px] overflow-y-auto">
+        <div className="max-h-[calc(100dvh-20rem)] min-h-[360px] overflow-y-auto">
           {isLoading ? (
             <div className="flex min-h-[320px] items-center justify-center">
               <LoaderCircle className="size-5 animate-spin text-stone-400" />

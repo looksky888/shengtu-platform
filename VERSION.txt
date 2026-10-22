@@ -1,1 +1,1 @@
-4.7.1-20261021-updater-ui
+4.7.2-20261022-studio-console

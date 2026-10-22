@@ -34,6 +34,7 @@ export function TaskQueueLivePanel({
     onlySwitched,
     setOnlySwitched,
     pageItems,
+    filteredCount,
     summary,
     executors,
     detail,
@@ -66,8 +67,15 @@ export function TaskQueueLivePanel({
         ) : null}
 
         <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border/70 bg-card p-3 shadow-2xs">
+          <Input
+            aria-label="搜索实时任务"
+            value={q}
+            onChange={(event) => setQ(event.target.value)}
+            placeholder="搜索任务 ID / 用户 / 账号 / 错误"
+            className="h-9 w-full rounded-lg sm:w-64"
+          />
           <Select value={status} onValueChange={setStatus}>
-            <SelectTrigger aria-label="实时任务状态筛选" className="h-9 w-[150px] rounded-lg">
+            <SelectTrigger aria-label="实时任务状态筛选" className="h-9 w-36 rounded-lg">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -78,13 +86,6 @@ export function TaskQueueLivePanel({
               <SelectItem value="cancelled">已取消</SelectItem>
             </SelectContent>
           </Select>
-          <Input
-            aria-label="搜索实时任务"
-            value={q}
-            onChange={(event) => setQ(event.target.value)}
-            placeholder="搜索任务 ID / 用户 / 账号 / 错误"
-            className="h-9 max-w-xs rounded-lg"
-          />
           <label className="inline-flex items-center gap-2 px-1 text-xs text-muted-foreground">
             <Checkbox aria-label="仅显示发生过换号的任务" checked={onlySwitched} onCheckedChange={(value) => setOnlySwitched(value === true)} />
             仅换号≥1
@@ -102,6 +103,9 @@ export function TaskQueueLivePanel({
               </>
             )}
           </Button>
+          <span className="ml-auto text-xs text-muted-foreground tabular-nums">
+            共 {filteredCount} 条
+          </span>
         </div>
 
         <TaskQueueTable live={live} onCopyTroubleshoot={onCopyTroubleshoot} />

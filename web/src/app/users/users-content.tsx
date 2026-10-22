@@ -50,7 +50,7 @@ export function UsersContent({ session }: { session: StoredAuthSession }) {
                 : users.isLoadingUsage
                   ? "用量加载中…"
                   : users.pagedItems.length === 0
-                    ? "暂无用户"
+                    ? "同步状态"
                     : users.usageReady
                       ? "重新加载用量"
                       : "加载用量"}

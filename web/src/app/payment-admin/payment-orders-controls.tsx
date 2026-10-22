@@ -13,10 +13,10 @@ export function PaymentOrdersFilters({ keyword, status, onKeywordChange, onStatu
   onApply: () => void;
 }) {
   return (
-    <div className="grid gap-2 md:grid-cols-[minmax(240px,1fr)_170px_auto]">
-      <Input aria-label="订单搜索" placeholder="订单号、用户或交易号" value={keyword} onChange={(event) => onKeywordChange(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") onApply(); }} />
+    <div className="flex flex-wrap items-center gap-2">
+      <Input aria-label="订单搜索" className="min-w-[220px] flex-1" placeholder="订单号、用户或交易号" value={keyword} onChange={(event) => onKeywordChange(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") onApply(); }} />
       <Select value={status} onValueChange={onStatusChange}>
-        <SelectTrigger aria-label="订单状态"><SelectValue /></SelectTrigger>
+        <SelectTrigger aria-label="订单状态" className="w-full sm:w-40"><SelectValue /></SelectTrigger>
         <SelectContent><SelectItem value="all">全部状态</SelectItem>{paymentOrderStatuses.map((value) => <SelectItem key={value} value={value}>{paymentOrderStatusLabels[value]}</SelectItem>)}</SelectContent>
       </Select>
       <Button onClick={onApply}><Search className="size-4" />筛选</Button>

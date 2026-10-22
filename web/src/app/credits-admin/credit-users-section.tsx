@@ -5,7 +5,7 @@ import { formatCreditNumber, formatDateTime, type TimeFilter } from "@/app/credi
 import type { CreditsAdminState } from "@/app/credits-admin/use-credits-admin";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -13,25 +13,30 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 export function CreditUsersSection({ state }: { state: CreditsAdminState }) {
   return (
     <Card className="overflow-hidden">
-      <CardHeader className="border-b border-border px-5 py-4">
-        <CardTitle className="flex items-center gap-2 text-lg"><UserCircle2 className="size-5 text-primary" />用户余额</CardTitle>
+      <CardHeader className="border-b border-border/70 px-5 py-3.5 sm:px-5 sm:py-3.5">
+        <div className="flex flex-col gap-1">
+          <CardTitle className="flex items-center gap-2 text-base"><UserCircle2 className="size-4.5 text-primary" />用户余额</CardTitle>
+          <CardDescription>查看积分账户余额并快捷增减指定用户积分。</CardDescription>
+        </div>
       </CardHeader>
-      <CardContent className="p-0">
-        <div className="grid gap-2 border-b border-border px-5 py-4 lg:grid-cols-[minmax(14rem,1fr)_140px_auto]">
-          <div className="relative">
+      <CardContent className="p-0 sm:p-0">
+        <div className="flex flex-wrap items-center gap-2 border-b border-border/70 px-5 py-3">
+          <div className="relative min-w-[180px] flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input aria-label="搜索积分用户" value={state.usersSearch} onChange={(event) => state.setUsersSearch(event.target.value)} placeholder="搜索用户 ID 或余额" className="h-9 rounded-lg pl-9" />
           </div>
           <Select value={state.usersTime} onValueChange={(value) => state.setUsersTime(value as TimeFilter)}>
-            <SelectTrigger aria-label="积分用户时间筛选" className="h-9 rounded-lg"><SelectValue /></SelectTrigger>
+            <SelectTrigger aria-label="积分用户时间筛选" className="h-9 w-full rounded-lg sm:w-36"><SelectValue /></SelectTrigger>
             <SelectContent><SelectItem value="all">全部时间</SelectItem><SelectItem value="today">今天</SelectItem><SelectItem value="7d">近 7 天</SelectItem><SelectItem value="30d">近 30 天</SelectItem></SelectContent>
           </Select>
           <Button type="button" variant="outline" className="h-9 rounded-lg px-3" disabled={!state.usersSearch.trim() && state.usersTime === "all"} onClick={() => { state.setUsersSearch(""); state.setUsersTime("all"); }}><X className="size-4" />清除</Button>
         </div>
-        <Table>
-          <TableHeader><TableRow><TableHead>用户 ID</TableHead><TableHead>当前余额</TableHead><TableHead>创建时间</TableHead><TableHead>最近更新</TableHead><TableHead className="text-right">操作</TableHead></TableRow></TableHeader>
-          <TableBody>{renderUserRows(state)}</TableBody>
-        </Table>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader className="bg-muted/40"><TableRow><TableHead>用户 ID</TableHead><TableHead>当前余额</TableHead><TableHead>创建时间</TableHead><TableHead>最近更新</TableHead><TableHead className="text-right">操作</TableHead></TableRow></TableHeader>
+            <TableBody>{renderUserRows(state)}</TableBody>
+          </Table>
+        </div>
         {!state.isUsersLoading && state.usersTotal > 0 ? <CreditsTablePagination label="用户余额" total={state.usersTotal} page={state.pagedUsers.currentPage} pageSize={state.usersPageSize} onPageChange={state.setUsersPage} onPageSizeChange={state.setUsersPageSize} /> : null}
       </CardContent>
     </Card>

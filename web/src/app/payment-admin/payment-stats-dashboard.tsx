@@ -157,10 +157,11 @@ function StatsCard({
   featured?: boolean;
 }) {
   return (
-    <div
-      className={`rounded-xl border border-border/70 bg-card p-4 shadow-2xs ${featured ? "border-primary/30 bg-primary/5" : ""}`}
-    >
-      <div className="text-sm font-medium text-muted-foreground">{label}</div>
+    <div className="rounded-xl border border-border/70 bg-card p-4 shadow-2xs">
+      <div className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
+        {featured ? <span className="size-2 rounded-full bg-primary" /> : null}
+        <span>{label}</span>
+      </div>
       <div className="mt-2 text-2xl font-semibold tabular-nums tracking-tight">
         {money(data.succeeded_amount_fen)}
       </div>

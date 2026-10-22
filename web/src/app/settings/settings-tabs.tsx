@@ -23,7 +23,6 @@ import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { SubNav } from "@/components/ui/sub-nav";
-import { cn } from "@/lib/utils";
 
 import { SettingsHeader } from "./components/settings-header";
 import { SettingsDataController } from "./settings-data-controller";
@@ -48,24 +47,6 @@ const TAB_ICON_MAP: Record<SettingsTabKey, LucideIcon> = {
   maintenance: Wrench,
   "system-update": RefreshCw,
 };
-
-const SETTINGS_NAV_GROUPS: Array<{
-  title: string;
-  keys: readonly SettingsTabKey[];
-}> = [
-  {
-    title: "基础与创作",
-    keys: ["base", "image", "storage"],
-  },
-  {
-    title: "注册与号池",
-    keys: ["email", "register", "imports"],
-  },
-  {
-    title: "运营与维护",
-    keys: ["announcement", "backup", "maintenance", "system-update"],
-  },
-];
 
 export function SettingsTabs({
   canManageSystem,
@@ -194,23 +175,18 @@ export function SettingsTabs({
   };
 
   const isSavingAny = isSavingConfig || isSavingRegister;
-  const tabLabelMap = useMemo(
-    () => new Map(SETTINGS_TABS.map((t) => [t.key, t.label])),
-    []
-  );
 
   return (
-    <div className="mx-auto flex w-full max-w-[1280px] flex-col gap-5 pb-20">
+    <div className="flex w-full min-w-0 flex-col gap-4 pb-20">
       <SettingsDataController />
       <SettingsHeader dirtyModules={dirtyModules} />
 
-      {/* Mobile horizontal SubNav */}
-      <div className="lg:hidden">
+      <div className="min-w-0">
         <SubNav
-          ariaLabel="设置分组"
+          ariaLabel="设置分组导航"
           value={activeTab}
           onValueChange={selectTab}
-          layoutId="settings-mobile-subnav"
+          layoutId="settings-subnav"
           items={SETTINGS_TABS.map((tab) => ({
             value: tab.key,
             label: tab.label,
@@ -219,73 +195,26 @@ export function SettingsTabs({
         />
       </div>
 
-      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[224px_minmax(0,1fr)]">
-        {/* Desktop left grouped vertical navigation */}
-        <aside
-          aria-label="设置分组导航"
-          className="sticky top-18 hidden rounded-xl border border-border/70 bg-card p-2 shadow-2xs lg:block"
-        >
-          <div className="space-y-4" role="tablist" aria-orientation="vertical">
-            {SETTINGS_NAV_GROUPS.map((group) => (
-              <div key={group.title} className="space-y-1">
-                <div className="px-2.5 py-1 text-[11px] font-semibold tracking-wider text-muted-foreground/80">
-                  {group.title}
-                </div>
-                {group.keys.map((key) => {
-                  const selected = activeTab === key;
-                  const Icon = TAB_ICON_MAP[key];
-                  const label = tabLabelMap.get(key) ?? key;
-                  return (
-                    <button
-                      key={key}
-                      type="button"
-                      role="tab"
-                      aria-selected={selected}
-                      aria-controls={`settings-panel-${key}`}
-                      onClick={() => selectTab(key)}
-                      className={cn(
-                        "flex h-8.5 w-full items-center gap-2.5 rounded-lg px-2.5 text-[13px] font-medium transition-colors",
-                        selected
-                          ? "border border-brand-border bg-brand-soft font-semibold text-brand"
-                          : "text-muted-foreground hover:bg-surface-hover hover:text-foreground"
-                      )}
-                    >
-                      <Icon
-                        className={cn(
-                          "size-4 shrink-0",
-                          selected ? "text-brand" : "text-muted-foreground"
-                        )}
-                      />
-                      <span className="truncate">{label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            ))}
-          </div>
-        </aside>
-
-        {/* Settings Tab Panels */}
-        <div className="min-w-0">
-          {visitedTabs.map((tab) => {
-            const active = tab === activeTab;
-            return (
-              <div
-                key={tab}
-                id={`settings-panel-${tab}`}
-                role="tabpanel"
-                aria-hidden={!active}
-                hidden={!active}
-              >
-                <SettingsTabContent
-                  active={active}
-                  canManageSystem={canManageSystem}
-                  tab={tab}
-                />
-              </div>
-            );
-          })}
-        </div>
+      {/* Settings Tab Panels */}
+      <div className="min-w-0">
+        {visitedTabs.map((tab) => {
+          const active = tab === activeTab;
+          return (
+            <div
+              key={tab}
+              id={`settings-panel-${tab}`}
+              role="tabpanel"
+              aria-hidden={!active}
+              hidden={!active}
+            >
+              <SettingsTabContent
+                active={active}
+                canManageSystem={canManageSystem}
+                tab={tab}
+              />
+            </div>
+          );
+        })}
       </div>
 
       {/* Sticky Bottom Unsaved Changes Bar */}

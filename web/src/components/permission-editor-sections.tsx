@@ -1,5 +1,8 @@
+import { useMemo, useState, type ReactNode } from "react";
+
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import type { ApiPermission, PermissionMenu } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -27,7 +30,7 @@ export function MenuPermissionSection({
         onSelectAll={() => onMenuPathsChange(allMenuPaths)}
         onClear={() => onMenuPathsChange([])}
       />
-      <div className="divide-y divide-border">
+      <div className="max-h-[calc(100dvh-20rem)] min-h-[360px] divide-y divide-border overflow-y-auto pr-1">
         {menuPermissions.length > 0 ? (
           menuPermissions.map((item) => (
             <label key={item.path} className="flex cursor-pointer items-center gap-3 px-4 py-3 transition hover:bg-muted/50">
@@ -55,6 +58,8 @@ type ApiPermissionSectionProps = {
   allPermissionKeys: string[];
   selectedPermissions: string[];
   onPermissionsChange: (permissions: string[]) => void;
+  apiSearch?: string;
+  onApiSearchChange?: (value: string) => void;
 };
 
 export function ApiPermissionSection({
@@ -62,7 +67,31 @@ export function ApiPermissionSection({
   allPermissionKeys,
   selectedPermissions,
   onPermissionsChange,
+  apiSearch,
+  onApiSearchChange,
 }: ApiPermissionSectionProps) {
+  const [internalSearch, setInternalSearch] = useState("");
+  const searchValue = apiSearch ?? internalSearch;
+  const handleSearchChange = onApiSearchChange ?? setInternalSearch;
+
+  const displayedGroups = useMemo(() => {
+    if (apiSearch !== undefined) return groups;
+    const keyword = searchValue.trim().toLowerCase();
+    if (!keyword) return groups;
+    return groups
+      .map((group) => ({
+        ...group,
+        items: group.items.filter((item) =>
+          [item.label, item.path, item.method, group.group, item.key]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase()
+            .includes(keyword),
+        ),
+      }))
+      .filter((group) => group.items.length > 0);
+  }, [apiSearch, groups, searchValue]);
+
   return (
     <section className="min-w-0 rounded-xl border border-border">
       <PermissionSectionHeader
@@ -71,10 +100,19 @@ export function ApiPermissionSection({
         totalCount={allPermissionKeys.length}
         onSelectAll={() => onPermissionsChange(allPermissionKeys)}
         onClear={() => onPermissionsChange([])}
+        extra={
+          <Input
+            aria-label="搜索 API 权限"
+            value={searchValue}
+            onChange={(event) => handleSearchChange(event.target.value)}
+            placeholder="搜索权限名称或路径..."
+            className="h-8 w-44 rounded-lg text-xs"
+          />
+        }
       />
-      <div className="space-y-4 p-4">
-        {groups.length > 0 ? (
-          groups.map((group) => (
+      <div className="max-h-[calc(100dvh-20rem)] min-h-[360px] space-y-4 overflow-y-auto p-4 pr-1">
+        {displayedGroups.length > 0 ? (
+          displayedGroups.map((group) => (
             <article key={group.group} className="min-w-0">
               <div className="mb-2 flex items-center justify-between gap-3">
                 <h4 className="text-xs font-semibold uppercase text-muted-foreground">{group.group}</h4>
@@ -106,20 +144,23 @@ function PermissionSectionHeader({
   totalCount,
   onSelectAll,
   onClear,
+  extra,
 }: {
   title: string;
   selectedCount: number;
   totalCount: number;
   onSelectAll: () => void;
   onClear: () => void;
+  extra?: ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
+    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
       <div className="min-w-0">
         <h3 className="text-sm font-semibold text-foreground">{title}</h3>
         <p className="text-xs text-muted-foreground">{selectedCount} / {totalCount}</p>
       </div>
-      <div className="flex shrink-0 items-center gap-1">
+      <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+        {extra}
         <Button type="button" variant="ghost" className="h-7 rounded-md px-2 text-xs" onClick={onSelectAll}>全选</Button>
         <Button type="button" variant="ghost" className="h-7 rounded-md px-2 text-xs" onClick={onClear}>清空</Button>
       </div>

@@ -122,7 +122,7 @@ export function PaymentOrdersSection() {
           </Button>
         </div>
       </CardHeader>
-      <CardContent className="space-y-4 p-4 md:p-6">
+      <CardContent className="space-y-4 p-4 pt-4 sm:p-5 sm:pt-5 md:p-6 md:pt-6">
         <PaymentOrdersFilters keyword={keywordInput} status={status} onKeywordChange={setKeywordInput} onStatusChange={(value) => { setPage(1); setStatus(value); }} onApply={applySearch} />
         {loadError ? (
           <PaymentSectionState mode="error" title="订单流水加载失败" detail={loadError} onRetry={() => void load()} />

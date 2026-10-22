@@ -13,7 +13,7 @@ import (
 // Keep it in sync with VERSION.txt and the Dockerfile ARG default; the version
 // consistency test fails otherwise, because a stale default made source builds
 // report an older release and treat themselves as out of date.
-var Version = "4.7.1-20261021-updater-ui"
+var Version = "4.7.2-20261022-studio-console"
 
 // Commit, Date, and BuildType are overridden by release builds.
 var (

@@ -4,6 +4,7 @@ import { toast } from "sonner";
 
 import { RechargeErrorPanel as ErrorPanel } from "@/app/recharge/recharge-panels";
 import { RechargeReadyView } from "@/app/recharge/recharge-ready-view";
+import { PageHeader } from "@/components/page-header";
 import {
   createCustomCreditsOrder,
   createPaymentOrder,
@@ -105,27 +106,44 @@ export function RechargeContent({ sessionKey }: { sessionKey: string }) {
 
   if (loading)
     return (
-      <main className="mx-auto max-w-6xl p-8 text-muted-foreground">
-        正在加载充值中心…
-      </main>
+      <section className="flex min-w-0 flex-col gap-5">
+        <PageHeader
+          eyebrow="算力与存储"
+          title="充值中心"
+          description="购买积分或云存储套餐，使用微信或支付宝扫码支付，到账后权益自动更新。"
+        />
+        <div className="rounded-xl border border-border/70 bg-card p-8 text-center text-sm text-muted-foreground shadow-2xs">
+          正在加载充值中心…
+        </div>
+      </section>
     );
   if (error && !settings)
     return (
-      <main className="mx-auto max-w-3xl p-8">
+      <section className="flex min-w-0 flex-col gap-5">
+        <PageHeader
+          eyebrow="算力与存储"
+          title="充值中心"
+          description="购买积分或云存储套餐，使用微信或支付宝扫码支付，到账后权益自动更新。"
+        />
         <ErrorPanel message={error} />
-      </main>
+      </section>
     );
   if (!settings?.recharge_enabled)
     return (
-      <main className="mx-auto max-w-3xl p-8">
+      <section className="flex min-w-0 flex-col gap-5">
+        <PageHeader
+          eyebrow="算力与存储"
+          title="充值中心"
+          description="购买积分或云存储套餐，使用微信或支付宝扫码支付，到账后权益自动更新。"
+        />
         <section className="rounded-xl border border-border/70 bg-card p-8 text-center shadow-2xs">
           <WalletCards className="mx-auto mb-4 size-10 text-muted-foreground" />
-          <h1 className="text-2xl font-semibold">充值服务暂未开放</h1>
+          <h2 className="text-xl font-semibold">充值服务暂未开放</h2>
           <p className="mt-2 text-muted-foreground">
             请稍后再试，或联系管理员。
           </p>
         </section>
-      </main>
+      </section>
     );
 
   return <RechargeReadyView products={products} channels={channels} settings={settings} storageEntitlement={storageEntitlement} selectedChannelID={selectedChannelID} custom={custom} order={order} submitting={submitting} querying={querying} cancelling={cancelling} error={error || payment.error} onChannelChange={setSelectedChannelID} onCustomChange={setCustom} onSubmit={(product) => void submit(product)} onCancel={() => void payment.cancel()} onReset={() => payment.replaceOrder(null)} onRefresh={() => void payment.refresh()} />;

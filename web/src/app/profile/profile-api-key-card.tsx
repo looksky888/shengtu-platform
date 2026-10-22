@@ -1,6 +1,5 @@
 import {
   Ban,
-  BookOpen,
   CheckCircle2,
   Copy,
   Eye,
@@ -95,7 +94,6 @@ export function ProfileApiKeyCard({
   onDeleteOpen,
   onGenerate,
   onTestConnectivity,
-  onOpenDocs,
 }: ProfileApiKeyCardProps) {
   const origin =
     typeof window !== "undefined" && window.location.origin
@@ -133,17 +131,6 @@ export function ProfileApiKeyCard({
                 未生成
               </Badge>
             )}
-            {onOpenDocs ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={onOpenDocs}
-              >
-                <BookOpen className="size-3.5" />
-                查看接口文档
-              </Button>
-            ) : null}
           </div>
         </div>
       </CardHeader>
@@ -264,6 +251,17 @@ export function ProfileApiKeyCard({
                     value={formatDateTime(apiKey?.last_used_at)}
                   />
                 </div>
+
+                <ApiKeyActions
+                  apiKey={apiKey}
+                  isToggling={isToggling}
+                  isGenerating={isGenerating}
+                  isDeleting={isDeleting}
+                  onToggle={onToggle}
+                  onRotateOpen={onRotateOpen}
+                  onDeleteOpen={onDeleteOpen}
+                  onGenerate={onGenerate}
+                />
               </div>
 
               <ApiIntegrationQuickPanel
@@ -277,17 +275,6 @@ export function ProfileApiKeyCard({
                 onTestConnectivity={onTestConnectivity}
               />
             </div>
-
-            <ApiKeyActions
-              apiKey={apiKey}
-              isToggling={isToggling}
-              isGenerating={isGenerating}
-              isDeleting={isDeleting}
-              onToggle={onToggle}
-              onRotateOpen={onRotateOpen}
-              onDeleteOpen={onDeleteOpen}
-              onGenerate={onGenerate}
-            />
           </>
         )}
       </CardContent>
@@ -416,7 +403,7 @@ function ApiKeyActions({
   onGenerate: () => void;
 }) {
   return (
-    <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border/60 pt-3">
+    <div className="mt-auto flex flex-wrap items-center gap-2 pt-1">
       {apiKey ? (
         <>
           <Button

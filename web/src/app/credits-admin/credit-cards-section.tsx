@@ -13,26 +13,26 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 export function CreditCardsSection({ state }: { state: CreditsAdminState }) {
   return (
     <Card className="overflow-hidden">
-      <CardHeader className="border-b border-border px-5 py-4">
-        <div className="flex flex-col gap-1.5">
-          <CardTitle className="flex items-center gap-2 text-lg"><KeyRound className="size-5 text-primary" />卡密列表</CardTitle>
+      <CardHeader className="border-b border-border/70 px-5 py-3.5 sm:px-5 sm:py-3.5">
+        <div className="flex flex-col gap-1">
+          <CardTitle className="flex items-center gap-2 text-base"><KeyRound className="size-4.5 text-primary" />卡密列表</CardTitle>
           <CardDescription>生成后的明文兑换码只会在弹窗里显示一次，常驻列表仅保留公开字段。</CardDescription>
         </div>
       </CardHeader>
-      <CardContent className="p-0">
-        <div className="grid gap-2 border-b border-border px-5 py-4 lg:grid-cols-[minmax(16rem,1fr)_140px_140px_auto]">
-          <div className="relative">
+      <CardContent className="p-0 sm:p-0">
+        <div className="flex flex-wrap items-center gap-2 border-b border-border/70 px-5 py-3">
+          <div className="relative min-w-[220px] flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input aria-label="搜索积分卡密" value={state.cardsSearch} onChange={(event) => state.setCardsSearch(event.target.value)} placeholder="搜索卡密 ID、兑换码或使用用户" className="h-9 rounded-lg pl-9" />
           </div>
           <Select value={state.cardsStatus} onValueChange={state.setCardsStatus}>
-            <SelectTrigger aria-label="卡密状态筛选" className="h-9 rounded-lg"><SelectValue /></SelectTrigger>
+            <SelectTrigger aria-label="卡密状态筛选" className="h-9 w-full rounded-lg sm:w-36"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">全部状态</SelectItem><SelectItem value="active">未使用</SelectItem><SelectItem value="used">已使用</SelectItem><SelectItem value="disabled">已禁用</SelectItem>
             </SelectContent>
           </Select>
           <Select value={state.cardsTime} onValueChange={(value) => state.setCardsTime(value as TimeFilter)}>
-            <SelectTrigger aria-label="卡密时间筛选" className="h-9 rounded-lg"><SelectValue /></SelectTrigger>
+            <SelectTrigger aria-label="卡密时间筛选" className="h-9 w-full rounded-lg sm:w-36"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">全部时间</SelectItem><SelectItem value="today">今天</SelectItem><SelectItem value="7d">近 7 天</SelectItem><SelectItem value="30d">近 30 天</SelectItem>
             </SelectContent>
@@ -41,15 +41,17 @@ export function CreditCardsSection({ state }: { state: CreditsAdminState }) {
             <X className="size-4" />清除
           </Button>
         </div>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>卡密 ID</TableHead><TableHead>兑换码</TableHead><TableHead>面值</TableHead><TableHead>状态</TableHead><TableHead>使用用户</TableHead>
-              <TableHead>使用时间</TableHead><TableHead>创建时间</TableHead><TableHead className="text-right">操作</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>{renderCardRows(state)}</TableBody>
-        </Table>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader className="bg-muted/40">
+              <TableRow>
+                <TableHead>卡密 ID</TableHead><TableHead>兑换码</TableHead><TableHead>面值</TableHead><TableHead>状态</TableHead><TableHead>使用用户</TableHead>
+                <TableHead>使用时间</TableHead><TableHead>创建时间</TableHead><TableHead className="text-right">操作</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>{renderCardRows(state)}</TableBody>
+          </Table>
+        </div>
         {!state.isCardsLoading && state.cardsTotal > 0 ? <CreditsTablePagination label="卡密" total={state.cardsTotal} page={state.pagedCards.currentPage} pageSize={state.cardsPageSize} onPageChange={state.setCardsPage} onPageSizeChange={state.setCardsPageSize} /> : null}
       </CardContent>
     </Card>

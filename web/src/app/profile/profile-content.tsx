@@ -118,15 +118,17 @@ export function ProfileContent({ session }: { session: StoredAuthSession }) {
         title="账号、接口密钥与文档"
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={scrollToDocs}
-            >
-              <BookOpen className="size-3.5 text-brand" />
-              API 接口文档
-            </Button>
+            {activeTab !== "api" ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={scrollToDocs}
+              >
+                <BookOpen className="size-3.5 text-brand" />
+                API 接口文档
+              </Button>
+            ) : null}
             <Button
               type="button"
               variant="outline"

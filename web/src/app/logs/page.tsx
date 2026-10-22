@@ -88,7 +88,7 @@ function LogsContent() {
   );
 
   return (
-    <section className="flex flex-col gap-5">
+    <section className="flex flex-col gap-4">
       <PageHeader eyebrow="日志" title={"日志管理"} />
       <LogsFilterCard
         filters={filters}
@@ -96,6 +96,7 @@ function LogsContent() {
         onSubmit={handleSearch}
         onUpdateFilter={updateFilter}
         onClearFilters={clearFilters}
+        onRefresh={() => void loadLogs(query)}
       />
       <LogsTableCard
         items={items}
@@ -103,7 +104,6 @@ function LogsContent() {
         safePage={safePage}
         pageCount={pageCount}
         isLoading={isLoading}
-        onRefresh={() => void loadLogs(query)}
         onOpenDetail={openDetail}
         onPreviousPage={() => setPage((value) => Math.max(1, value - 1))}
         onNextPage={() => setPage((value) => Math.min(pageCount, value + 1))}

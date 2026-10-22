@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 function RBACContent() {
   const rbac = useRBACManagement();
   return (
-    <section className="flex flex-col gap-5 pb-16">
+    <section className="flex flex-col gap-4 pb-4">
       <PageHeader
         eyebrow="权限"
         title="角色权限"

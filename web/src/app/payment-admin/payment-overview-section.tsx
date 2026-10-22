@@ -103,77 +103,105 @@ export function PaymentOverviewSection() {
             充值业务设置
           </CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-5 md:grid-cols-2">
-          <label className="flex items-center gap-3 text-sm">
-            <input
-              type="checkbox"
-              checked={settings.recharge_enabled}
-              onChange={(e) =>
-                setSettings({ ...settings, recharge_enabled: e.target.checked })
-              }
-            />
-            开放用户充值
-          </label>
-          <label className="flex items-center gap-3 text-sm">
-            <input
-              type="checkbox"
-              checked={settings.custom_credits_enabled}
-              onChange={(e) =>
-                setSettings({
-                  ...settings,
-                  custom_credits_enabled: e.target.checked,
-                })
-              }
-            />
-            开放自定义积分
-          </label>
-          <label className="flex items-center gap-3 text-sm">
-            <input type="checkbox" checked={settings.cloud_storage_enabled} onChange={(e) => setSettings({ ...settings, cloud_storage_enabled: e.target.checked })} />
-            开放云存储套餐
-          </label>
-          <label className="space-y-2 text-sm">
-            每积分价格（分）
-            <Input
-              type="number"
-              min={1}
-              value={settings.credit_unit_price_fen}
-              onChange={(e) =>
-                setSettings({
-                  ...settings,
-                  credit_unit_price_fen: Number(e.target.value),
-                })
-              }
-            />
-          </label>
-          <label className="space-y-2 text-sm">
-            最少积分
-            <Input
-              type="number"
-              min={1}
-              value={settings.min_custom_credits}
-              onChange={(e) =>
-                setSettings({
-                  ...settings,
-                  min_custom_credits: Number(e.target.value),
-                })
-              }
-            />
-          </label>
-          <label className="space-y-2 text-sm">
-            最多积分
-            <Input
-              type="number"
-              min={settings.min_custom_credits}
-              value={settings.max_custom_credits}
-              onChange={(e) =>
-                setSettings({
-                  ...settings,
-                  max_custom_credits: Number(e.target.value),
-                })
-              }
-            />
-          </label>
-          <div className="flex items-end">
+        <CardContent className="flex flex-col gap-5 pt-5 sm:pt-5">
+          <div className="grid gap-3 md:grid-cols-3">
+            <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border/60 bg-muted/20 p-3.5 text-sm transition-colors hover:bg-muted/35">
+              <input
+                type="checkbox"
+                className="mt-0.5 size-4 rounded border-border accent-primary"
+                checked={settings.recharge_enabled}
+                onChange={(e) =>
+                  setSettings({ ...settings, recharge_enabled: e.target.checked })
+                }
+              />
+              <div className="flex flex-col gap-0.5">
+                <span className="font-medium text-foreground">开放用户充值</span>
+                <span className="text-xs text-muted-foreground">
+                  允许用户在充值中心发起在线支付订单
+                </span>
+              </div>
+            </label>
+            <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border/60 bg-muted/20 p-3.5 text-sm transition-colors hover:bg-muted/35">
+              <input
+                type="checkbox"
+                className="mt-0.5 size-4 rounded border-border accent-primary"
+                checked={settings.cloud_storage_enabled}
+                onChange={(e) =>
+                  setSettings({ ...settings, cloud_storage_enabled: e.target.checked })
+                }
+              />
+              <div className="flex flex-col gap-0.5">
+                <span className="font-medium text-foreground">开放云存储套餐</span>
+                <span className="text-xs text-muted-foreground">
+                  允许购买云端存储空间与有效期权益
+                </span>
+              </div>
+            </label>
+            <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border/60 bg-muted/20 p-3.5 text-sm transition-colors hover:bg-muted/35">
+              <input
+                type="checkbox"
+                className="mt-0.5 size-4 rounded border-border accent-primary"
+                checked={settings.custom_credits_enabled}
+                onChange={(e) =>
+                  setSettings({
+                    ...settings,
+                    custom_credits_enabled: e.target.checked,
+                  })
+                }
+              />
+              <div className="flex flex-col gap-0.5">
+                <span className="font-medium text-foreground">开放自定义积分</span>
+                <span className="text-xs text-muted-foreground">
+                  允许按单价自由输入购买积分数量
+                </span>
+              </div>
+            </label>
+          </div>
+          <div className="grid gap-4 md:grid-cols-3">
+            <label className="space-y-2 text-sm font-medium text-foreground">
+              <span>每积分价格（分）</span>
+              <Input
+                type="number"
+                min={1}
+                value={settings.credit_unit_price_fen}
+                onChange={(e) =>
+                  setSettings({
+                    ...settings,
+                    credit_unit_price_fen: Number(e.target.value),
+                  })
+                }
+              />
+            </label>
+            <label className="space-y-2 text-sm font-medium text-foreground">
+              <span>最少积分</span>
+              <Input
+                type="number"
+                min={1}
+                value={settings.min_custom_credits}
+                onChange={(e) =>
+                  setSettings({
+                    ...settings,
+                    min_custom_credits: Number(e.target.value),
+                  })
+                }
+              />
+            </label>
+            <label className="space-y-2 text-sm font-medium text-foreground">
+              <span>最多积分</span>
+              <Input
+                type="number"
+                min={settings.min_custom_credits}
+                value={settings.max_custom_credits}
+                onChange={(e) =>
+                  setSettings({
+                    ...settings,
+                    max_custom_credits: Number(e.target.value),
+                  })
+                }
+              />
+            </label>
+          </div>
+          <div className="flex items-center justify-end border-t border-border/60 pt-4">
             <Button
               onClick={() => void save()}
               disabled={saving}

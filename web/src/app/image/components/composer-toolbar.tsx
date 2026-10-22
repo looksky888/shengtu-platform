@@ -143,12 +143,12 @@ export function ComposerToolbar(props: ComposerToolbarProps) {
           type="button"
           onClick={() => void props.onSubmit()}
           disabled={!props.prompt.trim() || paidSizeUnavailable}
-          className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground shadow-2xs transition hover:bg-primary/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground"
+          className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-primary px-3.5 text-xs font-medium text-primary-foreground shadow-2xs transition hover:bg-primary/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-primary/45 disabled:text-primary-foreground/85"
           aria-label={submitLabel}
           title={submitTitle}
         >
           <ArrowUp className="size-3.5" />
-          <span className="hidden sm:inline">{props.composerMode === "chat" ? "发送" : "生成"}</span>
+          <span className="hidden sm:inline">{props.composerMode === "chat" ? "发送" : "开始生成"}</span>
         </button>
       </div>
     </div>

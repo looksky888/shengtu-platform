@@ -50,8 +50,8 @@ export function UsersFilterBar({
           </span>
         ) : null}
       </div>
-      <div className="grid gap-2 xl:grid-cols-[minmax(16rem,1fr)_130px_130px_130px_minmax(14rem,1.2fr)_auto]">
-        <div className="relative">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative min-w-[220px] flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             aria-label="搜索用户"
@@ -62,7 +62,7 @@ export function UsersFilterBar({
           />
         </div>
         <Select value={providerFilter} onValueChange={onProviderFilterChange}>
-          <SelectTrigger aria-label="用户来源筛选" className="h-9 rounded-lg">
+          <SelectTrigger aria-label="用户来源筛选" className="h-9 w-full rounded-lg sm:w-36">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -71,7 +71,7 @@ export function UsersFilterBar({
           </SelectContent>
         </Select>
         <Select value={statusFilter} onValueChange={onStatusFilterChange}>
-          <SelectTrigger aria-label="用户状态筛选" className="h-9 rounded-lg">
+          <SelectTrigger aria-label="用户状态筛选" className="h-9 w-full rounded-lg sm:w-36">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -81,7 +81,7 @@ export function UsersFilterBar({
           </SelectContent>
         </Select>
         <Select value={timeFilter} onValueChange={(value) => onTimeFilterChange(value as UserTimeFilter)}>
-          <SelectTrigger aria-label="用户时间筛选" className="h-9 rounded-lg">
+          <SelectTrigger aria-label="用户时间筛选" className="h-9 w-full rounded-lg sm:w-36">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -92,7 +92,7 @@ export function UsersFilterBar({
           </SelectContent>
         </Select>
         <Select value={cleanupFilter} onValueChange={(value) => onCleanupFilterChange(value as UserCleanupFilter)}>
-          <SelectTrigger aria-label="待清理用户筛选" className="h-9 rounded-lg">
+          <SelectTrigger aria-label="待清理用户筛选" className="h-9 w-full rounded-lg sm:w-44">
             <SelectValue placeholder="清理筛选" />
           </SelectTrigger>
           <SelectContent>

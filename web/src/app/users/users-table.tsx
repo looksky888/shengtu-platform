@@ -53,7 +53,7 @@ export function UsersTable(props: UsersTableProps) {
   } = props;
   return (
     <Card className="overflow-hidden border-0 shadow-none">
-      <CardContent className="p-0">
+      <CardContent className="p-0 sm:p-0">
         <div className="overflow-x-auto">
           <Table className="min-w-[1340px]">
             <UsersTableHeader />
@@ -86,7 +86,7 @@ export function UsersTable(props: UsersTableProps) {
 
 function UsersTableHeader() {
   return (
-    <TableHeader>
+    <TableHeader className="bg-muted/40">
       <TableRow>
         <TableHead>用户</TableHead>
         <TableHead>积分</TableHead>

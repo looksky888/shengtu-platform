@@ -20,18 +20,18 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 export function CreditLedgerSection({ state }: { state: CreditsAdminState }) {
   return (
     <Card className="overflow-hidden">
-      <CardHeader className="border-b border-border px-5 py-4">
-        <div className="flex flex-col gap-1.5">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Coins className="size-5 text-primary" />
+      <CardHeader className="border-b border-border/70 px-5 py-3.5 sm:px-5 sm:py-3.5">
+        <div className="flex flex-col gap-1">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Coins className="size-4.5 text-primary" />
             积分流水
           </CardTitle>
           <CardDescription>服务端分页；正数表示入账，负数表示扣减。</CardDescription>
         </div>
       </CardHeader>
-      <CardContent className="p-0">
-        <div className="grid gap-2 border-b border-border px-5 py-4 lg:grid-cols-[minmax(14rem,1fr)_140px_140px_auto]">
-          <div className="relative">
+      <CardContent className="p-0 sm:p-0">
+        <div className="flex flex-wrap items-center gap-2 border-b border-border/70 px-5 py-3">
+          <div className="relative min-w-[200px] flex-1">
             <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               aria-label="搜索积分流水"
@@ -42,7 +42,7 @@ export function CreditLedgerSection({ state }: { state: CreditsAdminState }) {
             />
           </div>
           <Select value={state.ledgerReason} onValueChange={state.setLedgerReason}>
-            <SelectTrigger aria-label="积分流水原因筛选" className="h-9 rounded-lg">
+            <SelectTrigger aria-label="积分流水原因筛选" className="h-9 w-full rounded-lg sm:w-36">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -58,7 +58,7 @@ export function CreditLedgerSection({ state }: { state: CreditsAdminState }) {
             </SelectContent>
           </Select>
           <Select value={state.ledgerTime} onValueChange={(value) => state.setLedgerTime(value as TimeFilter)}>
-            <SelectTrigger aria-label="积分流水时间筛选" className="h-9 rounded-lg">
+            <SelectTrigger aria-label="积分流水时间筛选" className="h-9 w-full rounded-lg sm:w-36">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -83,19 +83,21 @@ export function CreditLedgerSection({ state }: { state: CreditsAdminState }) {
             清除
           </Button>
         </div>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>用户 ID</TableHead>
-              <TableHead>原因</TableHead>
-              <TableHead>变动</TableHead>
-              <TableHead>余额</TableHead>
-              <TableHead>引用</TableHead>
-              <TableHead>时间</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>{renderLedgerRows(state)}</TableBody>
-        </Table>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader className="bg-muted/40">
+              <TableRow>
+                <TableHead>用户 ID</TableHead>
+                <TableHead>原因</TableHead>
+                <TableHead>变动</TableHead>
+                <TableHead>余额</TableHead>
+                <TableHead>引用</TableHead>
+                <TableHead>时间</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>{renderLedgerRows(state)}</TableBody>
+          </Table>
+        </div>
         {!state.isLedgerLoading && !state.ledgerError && state.ledgerTotal > 0 ? (
           <CreditsTablePagination
             label="流水"

@@ -1,8 +1,7 @@
-import { WalletCards } from "lucide-react";
-
 import { CustomCreditsPanel, ProductTile, RechargeErrorPanel } from "@/app/recharge/recharge-panels";
 import { RechargeOrderStatus } from "@/app/recharge/recharge-order-status";
 import { StorageEntitlementPanel } from "@/app/recharge/storage-entitlement-panel";
+import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import type { PaymentChannel, PaymentOrder, PaymentSettings, RechargeProduct } from "@/lib/user-admin-api";
 
@@ -44,15 +43,15 @@ export function RechargeReadyView({
   onRefresh: () => void;
 }) {
   return (
-    <main className="mx-auto max-w-6xl space-y-6 p-6 md:p-8">
-      <header className="rounded-xl border border-border/70 bg-card p-5 shadow-2xs">
-        <div className="flex items-center gap-2.5 text-primary"><WalletCards className="size-4.5" /><span className="text-xs font-semibold tracking-[0.16em]">PAYMENT CENTER</span></div>
-        <h1 className="mt-2 text-2xl font-semibold tracking-tight">充值中心</h1>
-        <p className="mt-1.5 max-w-xl text-sm leading-6 text-muted-foreground">购买积分或云存储套餐，使用微信或支付宝扫码支付，到账后权益自动更新。</p>
-      </header>
+    <section className="flex min-w-0 flex-col gap-5">
+      <PageHeader
+        eyebrow="算力与存储"
+        title="充值中心"
+        description="购买积分或云存储套餐，使用微信或支付宝扫码支付，到账后权益自动更新。"
+      />
       {error ? <RechargeErrorPanel message={error} /> : null}
       {storageEntitlement && storageEntitlement.storage_bytes > 0 ? (
-		<StorageEntitlementPanel entitlement={storageEntitlement} />
+        <StorageEntitlementPanel entitlement={storageEntitlement} />
       ) : null}
       {!order && channels.length > 0 ? (
         <section className="flex flex-wrap items-center gap-3 rounded-xl border border-border/70 bg-card p-4 shadow-2xs">
@@ -84,6 +83,6 @@ export function RechargeReadyView({
           onRefresh={onRefresh}
         />
       )}
-    </main>
+    </section>
   );
 }

@@ -22,13 +22,13 @@ export function AnnouncementPopover({ announcements, className, onOpenAnnounceme
           type="button"
           variant="outline"
           className={cn(
-            "relative size-9 rounded-lg border-amber-200/80 bg-amber-50/80 p-0 text-amber-800 shadow-2xs hover:bg-amber-100/80 hover:text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200",
+            "relative size-8 rounded-lg border-amber-200/80 bg-amber-50/80 p-0 text-amber-800 shadow-none hover:bg-amber-100/80 hover:text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200",
             className,
           )}
           aria-label={`查看 ${announcements.length} 条公告`}
         >
-          <Bell className="size-4" />
-          <span className="absolute -right-1 -top-1 flex min-w-5 items-center justify-center rounded-full bg-amber-600 px-1.5 text-[10px] font-semibold leading-5 text-white shadow-2xs">
+          <Bell className="size-3.5" />
+          <span className="absolute -right-1 -top-1 flex min-w-4.5 items-center justify-center rounded-full bg-amber-600 px-1 text-[10px] font-semibold leading-4.5 text-white shadow-2xs">
             {announcements.length}
           </span>
         </Button>

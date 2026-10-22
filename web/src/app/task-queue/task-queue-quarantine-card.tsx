@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Clock3, KeyRound, RefreshCcw, ShieldAlert, ShieldOff } from "lucide-react";
+import { AlertTriangle, KeyRound, RefreshCcw, ShieldAlert } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -33,14 +33,23 @@ export function TaskQueueQuarantineCard({ items, temporaryCount, permanentCount,
   const activeItems = tab === "temporary" ? temporaryItems : permanentItems;
   const activeCount = tab === "temporary" ? temporaryCount : permanentCount;
   const otherCount = Math.max(0, items.length - temporaryCount - permanentCount);
+  const total = temporaryCount + permanentCount + otherCount;
   const selectTab = (next: CabinTab) => { setTabPicked(true); setTab(next); };
 
   return (
     <Card className="overflow-hidden rounded-xl border border-border/70 bg-card shadow-2xs">
       <CardContent className="space-y-3 p-4">
-        <div className="flex items-start justify-between gap-2">
-          <div><div className="flex items-center gap-2 text-sm font-semibold text-foreground"><span className="flex size-7 items-center justify-center rounded-lg bg-violet-500/10 text-violet-600"><ShieldAlert className="size-3.5" /></span>隔离仓</div><p className="mt-1 text-[11px] text-muted-foreground">按类型分栏 · 全量可滚动 · 数字即真实条数</p></div>
-          <div className="rounded-lg border border-border/70 bg-muted/50 px-2.5 py-1 text-center text-foreground"><div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">合计</div><div className="text-lg font-semibold tabular-nums leading-none">{temporaryCount + permanentCount + otherCount}</div></div>
+        <div className="space-y-1">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-foreground">
+              <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <ShieldAlert className="size-3.5" />
+              </span>
+              <span className="whitespace-nowrap text-sm font-semibold">隔离仓</span>
+            </div>
+            <Badge variant="secondary">合计 {total}</Badge>
+          </div>
+          <p className="text-[11px] text-muted-foreground">按类型分栏 · 全量可滚动 · 数字即真实条数</p>
         </div>
         <div className="grid grid-cols-2 gap-2">
           <CabinTabButton active={tab === "temporary"} tone="temporary" count={temporaryCount} onClick={() => selectTab("temporary")} />
@@ -52,7 +61,7 @@ export function TaskQueueQuarantineCard({ items, temporaryCount, permanentCount,
           </Button>
         ) : null}
         {otherCount > 0 ? <div className="flex items-center gap-1.5 rounded-lg border border-border bg-muted/30 px-2.5 py-1.5 text-[11px] text-muted-foreground"><AlertTriangle className="size-3.5 text-muted-foreground" />另有 {otherCount} 条无明确等级，可在接口全量中查看</div> : null}
-        <div className={cn("rounded-lg px-2.5 py-1.5 text-[11px] leading-relaxed", tab === "temporary" ? "border border-amber-500/20 bg-amber-500/10 text-amber-800 dark:text-amber-200" : "border border-rose-500/20 bg-rose-500/10 text-rose-800 dark:text-rose-200")}>
+        <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
           {tab === "temporary" ? "额度用尽 / 限流：定时自动探活可回号池，也可手动「恢复」。" : "token 过期等死号：不会自动回池。可「恢复」试回池，或「删除」清掉记录（不回池）。"}
         </div>
         {activeCount === 0 ? (
@@ -67,9 +76,22 @@ export function TaskQueueQuarantineCard({ items, temporaryCount, permanentCount,
 function CabinTabButton({ active, tone, count, onClick }: { active: boolean; tone: CabinTab; count: number; onClick: () => void }) {
   const temporary = tone === "temporary";
   return (
-    <button type="button" onClick={onClick} className={cn("rounded-xl border px-3 py-2.5 text-left transition", active ? (temporary ? "border-amber-500/30 bg-amber-500/10 ring-1 ring-amber-500/20" : "border-rose-500/30 bg-rose-500/10 ring-1 ring-rose-500/20") : (temporary ? "border-border/70 bg-muted/20 hover:border-amber-500/30 hover:bg-amber-500/5" : "border-border/70 bg-muted/20 hover:border-rose-500/30 hover:bg-rose-500/5"))}>
-      <div className={cn("flex items-center gap-1.5 text-[11px] font-medium", temporary ? "text-amber-700 dark:text-amber-300" : "text-rose-700 dark:text-rose-300")}>{temporary ? <Clock3 className="size-3.5" /> : <ShieldOff className="size-3.5" />}{temporary ? "临时隔离" : "永久隔离"}</div>
-      <div className="mt-1 flex items-end justify-between"><span className={cn("text-2xl font-semibold tabular-nums", temporary ? "text-amber-600" : "text-rose-600")}>{count}</span><Badge variant={temporary ? "warning" : "danger"} className="rounded-md px-1.5 py-0 text-[10px]">{temporary ? "可回池" : "死号"}</Badge></div>
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "rounded-lg border border-border/70 bg-muted/20 p-3 text-left transition",
+        active ? "border-primary/40 bg-muted/40 ring-1 ring-primary/20" : "hover:bg-muted/35",
+      )}
+    >
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <span className={cn("size-2 rounded-full", temporary ? "bg-amber-500" : "bg-rose-500")} />
+        <span>{temporary ? "临时隔离" : "永久隔离"}</span>
+      </div>
+      <div className="mt-1 flex items-end justify-between gap-1">
+        <span className="text-lg font-semibold tabular-nums text-foreground">{count}</span>
+        <Badge variant={temporary ? "warning" : "danger"} className="rounded-md px-1.5 py-0 text-[10px]">{temporary ? "可回池" : "死号"}</Badge>
+      </div>
     </button>
   );
 }

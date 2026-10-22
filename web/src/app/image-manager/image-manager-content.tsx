@@ -22,6 +22,7 @@ import { useOrderedImageMasonryColumns } from "@/app/image-manager/use-image-mas
 import { useImageManagerMutations } from "@/app/image-manager/use-image-manager-mutations";
 import { useImageManagerSelection } from "@/app/image-manager/use-image-manager-selection";
 import { ImageLightbox } from "@/components/image-lightbox";
+import { MediaAssetTypeSwitcher } from "@/components/media-library-tabs";
 import { PageHeader } from "@/components/page-header";
 import { imageManagerCacheKey } from "@/lib/image-manager-cache";
 
@@ -74,26 +75,29 @@ export function ImageManagerContent({ cacheScope, canDeleteImages, isAdmin }: Im
   return (
     <section className="flex flex-col gap-4 pb-20 sm:pb-24">
       <PageHeader
-        eyebrow="图库"
-        title="素材管理"
+        eyebrow="资产与媒体"
+        title="素材中心"
         badge={
-          <ImageManagerGalleryViewTabs
-            galleryView={filters.galleryView}
-            isAdmin={isAdmin}
-            itemsCount={items.length}
-            filteredCount={filters.filteredItems.length}
-            hasLocalFilters={filters.hasLocalFilters}
-            serverTotal={loader.serverTotal}
-            serverHasMore={loader.serverHasMore}
-            currentPage={loader.currentPage}
-            onGalleryViewChange={(nextView) => {
-              if (!isAdmin && nextView === "all") return;
-              if (nextView !== filters.galleryView) {
-                filters.setGalleryView(nextView);
-                resetListState();
-              }
-            }}
-          />
+          <div className="flex flex-wrap items-center gap-2">
+            <MediaAssetTypeSwitcher current="image" />
+            <ImageManagerGalleryViewTabs
+              galleryView={filters.galleryView}
+              isAdmin={isAdmin}
+              itemsCount={items.length}
+              filteredCount={filters.filteredItems.length}
+              hasLocalFilters={filters.hasLocalFilters}
+              serverTotal={loader.serverTotal}
+              serverHasMore={loader.serverHasMore}
+              currentPage={loader.currentPage}
+              onGalleryViewChange={(nextView) => {
+                if (!isAdmin && nextView === "all") return;
+                if (nextView !== filters.galleryView) {
+                  filters.setGalleryView(nextView);
+                  resetListState();
+                }
+              }}
+            />
+          </div>
         }
         actions={
           <>

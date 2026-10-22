@@ -21,9 +21,9 @@ export function VideoResult({ controller }: { controller: VideoCreationControlle
   const active = task?.status === "queued" || task?.status === "running";
 
   return (
-    <section className="relative flex min-h-[660px] overflow-hidden rounded-xl border border-border/70 bg-card shadow-2xs xl:sticky xl:top-18">
-      <div className="relative z-10 flex w-full flex-col p-4 sm:p-5">
-        <header className="flex min-h-9 items-center justify-between gap-3 border-b border-border/60 pb-3">
+    <section className="relative flex min-h-[520px] overflow-hidden rounded-xl border border-border/70 bg-card shadow-2xs xl:h-full xl:min-h-0">
+      <div className="relative z-10 flex w-full flex-col p-4">
+        <header className="flex min-h-8 items-center justify-between gap-3 border-b border-border/60 pb-2.5">
           <div className="flex items-center gap-2.5">
             <span className="inline-flex size-2 rounded-full bg-primary" />
             <p className="text-sm font-semibold text-foreground">
@@ -47,8 +47,8 @@ export function VideoResult({ controller }: { controller: VideoCreationControlle
             <Button
               asChild
               size="sm"
-              variant="ghost"
-              className="h-8 rounded-lg text-xs text-muted-foreground hover:text-foreground"
+              variant="outline"
+              className="h-7 rounded-lg px-2.5 text-xs"
             >
               <Link to="/video-library">
                 <Library className="size-3.5" />
@@ -58,7 +58,7 @@ export function VideoResult({ controller }: { controller: VideoCreationControlle
           )}
         </header>
 
-        <div className="flex flex-1 items-center justify-center rounded-lg bg-muted/25 p-4 sm:p-6 my-3 border border-border/50">
+        <div className="my-2.5 flex min-h-0 flex-1 items-center justify-center rounded-lg border border-border/50 bg-muted/25 p-4">
           <div
             className={cn(
               "relative flex w-full items-center justify-center overflow-hidden rounded-xl border border-border/80 bg-zinc-950 text-white shadow-sm",

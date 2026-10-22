@@ -31,6 +31,7 @@ export type NavItem = {
   group?: NavGroupId;
   description?: string;
   keywords?: string[];
+  matchPaths?: string[];
 };
 
 export type NavGroupMeta = {
@@ -173,6 +174,75 @@ export function partitionNavItems(items: NavItem[]) {
   };
 }
 
+export function consolidatePrimaryNavItems(
+  items: NavItem[],
+  pathname: string
+): NavItem[] {
+  const hasImageManager = items.some((item) => item.href === "/image-manager");
+  const hasVideoLibrary = items.some((item) => item.href === "/video-library");
+  if (!hasImageManager && !hasVideoLibrary) {
+    return items;
+  }
+  const mediaHref =
+    pathname.startsWith("/video-library") && hasVideoLibrary
+      ? "/video-library"
+      : hasImageManager
+        ? "/image-manager"
+        : "/video-library";
+  const result: NavItem[] = [];
+  let mediaInserted = false;
+  for (const item of items) {
+    if (item.href === "/video-library" || item.href === "/image-manager") {
+      if (!mediaInserted) {
+        mediaInserted = true;
+        result.push({
+          href: mediaHref,
+          label: "素材中心",
+          group: "assets",
+          description: "统一浏览与管理生成的图片与视频资产",
+          keywords: [
+            "media",
+            "assets",
+            "gallery",
+            "image",
+            "video",
+            "素材中心",
+            "图片库",
+            "视频库",
+          ],
+          matchPaths: ["/image-manager", "/video-library"],
+        });
+      }
+      continue;
+    }
+    result.push(item);
+  }
+  return result;
+}
+
+export const ADMIN_CONSOLE_PATHS = new Set([
+  "/accounts",
+  "/task-queue",
+  "/icloud",
+  "/register",
+  "/logs",
+  "/users",
+  "/credits-admin",
+  "/payment-admin",
+  "/rbac",
+  "/settings",
+]);
+
+export function isAdminConsolePath(pathname: string): boolean {
+  const clean = pathname.replace(/\/+$/, "") || "/";
+  for (const prefix of ADMIN_CONSOLE_PATHS) {
+    if (clean === prefix || clean.startsWith(`${prefix}/`)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export function groupNavItems(items: NavItem[]) {
   return navGroups
     .map((group) => ({
@@ -200,6 +270,15 @@ export const reducedNavActiveTransition: Transition = { duration: 0.01 };
 
 export function isActivePath(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+export function isNavItemActive(pathname: string, item: NavItem) {
+  if (isActivePath(pathname, item.href)) {
+    return true;
+  }
+  return Boolean(
+    item.matchPaths?.some((candidate) => isActivePath(pathname, candidate))
+  );
 }
 
 const ROUTE_ICON_MAP: Record<string, LucideIcon> = {

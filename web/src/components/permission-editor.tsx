@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
 import type { ApiPermission, PermissionMenu } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -27,8 +27,20 @@ export function PermissionEditor({
   onApiPermissionsChange,
   className,
 }: PermissionEditorProps) {
+  const [apiSearch, setApiSearch] = useState("");
   const menuPermissions = useMemo(() => flattenMenuPermissions(menus), [menus]);
-  const apiPermissionGroups = useMemo(() => groupApiPermissions(apis), [apis]);
+  const filteredApis = useMemo(() => {
+    const keyword = apiSearch.trim().toLowerCase();
+    if (!keyword) return apis;
+    return apis.filter((item) =>
+      [item.label, item.path, item.method, item.group, item.key]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(keyword),
+    );
+  }, [apis, apiSearch]);
+  const apiPermissionGroups = useMemo(() => groupApiPermissions(filteredApis), [filteredApis]);
   const allMenuPaths = useMemo(() => menuPermissions.map((item) => item.path), [menuPermissions]);
   const allApiPermissionKeys = useMemo(() => apis.map((item) => item.key), [apis]);
 
@@ -45,6 +57,8 @@ export function PermissionEditor({
         allPermissionKeys={allApiPermissionKeys}
         selectedPermissions={selectedApiPermissions}
         onPermissionsChange={onApiPermissionsChange}
+        apiSearch={apiSearch}
+        onApiSearchChange={setApiSearch}
       />
     </div>
   );

@@ -153,7 +153,7 @@ export function PaymentChannelsSection() {
             </div>
           </div>
         </CardHeader>
-        <CardContent className="p-4 md:p-6">
+        <CardContent className="p-4 pt-4 sm:p-5 sm:pt-5 md:p-6 md:pt-6">
           {loading ? (
             <PaymentSectionState mode="loading" title="正在加载渠道" />
           ) : loadError ? (

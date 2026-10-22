@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils";
 import { canAccessPath, type StoredAuthSession } from "@/store/auth";
 
 import {
+  consolidatePrimaryNavItems,
   navItems,
   partitionNavItems,
   PRIMARY_NAV_ID,
@@ -148,8 +149,12 @@ export function TopNav() {
   const visibleNavItems = withCanvasNav(navItems, appMeta.canvas_url)
     .filter((item) => item.href !== "/recharge" || rechargeEnabled)
     .filter((item) => canAccessPath(session, item.accessPath || item.href));
-  const { primary: primaryNavItems, overflow: overflowNavItems } =
+  const { primary: rawPrimaryNavItems, overflow: overflowNavItems } =
     partitionNavItems(visibleNavItems);
+  const primaryNavItems = consolidatePrimaryNavItems(
+    rawPrimaryNavItems,
+    pathname
+  );
   const roleLabel =
     session.role === "admin" ? "管理员" : session.roleName || "普通用户";
   const canAccessImageTasks = canAccessPath(session, "/image");
@@ -193,7 +198,11 @@ export function TopNav() {
         >
           <div className="hide-scrollbar flex min-w-0 items-center gap-0.5 overflow-x-auto overscroll-x-contain rounded-xl border border-border/70 bg-muted/40 p-1 scroll-px-1 touch-pan-x [-webkit-overflow-scrolling:touch]">
             {primaryNavItems.map((item) => (
-              <NavPill key={item.href} item={item} pathname={pathname} />
+              <NavPill
+                key={item.matchPaths ? "media-center" : item.href}
+                item={item}
+                pathname={pathname}
+              />
             ))}
             <MoreNavMenu items={overflowNavItems} pathname={pathname} />
           </div>
@@ -239,7 +248,6 @@ function watchCreditBalance(
     }
   };
   const handleRefresh = () => void loadCredits();
-  setCreditBalance("加载中...");
   void loadCredits();
   window.addEventListener("focus", handleRefresh);
   return () => {
@@ -290,7 +298,7 @@ function NavBrandButton({
           title="查看系统版本与在线更新"
           className="hidden h-5 items-center rounded-md border border-border/70 bg-muted/50 px-1.5 font-mono text-[10px] font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/10 hover:text-primary sm:inline-flex"
         >
-          v4.7.1
+          v4.7.2
         </button>
       ) : null}
       <Button

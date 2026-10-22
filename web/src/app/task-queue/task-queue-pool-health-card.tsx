@@ -57,13 +57,21 @@ export function TaskQueuePoolHealthCard({ pool }: { pool: AccountPoolHealth | nu
 }
 
 function Stat({ label, value, tone }: { label: string; value?: number; tone: "emerald" | "blue" | "amber" | "slate" }) {
-  const tones = {
-    emerald: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
-    blue: "bg-primary/10 text-primary border-primary/20",
-    amber: "bg-amber-500/10 text-amber-600 border-amber-500/20",
-    slate: "bg-muted/50 text-foreground border-border/70",
+  const dotTones = {
+    emerald: "bg-emerald-500",
+    blue: "bg-blue-500",
+    amber: "bg-amber-500",
+    slate: "bg-slate-400",
   };
-  return <div className={cn("rounded-xl border px-2.5 py-2", tones[tone])}><div className="text-[11px] opacity-80">{label}</div><div className="text-xl font-semibold tabular-nums leading-tight">{value ?? "—"}</div></div>;
+  return (
+    <div className="rounded-lg border border-border/70 bg-muted/20 p-3">
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <span className={cn("size-2 rounded-full", dotTones[tone])} />
+        <span>{label}</span>
+      </div>
+      <div className="mt-1 text-lg font-semibold tabular-nums text-foreground">{value ?? "—"}</div>
+    </div>
+  );
 }
 
 function MiniMetric({ label, value, danger }: { label: string; value: number; danger?: boolean }) {
