@@ -166,8 +166,8 @@ function Detail({
         {label}
       </div>
       <div
-        className={`mt-1.5 min-w-0 overflow-x-auto hide-scrollbar text-xs font-semibold text-foreground sm:text-[13px] ${
-          mono ? "font-mono tabular-nums break-keep whitespace-nowrap" : "break-keep"
+        className={`mt-1.5 min-w-0 text-xs font-semibold text-foreground ${
+          mono ? "font-mono tabular-nums break-all" : "sm:text-[13px] break-keep"
         }`}
         title={value || undefined}
       >
@@ -337,7 +337,7 @@ export function SystemUpdateCard() {
         </div>
       ) : data && status ? (
         <div className="space-y-4">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-[1.28fr_1.18fr_0.76fr_0.96fr]">
             <Detail
               label="当前运行版本"
               value={formatVersionTag(status.current_version)}

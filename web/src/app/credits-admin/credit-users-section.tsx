@@ -32,7 +32,7 @@ export function CreditUsersSection({ state }: { state: CreditsAdminState }) {
             </CardTitle>
             <CardDescription>查看积分账户余额并快捷增减指定用户积分。</CardDescription>
           </div>
-          {state.permissions.canManageCredits ? (
+          {state.permissions.canManageCredits && state.usersTotal > 0 ? (
             <Button type="button" variant="outline" size="xs" onClick={state.openManualAdjustCreditsDialog}>
               <SlidersHorizontal className="size-3.5" />
               指定调账

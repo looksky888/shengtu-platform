@@ -124,11 +124,6 @@ export function CreditLedgerSection({ state }: { state: CreditsAdminState }) {
                   <X className="size-4" />
                   清空筛选条件
                 </Button>
-              ) : state.permissions.canManageCredits ? (
-                <Button type="button" variant="outline" size="sm" onClick={state.openManualAdjustCreditsDialog}>
-                  <SlidersHorizontal className="size-4" />
-                  调整用户积分
-                </Button>
               ) : null
             }
             className="py-14"
