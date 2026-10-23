@@ -456,8 +456,11 @@ function AccountSummary({
               {roleLabel}
             </span>
           </div>
-          <code className="mt-0.5 block truncate font-mono text-[11px] text-muted-foreground">
-            @{session.subjectId || session.role} · v{webConfig.appVersion}
+          <code
+            className="mt-0.5 block truncate font-mono text-[11px] text-muted-foreground"
+            title={webConfig.appVersion}
+          >
+            @{session.subjectId || session.role} · v{webConfig.appVersion.replace(/^v/i, "").split("-")[0]}
           </code>
         </div>
       </div>

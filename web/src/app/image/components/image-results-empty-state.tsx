@@ -55,7 +55,7 @@ export function ImageResultsEmptyState({
                   loading="eager"
                   decoding="async"
                   draggable={false}
-                  className="h-full w-full select-none object-cover object-center transition-transform duration-500 ease-out group-hover:scale-[1.03]"
+                  className="h-full w-full scale-[1.02] select-none object-cover object-center transition-transform duration-500 ease-out group-hover:scale-[1.05]"
                 />
                 <div className="pointer-events-none absolute inset-0 rounded-[8px] ring-1 ring-inset ring-black/[0.06] dark:ring-white/[0.08]" />
 

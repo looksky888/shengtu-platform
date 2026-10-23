@@ -63,7 +63,7 @@ const SHORT_RESOLUTION_LABELS: Record<ImageResolution, string> = {
 
 const QUALITY_STUDIO_LABELS: Record<ImageQuality, string> = {
   low: "草图 Low",
-  medium: "标准 Med",
+  medium: "标准 Medium",
   high: "高清 High",
 };
 
@@ -453,7 +453,7 @@ export function ComposerSettingsPopover(props: ComposerSettingsPopoverProps) {
           </div>
 
           {/* 4. 分辨率档位 & 渲染画质 */}
-          <div className={cn("grid gap-2.5", supportsQuality ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1")}>
+          <div className="grid grid-cols-1 gap-2.5">
             <div className="space-y-1.5">
               <span className="block text-[11px] font-medium text-muted-foreground">分辨率档位</span>
               <div
