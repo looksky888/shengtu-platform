@@ -151,10 +151,12 @@ export function UsersContent({ session }: { session: StoredAuthSession }) {
       <AdjustCreditsDialog
         user={users.adjustingUser}
         balance={adjustingBalance}
+        mode={users.adjustMode}
         delta={users.adjustDelta}
         reason={users.adjustReason}
         isAdjusting={users.isAdjustingCredits}
         onOpenChange={(open) => (!open ? users.closeAdjustCreditsDialog() : null)}
+        onModeChange={users.handleAdjustModeChange}
         onDeltaChange={users.setAdjustDelta}
         onReasonChange={users.setAdjustReason}
         onSave={() => void users.handleAdjustCredits()}

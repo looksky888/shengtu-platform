@@ -1,12 +1,14 @@
 "use client";
 
 import { Suspense, type ReactNode } from "react";
-import { FileClock, ListChecks, LoaderCircle } from "lucide-react";
-
+import { FileClock, ListChecks, LoaderCircle, ShieldAlert } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 
+import { CanvasLinkCard } from "./components/canvas-link-card";
+import { EmailRegistrationTab } from "./email-registration-tab";
 import {
   AnnouncementsCard,
   BackupSettingsCard,
@@ -18,14 +20,13 @@ import {
   ImageTaskStatsCard,
   ImportBrowserDialog,
   LogGovernanceCard,
+  LoginVisualCard,
   MediaStorageCard,
   RegisterClearanceCard,
   SystemUpdateCard,
   UpstreamProxyRuntimeCard,
 } from "./settings-tab-lazy";
-import { EmailRegistrationTab } from "./email-registration-tab";
 import type { SettingsTabKey } from "./settings-tab-types";
-import { CanvasLinkCard } from "./components/canvas-link-card";
 
 function TabLoading() {
   return (
@@ -36,24 +37,64 @@ function TabLoading() {
   );
 }
 
-function MasonryItem({ children, className }: { children: ReactNode; className?: string }) {
+function AdminPermissionNotice({ message }: { message: string }) {
+  return (
+    <EmptyState
+      icon={ShieldAlert}
+      title="需要管理员权限"
+      description={message}
+      className="rounded-[14px] border border-border/80 bg-surface py-12 shadow-2xs"
+    />
+  );
+}
+
+function MasonryItem({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
   return <div className={`min-w-0 ${className ?? ""}`}>{children}</div>;
 }
 
 function BaseTab({ canManageSystem }: { canManageSystem: boolean }) {
+  if (!canManageSystem) {
+    return (
+      <AdminPermissionNotice message="仅系统管理员可修改平台基础并发、默认限流与品牌画廊配置。" />
+    );
+  }
   return (
     <section className="grid gap-5 md:grid-cols-2">
       <MasonryItem className="md:col-span-2">
         <ConfigCard />
       </MasonryItem>
-      {canManageSystem && <MasonryItem className="md:col-span-2"><CanvasLinkCard /></MasonryItem>}
+      <MasonryItem className="md:col-span-2">
+        <CanvasLinkCard />
+      </MasonryItem>
+      <MasonryItem className="md:col-span-2">
+        <LoginVisualCard />
+      </MasonryItem>
     </section>
   );
 }
 
-function RegisterTab() {
+function RegisterTab({ canManageSystem }: { canManageSystem: boolean }) {
+  if (!canManageSystem) {
+    return (
+      <AdminPermissionNotice message="仅系统管理员可配置上游代理与 Cloudflare 清障服务。" />
+    );
+  }
   return (
     <section className="grid gap-5 md:grid-cols-2">
+      <div className="rounded-[14px] border border-border/80 bg-surface px-4 py-3 text-xs leading-5 text-muted-foreground shadow-2xs md:col-span-2">
+        <strong className="font-semibold text-foreground">
+          作用域说明：
+        </strong>
+        左栏控制<strong className="font-medium text-foreground">生图与视频上游号池</strong>的出站代理及
+        WARP 清障；右栏独立控制<strong className="font-medium text-foreground">自动化注册机</strong>的代理与
+        Cloudflare Clearance 预热，两者互不覆盖。
+      </div>
       <MasonryItem>
         <UpstreamProxyRuntimeCard />
       </MasonryItem>
@@ -64,28 +105,58 @@ function RegisterTab() {
   );
 }
 
-function ImageTab({ active }: { active: boolean }) {
+function ImageTab({
+  active,
+  canManageSystem,
+}: {
+  active: boolean;
+  canManageSystem: boolean;
+}) {
+  if (!canManageSystem) {
+    return (
+      <AdminPermissionNotice message="仅系统管理员可配置生图渠道、模型路由与计费策略。" />
+    );
+  }
   return (
     <section className="grid gap-5 md:grid-cols-2">
-      <ImageProviderCard />
-      <ImageAccountPoolRoutingCard />
-      <ImageTaskStatsCard active={active} />
+      <MasonryItem className="md:col-span-2">
+        <ImageProviderCard />
+      </MasonryItem>
+      <MasonryItem className="md:col-span-2">
+        <ImageAccountPoolRoutingCard />
+      </MasonryItem>
+      <MasonryItem className="md:col-span-2">
+        <ImageTaskStatsCard active={active} />
+      </MasonryItem>
     </section>
   );
 }
 
 function StorageTab({ canManageSystem }: { canManageSystem: boolean }) {
   if (!canManageSystem) {
-    return <div className="rounded-xl border border-border/70 bg-card p-5 text-sm text-muted-foreground shadow-2xs">只有管理员可以管理媒体存储和旧图片迁移。</div>;
+    return (
+      <AdminPermissionNotice message="仅系统管理员可配置媒体存储后端与历史图片平滑迁移。" />
+    );
   }
-  return <section className="grid gap-5 md:grid-cols-2"><MediaStorageCard /></section>;
+  return (
+    <section className="grid gap-5 md:grid-cols-2">
+      <MasonryItem className="md:col-span-2">
+        <MediaStorageCard />
+      </MasonryItem>
+    </section>
+  );
 }
 
-function ImportsTab() {
+function ImportsTab({ canManageSystem }: { canManageSystem: boolean }) {
+  if (!canManageSystem) {
+    return (
+      <AdminPermissionNotice message="仅系统管理员可管理远程 CPA 号池连接与批量账号导入。" />
+    );
+  }
   return (
     <>
       <section className="grid gap-5 md:grid-cols-2">
-        <MasonryItem>
+        <MasonryItem className="md:col-span-2">
           <CPAPoolsCard />
         </MasonryItem>
       </section>
@@ -95,20 +166,32 @@ function ImportsTab() {
   );
 }
 
-function AnnouncementTab() {
+function AnnouncementTab({ canManageSystem }: { canManageSystem: boolean }) {
+  if (!canManageSystem) {
+    return (
+      <AdminPermissionNotice message="仅系统管理员可发布、停用或删除站内弹窗公告。" />
+    );
+  }
   return (
     <section className="grid gap-5 md:grid-cols-2">
-      <MasonryItem>
+      <MasonryItem className="md:col-span-2">
         <AnnouncementsCard />
       </MasonryItem>
     </section>
   );
 }
 
-function BackupTab() {
+function BackupTab({ canManageSystem }: { canManageSystem: boolean }) {
+  if (!canManageSystem) {
+    return (
+      <AdminPermissionNotice message="仅系统管理员可配置定时备份策略与 R2 异地容灾快照。" />
+    );
+  }
   return (
     <section className="grid gap-5 md:grid-cols-2">
-      <BackupSettingsCard />
+      <MasonryItem className="md:col-span-2">
+        <BackupSettingsCard />
+      </MasonryItem>
     </section>
   );
 }
@@ -142,7 +225,15 @@ function MaintenanceTab({ canManageSystem }: { canManageSystem: boolean }) {
           </div>
         </div>
       </div>
-      {canManageSystem ? <LogGovernanceCard /> : null}
+      {canManageSystem ? (
+        <MasonryItem className="md:col-span-2">
+          <LogGovernanceCard />
+        </MasonryItem>
+      ) : (
+        <MasonryItem className="md:col-span-2">
+          <AdminPermissionNotice message="仅系统管理员可调整日志保留期与执行过期日志清理。" />
+        </MasonryItem>
+      )}
     </section>
   );
 }
@@ -150,14 +241,14 @@ function MaintenanceTab({ canManageSystem }: { canManageSystem: boolean }) {
 function SystemUpdateTab({ canManageSystem }: { canManageSystem: boolean }) {
   if (!canManageSystem) {
     return (
-      <div className="rounded-xl border border-border/70 bg-card p-6 text-sm text-muted-foreground">
-        只有管理员可以查看版本信息并执行系统在线更新。
-      </div>
+      <AdminPermissionNotice message="仅系统管理员可查看版本预检状态并触发宿主机平滑升级。" />
     );
   }
   return (
     <section className="grid gap-5 md:grid-cols-2">
-      <SystemUpdateCard />
+      <MasonryItem className="md:col-span-2">
+        <SystemUpdateCard />
+      </MasonryItem>
     </section>
   );
 }
@@ -177,25 +268,25 @@ export function SettingsTabContent({
       content = <BaseTab canManageSystem={canManageSystem} />;
       break;
     case "register":
-      content = <RegisterTab />;
+      content = <RegisterTab canManageSystem={canManageSystem} />;
       break;
     case "email":
       content = <EmailRegistrationTab canManageSystem={canManageSystem} />;
       break;
     case "image":
-      content = <ImageTab active={active} />;
+      content = <ImageTab active={active} canManageSystem={canManageSystem} />;
       break;
     case "storage":
       content = <StorageTab canManageSystem={canManageSystem} />;
       break;
     case "imports":
-      content = <ImportsTab />;
+      content = <ImportsTab canManageSystem={canManageSystem} />;
       break;
     case "announcement":
-      content = <AnnouncementTab />;
+      content = <AnnouncementTab canManageSystem={canManageSystem} />;
       break;
     case "backup":
-      content = <BackupTab />;
+      content = <BackupTab canManageSystem={canManageSystem} />;
       break;
     case "maintenance":
       content = <MaintenanceTab canManageSystem={canManageSystem} />;

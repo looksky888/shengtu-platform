@@ -92,9 +92,14 @@ export const STUDIO_CAPABILITY_SPECS = [
   },
 ] as const;
 
+const resolvedMajorMinor =
+  typeof __APP_VERSION__ !== "undefined" && __APP_VERSION__
+    ? __APP_VERSION__.split("-")[0].split(".").slice(0, 2).join(".")
+    : "5.0";
+
 export const LANDING_BRAND = {
   defaultName: DEFAULT_APP_TITLE,
-  versionPill: "STUDIO v4.9",
+  versionPill: `STUDIO v${resolvedMajorMinor || "5.0"}`,
   eyebrow: "MULTIMODAL AI STUDIO · 影像与视频创作工作台",
   headlinePrefix: "让每一次灵感，定格为",
   headlineRotatingPhrases: ["典藏级视觉作品", "电影感镜头叙事", "暗房级光影构图"] as const,

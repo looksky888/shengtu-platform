@@ -20,6 +20,20 @@ import type {
   RechargeProduct,
 } from "@/lib/user-admin-api";
 
+function formatChannelOptionLabel(channel: PaymentChannel): string {
+  const customName = channel.name?.trim();
+  if (customName) {
+    return customName;
+  }
+  if (channel.provider === "alipay") {
+    return "支付宝扫码";
+  }
+  if (channel.provider === "wechatpay") {
+    return "微信支付扫码";
+  }
+  return "在线扫码支付";
+}
+
 export function RechargeReadyView({
   products,
   channels,
@@ -102,9 +116,7 @@ export function RechargeReadyView({
                       active ? "bg-background" : "bg-border-strong",
                     )}
                   />
-                  {channel.provider === "alipay"
-                    ? "支付宝扫码"
-                    : "微信支付扫码"}
+                  {formatChannelOptionLabel(channel)}
                 </button>
               );
             })}
@@ -135,7 +147,7 @@ export function RechargeReadyView({
                 action={
                   <div className="flex flex-wrap items-center justify-center gap-2">
                     <Button variant="outline" size="sm" asChild>
-                      <Link to="/profile">
+                      <Link to="/profile?tab=credits">
                         <Ticket className="size-3.5" />
                         使用兑换码核销积分
                       </Link>
@@ -167,6 +179,10 @@ export function RechargeReadyView({
       ) : (
         <RechargeOrderStatus
           order={order}
+          channelName={
+            channels.find((item) => item.id === order.channel_id)?.name ||
+            channels.find((item) => item.id === selectedChannelID)?.name
+          }
           provider={
             channels.find((item) => item.id === order.channel_id)?.provider ||
             channels.find((item) => item.id === selectedChannelID)?.provider ||

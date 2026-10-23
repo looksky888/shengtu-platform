@@ -57,26 +57,26 @@ export const createRegisterSlice: StateCreator<SettingsStore, [], [], RegisterSl
   isSavingRegister: false,
 
   loadRegister: (options: SettingsLoadOptions = {}) => runSettingsRequest(registerFlight, async (isCurrent) => {
-      const { silent = false, signal } = options;
-      if (!silent) set({ isLoadingRegister: true });
-      try {
-        const data = await fetchRegisterConfig({ signal });
-        if (!isCurrent()) return false;
-        set((state) => ({
-          registerConfig: normalizeRegisterConfig(data.register),
-          savedRegisterSnapshot: registerConfigSnapshot(normalizeRegisterConfig(data.register)),
-          loadedAt: { ...state.loadedAt, register: Date.now() },
-        }));
-        return true;
-      } catch (error) {
-        if (!isCurrent()) return false;
-        if (!signal?.aborted && !silent) {
-          toast.error(error instanceof Error ? error.message : "加载注册配置失败");
-        }
-        return false;
-      } finally {
-        if (isCurrent() && (!silent || get().isLoadingRegister)) set({ isLoadingRegister: false });
+    const { silent = false, signal } = options;
+    if (!silent) set({ isLoadingRegister: true });
+    try {
+      const data = await fetchRegisterConfig({ signal });
+      if (!isCurrent()) return false;
+      set((state) => ({
+        registerConfig: normalizeRegisterConfig(data.register),
+        savedRegisterSnapshot: registerConfigSnapshot(normalizeRegisterConfig(data.register)),
+        loadedAt: { ...state.loadedAt, register: Date.now() },
+      }));
+      return true;
+    } catch (error) {
+      if (!isCurrent()) return false;
+      if (!signal?.aborted && !silent) {
+        toast.error(error instanceof Error ? error.message : "加载注册配置失败");
       }
+      return false;
+    } finally {
+      if (isCurrent() && (!silent || get().isLoadingRegister)) set({ isLoadingRegister: false });
+    }
   }),
 
   setRegisterConfig: (config) => {
@@ -189,7 +189,7 @@ export const createRegisterSlice: StateCreator<SettingsStore, [], [], RegisterSl
 
   saveRegister: async () => {
     const { registerConfig } = get();
-    if (!registerConfig) return;
+    if (!registerConfig) return false;
     try {
       set({ isSavingRegister: true });
       const data = await updateRegisterConfig({
@@ -208,8 +208,10 @@ export const createRegisterSlice: StateCreator<SettingsStore, [], [], RegisterSl
       const nextConfig = normalizeRegisterConfig(data.register);
       set({ registerConfig: nextConfig, savedRegisterSnapshot: registerConfigSnapshot(nextConfig) });
       toast.success("注册配置已保存");
+      return true;
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "保存注册配置失败");
+      return false;
     } finally {
       set({ isSavingRegister: false });
     }

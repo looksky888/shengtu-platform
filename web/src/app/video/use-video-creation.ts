@@ -36,6 +36,8 @@ import { createRequestId } from "@/lib/request-id";
 
 const TERMINAL_STATUSES = new Set<CreationTask["status"]>(["success", "error", "cancelled"]);
 
+export type VideoInputMode = "t2v" | "i2v" | "ref";
+
 function readTaskID(storageKey: string) {
   if (typeof window === "undefined" || !storageKey) return "";
   try {
@@ -71,6 +73,7 @@ export function useVideoCreation(session: StoredAuthSession | null | undefined) 
   const [resolutionName, setResolutionName] = useState<VideoGenerationRequest["resolution_name"]>("720p");
   const [preset, setPreset] = useState<VideoGenerationRequest["preset"]>("custom");
   const [model, setModel] = useState<VideoGenerationRequest["model"]>("grok-imagine-video-1.5");
+  const [inputMode, setInputMode] = useState<VideoInputMode>("t2v");
   const [inputReference, setInputReference] = useState("");
   const [uploadedReference, setUploadedReference] = useState<(VideoInputUpload & { preview_url: string }) | null>(null);
   const [uploadingReference, setUploadingReference] = useState(false);
@@ -373,7 +376,11 @@ export function useVideoCreation(session: StoredAuthSession | null | undefined) 
 
   function setSelectedReferenceAssets(ids: string[]) {
     const available = new Set(referenceAssets.map((asset) => asset.id));
-    setSelectedReferenceAssetIds(Array.from(new Set(ids)).filter((id) => available.has(id)).slice(0, 7));
+    const nextIds = Array.from(new Set(ids)).filter((id) => available.has(id)).slice(0, 7);
+    setSelectedReferenceAssetIds(nextIds);
+    if (nextIds.length > 0) {
+      setInputMode("ref");
+    }
   }
 
   async function removeReferenceAsset(id: string) {
@@ -396,6 +403,18 @@ export function useVideoCreation(session: StoredAuthSession | null | undefined) 
     setPollError("");
     try {
       const id = newTaskID();
+      const firstFrameReference = uploadedReference?.input_reference || inputReference.trim();
+      const modeScopedReferences: Pick<VideoGenerationRequest, "image_reference" | "reference_images"> =
+        inputMode === "i2v"
+          ? firstFrameReference
+            ? { image_reference: firstFrameReference }
+            : {}
+          : inputMode === "ref"
+            ? selectedReferenceAssetIds.length > 0
+              ? { reference_images: selectedReferenceAssetIds.map((assetId) => `video-ref:${assetId}`) }
+              : {}
+            : {};
+
       const created = await submitVideoGeneration({
         client_task_id: id,
         prompt: normalizedPrompt,
@@ -404,10 +423,7 @@ export function useVideoCreation(session: StoredAuthSession | null | undefined) 
         size,
         resolution_name: resolutionName,
         preset,
-        ...((uploadedReference?.input_reference || inputReference.trim())
-          ? { image_reference: uploadedReference?.input_reference || inputReference.trim() }
-          : {}),
-        ...(selectedReferenceAssetIds.length ? { reference_images: selectedReferenceAssetIds.map((id) => `video-ref:${id}`) } : {}),
+        ...modeScopedReferences,
       });
       const taskKeyId = created.id || id;
       writeTaskID(taskStorageKey, taskKeyId);
@@ -528,6 +544,7 @@ export function useVideoCreation(session: StoredAuthSession | null | undefined) 
   return {
     prompt, setPrompt, seconds, setSeconds, size, setSize, resolutionName, setResolutionName,
     model, setModel,
+    inputMode, setInputMode,
     preset, setPreset, inputReference, setInputReferenceURL, uploadedReference,
     uploadingReference, uploadReference, clearUploadedReference,
     uploadingReferences, uploadReferences,

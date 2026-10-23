@@ -1,9 +1,12 @@
 "use client";
 
-import { Checkbox } from "@/components/ui/checkbox";
-import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
+import { useState, type KeyboardEvent } from "react";
+import { ChevronLeft, ChevronRight, Lock, Plus, X } from "lucide-react";
+import { toast } from "sonner";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { DEFAULT_IMAGE_MODEL } from "@/lib/api-models";
 import {
   Select,
   SelectContent,
@@ -11,11 +14,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { DEFAULT_IMAGE_MODEL } from "@/lib/api-models";
+import { cn } from "@/lib/utils";
 
 import { useSettingsStore } from "../store";
-import { settingsInputClassName, settingsToggleClassName } from "./settings-ui";
+import {
+  SettingsSection,
+  SettingsSwitchRow,
+  SettingsUnitInput,
+  settingsInputClassName,
+} from "./settings-ui";
 
-const internalModelOptions = [
+export const INTERNAL_MODEL_OPTIONS = [
   "auto",
   "gpt-5-5-thinking",
   "gpt-5-3",
@@ -30,60 +40,384 @@ const internalModelOptions = [
 
 export function ImageAccountPoolSettings() {
   const config = useSettingsStore((state) => state.config);
-  const setImageProxyField = useSettingsStore((state) => state.setImageProxyField);
+  const setImageProxyField = useSettingsStore(
+    (state) => state.setImageProxyField
+  );
+  const setImageCreditCost1080p = useSettingsStore(
+    (state) => state.setImageCreditCost1080p
+  );
+  const setImageCreditCost2k = useSettingsStore(
+    (state) => state.setImageCreditCost2k
+  );
+  const setImageCreditCost4k = useSettingsStore(
+    (state) => state.setImageCreditCost4k
+  );
+  const setGrokImageCreditCost1k = useSettingsStore(
+    (state) => state.setGrokImageCreditCost1k
+  );
+  const setGrokImageCreditCost2k = useSettingsStore(
+    (state) => state.setGrokImageCreditCost2k
+  );
+  const setVideoCreditCostPerSecond = useSettingsStore(
+    (state) => state.setVideoCreditCostPerSecond
+  );
+
+  const [customSlug, setCustomSlug] = useState("");
 
   if (!config) {
     return null;
   }
 
-  const fallbackModels = Array.isArray(config.image_fallback_model_slugs) ? config.image_fallback_model_slugs : [];
+  const primarySlug = String(config.image_internal_model_slug || "gpt-5-3");
+  const fallbackEnabled = config.image_fallback_model_enabled !== false;
+  const fallbackModels = Array.isArray(config.image_fallback_model_slugs)
+    ? config.image_fallback_model_slugs
+    : [];
+
+  const candidateOptions = INTERNAL_MODEL_OPTIONS.filter(
+    (item) => item !== primarySlug
+  );
+
+  const updateFallbackModels = (next: string[]) => {
+    setImageProxyField({ image_fallback_model_slugs: next });
+  };
+
+  const toggleCandidate = (slug: string) => {
+    if (fallbackModels.includes(slug)) {
+      if (fallbackModels.length <= 1) {
+        toast.warning("开启备用轮询时至少保留 1 个备用模型");
+        return;
+      }
+      updateFallbackModels(fallbackModels.filter((item) => item !== slug));
+    } else {
+      updateFallbackModels([...fallbackModels, slug]);
+    }
+  };
+
+  const removeChip = (slug: string) => {
+    if (fallbackModels.length <= 1) {
+      toast.warning("开启备用轮询时至少保留 1 个备用模型");
+      return;
+    }
+    updateFallbackModels(fallbackModels.filter((item) => item !== slug));
+  };
+
+  const moveChip = (index: number, delta: -1 | 1) => {
+    const targetIndex = index + delta;
+    if (targetIndex < 0 || targetIndex >= fallbackModels.length) return;
+    const next = [...fallbackModels];
+    const [picked] = next.splice(index, 1);
+    next.splice(targetIndex, 0, picked);
+    updateFallbackModels(next);
+  };
+
+  const addCustomSlug = () => {
+    const trimmed = customSlug.trim();
+    if (!trimmed) return;
+    if (trimmed === primarySlug) {
+      toast.warning("该模型已是当前首选路由模型，无需重复加入备用列表");
+      return;
+    }
+    if (fallbackModels.includes(trimmed)) {
+      toast.info(`备用列表中已包含「${trimmed}」`);
+      setCustomSlug("");
+      return;
+    }
+    if (
+      !INTERNAL_MODEL_OPTIONS.includes(
+        trimmed as (typeof INTERNAL_MODEL_OPTIONS)[number]
+      )
+    ) {
+      toast.warning(
+        `底层号池仅支持预置会话模型（如 ${INTERNAL_MODEL_OPTIONS.slice(0, 4).join(" / ")}）`
+      );
+      return;
+    }
+    updateFallbackModels([...fallbackModels, trimmed]);
+    setCustomSlug("");
+  };
+
+  const handleCustomKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      addCustomSlug();
+    }
+  };
 
   return (
-    <div className="grid gap-4">
-      <div className="grid gap-4 md:grid-cols-2">
-        <Field>
-          <FieldLabel>生图默认模型</FieldLabel>
-          <div className="flex h-9 items-center rounded-lg border border-input bg-muted/40 px-3 text-sm text-muted-foreground">
-            {String(config.image_default_model || DEFAULT_IMAGE_MODEL)}
+    <div className="space-y-5">
+      {/* 1. 底层会话模型路由与故障降级 */}
+      <SettingsSection
+        layout="split"
+        title="GPT 号池底层模型路由"
+        description="指定本地账号池发起生图会话的首选底层模型，以及失败后的自动降级轮询链路。"
+      >
+        <div className="grid gap-3.5 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between gap-1.5">
+              <span className="text-xs font-medium text-foreground sm:text-[13px]">
+                全站默认生图模型
+              </span>
+              <Badge
+                variant="outline"
+                className="h-4.5 gap-1 px-1.5 text-[10px] font-normal text-muted-foreground"
+              >
+                <Lock className="size-2.5" />
+                服务端锁定
+              </Badge>
+            </div>
+            <div className="flex h-9 items-center rounded-lg border border-border/75 bg-surface-muted/65 px-3 font-mono text-xs text-muted-foreground">
+              {String(config.image_default_model || DEFAULT_IMAGE_MODEL)}
+            </div>
+            <p className="text-[11px] leading-4.5 text-muted-foreground">
+              API 未传 model 或传 auto 时默认使用该标识；创作台可按需切换具体模型。
+            </p>
           </div>
-          <FieldDescription>
-            服务端把缺省生图模型固定为 {DEFAULT_IMAGE_MODEL}（未传 model 或传 auto 时使用）；Studio 仍可按请求选择模型。
-          </FieldDescription>
-        </Field>
-        <Field>
-          <FieldLabel htmlFor="image-internal-model-slug">GPT Images 2.5 账号池路由</FieldLabel>
-          <Select value={String(config.image_internal_model_slug || "gpt-5-3")} onValueChange={(value) => setImageProxyField({ image_internal_model_slug: value })}>
-            <SelectTrigger id="image-internal-model-slug" className={settingsInputClassName}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {internalModelOptions.map((model) => (
-                <SelectItem key={model} value={model}>{model}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </Field>
-      </div>
 
-      <label className={settingsToggleClassName} htmlFor="image-fallback-model-enabled">
-        <Checkbox
+          <div className="space-y-1.5">
+            <label
+              htmlFor="image-internal-model-slug"
+              className="block text-xs font-medium text-foreground sm:text-[13px]"
+            >
+              首选底层会话模型 Slug
+            </label>
+            <Select
+              value={primarySlug}
+              onValueChange={(value) => {
+                const cleanedFallbacks = fallbackModels.filter(
+                  (item) => item !== value
+                );
+                setImageProxyField({
+                  image_internal_model_slug: value,
+                  ...(cleanedFallbacks.length > 0 &&
+                  cleanedFallbacks.length !== fallbackModels.length
+                    ? { image_fallback_model_slugs: cleanedFallbacks }
+                    : {}),
+                });
+              }}
+            >
+              <SelectTrigger
+                id="image-internal-model-slug"
+                className={cn("w-full font-mono text-xs", settingsInputClassName)}
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {INTERNAL_MODEL_OPTIONS.map((model) => (
+                  <SelectItem
+                    key={model}
+                    value={model}
+                    className="font-mono text-xs"
+                  >
+                    {model}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-[11px] leading-4.5 text-muted-foreground">
+              本地 GPT 号池执行 GPT Images 2.5 任务时优先调度的内部会话模型。
+            </p>
+          </div>
+        </div>
+
+        <SettingsSwitchRow
           id="image-fallback-model-enabled"
-          checked={config.image_fallback_model_enabled !== false}
-          onCheckedChange={(checked) => setImageProxyField({ image_fallback_model_enabled: Boolean(checked) })}
+          title="生图失败后自动轮询备用底层模型"
+          description="首选底层模型返回限流或模型不可用时，按下方排列顺序依次尝试备用模型以提高出图成功率"
+          checked={fallbackEnabled}
+          onCheckedChange={(checked) =>
+            setImageProxyField({ image_fallback_model_enabled: checked })
+          }
         />
-        <span>生图失败后轮询备用底层模型</span>
-      </label>
 
-      <Field>
-        <FieldLabel htmlFor="image-fallback-model-slugs">备用账号池模型 slug（按顺序轮询）</FieldLabel>
-        <Input
-          id="image-fallback-model-slugs"
-          value={fallbackModels.join(", ")}
-          onChange={(event) => setImageProxyField({ image_fallback_model_slugs: event.target.value.split(",").map((item) => item.trim()).filter(Boolean) })}
-          placeholder="gpt-5.5, auto"
-          className={settingsInputClassName}
-        />
-      </Field>
+        {fallbackEnabled ? (
+          <div className="space-y-3 rounded-xl border border-border/75 bg-surface-subtle/45 p-3.5">
+            <div className="space-y-1.5">
+              <div className="flex flex-wrap items-center justify-between gap-1.5">
+                <span className="text-xs font-medium text-foreground">
+                  已选备用轮询顺序（共 {fallbackModels.length} 项）
+                </span>
+                <span className="text-[11px] text-muted-foreground">
+                  使用左右箭头调整失败降级优先级
+                </span>
+              </div>
+
+              {fallbackModels.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-border/80 bg-surface px-3 py-2 text-xs text-muted-foreground">
+                  尚未选择备用模型，请点击下方候选标签添加。
+                </div>
+              ) : (
+                <div className="flex flex-wrap items-center gap-2">
+                  {fallbackModels.map((slug, index) => (
+                    <div
+                      key={slug}
+                      className="inline-flex h-7.5 items-center gap-1 rounded-lg border border-border/85 bg-surface px-2 text-xs shadow-2xs"
+                    >
+                      <span className="rounded bg-surface-muted px-1 py-0.25 font-mono text-[10px] font-medium tabular-nums text-muted-foreground">
+                        #{index + 1}
+                      </span>
+                      <span className="px-0.5 font-mono text-xs font-medium text-foreground">
+                        {slug}
+                      </span>
+                      <div className="ml-0.5 flex items-center border-l border-border/65 pl-1">
+                        <button
+                          type="button"
+                          aria-label={`将 ${slug} 向前移动`}
+                          title="提高优先级"
+                          disabled={index === 0}
+                          onClick={() => moveChip(index, -1)}
+                          className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground disabled:opacity-30"
+                        >
+                          <ChevronLeft className="size-3" />
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={`将 ${slug} 向后移动`}
+                          title="降低优先级"
+                          disabled={index === fallbackModels.length - 1}
+                          onClick={() => moveChip(index, 1)}
+                          className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground disabled:opacity-30"
+                        >
+                          <ChevronRight className="size-3" />
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={`移除备用模型 ${slug}`}
+                          title="移除"
+                          onClick={() => removeChip(slug)}
+                          className="ml-0.5 rounded p-0.5 text-muted-foreground transition-colors hover:bg-status-danger-soft hover:text-status-danger"
+                        >
+                          <X className="size-3" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-1.5 border-t border-border/60 pt-2.5">
+              <div className="text-[11px] font-medium text-muted-foreground">
+                点击候选模型一键加入或移出轮询池：
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {candidateOptions.map((slug) => {
+                  const selected = fallbackModels.includes(slug);
+                  return (
+                    <button
+                      key={slug}
+                      type="button"
+                      onClick={() => toggleCandidate(slug)}
+                      className={cn(
+                        "inline-flex h-7 items-center gap-1 rounded-md border px-2.5 font-mono text-xs transition-colors",
+                        selected
+                          ? "border-foreground/80 bg-primary text-primary-foreground shadow-2xs"
+                          : "border-border/80 bg-surface text-muted-foreground hover:border-border-strong hover:text-foreground"
+                      )}
+                    >
+                      <span>{slug}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2 border-t border-border/60 pt-2.5 sm:flex-row sm:items-center">
+              <Input
+                list="fallback-slug-options"
+                value={customSlug}
+                onChange={(event) => setCustomSlug(event.target.value)}
+                onKeyDown={handleCustomKeyDown}
+                placeholder="输入模型 Slug 后按 Enter 添加（如 gpt-5.5）"
+                className={cn(
+                  settingsInputClassName,
+                  "h-8.5 min-w-0 flex-1 font-mono text-xs"
+                )}
+              />
+              <datalist id="fallback-slug-options">
+                {candidateOptions.map((item) => (
+                  <option key={item} value={item} />
+                ))}
+              </datalist>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={!customSlug.trim()}
+                onClick={addCustomSlug}
+                className="h-8.5 shrink-0 gap-1 px-3 text-xs"
+              >
+                <Plus className="size-3.5" />
+                <span>添加至末尾</span>
+              </Button>
+            </div>
+          </div>
+        ) : null}
+      </SettingsSection>
+
+      {/* 2. 本地号池生图与视频积分计费 */}
+      <SettingsSection
+        layout="split"
+        title="本地号池积分计费标准"
+        description="统一管理本地 GPT 号池、Grok 生图与 Grok 视频生成的默认扣费单价；第三方中转渠道按各自模型配置独立计费。"
+      >
+        <div className="space-y-3.5">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <SettingsUnitInput
+              id="pricing-gpt-1080p"
+              label="GPT 标准画质 (1K)"
+              unit="积分/张"
+              min={1}
+              value={config.image_credit_cost_1080p ?? 1}
+              onChange={setImageCreditCost1080p}
+            />
+            <SettingsUnitInput
+              id="pricing-gpt-2k"
+              label="GPT 高清画质 (2K)"
+              unit="积分/张"
+              min={1}
+              value={config.image_credit_cost_2k ?? 2}
+              onChange={setImageCreditCost2k}
+            />
+            <SettingsUnitInput
+              id="pricing-gpt-4k"
+              label="GPT 超清画质 (4K)"
+              unit="积分/张"
+              min={1}
+              value={config.image_credit_cost_4k ?? 3}
+              onChange={setImageCreditCost4k}
+            />
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-3">
+            <SettingsUnitInput
+              id="pricing-grok-1k"
+              label="Grok 标准生图 (1K)"
+              unit="积分/张"
+              min={1}
+              value={config.grok_image_credit_cost_1k ?? 1}
+              onChange={setGrokImageCreditCost1k}
+            />
+            <SettingsUnitInput
+              id="pricing-grok-2k"
+              label="Grok 高清生图 (2K)"
+              unit="积分/张"
+              min={1}
+              value={config.grok_image_credit_cost_2k ?? 2}
+              onChange={setGrokImageCreditCost2k}
+            />
+            <SettingsUnitInput
+              id="pricing-grok-video-sec"
+              label="Grok 视频每秒计费"
+              unit="积分/秒"
+              min={1}
+              description="grok-imagine-video 按实际生成时长计费"
+              value={config.video_credit_cost_per_second ?? 1}
+              onChange={setVideoCreditCostPerSecond}
+            />
+          </div>
+        </div>
+      </SettingsSection>
     </div>
   );
 }

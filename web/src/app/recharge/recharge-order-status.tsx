@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { CheckCircle2, LoaderCircle } from "lucide-react";
+import { CheckCircle2, Clock, LoaderCircle, XCircle } from "lucide-react";
 import QRCode from "qrcode";
 
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +9,7 @@ import type { PaymentOrder } from "@/lib/user-admin-api";
 
 type RechargeOrderStatusProps = {
   order: PaymentOrder;
+  channelName?: string;
   provider: string;
   querying: boolean;
   cancelling: boolean;
@@ -19,6 +20,7 @@ type RechargeOrderStatusProps = {
 
 export function RechargeOrderStatus({
   order,
+  channelName,
   provider,
   querying,
   cancelling,
@@ -27,7 +29,8 @@ export function RechargeOrderStatus({
   onCancel,
 }: RechargeOrderStatusProps) {
   const success = order.status === "succeeded";
-  const terminal = ["closed", "failed", "exception"].includes(order.status);
+  const terminal = ["closed", "expired", "failed", "exception"].includes(order.status);
+  const failedOrException = ["failed", "exception"].includes(order.status);
   const closing = order.status === "closing";
   const expiresAtMs = Date.parse(order.expires_at);
   const [now, setNow] = useState(() => Date.now());
@@ -78,26 +81,36 @@ export function RechargeOrderStatus({
     };
   }, [order.code_url, qrUnavailable, success]);
 
-  const paymentName = provider === "alipay" ? "支付宝" : "微信支付";
+  const paymentName =
+    channelName?.trim() ||
+    (provider === "alipay"
+      ? "支付宝"
+      : provider === "wechatpay"
+        ? "微信支付"
+        : "扫码支付");
   return (
     <section className="mx-auto w-full max-w-2xl rounded-xl border border-border/70 bg-card p-5 shadow-2xs">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 text-base font-semibold">
           {success ? (
-            <CheckCircle2 className="size-5 text-emerald-600 dark:text-emerald-400" />
+            <CheckCircle2 className="size-5 text-status-success" />
+          ) : failedOrException ? (
+            <XCircle className="size-5 text-status-danger" />
+          ) : terminal ? (
+            <Clock className="size-5 text-muted-foreground" />
           ) : (
-            <LoaderCircle
-              className={
-                terminal
-                  ? "size-5 text-muted-foreground"
-                  : "size-5 animate-spin text-foreground"
-              }
-            />
+            <LoaderCircle className="size-5 animate-spin text-foreground" />
           )}
           {success
             ? "充值已到账"
             : terminal
-              ? (order.status === "exception" ? "订单需要核查" : order.status === "failed" ? "订单创建失败" : "订单已关闭")
+              ? order.status === "exception"
+                ? "订单需要核查"
+                : order.status === "failed"
+                  ? "订单创建失败"
+                  : order.status === "expired"
+                    ? "订单已过期"
+                    : "订单已关闭"
               : closing
                 ? "正在关闭订单"
                 : expired

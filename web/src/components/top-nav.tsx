@@ -7,6 +7,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { AnnouncementNotifications } from "@/components/announcement-banner";
 import { ImageTaskQueue } from "@/components/image-task-queue";
 import { Button } from "@/components/ui/button";
+import webConfig from "@/constants/common-env";
 import { fetchProfileCredits, logout } from "@/lib/api";
 import { DEFAULT_APP_TITLE } from "@/lib/app-meta";
 import { withCanvasNav } from "@/lib/canvas-link";
@@ -174,19 +175,30 @@ export function TopNav() {
             canAccessSettings={canAccessSettings}
             onToggle={() => setNavCollapsed((collapsed) => !collapsed)}
           />
-          <TopNavActions
-            canAccessImageTasks={canAccessImageTasks}
-            canAccessRecharge={canAccessRecharge}
-            creditBalance={creditBalance}
-            theme={theme}
-            session={session}
-            roleLabel={roleLabel}
-            pathname={pathname}
-            onThemeToggle={handleThemeToggle}
-            onLogout={handleLogout}
-            compact
-            className="ml-auto flex shrink-0 items-center gap-0.5 lg:hidden"
-          />
+          <div className="ml-auto flex shrink-0 items-center gap-0.5 lg:hidden">
+            <NavSearchMenu
+              items={visibleNavItems}
+              pathname={pathname}
+              theme={theme}
+              onToggleTheme={() => handleThemeToggle()}
+              onLogout={handleLogout}
+              compact
+            />
+            <TopNavActions
+              canAccessImageTasks={canAccessImageTasks}
+              canAccessRecharge={canAccessRecharge}
+              creditBalance={creditBalance}
+              theme={theme}
+              session={session}
+              roleLabel={roleLabel}
+              pathname={pathname}
+              search={location.search}
+              onThemeToggle={handleThemeToggle}
+              onLogout={handleLogout}
+              compact
+              className="flex shrink-0 items-center gap-0.5"
+            />
+          </div>
         </div>
         <nav
           id={PRIMARY_NAV_ID}
@@ -223,6 +235,7 @@ export function TopNav() {
             session={session}
             roleLabel={roleLabel}
             pathname={pathname}
+            search={location.search}
             onThemeToggle={handleThemeToggle}
             onLogout={handleLogout}
             className="flex items-center justify-end gap-1"
@@ -299,7 +312,7 @@ function NavBrandButton({
           title="查看系统版本与在线更新"
           className="hidden h-5 items-center rounded-md bg-surface-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground sm:inline-flex"
         >
-          v4.9.0
+          v{webConfig.appVersion.replace(/^v/i, "").split("-")[0]}
         </button>
       ) : null}
       <Button
@@ -334,6 +347,7 @@ function TopNavActions({
   session,
   roleLabel,
   pathname,
+  search = "",
   onThemeToggle,
   onLogout,
   className,
@@ -346,6 +360,7 @@ function TopNavActions({
   session: StoredAuthSession;
   roleLabel: string;
   pathname: string;
+  search?: string;
   onThemeToggle: (button: HTMLButtonElement) => void;
   onLogout: () => Promise<void>;
   className: string;
@@ -358,7 +373,14 @@ function TopNavActions({
       ) : null}
       <AnnouncementNotifications target="image" className="size-8" />
       <ThemeToggleButton theme={theme} onToggle={onThemeToggle} />
-      {compact ? null : (
+      {compact ? (
+        <div className="hidden sm:block">
+          <CreditBalanceBadge
+            creditBalance={creditBalance}
+            canRecharge={canAccessRecharge}
+          />
+        </div>
+      ) : (
         <>
           <span aria-hidden="true" className="mx-1 h-4 w-px bg-border/80" />
           <CreditBalanceBadge
@@ -373,6 +395,7 @@ function TopNavActions({
         creditBalance={creditBalance}
         canRecharge={canAccessRecharge}
         pathname={pathname}
+        search={search}
         onLogout={onLogout}
         compact={compact}
       />

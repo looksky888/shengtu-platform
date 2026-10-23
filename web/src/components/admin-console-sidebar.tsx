@@ -163,8 +163,10 @@ export function AdminConsoleSidebar() {
     <aside
       aria-label="管理控制台导航"
       className={cn(
-        "studio-stage-frame sticky top-17 hidden max-h-[calc(100dvh-5.25rem)] shrink-0 flex-col justify-between overflow-y-auto rounded-2xl p-2.5 transition-[width] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] lg:flex",
-        collapsed ? "w-15" : "w-54"
+        "studio-stage-frame sticky top-17 hidden max-h-[calc(100dvh-5.25rem)] shrink-0 flex-col justify-between rounded-2xl p-2.5 transition-[width] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] lg:flex",
+        collapsed
+          ? "w-15 overflow-visible"
+          : "w-54 overflow-y-auto overflow-x-hidden"
       )}
     >
       <div className="space-y-3">
@@ -206,11 +208,17 @@ export function AdminConsoleSidebar() {
           </Button>
         </div>
 
-        <nav aria-label="管理模块列表" className="space-y-3">
-          {visibleGroups.map((group) => {
+        <nav aria-label="管理模块列表" className={cn(collapsed ? "space-y-1.5" : "space-y-3")}>
+          {visibleGroups.map((group, groupIndex) => {
             const isGroupCollapsed = !collapsed && Boolean(collapsedGroups[group.id]);
             return (
               <div key={group.id} className="space-y-1">
+                {collapsed && groupIndex > 0 ? (
+                  <div
+                    aria-hidden="true"
+                    className="mx-1.5 my-1.5 h-px bg-border/75"
+                  />
+                ) : null}
                 {!collapsed ? (
                   <button
                     type="button"
@@ -235,7 +243,7 @@ export function AdminConsoleSidebar() {
                       : "grid-rows-[1fr] opacity-100"
                   )}
                 >
-                  <div className="min-h-0 space-y-0.5 overflow-hidden">
+                  <div className={cn("min-h-0 space-y-0.5", collapsed ? "overflow-visible" : "overflow-hidden")}>
                     {group.items.map((item) => {
                       const Icon = getNavItemIcon(item);
                       const active = isActivePath(pathname, item.href);
@@ -247,7 +255,7 @@ export function AdminConsoleSidebar() {
                           to={item.href}
                           onMouseEnter={() => preloadRoute(item.href)}
                           onFocus={() => preloadRoute(item.href)}
-                          title={collapsed ? displayLabel : item.description}
+                          title={collapsed ? undefined : item.description}
                           aria-label={displayLabel}
                           className={cn(
                             "group relative isolate flex h-9 items-center rounded-[11px] text-[13px] font-medium transition-colors motion-safe:active:scale-[0.985]",
@@ -275,6 +283,12 @@ export function AdminConsoleSidebar() {
                               className="absolute inset-0 -z-10 rounded-[11px] bg-surface shadow-[0_1px_3px_rgba(0,0,0,0.06)] ring-1 ring-border/85 dark:bg-surface-muted"
                             />
                           ) : null}
+                          {active && collapsed ? (
+                            <span
+                              aria-hidden="true"
+                              className="absolute top-2 bottom-2 left-0.5 z-10 w-0.5 rounded-full bg-foreground"
+                            />
+                          ) : null}
                           <Icon
                             className={cn(
                               "relative z-10 size-4 shrink-0 stroke-[1.75] transition-[color,transform] duration-150",
@@ -283,11 +297,18 @@ export function AdminConsoleSidebar() {
                                 : "text-muted-foreground group-hover:-translate-y-px group-hover:text-foreground"
                             )}
                           />
-                          {!collapsed ? (
+                          {collapsed ? (
+                            <span
+                              role="tooltip"
+                              className="pointer-events-none invisible absolute top-1/2 left-[calc(100%+10px)] z-50 -translate-x-1 -translate-y-1/2 whitespace-nowrap rounded-lg border border-border/85 bg-surface-raised px-2.5 py-1 text-xs font-medium text-foreground opacity-0 shadow-md transition-all duration-100 group-hover:visible group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:visible group-focus-visible:translate-x-0 group-focus-visible:opacity-100"
+                            >
+                              {displayLabel}
+                            </span>
+                          ) : (
                             <span className="relative z-10 truncate">
                               {displayLabel}
                             </span>
-                          ) : null}
+                          )}
                           {active && !collapsed ? (
                             <span
                               aria-hidden="true"

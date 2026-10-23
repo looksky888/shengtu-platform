@@ -198,7 +198,7 @@ export function RechargeContent({
           action={
             <div className="flex flex-wrap items-center justify-center gap-2">
               <Button variant="outline" size="sm" asChild>
-                <Link to="/profile">
+                <Link to="/profile?tab=credits">
                   <Ticket className="size-3.5" />
                   使用兑换码核销积分
                 </Link>

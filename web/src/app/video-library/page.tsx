@@ -50,6 +50,7 @@ export default function VideoLibraryPage() {
       <PageHeader
         eyebrow="创作资产库"
         title="素材中心"
+        description="统一浏览、筛选、预览并管理创作生成的图片与视频资产。"
         actions={(
           <>
             <Button

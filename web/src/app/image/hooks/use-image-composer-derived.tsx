@@ -116,10 +116,10 @@ export function useImageComposerDerived(params: UseImageComposerDerivedParams) {
   const imageOutputHint = useMemo(
     () => (
       <>
-        <div><span className="font-semibold text-stone-800">质量说明：</span>Low / Medium / High 会随请求下发，实际效果取决于当前账号和上游链路能力。</div>
-        <div className="mt-2"><span className="font-semibold text-stone-800">输出格式：</span>支持 PNG / JPEG / WebP；PNG 不支持压缩率，JPEG / WebP 会下发 0-100 的压缩率参数。</div>
-        <div className="mt-2"><span className="font-semibold text-stone-800">GPT 分辨率：</span>固定使用 1K，比例选择会换算为对应像素尺寸并随请求下发。</div>
-        <div className="mt-2"><span className="font-semibold text-stone-800">Auto 模式：</span>不会强制指定比例；选择比例模式后会严格按所选画幅生成。</div>
+        <div><span className="font-semibold text-foreground">质量说明：</span>Low / Medium / High 会随请求下发，实际效果取决于当前账号和上游链路能力。</div>
+        <div className="mt-2"><span className="font-semibold text-foreground">输出格式：</span>支持 PNG / JPEG / WebP；PNG 不支持压缩率，JPEG / WebP 会下发 0-100 的压缩率参数。</div>
+        <div className="mt-2"><span className="font-semibold text-foreground">GPT 分辨率：</span>固定使用 1K，比例选择会换算为对应像素尺寸并随请求下发。</div>
+        <div className="mt-2"><span className="font-semibold text-foreground">Auto 模式：</span>不会强制指定比例；选择比例模式后会严格按所选画幅生成。</div>
       </>
     ),
     [],

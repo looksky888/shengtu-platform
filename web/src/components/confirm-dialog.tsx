@@ -18,6 +18,15 @@ import { cn } from "@/lib/utils";
 
 export type ConfirmDialogTone = "default" | "warning" | "destructive";
 
+export type ConfirmDialogSecondaryAction = {
+  label: string;
+  pending?: boolean;
+  pendingLabel?: string;
+  variant?: "default" | "outline" | "secondary" | "destructive" | "brand";
+  disabled?: boolean;
+  onClick: () => void;
+};
+
 export type ConfirmDialogProps = {
   open: boolean;
   title: string;
@@ -30,6 +39,7 @@ export type ConfirmDialogProps = {
   impactItems?: ReactNode[];
   requireConfirmText?: string;
   pending?: boolean;
+  secondaryAction?: ConfirmDialogSecondaryAction;
   onClose: () => void;
   onConfirm: () => void;
 };
@@ -46,12 +56,14 @@ export function ConfirmDialog({
   impactItems,
   requireConfirmText,
   pending = false,
+  secondaryAction,
   onClose,
   onConfirm,
 }: ConfirmDialogProps) {
   const resolvedTone: ConfirmDialogTone =
     tone ?? (destructive ? "destructive" : "default");
-  const isDestructive = resolvedTone === "destructive";
+  const isDestructive = Boolean(destructive || resolvedTone === "destructive");
+  const isBusy = pending || Boolean(secondaryAction?.pending);
   const cancelRef = React.useRef<HTMLButtonElement | null>(null);
   const [typedText, setTypedText] = React.useState("");
 
@@ -62,7 +74,7 @@ export function ConfirmDialog({
   }, [open]);
 
   const confirmDisabled =
-    pending ||
+    isBusy ||
     Boolean(
       requireConfirmText &&
         typedText.trim() !== requireConfirmText.trim()
@@ -78,7 +90,7 @@ export function ConfirmDialog({
   return (
     <Dialog
       open={open}
-      onOpenChange={(nextOpen) => (!nextOpen && !pending ? onClose() : null)}
+      onOpenChange={(nextOpen) => (!nextOpen && !isBusy ? onClose() : null)}
     >
       <DialogContent
         showCloseButton={false}
@@ -152,10 +164,23 @@ export function ConfirmDialog({
             type="button"
             variant="outline"
             onClick={onClose}
-            disabled={pending}
+            disabled={isBusy}
           >
             {cancelLabel}
           </Button>
+          {secondaryAction ? (
+            <Button
+              type="button"
+              variant={secondaryAction.variant ?? "secondary"}
+              loading={secondaryAction.pending}
+              disabled={isBusy || secondaryAction.disabled}
+              onClick={secondaryAction.onClick}
+            >
+              {secondaryAction.pending
+                ? secondaryAction.pendingLabel ?? secondaryAction.label
+                : secondaryAction.label}
+            </Button>
+          ) : null}
           <Button
             type="button"
             variant={isDestructive ? "destructive" : "default"}

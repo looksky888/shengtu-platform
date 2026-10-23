@@ -5,11 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
-import type { VideoCreationController } from "./use-video-creation";
+import type { VideoCreationController, VideoInputMode } from "./use-video-creation";
 
 const acceptedTypes = "image/png,image/jpeg,image/webp,image/gif";
 
-export type VideoInputMode = "t2v" | "i2v" | "ref";
+export type { VideoInputMode };
 
 export function VideoReferenceInput({
   controller,
@@ -39,8 +39,9 @@ export function VideoReferenceInput({
     return (
       <section className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/70 bg-surface-muted/60 px-3 py-2 text-xs">
         <span className="text-muted-foreground">
-          已附加 {hasFirstFrame ? "首帧图" : ""}
-          {hasFirstFrame && selectedRefCount > 0 ? " + " : ""}
+          文生视频不会携带已暂存的
+          {hasFirstFrame ? "首帧图" : ""}
+          {hasFirstFrame && selectedRefCount > 0 ? "与" : ""}
           {selectedRefCount > 0 ? `${selectedRefCount} 张参考图` : ""}
         </span>
         <button
@@ -52,7 +53,7 @@ export function VideoReferenceInput({
             controller.setSelectedReferenceAssets([]);
           }}
         >
-          清空参考
+          清空暂存
         </button>
       </section>
     );

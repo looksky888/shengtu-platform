@@ -1,4 +1,4 @@
-﻿import { useCallback, useState } from "react";
+import { useCallback, useState } from "react";
 import { toast } from "sonner";
 
 import type { ImageDeleteConfirmTarget } from "@/app/image/components/image-delete-confirm-dialog";
@@ -98,6 +98,8 @@ export function useImageHistoryActions({
     setIsHistoryOpen,
     deleteConfirm,
     setDeleteConfirm,
+    handleDeleteConversation,
+    handleClearHistory,
     openDeleteConversationConfirm,
     openClearHistoryConfirm,
     openDeleteTurnConfirm,

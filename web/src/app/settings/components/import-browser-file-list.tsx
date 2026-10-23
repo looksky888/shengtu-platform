@@ -3,53 +3,98 @@ import { Search } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { CPARemoteFile } from "@/lib/api";
+import { cn } from "@/lib/utils";
 
 type ImportBrowserFileListProps = {
-  filteredFiles: CPARemoteFile[];
   pagedFiles: CPARemoteFile[];
-  selectedNames: string[];
-  allFilteredSelected: boolean;
-  onToggleSelectAllFiltered: (checked: boolean) => void;
+  selectedSet: ReadonlySet<string>;
+  allPageSelected: boolean;
+  somePageSelected: boolean;
+  disabled?: boolean;
+  onToggleSelectPage: (checked: boolean) => void;
   onToggleFile: (name: string, checked: boolean) => void;
 };
 
 export function ImportBrowserFileList({
-  filteredFiles,
   pagedFiles,
-  selectedNames,
-  allFilteredSelected,
-  onToggleSelectAllFiltered,
+  selectedSet,
+  allPageSelected,
+  somePageSelected,
+  disabled = false,
+  onToggleSelectPage,
   onToggleFile,
 }: ImportBrowserFileListProps) {
+  const pageSelectedCount = pagedFiles.filter((item) =>
+    selectedSet.has(item.name)
+  ).length;
+
   return (
-    <div className="overflow-hidden rounded-xl border border-border/70 bg-surface">
-      <div className="flex items-center justify-between border-b border-border/70 bg-surface-subtle/80 px-4 py-3 text-xs font-medium text-muted-foreground">
-        <div className="flex items-center gap-3">
-          <Checkbox checked={allFilteredSelected} onCheckedChange={(checked) => onToggleSelectAllFiltered(Boolean(checked))} />
-          <span className="tabular-nums">筛选结果 {filteredFiles.length} 个</span>
-        </div>
-        <span className="tabular-nums">已选 {selectedNames.length} 个</span>
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border/75 bg-surface">
+      <div className="flex items-center justify-between border-b border-border/70 bg-surface-subtle/75 px-4 py-2.5 text-xs font-medium text-muted-foreground">
+        <label className="flex cursor-pointer items-center gap-3 select-none text-foreground">
+          <Checkbox
+            aria-label="全选当前页账号"
+            disabled={disabled || pagedFiles.length === 0}
+            checked={
+              allPageSelected
+                ? true
+                : somePageSelected
+                  ? "indeterminate"
+                  : false
+            }
+            onCheckedChange={(checked) =>
+              onToggleSelectPage(checked === true)
+            }
+          />
+          <span className="tabular-nums">
+            全选本页（{pageSelectedCount}/{pagedFiles.length}）
+          </span>
+        </label>
+        <span className="font-mono text-[11px] text-muted-foreground">
+          邮箱 / 凭证文件名
+        </span>
       </div>
-      <div className="max-h-[420px] overflow-auto">
+
+      <div className="thin-scrollbar max-h-[360px] flex-1 overflow-y-auto">
         {pagedFiles.length === 0 ? (
           <EmptyState
             compact
             icon={Search}
             title="没有匹配的远程账号"
-            description="请调整搜索词或筛选条件后重试。"
+            description="请调整搜索关键词或清空筛选条件后重试。"
             className="py-10"
           />
         ) : (
           <div className="divide-y divide-border/60">
-            {pagedFiles.map((item) => (
-              <label key={item.name} className="flex cursor-pointer items-center gap-3 px-4 py-3 transition-colors hover:bg-surface-hover/60">
-                <Checkbox checked={selectedNames.includes(item.name)} onCheckedChange={(checked) => onToggleFile(item.name, Boolean(checked))} />
-                <div className="min-w-0">
-                  <div className="truncate text-sm font-medium text-foreground">{item.email || item.name}</div>
-                  <div className="truncate font-mono text-xs text-muted-foreground">{item.name}</div>
-                </div>
-              </label>
-            ))}
+            {pagedFiles.map((item) => {
+              const checked = selectedSet.has(item.name);
+              return (
+                <label
+                  key={item.name}
+                  className={cn(
+                    "flex cursor-pointer items-center gap-3 px-4 py-2.5 transition-colors hover:bg-surface-hover/60",
+                    checked && "bg-surface-subtle/65",
+                    disabled && "pointer-events-none opacity-60"
+                  )}
+                >
+                  <Checkbox
+                    disabled={disabled}
+                    checked={checked}
+                    onCheckedChange={(nextChecked) =>
+                      onToggleFile(item.name, Boolean(nextChecked))
+                    }
+                  />
+                  <div className="flex min-w-0 flex-1 flex-col sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                    <span className="truncate text-xs font-medium text-foreground sm:text-sm">
+                      {item.email || item.name}
+                    </span>
+                    <span className="truncate font-mono text-[11px] text-muted-foreground">
+                      {item.name}
+                    </span>
+                  </div>
+                </label>
+              );
+            })}
           </div>
         )}
       </div>

@@ -1,65 +1,188 @@
-import { Boxes, Coins, Gauge, Pencil, Save, Trash2 } from "lucide-react";
+"use client";
+
+import { Boxes, Gauge, KeyRound, Pencil, Trash2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Field, FieldLabel } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
+import { CopyButton } from "@/components/ui/copy-button";
+import { Switch } from "@/components/ui/switch";
 import type { ImageChannel } from "@/lib/image-channel-api";
-import { useSettingsStore } from "../store";
-import { settingsInputClassName } from "./settings-ui";
+import { cn } from "@/lib/utils";
+
+import { settingsListItemClassName } from "./settings-ui";
 
 const typeLabels: Record<ImageChannel["type"], string> = {
   account_pool: "本地 GPT 号池",
-  grok_runtime: "本地 Grok 号池",
-  openai_compatible: "OpenAI 兼容",
+  grok_runtime: "本地 Grok 号池（含视频）",
+  openai_compatible: "OpenAI 兼容中转站",
 };
 
-export function ImageChannelRow({ channel, onEdit, onModels, onDelete }: {
+export function ImageChannelRow({
+  channel,
+  toggling = false,
+  onToggleEnabled,
+  onEdit,
+  onModels,
+  onDelete,
+}: {
   channel: ImageChannel;
+  toggling?: boolean;
+  onToggleEnabled: (enabled: boolean) => void;
   onEdit: () => void;
   onModels: () => void;
   onDelete: () => void;
 }) {
-  const config = useSettingsStore((state) => state.config);
-  const loadingConfig = useSettingsStore((state) => state.isLoadingConfig);
-  const savingConfig = useSettingsStore((state) => state.isSavingConfig);
-  const saveConfigSection = useSettingsStore((state) => state.saveConfigSection);
-  const setVideoCreditCostPerSecond = useSettingsStore((state) => state.setVideoCreditCostPerSecond);
+  const isRelay = channel.type === "openai_compatible";
 
   return (
-    <div className="grid gap-4 rounded-lg border border-border/60 bg-muted/20 p-4 transition-colors hover:border-border md:grid-cols-[minmax(0,1.35fr)_minmax(250px,.9fr)_220px] md:items-center">
-      <div className="min-w-0">
+    <div
+      className={cn(
+        settingsListItemClassName,
+        "grid gap-3.5 lg:grid-cols-[minmax(0,1.4fr)_minmax(220px,0.9fr)_auto] lg:items-center"
+      )}
+    >
+      <div className="min-w-0 space-y-1.5">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="font-semibold text-foreground">{channel.name}</span>
-          {channel.alias ? <Badge variant="outline">{channel.alias}</Badge> : null}
-          <Badge variant={channel.enabled ? "success" : "secondary"}>{channel.enabled ? "已启用" : "已停用"}</Badge>
+          <span className="text-sm font-semibold text-foreground">
+            {channel.name}
+          </span>
+          {channel.alias ? (
+            <Badge
+              variant="outline"
+              className="h-5 px-1.5 text-[11px] font-normal text-muted-foreground"
+            >
+              {channel.alias}
+            </Badge>
+          ) : null}
+          {channel.system ? (
+            <Badge
+              variant="secondary"
+              className="h-5 px-1.5 text-[10px] font-normal"
+            >
+              系统内置
+            </Badge>
+          ) : null}
+          <Badge
+            variant="outline"
+            className={cn(
+              "h-5 gap-1.5 px-2 text-[11px]",
+              channel.enabled
+                ? "border-status-success/25 bg-status-success-soft font-medium text-status-success"
+                : "border-border/75 bg-surface text-muted-foreground"
+            )}
+          >
+            <span
+              className={cn(
+                "size-1.5 rounded-full",
+                channel.enabled
+                  ? "bg-status-success"
+                  : "bg-muted-foreground/55"
+              )}
+            />
+            {channel.enabled ? "已启用" : "已停用"}
+          </Badge>
         </div>
-        <div className="mt-1 truncate text-xs text-muted-foreground">
-          {typeLabels[channel.type]}{channel.base_url ? ` · ${channel.base_url}` : ""}
+
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+          <span>{typeLabels[channel.type]}</span>
+          {channel.base_url ? (
+            <>
+              <span aria-hidden="true">·</span>
+              <code className="max-w-full truncate rounded bg-surface-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
+                {channel.base_url}
+              </code>
+              <CopyButton
+                value={channel.base_url}
+                title="复制 Base URL"
+                toastMessage="已复制渠道 Base URL"
+                className="size-6 rounded text-muted-foreground hover:text-foreground"
+              />
+            </>
+          ) : null}
+          {isRelay ? (
+            <>
+              <span aria-hidden="true">·</span>
+              <span className="inline-flex items-center gap-1 font-mono text-[11px]">
+                <KeyRound className="size-3" />
+                {channel.api_key_configured
+                  ? channel.api_key_masked || "密钥已配置"
+                  : "未配置密钥"}
+              </span>
+            </>
+          ) : null}
         </div>
       </div>
-      <div className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-2 md:grid-cols-1 lg:grid-cols-2">
-        <span className="inline-flex items-center gap-1.5 whitespace-nowrap"><Boxes className="size-3.5 shrink-0" />{channel.enabled_models} / {channel.model_count} 模型</span>
-        <span className="inline-flex items-center gap-1.5 whitespace-nowrap"><Gauge className="size-3.5 shrink-0" />并发 {channel.max_concurrency} · {channel.timeout_seconds}s</span>
+
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
+        <span className="inline-flex items-center gap-1.5 tabular-nums whitespace-nowrap">
+          <Boxes className="size-3.5 shrink-0" />
+          <span>
+            启用模型{" "}
+            <strong className="font-medium text-foreground">
+              {channel.enabled_models}
+            </strong>{" "}
+            / {channel.model_count}
+          </span>
+        </span>
+        <span className="inline-flex items-center gap-1.5 tabular-nums whitespace-nowrap">
+          <Gauge className="size-3.5 shrink-0" />
+          <span>
+            并发 {channel.max_concurrency} · 超时 {channel.timeout_seconds}s
+          </span>
+        </span>
       </div>
-      <div className="flex min-w-0 justify-end gap-2">
-        <Button type="button" variant="outline" size="sm" onClick={onModels}><Boxes className="size-4" />模型管理</Button>
-        <Button type="button" variant="ghost" size="icon" aria-label="编辑渠道" onClick={onEdit}><Pencil className="size-4" /></Button>
-        {!channel.system ? <Button type="button" variant="ghost" size="icon" aria-label="删除渠道" className="text-destructive" onClick={onDelete}><Trash2 className="size-4" /></Button> : null}
-      </div>
-      {channel.type === "grok_runtime" ? (
-        <div className="grid gap-3 rounded-lg border border-amber-200/80 bg-amber-50/70 p-3 md:col-span-3 md:grid-cols-[minmax(0,1fr)_minmax(180px,240px)_auto] md:items-end dark:border-amber-900/50 dark:bg-amber-950/20">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 text-sm font-semibold text-foreground"><Coins className="size-4 text-amber-600" />Grok 本地号池 · 视频模型</div>
-            <div className="mt-1 text-xs leading-5 text-muted-foreground">grok-imagine-video · 视频生成随本渠道启停，按生成时长扣除积分。</div>
-          </div>
-          <Field>
-            <FieldLabel htmlFor={`grok-video-credit-${channel.id}`}>每秒积分</FieldLabel>
-            <Input id={`grok-video-credit-${channel.id}`} type="number" min={1} step={1} value={String(config?.video_credit_cost_per_second ?? 1)} onChange={(event) => setVideoCreditCostPerSecond(event.target.value)} className={settingsInputClassName} disabled={loadingConfig || !config} />
-          </Field>
-          <Button type="button" variant="outline" disabled={loadingConfig || savingConfig || !config} onClick={() => void saveConfigSection(["video_credit_cost_per_second"])}><Save className="size-4" />{savingConfig ? "保存中" : "保存视频计费"}</Button>
+
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-2.5 lg:justify-end lg:border-t-0 lg:pt-0">
+        <div className="flex items-center gap-2 pr-1">
+          <span className="text-[11px] text-muted-foreground">
+            {channel.enabled ? "运行中" : "已停用"}
+          </span>
+          <Switch
+            size="sm"
+            aria-label={`切换渠道 ${channel.name} 启用状态`}
+            checked={channel.enabled}
+            disabled={toggling}
+            onCheckedChange={onToggleEnabled}
+          />
         </div>
-      ) : null}
+
+        <div className="flex items-center gap-1.5">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onModels}
+            className="h-8 gap-1.5 px-2.5 text-xs"
+          >
+            <Boxes className="size-3.5" />
+            <span>模型管理</span>
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="编辑渠道参数"
+            title="编辑渠道参数"
+            onClick={onEdit}
+            className="size-8 text-muted-foreground hover:text-foreground"
+          >
+            <Pencil className="size-3.5" />
+          </Button>
+          {!channel.system ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label="删除渠道"
+              title="删除渠道"
+              onClick={onDelete}
+              className="size-8 text-muted-foreground hover:bg-status-danger-soft hover:text-status-danger"
+            >
+              <Trash2 className="size-3.5" />
+            </Button>
+          ) : null}
+        </div>
+      </div>
     </div>
   );
 }

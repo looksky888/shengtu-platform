@@ -10,14 +10,14 @@ export function RechargeOrderActions({ order, querying, cancelling, onRefresh, o
   onCancel: () => void;
   onReset: () => void;
 }) {
-  const finished = ["succeeded", "closed", "failed"].includes(order.status);
+  const finished = ["succeeded", "closed", "expired", "failed"].includes(order.status);
   const cancellable = ["created", "pending"].includes(order.status);
   return (
     <div className="mt-5 space-y-3 border-t pt-4">
       {order.status === "exception" ? (
         <p role="alert" className="text-sm text-amber-700 dark:text-amber-300">支付结果需要管理员核查，请保留订单号并联系管理员，避免重复支付。</p>
       ) : null}
-      {order.status === "closed" || order.status === "failed" ? (
+      {order.status === "closed" || order.status === "expired" || order.status === "failed" ? (
         <p className="text-sm text-muted-foreground">本次订单已结束，可以重新选择套餐。</p>
       ) : null}
       <div className="flex flex-wrap gap-2">

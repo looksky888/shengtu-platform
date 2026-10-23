@@ -73,7 +73,7 @@ export function PaymentAdminContent() {
         title="在线充值与支付管理"
         description="集中管理收款经营概览、充值套餐上架、订单流水追踪、业务计价规则与支付渠道对账。"
       />
-      <div className="sticky top-16 z-20 flex items-center">
+      <div className="sticky top-14 z-20 flex items-center">
         <SubNav
           ariaLabel="支付管理分组"
           items={tabs}

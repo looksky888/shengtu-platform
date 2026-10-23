@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+"use client";
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import {
@@ -10,8 +12,13 @@ import {
   type Announcement,
 } from "@/lib/api";
 
+import { SETTINGS_TAB_REFRESH_EVENT } from "../settings-tabs";
 import type { AnnouncementForm } from "./announcements-types";
-import { emptyAnnouncementForm, formFromAnnouncement } from "./announcements-utils";
+import {
+  buildDraftPreviewAnnouncement,
+  emptyAnnouncementForm,
+  formFromAnnouncement,
+} from "./announcements-utils";
 import { isSettingsRasterImage } from "./settings-raster-image";
 
 export function useAnnouncementsCard() {
@@ -23,28 +30,44 @@ export function useAnnouncementsCard() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Announcement | null>(null);
   const [deletingItem, setDeletingItem] = useState<Announcement | null>(null);
+  const [previewItem, setPreviewItem] = useState<Announcement | null>(null);
   const [form, setForm] = useState<AnnouncementForm>(emptyAnnouncementForm);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "enabled" | "disabled">("all");
+  const [statusFilter, setStatusFilter] = useState<
+    "all" | "enabled" | "disabled"
+  >("all");
 
-  const load = async () => {
-    setIsLoading(true);
+  const load = useCallback(async (options: { silent?: boolean } = {}) => {
+    const { silent = false } = options;
+    if (!silent) setIsLoading(true);
     try {
       const data = await fetchAdminAnnouncements();
       setItems(data.items);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "加载公告失败");
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (didLoadRef.current) return;
     didLoadRef.current = true;
     void load();
-  }, []);
+  }, [load]);
+
+  useEffect(() => {
+    const handleTabRefresh = (event: Event) => {
+      const detail = (event as CustomEvent<{ tab?: string }>).detail;
+      if (detail?.tab === "announcement") {
+        void load({ silent: true });
+      }
+    };
+    window.addEventListener(SETTINGS_TAB_REFRESH_EVENT, handleTabRefresh);
+    return () =>
+      window.removeEventListener(SETTINGS_TAB_REFRESH_EVENT, handleTabRefresh);
+  }, [load]);
 
   const setItemPending = (id: string, isPending: boolean) => {
     setPendingIds((current) => {
@@ -67,13 +90,20 @@ export function useAnnouncementsCard() {
     setDialogOpen(true);
   };
 
+  const openDraftPreview = () => {
+    setPreviewItem(buildDraftPreviewAnnouncement(form, editingItem));
+  };
+
   const updateForm = (updates: Partial<AnnouncementForm>) => {
     setForm((current) => ({ ...current, ...updates }));
   };
 
   const handleImageUpload = async (file?: File | null) => {
     if (!file) return;
-    if (!isSettingsRasterImage(file)) return toast.error("仅支持 JPEG、PNG、GIF 或 WebP 图片");
+    if (!isSettingsRasterImage(file)) {
+      toast.error("仅支持 JPEG、PNG、GIF 或 WebP 图片");
+      return;
+    }
     setIsUploadingImage(true);
     try {
       const data = await uploadAnnouncementImage(file);
@@ -95,12 +125,20 @@ export function useAnnouncementsCard() {
       show_login: form.show_login,
       show_image: form.show_image,
     };
-    if (!payload.content) return toast.error("请输入公告内容");
-    if (!payload.show_login && !payload.show_image) return toast.error("请选择至少一个展示位置");
+    if (!payload.content) {
+      toast.error("请输入公告内容");
+      return;
+    }
+    if (!payload.show_login && !payload.show_image) {
+      toast.error("请选择至少一个展示位置");
+      return;
+    }
 
     setIsSaving(true);
     try {
-      const data = editingItem ? await updateAnnouncement(editingItem.id, payload) : await createAnnouncement(payload);
+      const data = editingItem
+        ? await updateAnnouncement(editingItem.id, payload)
+        : await createAnnouncement(payload);
       setItems(data.items);
       setDialogOpen(false);
       setEditingItem(null);
@@ -116,7 +154,9 @@ export function useAnnouncementsCard() {
   const handleToggleEnabled = async (item: Announcement) => {
     setItemPending(item.id, true);
     try {
-      const data = await updateAnnouncement(item.id, { enabled: !item.enabled });
+      const data = await updateAnnouncement(item.id, {
+        enabled: !item.enabled,
+      });
       setItems(data.items);
       toast.success(item.enabled ? "公告已停用" : "公告已启用");
     } catch (error) {
@@ -148,14 +188,39 @@ export function useAnnouncementsCard() {
       if (statusFilter === "enabled" && !item.enabled) return false;
       if (statusFilter === "disabled" && item.enabled) return false;
       if (!normalizedQuery) return true;
-      return `${item.title} ${item.content}`.toLowerCase().includes(normalizedQuery);
+      return `${item.title} ${item.content}`
+        .toLowerCase()
+        .includes(normalizedQuery);
     });
   }, [items, query, statusFilter]);
 
   return {
-    items, visibleItems, query, statusFilter, isLoading, isSaving, pendingIds, dialogOpen, editingItem, deletingItem, form, isUploadingImage,
-    setDialogOpen, setDeletingItem, updateForm, openCreateDialog, openEditDialog, handleImageUpload,
-    handleSave, handleToggleEnabled, handleDelete, setQuery, setStatusFilter,
+    items,
+    visibleItems,
+    query,
+    statusFilter,
+    isLoading,
+    isSaving,
+    pendingIds,
+    dialogOpen,
+    editingItem,
+    deletingItem,
+    previewItem,
+    form,
+    isUploadingImage,
+    setDialogOpen,
+    setDeletingItem,
+    setPreviewItem,
+    openDraftPreview,
+    updateForm,
+    openCreateDialog,
+    openEditDialog,
+    handleImageUpload,
+    handleSave,
+    handleToggleEnabled,
+    handleDelete,
+    setQuery,
+    setStatusFilter,
   };
 }
 

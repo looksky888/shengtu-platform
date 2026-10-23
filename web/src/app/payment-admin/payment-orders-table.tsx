@@ -1,6 +1,7 @@
 import { Eye, LoaderCircle, ReceiptText, RefreshCw, Search, X } from "lucide-react";
 
 import {
+  canQueryPaymentOrder,
   formatPaymentAmount,
   paymentChannelDotClass,
   paymentChannelName,
@@ -150,10 +151,12 @@ function OrderRow({
       <TableCell>
         <div className="flex justify-end gap-2">
           <Button variant="ghost" size="sm" onClick={onOpen}><Eye className="size-3.5" />详情</Button>
-          <Button variant="outline" size="sm" disabled={querying} onClick={onQuery}>
-            <RefreshCw className={querying ? "size-3.5 animate-spin" : "size-3.5"} />
-            {querying ? "查询中" : "查单"}
-          </Button>
+          {canQueryPaymentOrder(item.status) ? (
+            <Button variant="outline" size="sm" disabled={querying} onClick={onQuery}>
+              <RefreshCw className={querying ? "size-3.5 animate-spin" : "size-3.5"} />
+              {querying ? "查询中" : "查单"}
+            </Button>
+          ) : null}
         </div>
       </TableCell>
     </TableRow>

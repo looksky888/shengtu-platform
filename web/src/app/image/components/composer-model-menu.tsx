@@ -1,12 +1,13 @@
 import { Fragment, type RefObject } from "react";
-import { Bot, Check, ChevronDown, Info } from "lucide-react";
+import { Bot, Check, ChevronDown, Coins } from "lucide-react";
 
+import type { ImageModelOption } from "@/app/image/hooks/use-image-composer-derived";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { ImageModel } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import type { ImageModelOption } from "@/app/image/hooks/use-image-composer-derived";
 
 type ComposerModelMenuProps = {
-  menuRef: RefObject<HTMLDivElement | null>;
+  menuRef?: RefObject<HTMLDivElement | null>;
   open: boolean;
   label: string;
   imageModel: ImageModel;
@@ -29,27 +30,40 @@ export function ComposerModelMenu({
   onImageModelChange,
 }: ComposerModelMenuProps) {
   return (
-    <div ref={menuRef} className="relative shrink-0">
-      <button
-        type="button"
-        className={cn(
-          "inline-flex h-7.5 items-center justify-center gap-1.5 rounded-lg bg-surface-muted/90 px-2.5 text-xs font-medium text-foreground/85 transition-colors hover:bg-surface-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20",
-          open && "bg-surface-active text-foreground ring-1 ring-foreground/15",
-        )}
-        onClick={() => {
-          onOpenChange(!open);
-          onClosePeerMenus();
+    <div ref={menuRef} className="shrink-0">
+      <Popover
+        open={open}
+        onOpenChange={(nextOpen) => {
+          if (nextOpen) {
+            onClosePeerMenus();
+          }
+          onOpenChange(nextOpen);
         }}
-        aria-expanded={open}
-        aria-label={`选择模型，当前 ${label}`}
-        title={`模型：${label}`}
       >
-        <Bot className="size-3.5 shrink-0 text-muted-foreground" />
-        <span className="max-w-[160px] truncate font-medium">{label}</span>
-        <ChevronDown className={cn("size-3.5 shrink-0 opacity-60 transition", open && "rotate-180")} />
-      </button>
-      {open ? (
-        <div className="absolute bottom-[calc(100%+8px)] left-0 z-[80] max-h-[45dvh] w-[min(20rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-border/85 bg-surface p-1.5 shadow-xl sm:w-[320px]">
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className={cn(
+              "inline-flex h-7.5 items-center justify-center gap-1.5 rounded-lg bg-surface-muted/90 px-2.5 text-xs font-medium text-foreground/85 transition-colors hover:bg-surface-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20",
+              open && "bg-surface-active text-foreground ring-1 ring-foreground/15",
+            )}
+            aria-expanded={open}
+            aria-label={`选择模型，当前 ${label}`}
+            title={`模型：${label}`}
+          >
+            <Bot className="size-3.5 shrink-0 text-muted-foreground" />
+            <span className="max-w-[160px] truncate font-medium">{label}</span>
+            <ChevronDown className={cn("size-3.5 shrink-0 opacity-60 transition", open && "rotate-180")} />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent
+          side="top"
+          align="start"
+          sideOffset={8}
+          collisionPadding={12}
+          onOpenAutoFocus={(event) => event.preventDefault()}
+          className="z-[80] max-h-[min(45dvh,22rem)] w-[min(20rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-border/85 bg-surface p-1.5 shadow-xl sm:w-[320px]"
+        >
           {imageModelOptions.map((option, index) => {
             const active = option.id === imageModelOptionId || (!imageModelOptionId && option.value === imageModel);
             const previousChannel = imageModelOptions[index - 1]?.channelName;
@@ -58,7 +72,8 @@ export function ComposerModelMenu({
               <Fragment key={option.id}>
                 {showChannel ? (
                   <div className="px-2.5 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    {option.channelName}{option.channelAlias ? ` · ${option.channelAlias}` : ""}
+                    {option.channelName}
+                    {option.channelAlias ? ` · ${option.channelAlias}` : ""}
                   </div>
                 ) : null}
                 <button
@@ -75,7 +90,7 @@ export function ComposerModelMenu({
                   <span className="min-w-0 break-words">{option.label}</span>
                   {option.creditCost !== undefined ? (
                     <span className="inline-flex shrink-0 items-center gap-1 font-mono text-[11px] font-medium text-muted-foreground tabular-nums">
-                      <Info className="size-3" aria-hidden="true" />
+                      <Coins className="size-3.5" aria-hidden="true" />
                       {option.creditCost} 积分/张
                     </span>
                   ) : null}
@@ -84,8 +99,8 @@ export function ComposerModelMenu({
               </Fragment>
             );
           })}
-        </div>
-      ) : null}
+        </PopoverContent>
+      </Popover>
     </div>
   );
 }

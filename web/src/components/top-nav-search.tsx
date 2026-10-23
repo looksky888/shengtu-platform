@@ -130,12 +130,14 @@ export function NavSearchMenu({
   theme,
   onToggleTheme,
   onLogout,
+  compact = false,
 }: {
   items: NavItem[];
   pathname: string;
   theme?: "light" | "dark";
   onToggleTheme?: () => void;
   onLogout?: () => Promise<void> | void;
+  compact?: boolean;
 }) {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -359,6 +361,7 @@ export function NavSearchMenu({
     : -1;
 
   useEffect(() => {
+    if (compact) return;
     const handleShortcut = (event: KeyboardEvent) => {
       if (
         (event.ctrlKey || event.metaKey) &&
@@ -370,7 +373,7 @@ export function NavSearchMenu({
     };
     window.addEventListener("keydown", handleShortcut);
     return () => window.removeEventListener("keydown", handleShortcut);
-  }, []);
+  }, [compact]);
 
   useEffect(() => {
     if (!open) {
@@ -411,15 +414,24 @@ export function NavSearchMenu({
       <Button
         type="button"
         variant="ghost"
-        size="sm"
+        size={compact ? "icon" : "sm"}
         onClick={() => setOpen(true)}
         aria-label="打开命令面板与页面搜索"
         title="搜索页面或命令（Ctrl/⌘ + K）"
-        className="h-8 gap-2 rounded-lg bg-surface-muted/85 px-2.5 text-xs font-normal text-muted-foreground shadow-none hover:bg-surface-hover hover:text-foreground"
+        className={cn(
+          "rounded-lg text-muted-foreground shadow-none hover:bg-surface-hover hover:text-foreground",
+          compact
+            ? "size-8"
+            : "h-8 gap-2 bg-surface-muted/85 px-2.5 text-xs font-normal"
+        )}
       >
         <Search className="size-3.5 shrink-0" />
-        <span className="hidden xl:inline">搜索或跳转…</span>
-        <Kbd className="hidden sm:inline-flex">⌘K</Kbd>
+        {compact ? null : (
+          <>
+            <span className="hidden xl:inline">搜索或跳转…</span>
+            <Kbd className="hidden sm:inline-flex">⌘K</Kbd>
+          </>
+        )}
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>

@@ -21,7 +21,12 @@ import {
 } from "lucide-react";
 import type { Transition } from "motion/react";
 
-export type NavGroupId = "creation" | "assets" | "operations" | "business";
+export type NavGroupId =
+  | "creation"
+  | "assets"
+  | "operations"
+  | "business"
+  | "system";
 
 export type NavItem = {
   href: string;
@@ -41,9 +46,10 @@ export type NavGroupMeta = {
 
 export const navGroups: NavGroupMeta[] = [
   { id: "creation", label: "创作工作台" },
-  { id: "assets", label: "资产与任务" },
-  { id: "operations", label: "号池与运维" },
-  { id: "business", label: "商业与系统" },
+  { id: "assets", label: "创作资产" },
+  { id: "operations", label: "号池与任务" },
+  { id: "business", label: "用户与商业" },
+  { id: "system", label: "系统配置" },
 ];
 
 export const navItems: NavItem[] = [
@@ -51,14 +57,14 @@ export const navItems: NavItem[] = [
     href: "/image",
     label: "图片创作",
     group: "creation",
-    description: "多模态 AI 图像生成、局部重绘与对话工作台",
+    description: "多模态生图、局部重绘与对话画布",
     keywords: ["image", "draw", "paint", "shengtu", "生图", "画图"],
   },
   {
     href: "/video",
     label: "视频创作",
     group: "creation",
-    description: "Grok Imagine 视频生成与首帧参考编排",
+    description: "文生视频、首帧参考与镜头扩展",
     keywords: ["video", "film", "shipin", "视频"],
   },
   {
@@ -66,91 +72,91 @@ export const navItems: NavItem[] = [
     label: "视频库",
     accessPath: "/video",
     group: "assets",
-    description: "浏览、播放与管理已生成的视频资产",
+    description: "浏览、播放与管理已生成视频资产",
     keywords: ["video", "library", "gallery", "视频库"],
-  },
-  {
-    href: "/task-queue",
-    label: "任务中心",
-    group: "assets",
-    description: "实时监控生图任务队列、并发池与执行流水",
-    keywords: ["task", "queue", "jobs", "任务", "队列"],
   },
   {
     href: "/accounts",
     label: "号池管理",
     group: "operations",
-    description: "GPT 与 Grok 上游账号池、配额同步与健康检测",
+    description: "GPT 与 Grok 账号池配额与测活",
     keywords: ["account", "pool", "gpt", "grok", "号池", "账号"],
+  },
+  {
+    href: "/task-queue",
+    label: "任务中心",
+    group: "operations",
+    description: "实时队列、Worker 并发与隔离仓",
+    keywords: ["task", "queue", "jobs", "任务", "队列"],
   },
   {
     href: "/icloud",
     label: "iCloud 邮箱",
     group: "operations",
-    description: "iCloud 隐藏邮箱池、收件接码与隔离区管理",
+    description: "隐私邮箱池、收件取码与隔离恢复",
     keywords: ["icloud", "mail", "email", "邮箱", "接码"],
   },
   {
     href: "/register",
-    label: "注册机",
+    label: "自动注册",
     group: "operations",
-    description: "自动化账号批量注册、实时日志与导出",
-    keywords: ["register", "bot", "signup", "注册"],
+    description: "自动化批量注册、过盾与结果导出",
+    keywords: ["register", "bot", "signup", "注册", "注册机"],
   },
   {
     href: "/logs",
     label: "系统日志",
     group: "operations",
-    description: "服务端实时日志流、级别筛选与诊断排查",
+    description: "全链路请求审计、级别筛选与排障",
     keywords: ["logs", "console", "debug", "日志"],
   },
   {
     href: "/image-manager",
     label: "图片库",
     group: "assets",
-    description: "个人与公开生成图片资产管理、批量下载",
+    description: "个人与公开图片资产检索与归档",
     keywords: ["image", "gallery", "library", "图片库", "相册"],
   },
   {
     href: "/recharge",
     label: "充值中心",
     group: "business",
-    description: "在线购买算力积分套餐与扫码支付",
+    description: "购买算力积分或存储套餐扫码支付",
     keywords: ["recharge", "pay", "buy", "充值", "购买"],
   },
   {
     href: "/users",
     label: "用户管理",
     group: "business",
-    description: "平台用户列表、状态管控与角色分配",
+    description: "平台用户检索、状态管控与角色分配",
     keywords: ["users", "member", "用户"],
-  },
-  {
-    href: "/credits-admin",
-    label: "积分管理",
-    group: "business",
-    description: "用户积分余额查询、手动充值扣减与流水审计",
-    keywords: ["credits", "balance", "ledger", "积分"],
-  },
-  {
-    href: "/payment-admin",
-    label: "支付管理",
-    group: "business",
-    description: "充值套餐配置、易支付网关与订单对账",
-    keywords: ["payment", "orders", "gateway", "支付", "订单"],
   },
   {
     href: "/rbac",
     label: "角色权限",
     group: "business",
-    description: "RBAC 角色定义、页面路由与 API 细粒度授权",
+    description: "角色矩阵、页面路由与 API 细粒度授权",
     keywords: ["rbac", "role", "permission", "权限", "角色"],
   },
   {
-    href: "/settings",
-    label: "设置",
+    href: "/credits-admin",
+    label: "积分与卡密",
     group: "business",
-    description: "系统参数、生图渠道、对象存储、代理与告警配置",
+    description: "积分余额调账、兑换卡密与流水审计",
+    keywords: ["credits", "balance", "ledger", "积分", "卡密"],
+  },
+  {
+    href: "/payment-admin",
+    label: "支付配置",
+    group: "business",
+    description: "充值套餐、支付网关通道与订单对账",
+    keywords: ["payment", "orders", "gateway", "支付", "订单"],
+  },
+  {
+    href: "/settings",
+    label: "系统设置",
+    group: "system",
+    description: "运行参数、生图路由、存储备份与升级",
     keywords: ["settings", "config", "system", "设置", "配置"],
   },
 ];

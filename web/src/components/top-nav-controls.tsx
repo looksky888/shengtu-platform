@@ -224,13 +224,22 @@ export function MoreNavMenu({
       <PopoverContent
         align="center"
         sideOffset={8}
-        className="w-[min(33rem,calc(100vw-1.5rem))] rounded-2xl border-border/85 bg-surface-raised p-3 shadow-xl"
+        className="w-[min(37rem,calc(100vw-1.5rem))] rounded-2xl border-border/85 bg-surface-raised p-3.5 shadow-xl"
       >
         <div className="space-y-3">
-          {grouped.map((group) => (
-            <div key={group.id} className="space-y-1.5">
-              <div className="px-2 text-[11px] font-semibold tracking-[0.06em] uppercase text-muted-foreground/80">
-                {group.label}
+          {grouped.map((group, groupIndex) => (
+            <div
+              key={group.id}
+              className={cn(
+                "space-y-1.5",
+                groupIndex > 0 && "border-t border-border/60 pt-2.5"
+              )}
+            >
+              <div className="flex items-center justify-between px-2 text-[11px] font-semibold tracking-[0.06em] uppercase text-muted-foreground/80">
+                <span>{group.label}</span>
+                <span className="font-mono text-[10px] font-normal tabular-nums text-muted-foreground/60">
+                  {group.items.length}
+                </span>
               </div>
               <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
                 {group.items.map((item) => {
@@ -245,7 +254,7 @@ export function MoreNavMenu({
                       className={cn(
                         "group flex items-start gap-2.5 rounded-xl px-2.5 py-2 transition-colors",
                         itemActive
-                          ? "bg-surface-muted text-foreground"
+                          ? "bg-surface-muted text-foreground ring-1 ring-inset ring-border/70"
                           : "text-foreground hover:bg-surface-hover"
                       )}
                     >
@@ -261,7 +270,7 @@ export function MoreNavMenu({
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-1.5">
-                          <span className="truncate text-[13px] font-medium">
+                          <span className="text-[13px] font-medium">
                             {item.label}
                           </span>
                           {itemActive ? (
@@ -269,7 +278,7 @@ export function MoreNavMenu({
                           ) : null}
                         </div>
                         {item.description ? (
-                          <p className="mt-0.5 line-clamp-1 text-[11px] text-muted-foreground">
+                          <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground">
                             {item.description}
                           </p>
                         ) : null}
@@ -292,6 +301,7 @@ export function AccountMenu({
   creditBalance,
   canRecharge = false,
   pathname,
+  search = "",
   onLogout,
   compact = false,
 }: {
@@ -300,6 +310,7 @@ export function AccountMenu({
   creditBalance: string;
   canRecharge?: boolean;
   pathname: string;
+  search?: string;
   onLogout: () => Promise<void>;
   compact?: boolean;
 }) {
@@ -307,6 +318,12 @@ export function AccountMenu({
   const displayName = session.name || roleLabel;
   const initial = (displayName.trim() || "U").slice(0, 1).toUpperCase();
   const profileActive = isActivePath(pathname, profileNavItem.href);
+  const profileTab = React.useMemo(() => {
+    if (!profileActive) return "";
+    const raw = new URLSearchParams(search).get("tab") || "account";
+    return raw;
+  }, [profileActive, search]);
+  const rbacActive = isActivePath(pathname, "/rbac");
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -349,19 +366,25 @@ export function AccountMenu({
               to={profileNavItem.href}
               icon={UserCircle2}
               label="个人中心 · 账号概览"
-              active={profileActive}
+              active={
+                profileActive &&
+                profileTab !== "api" &&
+                profileTab !== "credits"
+              }
               onClick={() => setOpen(false)}
             />
             <AccountActionLink
               to="/profile?tab=api"
               icon={BookOpen}
               label="接口密钥与 API 文档"
+              active={profileActive && profileTab === "api"}
               onClick={() => setOpen(false)}
             />
             <AccountActionLink
               to="/profile?tab=credits"
               icon={Coins}
               label="积分中心与每日签到"
+              active={profileActive && profileTab === "credits"}
               onClick={() => setOpen(false)}
             />
             {session.role === "admin" ? (
@@ -369,6 +392,7 @@ export function AccountMenu({
                 to="/rbac"
                 icon={ShieldCheck}
                 label="角色与权限矩阵"
+                active={rbacActive}
                 onClick={() => setOpen(false)}
               />
             ) : null}

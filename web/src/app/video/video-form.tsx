@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 import { Film, LoaderCircle, Square, X } from "lucide-react";
 
 import { VideoReferenceInput, type VideoInputMode } from "@/app/video/video-reference-input";
@@ -45,26 +45,7 @@ export function VideoForm({ controller }: { controller: VideoCreationController 
     active;
   const estimatedCredits = controller.creditCostPerSecond * controller.seconds;
   const activeSizeSpec = selectedVideoSize(controller.size);
-
-  const [inputMode, setInputMode] = useState<VideoInputMode>(() =>
-    controller.uploadedReference || controller.inputReference.trim()
-      ? "i2v"
-      : controller.selectedReferenceAssetIds.length > 0
-        ? "ref"
-        : "t2v",
-  );
-
-  useEffect(() => {
-    if (controller.uploadedReference || controller.inputReference.trim()) {
-      setInputMode("i2v");
-    }
-  }, [controller.inputReference, controller.uploadedReference]);
-
-  useEffect(() => {
-    if (controller.selectedReferenceAssetIds.length > 0 && inputMode === "t2v") {
-      setInputMode("ref");
-    }
-  }, [controller.selectedReferenceAssetIds.length, inputMode]);
+  const { inputMode, setInputMode } = controller;
 
   return (
     <aside className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-border/80 bg-surface shadow-2xs xl:h-full">

@@ -1,26 +1,35 @@
-import { LoaderCircle, Trash2 } from "lucide-react";
-
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 
 import type { AnnouncementsCardState } from "./use-announcements-card";
 
-export function AnnouncementDeleteDialog({ state }: { state: AnnouncementsCardState }) {
-  const isDeleting = state.deletingItem ? state.pendingIds.has(state.deletingItem.id) : false;
+export function AnnouncementDeleteDialog({
+  state,
+}: {
+  state: AnnouncementsCardState;
+}) {
+  const isDeleting = state.deletingItem
+    ? state.pendingIds.has(state.deletingItem.id)
+    : false;
+
   return (
-    <Dialog open={Boolean(state.deletingItem)} onOpenChange={(open) => (!open ? state.setDeletingItem(null) : null)}>
-      <DialogContent className="rounded-xl p-6">
-        <DialogHeader className="gap-2">
-          <DialogTitle>删除公告</DialogTitle>
-          <DialogDescription className="text-sm leading-6">确认删除公告「{state.deletingItem?.title || "公告"}」吗？删除后不会再显示在任何页面。</DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
-          <Button type="button" variant="secondary" onClick={() => state.setDeletingItem(null)} disabled={isDeleting}>取消</Button>
-          <Button type="button" variant="destructive" onClick={() => void state.handleDelete()} disabled={isDeleting}>
-            {isDeleting ? <LoaderCircle data-icon="inline-start" className="animate-spin" /> : <Trash2 data-icon="inline-start" />}删除
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <ConfirmDialog
+      open={Boolean(state.deletingItem)}
+      destructive
+      title="确认删除站内公告？"
+      description={
+        state.deletingItem
+          ? `确认永久删除公告「${state.deletingItem.title || "未命名公告"}」吗？`
+          : ""
+      }
+      impactItems={[
+        "删除后该公告将立即从登录页与创作台下线",
+        "此操作不可恢复，如需暂时隐藏可使用列表右侧开关停用",
+      ]}
+      confirmLabel="确认删除"
+      pendingLabel="正在删除…"
+      pending={isDeleting}
+      onClose={() => state.setDeletingItem(null)}
+      onConfirm={() => void state.handleDelete()}
+    />
   );
 }

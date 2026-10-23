@@ -75,7 +75,7 @@ export function StudioStatsPopover({
             className={cn(
               "group flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2 text-[11px] tabular-nums transition-colors",
               elevatedFail
-                ? "bg-rose-500/10 text-rose-700 hover:bg-rose-500/15 dark:text-rose-300"
+                ? "bg-status-danger-soft/80 text-status-danger hover:bg-status-danger-soft"
                 : "bg-surface-muted/75 text-muted-foreground hover:bg-surface-hover hover:text-foreground",
             )}
             aria-label="查看今日出图与号池实时统计"
@@ -86,12 +86,10 @@ export function StudioStatsPopover({
                 className={cn(
                   "size-1.5 shrink-0 rounded-full",
                   elevatedFail
-                    ? "animate-pulse bg-rose-500"
-                    : onlineAccounts && onlineAccounts > 0
-                      ? "bg-emerald-500"
-                      : hasData
-                        ? "bg-emerald-500"
-                        : "bg-muted-foreground/50",
+                    ? "animate-pulse bg-status-danger"
+                    : (onlineAccounts ?? 0) > 0
+                      ? "bg-status-success"
+                      : "bg-muted-foreground/50",
                 )}
               />
               <span className="truncate">
@@ -117,7 +115,7 @@ export function StudioStatsPopover({
             className={cn(
               "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-medium shadow-2xs transition-colors",
               elevatedFail
-                ? "border-rose-300/70 bg-rose-50/90 text-rose-700 hover:bg-rose-100/90 dark:border-rose-900/60 dark:bg-rose-950/60 dark:text-rose-300"
+                ? "border-status-danger/35 bg-status-danger-soft/80 text-status-danger hover:bg-status-danger-soft"
                 : "border-border/75 bg-surface/90 text-muted-foreground hover:bg-surface-hover hover:text-foreground",
             )}
             aria-label="查看今日出图与号池统计"
@@ -127,12 +125,10 @@ export function StudioStatsPopover({
               className={cn(
                 "size-1.5 shrink-0 rounded-full",
                 elevatedFail
-                  ? "animate-pulse bg-rose-500"
-                  : onlineAccounts && onlineAccounts > 0
-                    ? "bg-emerald-500"
-                    : hasData
-                      ? "bg-emerald-500"
-                      : "bg-muted-foreground/50",
+                  ? "animate-pulse bg-status-danger"
+                  : (onlineAccounts ?? 0) > 0
+                    ? "bg-status-success"
+                    : "bg-muted-foreground/50",
               )}
             />
             <span className="hidden sm:inline">今日出图</span>
@@ -231,7 +227,7 @@ export function StudioStatsPopover({
                 <span
                   className={cn(
                     "size-1.5 rounded-full",
-                    onlineAccounts && onlineAccounts > 0 ? "bg-emerald-500" : "bg-muted-foreground/45",
+                    (onlineAccounts ?? 0) > 0 ? "bg-status-success" : "bg-muted-foreground/50",
                   )}
                 />
                 {onlineLabel}

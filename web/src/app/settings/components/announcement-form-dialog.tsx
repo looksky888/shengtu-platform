@@ -1,69 +1,233 @@
 import { useRef } from "react";
-import { LoaderCircle, Save, Upload } from "lucide-react";
+import { Eye, ImagePlus, Save, Trash2, Upload } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 
-import { settingsDialogInputClassName, settingsToggleClassName } from "./settings-ui";
 import { settingsRasterImageAccept } from "./settings-raster-image";
+import {
+  SettingsSwitchRow,
+  settingsDialogInputClassName,
+} from "./settings-ui";
 import type { AnnouncementsCardState } from "./use-announcements-card";
 
-export function AnnouncementFormDialog({ state }: { state: AnnouncementsCardState }) {
+export function AnnouncementFormDialog({
+  state,
+}: {
+  state: AnnouncementsCardState;
+}) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const imageUrl = state.form.image_url.trim();
+  const isBusy = state.isSaving || state.isUploadingImage;
 
   return (
-    <Dialog open={state.dialogOpen} onOpenChange={state.setDialogOpen}>
-      <DialogContent className="rounded-xl p-6">
-        <DialogHeader className="gap-2">
-          <DialogTitle>{state.editingItem ? "编辑公告" : "添加公告"}</DialogTitle>
-          <DialogDescription className="text-sm leading-6">公告内容会按勾选位置显示给对应页面的用户。</DialogDescription>
+    <Dialog
+      open={state.dialogOpen}
+      onOpenChange={(nextOpen) => {
+        if (!isBusy) state.setDialogOpen(nextOpen);
+      }}
+    >
+      <DialogContent
+        showCloseButton={!isBusy}
+        className="max-h-[88vh] overflow-y-auto rounded-xl p-6 sm:max-w-2xl"
+      >
+        <DialogHeader className="gap-1.5 text-left">
+          <DialogTitle>
+            {state.editingItem ? "编辑站内公告" : "发布站内公告"}
+          </DialogTitle>
+          <DialogDescription className="text-xs leading-5 sm:text-sm">
+            配置弹窗标题、正文与配图，保存后将按所选触达页面向访客或创作者展示。
+          </DialogDescription>
         </DialogHeader>
-        <FieldGroup>
+
+        <FieldGroup className="gap-4">
           <Field>
-            <FieldLabel htmlFor="announcement-title">标题</FieldLabel>
-            <Input id="announcement-title" value={state.form.title} onChange={(event) => state.updateForm({ title: event.target.value })} placeholder="公告" className={settingsDialogInputClassName} />
+            <FieldLabel htmlFor="announcement-title">公告标题</FieldLabel>
+            <Input
+              id="announcement-title"
+              value={state.form.title}
+              disabled={state.isSaving}
+              onChange={(event) =>
+                state.updateForm({ title: event.target.value })
+              }
+              placeholder="例如：v5.0 创作工作台升级通知"
+              className={cn("h-9", settingsDialogInputClassName)}
+            />
           </Field>
+
           <Field>
-            <FieldLabel htmlFor="announcement-content">内容</FieldLabel>
-            <Textarea id="announcement-content" value={state.form.content} onChange={(event) => state.updateForm({ content: event.target.value })} placeholder="填写公告内容" className="min-h-36 bg-background" />
-            <FieldDescription>保存前会去除首尾空白，内容不能为空。</FieldDescription>
+            <FieldLabel htmlFor="announcement-content">公告正文</FieldLabel>
+            <Textarea
+              id="announcement-content"
+              value={state.form.content}
+              disabled={state.isSaving}
+              onChange={(event) =>
+                state.updateForm({ content: event.target.value })
+              }
+              placeholder="输入需要展示给用户的详细说明（支持多行换行）…"
+              className={cn("min-h-36 leading-6", settingsDialogInputClassName)}
+            />
+            <FieldDescription>
+              保存前会自动去除首尾空白字符，正文内容不能为空。
+            </FieldDescription>
           </Field>
+
           <Field>
-            <FieldLabel htmlFor="announcement-image-file">公告图片</FieldLabel>
-            <div className="flex flex-col gap-3 rounded-lg border border-dashed border-border bg-muted/20 p-4">
-              {imageUrl ? <img src={imageUrl} alt="公告图片预览" className="max-h-56 w-full rounded-lg object-cover ring-1 ring-border" /> : <div className="flex min-h-28 items-center justify-center rounded-lg bg-background text-sm text-muted-foreground ring-1 ring-border">暂未上传公告图片</div>}
+            <FieldLabel htmlFor="announcement-image-file">
+              公告横幅配图（可选）
+            </FieldLabel>
+            <div className="flex flex-col gap-3 rounded-xl border border-dashed border-border/80 bg-surface-subtle/45 p-4">
+              {imageUrl ? (
+                <img
+                  src={imageUrl}
+                  alt="公告图片预览"
+                  className="max-h-56 w-full rounded-lg bg-surface-muted/60 object-contain ring-1 ring-border/75"
+                />
+              ) : (
+                <div className="flex min-h-28 flex-col items-center justify-center gap-1.5 rounded-lg bg-surface text-xs text-muted-foreground ring-1 ring-border/70">
+                  <ImagePlus className="size-5 text-muted-foreground/70" />
+                  <span>暂未上传配图（预览比例与前台弹窗一致，完整显示不裁切）</span>
+                </div>
+              )}
+
               <div className="flex flex-wrap items-center gap-2">
-                <input ref={fileInputRef} id="announcement-image-file" type="file" accept={settingsRasterImageAccept} className="hidden" disabled={state.isUploadingImage} onChange={(event) => { const file = event.target.files?.[0]; void state.handleImageUpload(file); event.currentTarget.value = ""; }} />
-                <Button type="button" variant="outline" disabled={state.isUploadingImage} onClick={() => fileInputRef.current?.click()}>
-                  {state.isUploadingImage ? <LoaderCircle data-icon="inline-start" className="animate-spin" /> : <Upload data-icon="inline-start" />}上传图片
+                <input
+                  ref={fileInputRef}
+                  id="announcement-image-file"
+                  type="file"
+                  accept={settingsRasterImageAccept}
+                  className="hidden"
+                  disabled={isBusy}
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    void state.handleImageUpload(file);
+                    event.currentTarget.value = "";
+                  }}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  loading={state.isUploadingImage}
+                  disabled={state.isSaving}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  {!state.isUploadingImage ? (
+                    <Upload className="size-3.5" />
+                  ) : null}
+                  {imageUrl ? "更换图片" : "上传图片"}
                 </Button>
-                {imageUrl ? <Button type="button" variant="secondary" onClick={() => state.updateForm({ image_url: "" })}>清除图片</Button> : null}
+                {imageUrl ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={isBusy}
+                    onClick={() => state.updateForm({ image_url: "" })}
+                    className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                  >
+                    <Trash2 className="size-3.5" />
+                    移除配图
+                  </Button>
+                ) : null}
               </div>
             </div>
-            <FieldDescription>图片会上传到本项目 data/announcement_images 下，不需要手动填写 URL。</FieldDescription>
+            <FieldDescription>
+              支持 JPEG / PNG / GIF / WebP，文件将托管至服务端{" "}
+              <code className="rounded bg-surface-muted px-1 py-0.5 font-mono text-[11px]">
+                data/announcement_images
+              </code>{" "}
+              目录。
+            </FieldDescription>
           </Field>
-          <div className="grid gap-3 md:grid-cols-3">
-            <ToggleRow checked={state.form.enabled} onChange={(checked) => state.updateForm({ enabled: checked })} label="启用公告" />
-            <ToggleRow checked={state.form.show_login} onChange={(checked) => state.updateForm({ show_login: checked })} label="登录页显示" />
-            <ToggleRow checked={state.form.show_image} onChange={(checked) => state.updateForm({ show_image: checked })} label="创作台显示" />
+
+          <div className="space-y-2.5">
+            <div className="text-xs font-medium text-foreground sm:text-[13px]">
+              发布状态与触达范围
+            </div>
+            <SettingsSwitchRow
+              size="sm"
+              title="立即启用公告"
+              description="开启后前台将立即按下方勾选的页面位置弹出此通知"
+              checked={state.form.enabled}
+              disabled={state.isSaving}
+              onCheckedChange={(checked) =>
+                state.updateForm({ enabled: checked })
+              }
+            />
+            <div className="grid gap-2.5 sm:grid-cols-2">
+              <SettingsSwitchRow
+                size="sm"
+                title="登录页展示"
+                description="访客打开登录或注册页面时弹出"
+                checked={state.form.show_login}
+                disabled={state.isSaving}
+                onCheckedChange={(checked) =>
+                  state.updateForm({ show_login: checked })
+                }
+              />
+              <SettingsSwitchRow
+                size="sm"
+                title="创作台展示"
+                description="用户进入生图与视频工作台时弹出"
+                checked={state.form.show_image}
+                disabled={state.isSaving}
+                onCheckedChange={(checked) =>
+                  state.updateForm({ show_image: checked })
+                }
+              />
+            </div>
           </div>
         </FieldGroup>
-        <DialogFooter>
-          <Button type="button" variant="secondary" onClick={() => state.setDialogOpen(false)} disabled={state.isSaving}>取消</Button>
-          <Button type="button" onClick={() => void state.handleSave()} disabled={state.isSaving}>
-            {state.isSaving ? <LoaderCircle data-icon="inline-start" className="animate-spin" /> : <Save data-icon="inline-start" />}保存
+
+        <DialogFooter className="border-t border-border/60 pt-3 sm:justify-between">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={isBusy || !state.form.content.trim()}
+            onClick={state.openDraftPreview}
+          >
+            <Eye className="size-3.5" />
+            预览弹窗效果
           </Button>
+          <div className="flex items-center justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => state.setDialogOpen(false)}
+              disabled={isBusy}
+            >
+              取消
+            </Button>
+            <Button
+              type="button"
+              loading={state.isSaving}
+              disabled={state.isUploadingImage}
+              onClick={() => void state.handleSave()}
+            >
+              {!state.isSaving ? <Save className="size-4" /> : null}
+              {state.editingItem ? "保存修改" : "发布公告"}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
-}
-
-function ToggleRow({ checked, label, onChange }: { checked: boolean; label: string; onChange: (checked: boolean) => void }) {
-  return <label className={settingsToggleClassName}><Checkbox checked={checked} onCheckedChange={(value) => onChange(Boolean(value))} />{label}</label>;
 }

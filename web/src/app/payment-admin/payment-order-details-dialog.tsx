@@ -1,6 +1,7 @@
 import { CreditCard, RefreshCw, XCircle } from "lucide-react";
 
 import { PaymentOrderDetailsGrid, PaymentOrderSummary } from "@/app/payment-admin/payment-order-details-content";
+import { canQueryPaymentOrder } from "@/app/payment-admin/payment-order-presentation";
 import { StatusBadge } from "@/app/payment-admin/payment-order-status-badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -70,7 +71,7 @@ export function PaymentOrderDetailsDialog({
             <Button variant="outline" onClick={onClose}>
               关闭
             </Button>
-            {!["succeeded", "closed"].includes(item.status) ? (
+            {canQueryPaymentOrder(item.status) ? (
               <Button onClick={onQuery} disabled={querying}>
                 <RefreshCw
                   className={querying ? "size-4 animate-spin" : "size-4"}

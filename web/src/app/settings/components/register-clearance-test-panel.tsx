@@ -1,10 +1,17 @@
-import { LoaderCircle, PlugZap, ShieldCheck } from "lucide-react";
+"use client";
+
+import { ShieldCheck } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { ClearanceTestResult, RegisterClearanceConfig } from "@/lib/api";
+import { cn } from "@/lib/utils";
 
-import { SettingsNotice, settingsInputClassName } from "./settings-ui";
+import {
+  SettingsNotice,
+  SettingsSection,
+  settingsInputClassName,
+} from "./settings-ui";
 
 export function RegisterClearanceTestPanel({
   clearanceEnabled,
@@ -25,43 +32,50 @@ export function RegisterClearanceTestPanel({
   onTargetChange: (value: string) => void;
   onTest: () => void;
 }) {
+  const canRunTest = !isRegisterRunning && clearanceEnabled && mode !== "none";
+
   return (
-    <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-4">
-      <div className="flex items-center gap-2 text-sm font-semibold">
-        <PlugZap className="size-4 text-muted-foreground" />
-        连通性自检
+    <SettingsSection
+      title="注册清障连通性自检"
+      description="使用当前注册清障参数向目标站点发起探测，确认能够正常签发或通过 Cloudflare 校验。"
+    >
+      <div className="space-y-2.5">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <Input
+            className={cn(
+              settingsInputClassName,
+              "min-w-0 flex-1 font-mono text-xs sm:text-[13px]"
+            )}
+            value={testTarget}
+            onChange={(event) => onTargetChange(event.target.value)}
+            placeholder="https://chatgpt.com"
+            disabled={!canRunTest}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            loading={isTesting}
+            disabled={!canRunTest}
+            onClick={onTest}
+            className="h-9 shrink-0 gap-1.5 px-3 text-xs"
+          >
+            <ShieldCheck className="size-3.5" />
+            <span>测试 Clearance</span>
+          </Button>
+        </div>
+
+        {testResult ? (
+          <SettingsNotice
+            tone={testResult.ok ? "success" : "danger"}
+            className="tabular-nums"
+          >
+            {testResult.ok
+              ? `验证通过 · 耗时 ${testResult.latency_ms} ms · 获取 ${testResult.cookie_count ?? 0} 枚 Cookie`
+              : `验证失败：${testResult.error ?? testResult.status ?? "未知错误"}`}
+          </SettingsNotice>
+        ) : null}
       </div>
-      <div className="grid gap-3 md:grid-cols-[1fr_auto]">
-        <Input
-          className={`${settingsInputClassName} font-mono text-xs`}
-          value={testTarget}
-          onChange={(event) => onTargetChange(event.target.value)}
-          placeholder="https://chatgpt.com"
-          disabled={isRegisterRunning || !clearanceEnabled || mode === "none"}
-        />
-        <Button
-          type="button"
-          variant="outline"
-          disabled={isTesting || isRegisterRunning || !clearanceEnabled || mode === "none"}
-          onClick={onTest}
-        >
-          {isTesting ? <LoaderCircle className="size-4 animate-spin" /> : <ShieldCheck className="size-4" />}
-          测试 Clearance
-        </Button>
-      </div>
-      {testResult ? (
-        <SettingsNotice
-          className={
-            testResult.ok
-              ? "border-emerald-500/25 bg-emerald-500/10 tabular-nums text-emerald-800 dark:text-emerald-300"
-              : "border-rose-500/25 bg-rose-500/10 text-rose-700 dark:text-rose-300"
-          }
-        >
-          {testResult.ok
-            ? `OK · ${testResult.latency_ms} ms · cookies ${testResult.cookie_count ?? 0}`
-            : testResult.error ?? testResult.status}
-        </SettingsNotice>
-      ) : null}
-    </div>
+    </SettingsSection>
   );
 }

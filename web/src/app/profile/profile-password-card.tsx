@@ -1,4 +1,5 @@
-import { LoaderCircle, LockKeyhole, Save } from "lucide-react";
+import { useState } from "react";
+import { Eye, EyeOff, LoaderCircle, LockKeyhole, Save } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -28,6 +29,59 @@ type ProfilePasswordCardProps = {
   onChangePassword: () => void;
 };
 
+type PasswordFieldInputProps = {
+  id: string;
+  label: string;
+  autoComplete: string;
+  placeholder: string;
+  value: string;
+  visible: boolean;
+  onToggleVisible: () => void;
+  onChange: (value: string) => void;
+};
+
+function PasswordFieldInput({
+  id,
+  label,
+  autoComplete,
+  placeholder,
+  value,
+  visible,
+  onToggleVisible,
+  onChange,
+}: PasswordFieldInputProps) {
+  const toggleLabel = visible ? `隐藏${label}` : `显示${label}`;
+  return (
+    <Field>
+      <FieldLabel htmlFor={id}>{label}</FieldLabel>
+      <div className="relative">
+        <Input
+          id={id}
+          type={visible ? "text" : "password"}
+          autoComplete={autoComplete}
+          placeholder={placeholder}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          className="h-9 pr-9"
+        />
+        <button
+          type="button"
+          onClick={onToggleVisible}
+          aria-label={toggleLabel}
+          title={toggleLabel}
+          className="absolute top-1/2 right-1.5 inline-flex size-6 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        >
+          {visible ? (
+            <EyeOff className="size-3.5" />
+          ) : (
+            <Eye className="size-3.5" />
+          )}
+        </button>
+      </div>
+    </Field>
+  );
+}
+
 export function ProfilePasswordCard({
   session,
   currentPassword,
@@ -39,6 +93,10 @@ export function ProfilePasswordCard({
   onConfirmPasswordChange,
   onChangePassword,
 }: ProfilePasswordCardProps) {
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
   return (
     <Card className="order-2">
       <CardHeader className="pb-3">
@@ -59,54 +117,48 @@ export function ProfilePasswordCard({
       <CardContent>
         {session.provider === "local" ? (
           <FieldGroup className="gap-3">
-            <Field>
-              <FieldLabel htmlFor="profile-current-password">
-                当前密码
-              </FieldLabel>
-              <Input
-                id="profile-current-password"
-                type="password"
-                autoComplete="current-password"
-                placeholder="输入当前登录密码"
-                value={currentPassword}
-                onChange={(event) =>
-                  onCurrentPasswordChange(event.target.value)
-                }
-                className="h-9"
-              />
-            </Field>
+            <PasswordFieldInput
+              id="profile-current-password"
+              label="当前密码"
+              autoComplete="current-password"
+              placeholder="输入当前登录密码"
+              value={currentPassword}
+              visible={showCurrentPassword}
+              onToggleVisible={() =>
+                setShowCurrentPassword((current) => !current)
+              }
+              onChange={onCurrentPasswordChange}
+            />
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-              <Field>
-                <FieldLabel htmlFor="profile-new-password">新密码</FieldLabel>
-                <Input
-                  id="profile-new-password"
-                  type="password"
-                  autoComplete="new-password"
-                  placeholder="不少于 8 位字符"
-                  value={newPassword}
-                  onChange={(event) => onNewPasswordChange(event.target.value)}
-                  className="h-9"
-                />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="profile-confirm-password">
-                  确认新密码
-                </FieldLabel>
-                <Input
-                  id="profile-confirm-password"
-                  type="password"
-                  autoComplete="new-password"
-                  placeholder="再次输入新密码"
-                  value={confirmPassword}
-                  onChange={(event) =>
-                    onConfirmPasswordChange(event.target.value)
-                  }
-                  className="h-9"
-                />
-              </Field>
+              <PasswordFieldInput
+                id="profile-new-password"
+                label="新密码"
+                autoComplete="new-password"
+                placeholder="不少于 8 位字符"
+                value={newPassword}
+                visible={showNewPassword}
+                onToggleVisible={() =>
+                  setShowNewPassword((current) => !current)
+                }
+                onChange={onNewPasswordChange}
+              />
+              <PasswordFieldInput
+                id="profile-confirm-password"
+                label="确认新密码"
+                autoComplete="new-password"
+                placeholder="再次输入新密码"
+                value={confirmPassword}
+                visible={showConfirmPassword}
+                onToggleVisible={() =>
+                  setShowConfirmPassword((current) => !current)
+                }
+                onChange={onConfirmPasswordChange}
+              />
             </div>
             <div className="flex items-center justify-between gap-2 pt-0.5">
-              <span className="text-[11px] text-muted-foreground">密码长度至少 8 位</span>
+              <span className="text-[11px] text-muted-foreground">
+                密码长度至少 8 位
+              </span>
               <Button
                 type="button"
                 size="sm"

@@ -9,6 +9,8 @@ export interface SubNavItem<T extends string = string> {
   label: React.ReactNode;
   icon?: React.ComponentType<{ className?: string }>;
   badge?: React.ReactNode;
+  dot?: boolean;
+  dotTone?: "warning" | "default";
   disabled?: boolean;
   title?: string;
 }
@@ -84,7 +86,7 @@ export function SubNav<T extends string = string>({
         aria-label={ariaLabel}
         onKeyDown={handleKeyDown}
         className={cn(
-          "flex items-center gap-1 overflow-x-auto border-b border-border/70 scrollbar-none",
+          "hide-scrollbar flex items-center gap-1 overflow-x-auto border-b border-border/70",
           className
         )}
       >
@@ -124,6 +126,17 @@ export function SubNav<T extends string = string>({
                 />
               ) : null}
               <span>{item.label}</span>
+              {item.dot ? (
+                <span
+                  aria-label="未保存修改"
+                  className={cn(
+                    "size-1.5 shrink-0 rounded-full",
+                    (item.dotTone ?? "warning") === "warning"
+                      ? "bg-status-warning"
+                      : "bg-foreground"
+                  )}
+                />
+              ) : null}
               {item.badge !== undefined && item.badge !== null ? (
                 <span
                   className={cn(
@@ -156,7 +169,7 @@ export function SubNav<T extends string = string>({
       aria-label={ariaLabel}
       onKeyDown={handleKeyDown}
       className={cn(
-        "inline-flex max-w-full items-center gap-0.5 overflow-x-auto rounded-xl bg-surface-muted/95 p-1 scrollbar-none dark:bg-zinc-900",
+        "hide-scrollbar inline-flex max-w-full items-center gap-0.5 overflow-x-auto rounded-xl bg-surface-muted/95 p-1 dark:bg-zinc-900",
         fullWidth && "flex w-full",
         className
       )}
@@ -207,6 +220,17 @@ export function SubNav<T extends string = string>({
                 />
               ) : null}
               <span>{item.label}</span>
+              {item.dot ? (
+                <span
+                  aria-label="未保存修改"
+                  className={cn(
+                    "size-1.5 shrink-0 rounded-full",
+                    (item.dotTone ?? "warning") === "warning"
+                      ? "bg-status-warning"
+                      : "bg-foreground"
+                  )}
+                />
+              ) : null}
               {item.badge !== undefined && item.badge !== null ? (
                 <span
                   className={cn(

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
 import { Coins, CreditCard, LoaderCircle } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 
 import { AdjustCreditsDialog } from "@/app/credits-admin/adjust-credits-dialog";
 import { CopyAssistDialog } from "@/app/credits-admin/copy-assist-dialog";
@@ -18,9 +18,25 @@ import { useAuthGuard } from "@/lib/use-auth-guard";
 
 type CreditsAdminTab = "cards" | "ledger";
 
+function parseCreditsAdminTab(raw: string | null): CreditsAdminTab {
+  if (raw === "ledger" || raw === "users") return "ledger";
+  return "cards";
+}
+
 function CreditsAdminContent({ session }: { session: NonNullable<ReturnType<typeof useAuthGuard>["session"]> }) {
   const state = useCreditsAdmin(session);
-  const [activeTab, setActiveTab] = useState<CreditsAdminTab>("cards");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = parseCreditsAdminTab(searchParams.get("tab"));
+
+  const handleTabChange = (nextTab: CreditsAdminTab) => {
+    const nextParams = new URLSearchParams(searchParams);
+    if (nextTab === "cards") {
+      nextParams.delete("tab");
+    } else {
+      nextParams.set("tab", nextTab);
+    }
+    setSearchParams(nextParams, { replace: true });
+  };
 
   const tabs: readonly SubNavItem<CreditsAdminTab>[] = [
     {
@@ -44,7 +60,7 @@ function CreditsAdminContent({ session }: { session: NonNullable<ReturnType<type
         <SubNav
           items={tabs}
           value={activeTab}
-          onValueChange={setActiveTab}
+          onValueChange={handleTabChange}
           variant="pill"
           ariaLabel="积分管理栏目切换"
           layoutId="credits-admin-subnav"

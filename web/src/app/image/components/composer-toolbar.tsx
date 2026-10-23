@@ -115,7 +115,10 @@ export function ComposerToolbar(props: ComposerToolbarProps) {
           imageModelOptionId={props.imageModelOptionId}
           imageModelOptions={props.imageModelOptions}
           onOpenChange={props.onModelMenuOpenChange}
-          onClosePeerMenus={props.onCloseParameterMenus}
+          onClosePeerMenus={() => {
+            props.onCloseParameterMenus();
+            props.onImageSettingsOpenChange(false);
+          }}
           onImageModelChange={props.onImageModelChange}
         />
         {props.composerMode === "image" ? <ComposerSettingsPopover {...buildSettingsProps(props)} /> : null}

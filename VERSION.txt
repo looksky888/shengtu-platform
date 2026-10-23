@@ -1,1 +1,1 @@
-4.9.0-20261023-studio-craft
+5.0.0-20261023-settings-craft

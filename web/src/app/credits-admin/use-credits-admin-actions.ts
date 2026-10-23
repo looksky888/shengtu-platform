@@ -42,9 +42,30 @@ export function useCreditsAdminActions(options: CreditsAdminActionsOptions) {
   const [copyAssistText, setCopyAssistText] = useState("");
   const [adjustingAccount, setAdjustingAccount] = useState<CreditAccount | null>(null);
   const [manualAdjustUserId, setManualAdjustUserId] = useState("");
-  const [adjustDelta, setAdjustDelta] = useState("-10");
-  const [adjustReason, setAdjustReason] = useState("人工扣减");
+  const [adjustMode, setAdjustMode] = useState<"add" | "deduct">("add");
+  const [adjustDelta, setAdjustDeltaState] = useState("100");
+  const [adjustReason, setAdjustReason] = useState("后台加积分");
   const [isAdjustingCredits, setIsAdjustingCredits] = useState(false);
+
+  const handleAdjustModeChange = (nextMode: "add" | "deduct") => {
+    setAdjustMode(nextMode);
+    setAdjustReason((prev) => {
+      if (!prev || prev === "后台加积分" || prev === "人工扣减") {
+        return nextMode === "add" ? "后台加积分" : "人工扣减";
+      }
+      return prev;
+    });
+  };
+
+  const setAdjustDelta = (rawValue: string) => {
+    if (rawValue.includes("-")) {
+      handleAdjustModeChange("deduct");
+    } else if (rawValue.includes("+")) {
+      handleAdjustModeChange("add");
+    }
+    const digits = rawValue.replace(/\D+/g, "").replace(/^0+/, "");
+    setAdjustDeltaState(digits);
+  };
 
   const handleCopy = useCallback(async (value: string) => {
     try {
@@ -100,11 +121,12 @@ export function useCreditsAdminActions(options: CreditsAdminActionsOptions) {
     }
   };
 
-  const openAdjustCreditsDialog = (account: CreditAccount, mode: "add" | "deduct") => {
+  const openAdjustCreditsDialog = (account: CreditAccount, mode: "add" | "deduct" = "add") => {
     if (!canManageCredits) return toast.error("没有管理积分权限");
     setAdjustingAccount(account);
     setManualAdjustUserId(account.user_id);
-    setAdjustDelta(mode === "add" ? "10" : "-10");
+    setAdjustMode(mode);
+    setAdjustDeltaState("100");
     setAdjustReason(mode === "add" ? "后台加积分" : "人工扣减");
   };
 
@@ -117,15 +139,17 @@ export function useCreditsAdminActions(options: CreditsAdminActionsOptions) {
       updated_at: null,
     });
     setManualAdjustUserId("");
-    setAdjustDelta("50");
+    setAdjustMode("add");
+    setAdjustDeltaState("100");
     setAdjustReason("后台加积分");
   };
 
   const resetAdjustDialog = () => {
     setAdjustingAccount(null);
     setManualAdjustUserId("");
-    setAdjustDelta("-10");
-    setAdjustReason("人工扣减");
+    setAdjustMode("add");
+    setAdjustDeltaState("100");
+    setAdjustReason("后台加积分");
   };
 
   const handleAdjustUserCredits = async () => {
@@ -133,13 +157,14 @@ export function useCreditsAdminActions(options: CreditsAdminActionsOptions) {
     if (!canManageCredits) return toast.error("没有管理积分权限");
     const targetUserId = (adjustingAccount.user_id || manualAdjustUserId).trim();
     if (!targetUserId) return toast.error("请输入目标用户 ID");
-    const delta = Math.trunc(Number(adjustDelta));
-    if (!Number.isFinite(delta) || delta === 0) return toast.error("请输入非 0 的积分调整值");
+    const absAmount = Math.trunc(Number(adjustDelta));
+    if (!Number.isFinite(absAmount) || absAmount < 1) return toast.error("请输入大于 0 的正整数积分数量");
+    const signedDelta = adjustMode === "deduct" ? -absAmount : absAmount;
     setIsAdjustingCredits(true);
     try {
-      await adjustUserCredits(targetUserId, delta, adjustReason.trim() || undefined);
+      await adjustUserCredits(targetUserId, signedDelta, adjustReason.trim() || undefined);
       resetAdjustDialog();
-      toast.success(delta > 0 ? "积分已增加" : "积分已扣减");
+      toast.success(signedDelta > 0 ? "积分已增加" : "积分已扣减");
       void loadUsers();
       setLedgerPage(1);
       void loadLedger();
@@ -161,6 +186,7 @@ export function useCreditsAdminActions(options: CreditsAdminActionsOptions) {
     copyAssistText,
     adjustingAccount,
     manualAdjustUserId,
+    adjustMode,
     adjustDelta,
     adjustReason,
     isAdjustingCredits,
@@ -174,6 +200,7 @@ export function useCreditsAdminActions(options: CreditsAdminActionsOptions) {
     setManualAdjustUserId,
     setAdjustDelta,
     setAdjustReason,
+    handleAdjustModeChange,
     handleCopy,
     handleGenerateCards,
     handleDisableCard,

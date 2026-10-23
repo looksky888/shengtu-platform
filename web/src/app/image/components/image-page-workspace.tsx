@@ -22,6 +22,7 @@ type ImagePageWorkspaceProps = {
   onOpenHistory: () => void;
   onSelectConversation: (id: string) => void;
   onDeleteConversation: (id: string) => void | Promise<void>;
+  onRenameConversation: (id: string, title: string) => void | Promise<void>;
   formatConversationTime: (value: string) => string;
   overlays: ReactNode;
   results: ReactNode;
@@ -40,6 +41,7 @@ export function ImagePageWorkspace({
   onOpenHistory,
   onSelectConversation,
   onDeleteConversation,
+  onRenameConversation,
   formatConversationTime,
   overlays,
   results,
@@ -66,6 +68,7 @@ export function ImagePageWorkspace({
             onClearHistory={onClearHistory}
             onSelectConversation={onSelectConversation}
             onDeleteConversation={onDeleteConversation}
+            onRenameConversation={onRenameConversation}
             formatConversationTime={formatConversationTime}
             onCollapse={() => setSidebarCollapsed(true)}
           />

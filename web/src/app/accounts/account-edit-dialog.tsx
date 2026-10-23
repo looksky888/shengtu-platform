@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import type { Account, AccountStatus, AccountType } from "@/lib/api";
 
 type AccountEditDialogProps = {
@@ -43,13 +44,25 @@ export function AccountEditDialog({ account, editStatus, editType, editQuota, ed
             <Input value={editQuota} onChange={(event) => onQuotaChange(event.target.value)} className="h-9 rounded-lg border-border bg-background" />
           </div>
           <div className="rounded-xl border border-border bg-muted/30 p-4">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-medium text-foreground">账号专用出口</p>
-                <p className="text-xs text-muted-foreground">{account?.proxy_configured ? "已配置；留空保持原值" : "未配置时继承系统代理"}</p>
-              </div>
-              {account?.proxy_configured ? <label className="flex items-center gap-2 text-xs text-muted-foreground"><input type="checkbox" checked={clearProxy} onChange={(event) => onClearProxyChange(event.target.checked)} />清除</label> : null}
+            <div className="mb-3">
+              <p className="text-sm font-medium text-foreground">账号专用出口</p>
+              <p className="text-xs text-muted-foreground">{account?.proxy_configured ? "已配置；留空保持原值" : "未配置时继承系统代理"}</p>
             </div>
+            {account?.proxy_configured ? (
+              <div className="mb-3 flex items-center justify-between gap-3 rounded-lg border border-border/75 bg-surface px-3 py-2.5">
+                <div className="space-y-0.5">
+                  <p className="text-xs font-medium text-foreground">清除已配置代理</p>
+                  <p className="text-[11px] text-muted-foreground">保存后移除专用代理并恢复继承系统出口</p>
+                </div>
+                <Switch
+                  size="sm"
+                  checked={clearProxy}
+                  onCheckedChange={onClearProxyChange}
+                  disabled={isUpdating}
+                  aria-label="清除已配置代理"
+                />
+              </div>
+            ) : null}
             <div className="space-y-3">
               <Input type="password" autoComplete="off" value={editProxyUrl} disabled={clearProxy} onChange={(event) => onProxyUrlChange(event.target.value)} placeholder="http://user:password@host:port" className="h-9 rounded-lg border-border bg-background" />
               <Input value={editProxyTimezone} disabled={clearProxy} onChange={(event) => onProxyTimezoneChange(event.target.value)} placeholder="IANA 时区，例如 America/Los_Angeles" className="h-9 rounded-lg border-border bg-background" />

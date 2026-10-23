@@ -47,12 +47,9 @@ export function useImageComposerMenus({ composerMode, supportsQuality }: UseImag
   }, [supportsQuality]);
 
   useEffect(() => {
-    if (!isModelMenuOpen && !isAspectRatioMenuOpen && !isResolutionMenuOpen && !isQualityMenuOpen) return;
+    if (!isAspectRatioMenuOpen && !isResolutionMenuOpen && !isQualityMenuOpen) return;
     const handlePointerDown = (event: MouseEvent) => {
       const target = event.target as Node;
-      if (!modelMenuRef.current?.contains(target)) {
-        setIsModelMenuOpen(false);
-      }
       if (!aspectRatioMenuRef.current?.contains(target)) {
         setIsAspectRatioMenuOpen(false);
       }
@@ -65,7 +62,7 @@ export function useImageComposerMenus({ composerMode, supportsQuality }: UseImag
     };
     window.addEventListener("mousedown", handlePointerDown);
     return () => window.removeEventListener("mousedown", handlePointerDown);
-  }, [isAspectRatioMenuOpen, isModelMenuOpen, isQualityMenuOpen, isResolutionMenuOpen]);
+  }, [isAspectRatioMenuOpen, isQualityMenuOpen, isResolutionMenuOpen]);
 
   return {
     isModelMenuOpen,

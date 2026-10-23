@@ -1,65 +1,203 @@
-import { Edit3, Image as ImageIcon, LoaderCircle, Megaphone, Search, Trash2 } from "lucide-react";
+import {
+  Edit3,
+  Eye,
+  Image as ImageIcon,
+  LoaderCircle,
+  Megaphone,
+  Plus,
+  Search,
+  Trash2,
+} from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { cn } from "@/lib/utils";
 
-import { SettingsEmptyState, settingsListItemClassName } from "./settings-ui";
-import { formatAnnouncementDateTime } from "./announcements-utils";
+import {
+  formatAnnouncementScheduleRange,
+  getAnnouncementDisplayModeLabel,
+  getAnnouncementStatusMeta,
+  getAnnouncementTypeLabel,
+} from "./announcements-utils";
+import {
+  SettingsEmptyState,
+  settingsInputClassName,
+  settingsListItemClassName,
+} from "./settings-ui";
 import type { AnnouncementsCardState } from "./use-announcements-card";
 
 export function AnnouncementsList({ state }: { state: AnnouncementsCardState }) {
   if (state.isLoading) {
-    return <div className="flex items-center justify-center py-10"><LoaderCircle className="size-5 animate-spin text-muted-foreground" /></div>;
+    return (
+      <div className="flex items-center justify-center py-12">
+        <LoaderCircle className="size-5 animate-spin text-muted-foreground" />
+      </div>
+    );
   }
+
   if (state.items.length === 0) {
-    return <SettingsEmptyState icon={Megaphone} title="暂无公告" description="添加后可选择在登录页、创作台或两个位置同时展示。" />;
+    return (
+      <SettingsEmptyState
+        icon={Megaphone}
+        title="暂无站内公告"
+        description="点击右上角「发布公告」可创建图文弹窗通知，指定在登录页、创作台或双端同步触达。"
+        action={
+          <Button size="sm" variant="outline" onClick={state.openCreateDialog}>
+            <Plus className="size-3.5" />
+            创建第一条公告
+          </Button>
+        }
+      />
+    );
   }
+
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-col gap-3 rounded-lg border border-border/60 bg-muted/20 p-3 sm:flex-row sm:items-center">
+    <div className="flex flex-col gap-3.5">
+      {/* Toolbar */}
+      <div className="flex flex-col gap-2.5 rounded-xl border border-border/75 bg-surface-subtle/45 p-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="relative min-w-0 flex-1">
           <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={state.query} onChange={(event) => state.setQuery(event.target.value)} placeholder="搜索公告标题或内容" className="bg-background pl-9" aria-label="搜索公告" />
+          <Input
+            value={state.query}
+            onChange={(event) => state.setQuery(event.target.value)}
+            placeholder="搜索公告标题或正文内容…"
+            aria-label="搜索公告"
+            className={cn("h-9 pl-9", settingsInputClassName)}
+          />
         </div>
-        <div className="flex shrink-0 gap-1 rounded-lg bg-background p-1 ring-1 ring-border/70">
+        <div className="flex shrink-0 items-center gap-1 rounded-lg border border-border/75 bg-surface p-0.5">
           {(["all", "enabled", "disabled"] as const).map((filter) => (
-            <Button key={filter} type="button" size="sm" variant={state.statusFilter === filter ? "secondary" : "ghost"} className="h-8 rounded-md px-3 text-xs" onClick={() => state.setStatusFilter(filter)}>
-              {filter === "all" ? "全部" : filter === "enabled" ? "已启用" : "已停用"}
+            <Button
+              key={filter}
+              type="button"
+              size="xs"
+              variant={state.statusFilter === filter ? "secondary" : "ghost"}
+              className="h-7 rounded-md px-2.5 text-xs"
+              onClick={() => state.setStatusFilter(filter)}
+            >
+              {filter === "all"
+                ? `全部 (${state.items.length})`
+                : filter === "enabled"
+                  ? "展示中"
+                  : "已停用"}
             </Button>
           ))}
         </div>
       </div>
-      {state.visibleItems.length === 0 ? <SettingsEmptyState icon={Search} title="没有匹配的公告" description="调整搜索词或筛选条件后再试。" /> : null}
-      {state.visibleItems.map((item) => {
-        const isPending = state.pendingIds.has(item.id);
-        return (
-          <div key={item.id} className={`flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between ${settingsListItemClassName}`}>
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="truncate text-sm font-semibold text-foreground">{item.title || "公告"}</div>
-                <Badge variant={item.enabled ? "success" : "secondary"}>{item.enabled ? "已启用" : "已停用"}</Badge>
-                {item.show_login ? <Badge variant="warning">登录页</Badge> : null}
-                {item.show_image ? <Badge variant="info">创作台</Badge> : null}
+
+      {state.visibleItems.length === 0 ? (
+        <SettingsEmptyState
+          icon={Search}
+          title="没有匹配的公告"
+          description="请尝试调整搜索词或切换上方状态筛选条件。"
+        />
+      ) : (
+        <div className="flex flex-col gap-3">
+          {state.visibleItems.map((item) => {
+            const isPending = state.pendingIds.has(item.id);
+            const statusMeta = getAnnouncementStatusMeta(item);
+            const typeLabel = getAnnouncementTypeLabel(item);
+            const displayModeLabel = getAnnouncementDisplayModeLabel(item);
+            const scheduleText = formatAnnouncementScheduleRange(item);
+
+            return (
+              <div
+                key={item.id}
+                className={cn(
+                  "flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between",
+                  settingsListItemClassName
+                )}
+              >
+                <div className="min-w-0 flex-1 space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="truncate text-sm font-semibold text-foreground">
+                      {item.title || "未命名公告"}
+                    </span>
+                    <Badge variant={statusMeta.variant}>
+                      {statusMeta.label}
+                    </Badge>
+                    <Badge variant="outline">{typeLabel}</Badge>
+                    <Badge variant="info">{displayModeLabel}</Badge>
+                  </div>
+
+                  <p className="line-clamp-2 whitespace-pre-wrap break-words text-xs leading-5 text-muted-foreground sm:text-[13px]">
+                    {item.content}
+                  </p>
+
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] tabular-nums text-muted-foreground">
+                    <span className="font-mono">{scheduleText}</span>
+                    {item.image_url ? (
+                      <span className="inline-flex items-center gap-1 text-foreground/80">
+                        <ImageIcon className="size-3.5" />
+                        已附横幅配图
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+
+                {/* Inline Switch + Preview / Edit / Delete Controls */}
+                <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-border/55 pt-3 lg:border-t-0 lg:pt-0">
+                  <label className="mr-1 inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border/75 bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground">
+                    <Switch
+                      size="sm"
+                      checked={Boolean(item.enabled)}
+                      disabled={isPending}
+                      aria-label={`切换公告「${item.title || "公告"}」启用状态`}
+                      onCheckedChange={() =>
+                        void state.handleToggleEnabled(item)
+                      }
+                    />
+                    <span className="min-w-[2.5rem] text-center">
+                      {isPending
+                        ? "处理中"
+                        : item.enabled
+                          ? "已启用"
+                          : "已停用"}
+                    </span>
+                  </label>
+
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => state.setPreviewItem(item)}
+                      disabled={isPending}
+                    >
+                      <Eye className="size-3.5" />
+                      预览效果
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => state.openEditDialog(item)}
+                      disabled={isPending}
+                    >
+                      <Edit3 className="size-3.5" />
+                      编辑
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={`删除公告 ${item.title || "公告"}`}
+                      title="删除公告"
+                      onClick={() => state.setDeletingItem(item)}
+                      disabled={isPending}
+                      className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                  </div>
+                </div>
               </div>
-              <p className="mt-2 line-clamp-2 whitespace-pre-wrap break-words text-sm leading-6 text-muted-foreground">{item.content}</p>
-              <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground/80">
-                <span>更新于 {formatAnnouncementDateTime(item.updated_at)}</span>
-                {item.image_url ? <span className="inline-flex items-center gap-1"><ImageIcon className="size-3.5" />含配图</span> : null}
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button type="button" variant="outline" onClick={() => void state.handleToggleEnabled(item)} disabled={isPending}>
-                {isPending ? <LoaderCircle data-icon="inline-start" className="animate-spin" /> : null}{item.enabled ? "停用" : "启用"}
-              </Button>
-              <Button type="button" variant="outline" onClick={() => state.openEditDialog(item)} disabled={isPending}><Edit3 data-icon="inline-start" />编辑</Button>
-              <Button type="button" variant="outline" className="border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700" onClick={() => state.setDeletingItem(item)} disabled={isPending}>
-                <Trash2 data-icon="inline-start" />删除
-              </Button>
-            </div>
-          </div>
-        );
-      })}
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

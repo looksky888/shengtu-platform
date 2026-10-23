@@ -48,6 +48,7 @@ export function GrokProviderToolbar({
   onDelete,
 }: Props) {
   const selected = controller.selectedAccounts.length;
+  const selectedCount = controller.selected.length || selected;
   const scoped = selected > 0 && Boolean(controller.selectedProvider);
   const disabled = controller.busy || !canWrite;
   const hasFilters =
@@ -158,10 +159,10 @@ export function GrokProviderToolbar({
         </div>
       </div>
 
-      {selected > 0 ? (
+      {selectedCount > 0 ? (
         <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-foreground/20 bg-surface-muted/70 p-2.5 shadow-2xs">
           <span className="mr-1 px-1.5 text-xs font-medium tabular-nums text-foreground">
-            已选 {selected} 个
+            已选 {selectedCount} 个
             {!scoped ? " · 批量操作需保持同一 Provider" : ""}
           </span>
           <Button
@@ -275,6 +276,17 @@ export function GrokProviderToolbar({
               任务执行中
             </span>
           ) : null}
+          <Button
+            type="button"
+            size="xs"
+            variant="ghost"
+            disabled={controller.busy}
+            onClick={() => controller.setSelected([])}
+            className="ml-auto text-muted-foreground hover:text-foreground tabular-nums"
+          >
+            <X className="size-3.5" />
+            取消选择 ({selectedCount})
+          </Button>
         </div>
       ) : null}
     </div>

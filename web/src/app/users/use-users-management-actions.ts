@@ -50,7 +50,8 @@ export function useUsersManagementActions(options: UserActionsOptions) {
   const [selectedRoleId, setSelectedRoleId] = useState("");
   const [isSavingRole, setIsSavingRole] = useState(false);
   const [adjustingUser, setAdjustingUser] = useState<ManagedUser | null>(null);
-  const [adjustDelta, setAdjustDelta] = useState("10");
+  const [adjustMode, setAdjustMode] = useState<CreditAdjustMode>("add");
+  const [adjustDelta, setAdjustDeltaState] = useState("100");
   const [adjustReason, setAdjustReason] = useState("");
   const [isAdjustingCredits, setIsAdjustingCredits] = useState(false);
 
@@ -70,8 +71,29 @@ export function useUsersManagementActions(options: UserActionsOptions) {
 
   const closeAdjustCreditsDialog = () => {
     setAdjustingUser(null);
-    setAdjustDelta("10");
+    setAdjustMode("add");
+    setAdjustDeltaState("100");
     setAdjustReason("");
+  };
+
+  const handleAdjustModeChange = (nextMode: CreditAdjustMode) => {
+    setAdjustMode(nextMode);
+    setAdjustReason((prev) => {
+      if (!prev || prev === "后台加积分" || prev === "人工扣减") {
+        return nextMode === "add" ? "后台加积分" : "人工扣减";
+      }
+      return prev;
+    });
+  };
+
+  const setAdjustDelta = (rawValue: string) => {
+    if (rawValue.includes("-")) {
+      handleAdjustModeChange("deduct");
+    } else if (rawValue.includes("+")) {
+      handleAdjustModeChange("add");
+    }
+    const digits = rawValue.replace(/\D+/g, "").replace(/^0+/, "");
+    setAdjustDeltaState(digits);
   };
 
   const openCreateDialog = () => {
@@ -123,10 +145,11 @@ export function useUsersManagementActions(options: UserActionsOptions) {
     setSelectedRoleId(user.role_id || roles[0]?.id || "");
   };
 
-  const openAdjustCreditsDialog = (user: ManagedUser, mode: CreditAdjustMode) => {
+  const openAdjustCreditsDialog = (user: ManagedUser, mode: CreditAdjustMode = "add") => {
     if (!permissions.canAdjustCredits) return toast.error("没有调整积分权限");
     setAdjustingUser(user);
-    setAdjustDelta(mode === "add" ? "10" : "-10");
+    setAdjustMode(mode);
+    setAdjustDeltaState("100");
     setAdjustReason(mode === "add" ? "后台加积分" : "人工扣减");
   };
 
@@ -176,13 +199,14 @@ export function useUsersManagementActions(options: UserActionsOptions) {
   const handleAdjustCredits = async () => {
     if (!adjustingUser) return;
     if (!permissions.canAdjustCredits) return toast.error("没有调整积分权限");
-    const delta = Math.trunc(Number(adjustDelta));
-    if (!Number.isFinite(delta) || delta === 0) return toast.error("请输入非 0 的积分调整值");
+    const absAmount = Math.trunc(Number(adjustDelta));
+    if (!Number.isFinite(absAmount) || absAmount < 1) return toast.error("请输入大于 0 的正整数积分数量");
+    const signedDelta = adjustMode === "deduct" ? -absAmount : absAmount;
     const user = adjustingUser;
     setIsAdjustingCredits(true);
     setItemPending(user.id, true);
     try {
-      const data = await adjustUserCredits(user.id, delta, adjustReason.trim() || undefined);
+      const data = await adjustUserCredits(user.id, signedDelta, adjustReason.trim() || undefined);
       const nextBalance = data.account?.balance;
       setCreditUsers((current) => {
         const list = normalizeCreditUsers(current);
@@ -201,7 +225,7 @@ export function useUsersManagementActions(options: UserActionsOptions) {
         ),
       );
       closeAdjustCreditsDialog();
-      toast.success(delta > 0 ? "积分已增加" : "积分已扣减");
+      toast.success(signedDelta > 0 ? "积分已增加" : "积分已扣减");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "调整积分失败");
     } finally {
@@ -221,6 +245,7 @@ export function useUsersManagementActions(options: UserActionsOptions) {
     selectedRoleId,
     isSavingRole,
     adjustingUser,
+    adjustMode,
     adjustDelta,
     adjustReason,
     isAdjustingCredits,
@@ -234,6 +259,7 @@ export function useUsersManagementActions(options: UserActionsOptions) {
     handleSaveRole,
     handleDelete,
     handleAdjustCredits,
+    handleAdjustModeChange,
     setDeletingUser,
     setRoleUser,
     setSelectedRoleId,

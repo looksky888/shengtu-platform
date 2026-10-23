@@ -26,12 +26,18 @@ export type SaveConfigReceipt = {
   restartRequired: boolean;
 };
 
+export type SaveConfigSectionOptions = {
+  sectionKey?: string;
+  silentToast?: boolean;
+};
+
 export type SettingsStore = {
   loadedAt: Partial<Record<SettingsDataKey, number>>;
   config: SettingsConfig | null;
   savedConfigSnapshot: string;
   isLoadingConfig: boolean;
   isSavingConfig: boolean;
+  savingSectionKey: string | null;
   isFetchingImageProxyModels: boolean;
   logGovernance: LogGovernanceSummary | null;
   lastLogCleanup: LogCleanupResult | null;
@@ -68,7 +74,11 @@ export type SettingsStore = {
   loadTabData: (tab: SettingsTabKey) => Promise<void>;
   loadConfig: (options?: SettingsLoadOptions) => Promise<boolean>;
   saveConfig: () => Promise<boolean>;
-  saveConfigSection: (keys: readonly (keyof SettingsConfig)[]) => Promise<SaveConfigReceipt | null>;
+  saveConfigSection: (
+    keys: readonly (keyof SettingsConfig)[],
+    options?: SaveConfigSectionOptions
+  ) => Promise<SaveConfigReceipt | null>;
+  resetConfigSection: (keys: readonly (keyof SettingsConfig)[]) => void;
   fetchImageProxyModelOptions: () => Promise<void>;
   setRefreshAccountIntervalMinute: (value: string) => void;
   setImageConcurrentLimit: (value: string) => void;
@@ -77,9 +87,12 @@ export type SettingsStore = {
   setVideoWorkerCount: (value: string) => void;
   setVideoQueueCapacity: (value: string) => void;
   setImageAccountConcurrency: (value: string) => void;
-  setImageAccountSchedule: (value: "least_loaded" | "least_fail" | "quota_aware") => void;
+  setImageAccountSchedule: (
+    value: "least_loaded" | "least_fail" | "quota_aware"
+  ) => void;
   setImageTaskTimeoutSeconds: (value: string) => void;
   setImageProxyField: (updates: Partial<SettingsConfig>) => void;
+  setLoginPageVisualField: (updates: Partial<SettingsConfig>) => void;
   setImageCreditCost4k: (value: string) => void;
   setImageCreditCost2k: (value: string) => void;
   setImageCreditCost1080p: (value: string) => void;
@@ -108,7 +121,7 @@ export type SettingsStore = {
   setBaseUrl: (value: string) => void;
   setRegistrationEnabled: (value: boolean) => void;
   loadLogGovernance: (options?: SettingsLoadOptions) => Promise<void>;
-  cleanupLogsByRetention: () => Promise<void>;
+  cleanupLogsByRetention: (explicitDays?: number) => Promise<void>;
 
   loadRegister: (options?: SettingsLoadOptions) => Promise<boolean>;
   setRegisterConfig: (config: RegisterConfig) => void;
@@ -121,15 +134,23 @@ export type SettingsStore = {
   setRegisterTargetQuota: (value: string) => void;
   setRegisterTargetAvailable: (value: string) => void;
   setRegisterCheckInterval: (value: string) => void;
-  setRegisterMailField: (key: "request_timeout" | "wait_timeout" | "wait_interval", value: string) => void;
+  setRegisterMailField: (
+    key: "request_timeout" | "wait_timeout" | "wait_interval",
+    value: string
+  ) => void;
   setRegisterGrokField: (key: string, value: string | number | boolean) => void;
   addRegisterProvider: () => void;
-  updateRegisterProvider: (index: number, updates: Record<string, unknown>) => void;
+  updateRegisterProvider: (
+    index: number,
+    updates: Record<string, unknown>
+  ) => void;
   deleteRegisterProvider: (index: number) => void;
-  saveRegister: () => Promise<void>;
+  saveRegister: () => Promise<boolean>;
   toggleRegister: () => Promise<void>;
   resetRegister: () => Promise<void>;
-  resetOutlookPool: (scope: "all" | "failed" | "unused" | "retryable" | "invalid") => Promise<void>;
+  resetOutlookPool: (
+    scope: "all" | "failed" | "unused" | "retryable" | "invalid"
+  ) => Promise<void>;
 
   loadPools: (options?: SettingsLoadOptions) => Promise<void>;
   openAddDialog: () => void;
@@ -151,5 +172,3 @@ export type SettingsStore = {
   setPageSize: (value: PageSizeOption) => void;
   startImport: () => Promise<void>;
 };
-
-

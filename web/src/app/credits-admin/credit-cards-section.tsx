@@ -33,12 +33,6 @@ export function CreditCardsSection({ state }: { state: CreditsAdminState }) {
             </CardTitle>
             <CardDescription>生成后的明文兑换码支持在弹窗一键批量复制，常驻列表保留核销状态与追踪记录。</CardDescription>
           </div>
-          {state.permissions.canManageCredits ? (
-            <Button type="button" size="sm" onClick={() => state.setIsGenerateDialogOpen(true)}>
-              <Plus className="size-4" />
-              生成卡密
-            </Button>
-          ) : null}
         </div>
       </CardHeader>
       <CardContent className="p-0 sm:p-0">
