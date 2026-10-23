@@ -152,8 +152,8 @@ export function AdminConsoleSidebar() {
         >
           {!collapsed ? (
             <div className="flex min-w-0 items-center gap-2">
-              <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-brand-soft text-brand">
-                <LayoutGrid className="size-3.5" />
+              <span className="flex size-5.5 shrink-0 items-center justify-center rounded-md bg-foreground text-background shadow-2xs">
+                <LayoutGrid className="size-3" />
               </span>
               <span className="truncate text-xs font-semibold tracking-tight text-foreground">
                 管理控制台
@@ -200,20 +200,23 @@ export function AdminConsoleSidebar() {
                       title={collapsed ? displayLabel : item.description}
                       aria-label={displayLabel}
                       className={cn(
-                        "group flex h-8.5 items-center rounded-lg text-[13px] font-medium transition-colors",
+                        "group relative flex h-8.5 items-center rounded-lg text-[13px] font-medium transition-colors",
                         collapsed
                           ? "justify-center px-0"
                           : "gap-2.5 px-2.5",
                         active
-                          ? "border border-brand-border bg-brand-soft font-semibold text-brand"
-                          : "text-muted-foreground hover:bg-surface-hover hover:text-foreground"
+                          ? "bg-foreground/[0.06] font-semibold text-foreground dark:bg-white/[0.08]"
+                          : "text-muted-foreground hover:bg-surface-hover hover:text-foreground",
+                        active &&
+                          !collapsed &&
+                          "before:absolute before:top-2 before:bottom-2 before:left-0 before:w-0.5 before:rounded-full before:bg-foreground"
                       )}
                     >
                       <Icon
                         className={cn(
                           "size-4 shrink-0 transition-colors",
                           active
-                            ? "text-brand"
+                            ? "text-foreground"
                             : "text-muted-foreground group-hover:text-foreground"
                         )}
                       />

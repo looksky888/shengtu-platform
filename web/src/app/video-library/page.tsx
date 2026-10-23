@@ -22,7 +22,11 @@ export default function VideoLibraryPage() {
   const controller = useVideoLibrary(Boolean(session), isAdmin ? "all" : "mine");
 
   if (isCheckingAuth || !session) {
-    return <div className="flex min-h-[40vh] items-center justify-center"><LoaderCircle className="size-5 animate-spin text-stone-400" /></div>;
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center">
+        <LoaderCircle className="size-5 animate-spin text-muted-foreground" />
+      </div>
+    );
   }
 
   const selectedAsset = controller.selectedAsset;
@@ -71,14 +75,14 @@ export default function VideoLibraryPage() {
         </Button>
         {controller.selectedAssets.length ? (
           <>
-            <span className="text-xs text-muted-foreground">已选 {controller.selectedAssets.length}</span>
+            <span className="text-xs text-muted-foreground tabular-nums">已选 {controller.selectedAssets.length}</span>
             {controller.scope === "mine" && canUpdateVisibility ? <Button type="button" variant="outline" className="h-9 rounded-lg text-xs" onClick={() => void controller.setSelectedVisibility("public")} disabled={Boolean(controller.visibilityMutatingID)}><Globe2 className="size-3.5" />公开</Button> : null}
             {controller.scope === "mine" && canUpdateVisibility ? <Button type="button" variant="outline" className="h-9 rounded-lg text-xs" onClick={() => void controller.setSelectedVisibility("private")} disabled={Boolean(controller.visibilityMutatingID)}><Lock className="size-3.5" />设为私有</Button> : null}
-            {canDeleteVideos ? <Button type="button" variant="outline" className="h-9 rounded-lg text-xs text-rose-600" onClick={() => controller.setDeleteTargets(controller.selectedAssets)}><Trash2 className="size-3.5" />删除</Button> : null}
+            {canDeleteVideos ? <Button type="button" variant="outline" className="h-9 rounded-lg text-xs text-rose-600 dark:text-rose-400" onClick={() => controller.setDeleteTargets(controller.selectedAssets)}><Trash2 className="size-3.5" />删除</Button> : null}
           </>
         ) : null}
       </div>
-      {controller.searchKeyword.trim() || controller.visibilityFilter !== "all" ? <p className="-mt-2 px-1 text-xs text-muted-foreground">当前筛选显示 {controller.filteredAssets.length} / {controller.assets.length} 个已加载视频</p> : null}
+      {controller.searchKeyword.trim() || controller.visibilityFilter !== "all" ? <p className="-mt-2 px-1 text-xs text-muted-foreground tabular-nums">当前筛选显示 {controller.filteredAssets.length} / {controller.assets.length} 个已加载视频</p> : null}
       <VideoLibraryGrid controller={controller} canDeleteVideos={canDeleteVideos} canUpdateVisibility={canUpdateVisibility} onRetry={() => void controller.load()} />
       {controller.hasMore ? <div className="flex justify-center"><Button type="button" variant="outline" onClick={() => void controller.loadMore()} disabled={controller.loadingMore}>{controller.loadingMore ? <LoaderCircle className="animate-spin" /> : null}加载更多视频</Button></div> : null}
       <VideoPreviewDialog video={selectedVideo} onOpenChange={(open) => { if (!open) controller.selectAsset(null); }} />

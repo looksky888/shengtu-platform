@@ -76,7 +76,7 @@ export function ImageEditDialog({
             ) : null}
           </div>
         </div>
-        <DialogFooter className="border-t border-stone-100 px-6 py-4">
+        <DialogFooter className="border-t border-border/70 px-6 py-4">
           <Button variant="outline" onClick={() => setDraft(null)}>
             取消
           </Button>

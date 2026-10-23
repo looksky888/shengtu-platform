@@ -4,7 +4,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 
 export function LoginAgreements({ state }: { state: LoginPageState }) {
   return (
-    <div className="flex flex-col gap-2.5 rounded-xl border border-slate-200/80 bg-slate-50/70 px-3.5 py-3 dark:border-white/10 dark:bg-white/[0.03]">
+    <div className="flex flex-col gap-2.5 rounded-xl border border-border/80 bg-surface-muted/55 px-3.5 py-3">
       <label className="flex cursor-pointer items-start gap-2.5">
         <Checkbox
           id="login-remember-me"
@@ -14,15 +14,15 @@ export function LoginAgreements({ state }: { state: LoginPageState }) {
           disabled={state.isSubmitting}
           className="mt-0.5"
         />
-        <span className="min-w-0 flex-1 text-xs leading-5 text-slate-600 dark:text-slate-300">
-          <span className="font-medium text-slate-800 dark:text-slate-100">记住我</span>
-          <span className="mt-0.5 block text-[11px] text-slate-500 dark:text-slate-400">
-            勾选后本设备约 30 天保持登录状态
+        <span className="min-w-0 flex-1 text-xs leading-5 text-muted-foreground">
+          <span className="font-medium text-foreground">记住登录状态</span>
+          <span className="mt-0.5 block text-[11px] text-muted-foreground">
+            勾选后当前设备约 30 天内保持免密通行
           </span>
         </span>
       </label>
 
-      <div className="h-px bg-slate-200/80 dark:bg-white/10" aria-hidden="true" />
+      <div className="h-px bg-border/80" aria-hidden="true" />
 
       <div className="flex items-start gap-2.5">
         <Checkbox
@@ -35,19 +35,19 @@ export function LoginAgreements({ state }: { state: LoginPageState }) {
           aria-required="true"
           className="mt-0.5"
         />
-        <div className="min-w-0 flex-1 text-xs leading-5 text-slate-600 dark:text-slate-300">
+        <div className="min-w-0 flex-1 text-xs leading-5 text-muted-foreground">
           <label htmlFor="login-agree-terms" className="cursor-pointer">
-            <span className="font-medium text-slate-800 dark:text-slate-100">我已阅读并同意</span>{" "}
+            <span className="font-medium text-foreground">我已阅读并同意</span>{" "}
           </label>
           <button
             type="button"
-            className="font-semibold text-[#1456f0] underline decoration-blue-300 underline-offset-2 transition hover:text-[#0f49cf] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45 dark:text-blue-400 dark:hover:text-blue-300"
+            className="font-semibold text-foreground underline decoration-border-strong underline-offset-3 transition hover:decoration-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20"
             onClick={() => state.setTermsOpen(true)}
           >
             {TERMS_SHORT_LABEL}
           </button>
-          <span className="mt-0.5 block text-[11px] text-slate-500 dark:text-slate-400">
-            登录与注册均须勾选。您须合法使用本服务；违规使用后果由您自行承担。
+          <span className="mt-0.5 block text-[11px] text-muted-foreground">
+            请合法合规使用创作工具；违规生成行为与后果由使用者独立承担。
           </span>
         </div>
       </div>

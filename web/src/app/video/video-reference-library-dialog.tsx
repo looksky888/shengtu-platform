@@ -49,16 +49,16 @@ export function VideoReferenceLibraryDialog({ controller }: { controller: VideoC
 
   return (
     <Dialog open={controller.referenceLibraryOpen} onOpenChange={controller.setReferenceLibraryOpen}>
-      <DialogContent className="grid h-[min(86dvh,780px)] w-[min(94vw,1040px)] max-w-none grid-rows-[auto_auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0">
-        <DialogHeader className="min-w-0 border-b border-slate-200 px-5 py-5 pr-14 dark:border-white/10 sm:px-6">
-          <DialogTitle className="flex items-center gap-2"><Images className="size-5 text-[#1456f0]" />参考图资产库</DialogTitle>
+      <DialogContent className="grid h-[min(86dvh,780px)] w-[min(94vw,1040px)] max-w-none grid-rows-[auto_auto_minmax(0,1fr)_auto] gap-0 overflow-hidden rounded-2xl border-border/80 bg-surface p-0">
+        <DialogHeader className="min-w-0 border-b border-border/70 px-5 py-5 pr-14 sm:px-6">
+          <DialogTitle className="flex items-center gap-2 text-foreground"><Images className="size-5 text-muted-foreground" />参考图资产库</DialogTitle>
           <DialogDescription>上传常用人物、服装和场景图片，勾选后用于本次视频生成。最多选择 7 张。</DialogDescription>
         </DialogHeader>
 
-        <div className="flex min-w-0 flex-col gap-3 border-b border-border/70 bg-muted/20 px-5 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+        <div className="flex min-w-0 flex-col gap-3 border-b border-border/70 bg-surface-muted/50 px-5 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <div className="relative min-w-0 flex-1 sm:max-w-sm">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索资产名称" className="h-9 rounded-lg bg-background pl-9" />
+            <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索资产名称" className="h-9 rounded-lg bg-surface pl-9" />
           </div>
           <div className="flex items-center justify-between gap-3 sm:justify-end">
             <span className="font-mono text-xs tabular-nums text-muted-foreground">已选 {draftSelection.length}/7</span>
@@ -71,21 +71,21 @@ export function VideoReferenceLibraryDialog({ controller }: { controller: VideoC
 
         <div className="min-h-0 min-w-0 overflow-y-auto p-4 sm:p-6">
           {controller.referenceLibraryLoading ? (
-            <div className="grid h-full min-h-56 place-items-center"><div className="flex items-center gap-2 text-sm text-muted-foreground"><LoaderCircle className="size-4 animate-spin text-primary" />正在读取资产库</div></div>
+            <div className="grid h-full min-h-56 place-items-center"><div className="flex items-center gap-2 text-sm text-muted-foreground"><LoaderCircle className="size-4 animate-spin text-foreground" />正在读取资产库</div></div>
           ) : assets.length ? (
             <div>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
                 {assets.map((asset) => {
                 const selected = draftSelection.includes(asset.id);
                 return (
-                  <figure key={asset.id} className={cn("group relative overflow-hidden rounded-xl border bg-muted/30 transition duration-200", selected ? "border-primary ring-2 ring-primary/20" : "border-border/70 hover:border-primary/40")}>
+                  <figure key={asset.id} className={cn("group relative overflow-hidden rounded-xl border bg-surface-muted/40 transition duration-200", selected ? "border-foreground ring-2 ring-foreground/15" : "border-border/75 hover:border-foreground/35")}>
                     <button type="button" className="block aspect-square w-full overflow-hidden text-left" aria-pressed={selected} aria-label={`${selected ? "取消选择" : "选择"}${asset.name}`} onClick={() => toggleDraft(asset.id)}>
                       <img src={asset.url} alt={asset.name} loading="lazy" className="size-full object-cover transition duration-300 group-hover:scale-[1.025]" />
-                      <span className={cn("absolute left-2 top-2 grid size-6 place-items-center rounded-md border shadow-2xs transition", selected ? "border-primary bg-primary text-primary-foreground" : "border-white/90 bg-black/25 text-transparent group-hover:bg-black/40")}><Check className="size-3.5" /></span>
+                      <span className={cn("absolute left-2 top-2 grid size-6 place-items-center rounded-md border shadow-2xs transition", selected ? "border-foreground bg-foreground text-background" : "border-white/90 bg-black/35 text-transparent group-hover:bg-black/50")}><Check className="size-3.5" /></span>
                     </button>
-                    <figcaption className="flex items-center gap-2 bg-card px-3 py-2">
-                      <p className="min-w-0 flex-1 truncate text-xs font-medium" title={asset.name}>{asset.name}</p>
-                      <button type="button" className="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground transition hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10" aria-label={`删除${asset.name}`} onClick={() => void controller.removeReferenceAsset(asset.id)}><Trash2 className="size-3.5" /></button>
+                    <figcaption className="flex items-center gap-2 bg-surface px-3 py-2">
+                      <p className="min-w-0 flex-1 truncate text-xs font-medium text-foreground" title={asset.name}>{asset.name}</p>
+                      <button type="button" className="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground transition hover:bg-rose-500/10 hover:text-rose-600" aria-label={`删除${asset.name}`} onClick={() => void controller.removeReferenceAsset(asset.id)}><Trash2 className="size-3.5" /></button>
                     </figcaption>
                   </figure>
                 );
@@ -94,14 +94,14 @@ export function VideoReferenceLibraryDialog({ controller }: { controller: VideoC
               {controller.referenceAssetsHasMore && !query.trim() ? <div className="mt-5 flex justify-center"><Button type="button" variant="outline" size="sm" className="rounded-lg" disabled={controller.referenceAssetsLoadingMore} onClick={() => void controller.loadMoreReferenceAssets()}>{controller.referenceAssetsLoadingMore ? <LoaderCircle className="animate-spin" /> : null}加载更多参考图</Button></div> : null}
             </div>
           ) : (
-            <button type="button" className="flex min-h-64 w-full flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border/80 bg-muted/20 px-6 text-center transition hover:border-primary/40 hover:bg-primary/5" onClick={() => picker.current?.click()}>
-              <span className="grid size-11 place-items-center rounded-xl bg-background text-primary shadow-2xs"><ImagePlus className="size-5" /></span>
-              <span><strong className="block text-sm">上传第一张参考图片</strong><span className="mt-1 block text-xs text-muted-foreground">PNG、JPEG、WebP 或 GIF，单张最大 20MB</span></span>
+            <button type="button" className="flex min-h-64 w-full flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border/80 bg-surface-muted/40 px-6 text-center transition hover:border-foreground/35 hover:bg-surface-hover" onClick={() => picker.current?.click()}>
+              <span className="grid size-11 place-items-center rounded-xl border border-border/75 bg-surface text-foreground shadow-2xs"><ImagePlus className="size-5" /></span>
+              <span><strong className="block text-sm text-foreground">上传第一张参考图片</strong><span className="mt-1 block text-xs text-muted-foreground">PNG、JPEG、WebP 或 GIF，单张最大 20MB</span></span>
             </button>
           )}
         </div>
 
-        <DialogFooter className="min-w-0 border-t border-border/70 bg-background px-5 py-4 sm:px-6">
+        <DialogFooter className="min-w-0 border-t border-border/70 bg-surface px-5 py-4 sm:px-6">
           <Button type="button" variant="outline" className="rounded-lg" onClick={() => controller.setReferenceLibraryOpen(false)}>取消</Button>
           <Button type="button" className="rounded-lg" onClick={confirmSelection}>使用已选图片（{draftSelection.length}）</Button>
         </DialogFooter>

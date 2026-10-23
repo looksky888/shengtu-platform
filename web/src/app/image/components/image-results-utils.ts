@@ -138,12 +138,12 @@ export function turnProgressKey(conversationId: string, turnId: string) {
 }
 
 export function getStatusChipClass(status: ImageTurnStatus) {
-  if (status === "queued") return "bg-amber-50 text-amber-700";
-  if (status === "generating") return "bg-blue-50 text-[#1456f0]";
-  if (status === "success") return "bg-emerald-50 text-emerald-700";
-  if (status === "message") return "bg-stone-100 text-stone-600";
-  if (status === "cancelled") return "bg-amber-50 text-amber-700";
-  return "bg-rose-50 text-rose-700";
+  if (status === "queued") return "bg-amber-500/12 text-amber-700 dark:text-amber-300";
+  if (status === "generating") return "bg-surface-muted font-medium text-foreground ring-1 ring-border/80";
+  if (status === "success") return "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300";
+  if (status === "message") return "bg-surface-muted text-muted-foreground";
+  if (status === "cancelled") return "bg-amber-500/12 text-amber-700 dark:text-amber-300";
+  return "bg-rose-500/12 text-rose-700 dark:text-rose-300";
 }
 
 export function getTurnOutcomeLabel(successCount: number, failedCount: number, cancelledCount: number) {

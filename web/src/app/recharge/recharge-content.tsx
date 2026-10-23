@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { WalletCards } from "lucide-react";
+import { LoaderCircle, WalletCards } from "lucide-react";
 import { toast } from "sonner";
 
 import { RechargeErrorPanel as ErrorPanel } from "@/app/recharge/recharge-panels";
 import { RechargeReadyView } from "@/app/recharge/recharge-ready-view";
 import { PageHeader } from "@/components/page-header";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   createCustomCreditsOrder,
   createPaymentOrder,
@@ -112,7 +113,8 @@ export function RechargeContent({ sessionKey }: { sessionKey: string }) {
           title="充值中心"
           description="购买积分或云存储套餐，使用微信或支付宝扫码支付，到账后权益自动更新。"
         />
-        <div className="rounded-xl border border-border/70 bg-card p-8 text-center text-sm text-muted-foreground shadow-2xs">
+        <div className="flex items-center justify-center gap-2 rounded-xl border border-border/70 bg-card p-8 text-center text-sm text-muted-foreground shadow-2xs">
+          <LoaderCircle className="size-4 animate-spin" />
           正在加载充值中心…
         </div>
       </section>
@@ -136,13 +138,11 @@ export function RechargeContent({ sessionKey }: { sessionKey: string }) {
           title="充值中心"
           description="购买积分或云存储套餐，使用微信或支付宝扫码支付，到账后权益自动更新。"
         />
-        <section className="rounded-xl border border-border/70 bg-card p-8 text-center shadow-2xs">
-          <WalletCards className="mx-auto mb-4 size-10 text-muted-foreground" />
-          <h2 className="text-xl font-semibold">充值服务暂未开放</h2>
-          <p className="mt-2 text-muted-foreground">
-            请稍后再试，或联系管理员。
-          </p>
-        </section>
+        <EmptyState
+          icon={WalletCards}
+          title="充值服务暂未开放"
+          description="请稍后再试，或联系管理员。"
+        />
       </section>
     );
 

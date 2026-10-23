@@ -149,8 +149,8 @@ export function ComposerRatioResolutionSettings({
       {imageAspectRatio === CUSTOM_IMAGE_ASPECT_RATIO && !grokMode ? (
         <div
           className={cn(
-            "col-span-2 flex min-w-0 items-center justify-between gap-2 rounded-2xl border bg-surface px-3 py-2 sm:col-span-3",
-            isCustomRatioInvalid ? "border-red-300 dark:border-red-500/60" : "border-border",
+            "col-span-2 flex min-w-0 items-center justify-between gap-2 rounded-lg border bg-surface-muted/75 px-3 py-1.5 sm:col-span-3",
+            isCustomRatioInvalid ? "border-rose-300 dark:border-rose-500/60" : "border-transparent",
           )}
         >
           <span className="shrink-0 text-[11px] font-medium text-muted-foreground">自定义比例</span>

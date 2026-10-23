@@ -331,12 +331,12 @@ export function NavSearchMenu({
     <>
       <Button
         type="button"
-        variant="outline"
+        variant="ghost"
         size="sm"
         onClick={() => setOpen(true)}
         aria-label="打开命令面板与页面搜索"
         title="搜索页面或命令（Ctrl/⌘ + K）"
-        className="h-8 gap-2 rounded-lg border-border/80 bg-surface-muted/70 px-2.5 text-xs font-normal text-muted-foreground shadow-none hover:bg-surface-hover hover:text-foreground"
+        className="h-8 gap-2 rounded-lg bg-surface-muted/85 px-2.5 text-xs font-normal text-muted-foreground shadow-none hover:bg-surface-hover hover:text-foreground"
       >
         <Search className="size-3.5 shrink-0" />
         <span className="hidden xl:inline">搜索或跳转…</span>
@@ -408,7 +408,7 @@ export function NavSearchMenu({
                           className={cn(
                             "flex w-full items-center justify-between gap-3 rounded-xl px-2.5 py-2 text-left transition-colors",
                             isSelected
-                              ? "bg-brand-soft text-brand"
+                              ? "bg-surface-muted text-foreground"
                               : "text-foreground hover:bg-surface-hover"
                           )}
                         >
@@ -417,9 +417,9 @@ export function NavSearchMenu({
                               className={cn(
                                 "flex size-8 shrink-0 items-center justify-center rounded-lg border transition-colors",
                                 isSelected
-                                  ? "border-brand-border bg-surface text-brand"
+                                  ? "border-border bg-surface text-foreground shadow-2xs"
                                   : entry.active
-                                    ? "border-brand-border bg-brand-soft text-brand"
+                                    ? "border-foreground/20 bg-foreground text-background"
                                     : "border-border/70 bg-surface-muted text-muted-foreground"
                               )}
                             >
@@ -431,7 +431,7 @@ export function NavSearchMenu({
                                   {entry.label}
                                 </span>
                                 {entry.active ? (
-                                  <span className="rounded-full bg-brand/15 px-1.5 py-0.5 text-[10px] font-semibold text-brand">
+                                  <span className="rounded-md bg-foreground px-1.5 py-0.5 text-[10px] font-medium text-background">
                                     当前
                                   </span>
                                 ) : null}
@@ -453,7 +453,7 @@ export function NavSearchMenu({
                               className={cn(
                                 "size-3.5 transition-transform",
                                 isSelected
-                                  ? "translate-x-0.5 text-brand"
+                                  ? "translate-x-0.5 text-foreground"
                                   : "text-muted-foreground/40"
                               )}
                             />

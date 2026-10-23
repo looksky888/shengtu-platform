@@ -61,12 +61,12 @@ export function UserUsageSparkline({ points }: { points?: ManagedUserUsage["usag
           <title>{label}</title>
           <line x1={paddingX} x2={width - paddingX} y1={paddingTop} y2={paddingTop} className="stroke-border/70" strokeDasharray="3 5" />
           <line x1={paddingX} x2={width - paddingX} y1={baselineY} y2={baselineY} className="stroke-border/70" />
-          <path d={areaPath} className="fill-[#3b82f6] opacity-10 dark:opacity-15" />
-          <path d={linePath} fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" className="text-[#1456f0] dark:text-sky-300" />
+          <path d={areaPath} className="fill-foreground opacity-[0.06] dark:opacity-[0.12]" />
+          <path d={linePath} fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" className="text-foreground" />
           {chartPoints.map(({ point, x, y }, index) => <UsagePointCircle key={point.date} point={point} x={x} y={y} isLatest={index === chartPoints.length - 1} />)}
         </svg>
       </div>
-      <div className="flex items-center justify-between gap-2 text-[11px] leading-4 text-muted-foreground">
+      <div className="flex items-center justify-between gap-2 text-[11px] leading-4 text-muted-foreground tabular-nums">
         <span>{formatUsageDate(safePoints[0].date)}-{formatUsageDate(latestPoint.date)}</span>
         <span>峰值 {formatCompactNumber(peakPoint.calls)}</span>
       </div>
@@ -83,9 +83,9 @@ function UsagePointCircle({ point, x, y, isLatest }: { point: NormalizedUsagePoi
     <circle
       cx={x}
       cy={y}
-      r={isLatest ? 3.4 : 2.4}
-      className={isLatest ? "fill-[#1456f0] dark:fill-sky-300" : "fill-background stroke-[#1456f0] dark:stroke-sky-300"}
-      strokeWidth={isLatest ? 0 : 1.6}
+      r={isLatest ? 3.2 : 2.2}
+      className={isLatest ? "fill-foreground" : "fill-background stroke-foreground"}
+      strokeWidth={isLatest ? 0 : 1.5}
     >
       <title>{`${point.date} 调用 ${point.calls} 次，成功 ${point.success} 次，失败 ${point.failure} 次，额度 ${point.quotaUsed}`}</title>
     </circle>

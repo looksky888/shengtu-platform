@@ -44,7 +44,7 @@ export function ImageDeleteConfirmDialog({
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription className="text-sm leading-6">{description}</DialogDescription>
           {promptPreview ? (
-            <div className="line-clamp-2 rounded-xl bg-[#f0f0f0] px-3 py-2 text-sm leading-6 text-[#45515e]">
+            <div className="line-clamp-2 rounded-xl border border-border/70 bg-surface-muted px-3 py-2 text-sm leading-6 text-muted-foreground">
               {promptPreview}
               {target.type === "turn" && target.prompt.trim().length > 80 ? "…" : ""}
             </div>

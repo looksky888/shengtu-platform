@@ -26,7 +26,7 @@ export function LoginTermsDialog({ open, onOpenChange }: LoginTermsDialogProps) 
         </DialogHeader>
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
           <div className="flex flex-col gap-4 text-sm leading-6 text-muted-foreground">
-            <p className="rounded-lg border border-blue-200/80 bg-blue-50/70 px-3 py-2.5 text-[13px] text-slate-800 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-slate-200">
+            <p className="rounded-lg border border-border/80 bg-surface-muted/85 px-3.5 py-2.5 text-[13px] leading-6 text-foreground">
               重要提示：本服务为技术工具。您须对使用行为及生成内容独立承担法律责任；因违法犯罪、侵权或其他违规使用造成的后果，与本项目开发者、维护者及部署方无关。
             </p>
             {TERMS_SECTIONS.map((section) => (

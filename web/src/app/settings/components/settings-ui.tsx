@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { HelpCircle, type LucideIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 import {
@@ -18,9 +19,9 @@ type SettingsCardTone = "blue" | "amber" | "slate" | "violet";
 
 const toneClassNames: Record<SettingsCardTone, string> = {
   amber: "bg-status-warning-soft text-status-warning ring-1 ring-status-warning/20",
-  blue: "bg-status-info-soft text-status-info ring-1 ring-status-info/20",
-  slate: "bg-secondary text-muted-foreground ring-1 ring-border",
-  violet: "bg-status-info-soft text-status-info ring-1 ring-status-info/20",
+  blue: "bg-surface-muted text-foreground ring-1 ring-border/60",
+  slate: "bg-surface-muted text-muted-foreground ring-1 ring-border/60",
+  violet: "bg-surface-muted text-foreground ring-1 ring-border/60",
 };
 
 type SettingsCardProps = {
@@ -160,12 +161,11 @@ export function SettingsEmptyState({
   title: string;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-border/60 bg-muted/20 px-6 py-10 text-center">
-      <Icon className="size-8 text-muted-foreground/45" />
-      <div className="flex flex-col gap-1">
-        <p className="text-sm font-medium text-foreground">{title}</p>
-        <p className="text-sm text-muted-foreground">{description}</p>
-      </div>
-    </div>
+    <EmptyState
+      icon={Icon}
+      title={title}
+      description={description}
+      className="rounded-xl border border-dashed border-border/70 bg-surface-muted/30 py-10"
+    />
   );
 }

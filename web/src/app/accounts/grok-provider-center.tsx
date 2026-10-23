@@ -31,7 +31,7 @@ export function GrokProviderCenter({ session }: { session: StoredAuthSession }) 
     <section className="overflow-hidden rounded-xl border border-border/70 bg-card shadow-2xs">
       <header className="flex flex-wrap items-start justify-between gap-3 border-b border-border/70 px-5 py-4 lg:px-6">
         <div>
-          <div className="flex flex-wrap items-center gap-2"><ServerCog className="size-5 text-brand" /><h2 className="text-lg font-semibold tracking-tight">上游账号</h2></div>
+          <div className="flex flex-wrap items-center gap-2"><ServerCog className="size-5 text-foreground" /><h2 className="text-lg font-semibold tracking-tight">上游账号</h2></div>
           <p className="mt-1 max-w-3xl text-xs text-muted-foreground sm:text-sm">管理 Grok 账号、额度与健康状态。</p>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">

@@ -75,7 +75,7 @@ export function ApiIntegrationQuickPanel({
       <div className="space-y-3">
         <div className="flex items-center justify-between gap-2">
           <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-foreground">
-            <Globe className="size-3.5 text-brand" />
+            <Globe className="size-3.5 text-muted-foreground" />
             接入端点与配额速览
           </span>
           <Button
@@ -88,7 +88,7 @@ export function ApiIntegrationQuickPanel({
             {isTesting ? (
               <LoaderCircle className="size-3.5 animate-spin" />
             ) : (
-              <Activity className="size-3.5 text-brand" />
+              <Activity className="size-3.5 text-muted-foreground" />
             )}
             <span>{isTesting ? "测试中…" : "测试连通性"}</span>
           </Button>
@@ -175,7 +175,7 @@ export function ApiIntegrationQuickPanel({
       <div className="space-y-1.5 border-t border-border/60 pt-2.5">
         <div className="flex items-center justify-between text-[11px] text-muted-foreground">
           <span className="inline-flex items-center gap-1">
-            <ShieldCheck className="size-3.5 text-brand" />
+            <ShieldCheck className="size-3.5 text-muted-foreground" />
             已授权协议能力
           </span>
           <span>{apiKey?.role_name || (isAdmin ? "管理员" : "普通用户")}</span>

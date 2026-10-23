@@ -16,7 +16,7 @@ export function CreditsTablePagination({ label, total, page, pageSize, onPageCha
   const totalPages = getTotalPages(total, pageSize);
   const currentPage = Math.min(Math.max(1, page), totalPages);
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3 text-sm text-muted-foreground">
+    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3 text-sm text-muted-foreground tabular-nums">
       <span>{`每页 ${pageSize} 条，${label}共 ${total} 条；第 ${currentPage} / ${totalPages} 页`}</span>
       <div className="flex flex-wrap items-center gap-2">
         <Select value={String(pageSize)} onValueChange={(value) => onPageSizeChange(Number(value) as AdminTablePageSize)}>

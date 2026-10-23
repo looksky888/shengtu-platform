@@ -1,1 +1,1 @@
-4.7.2-20261022-studio-console
+4.8.0-20261023-obsidian-studio

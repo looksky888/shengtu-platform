@@ -179,7 +179,7 @@ export function ImageLightbox({
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-[#09090b]/90 backdrop-blur-xl data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
         <DialogPrimitive.Content
           className="fixed inset-0 z-50 flex items-center justify-center outline-none"
           onPointerDownOutside={(e) => e.preventDefault()}
@@ -207,7 +207,7 @@ export function ImageLightbox({
             <button
               type="button"
               onClick={goPrev}
-              className="absolute left-4 z-10 inline-flex size-10 items-center justify-center rounded-full border border-white/15 bg-black/45 text-white/95 backdrop-blur-md transition hover:bg-black/70"
+              className="absolute left-4 z-10 inline-flex size-10 items-center justify-center rounded-full border border-zinc-700/70 bg-zinc-950/75 text-zinc-100 shadow-lg backdrop-blur-md transition hover:bg-zinc-900"
               aria-label="上一张"
               title="上一张 (←)"
             >
@@ -224,7 +224,7 @@ export function ImageLightbox({
               src={current.src}
               alt=""
               className={cn(
-                "max-h-[90vh] max-w-[90vw] rounded-lg object-contain transition-transform duration-100",
+                "max-h-[90vh] max-w-[90vw] rounded-lg object-contain shadow-2xl transition-transform duration-100",
                 zoom > MIN_ZOOM
                   ? "cursor-grab touch-none active:cursor-grabbing"
                   : "cursor-zoom-in"
@@ -258,7 +258,7 @@ export function ImageLightbox({
             <button
               type="button"
               onClick={goNext}
-              className="absolute right-4 z-10 inline-flex size-10 items-center justify-center rounded-full border border-white/15 bg-black/45 text-white/95 backdrop-blur-md transition hover:bg-black/70"
+              className="absolute right-4 z-10 inline-flex size-10 items-center justify-center rounded-full border border-zinc-700/70 bg-zinc-950/75 text-zinc-100 shadow-lg backdrop-blur-md transition hover:bg-zinc-900"
               aria-label="下一张"
               title="下一张 (→)"
             >

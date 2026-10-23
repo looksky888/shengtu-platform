@@ -98,17 +98,17 @@ export function MediaStorageCard() {
 
         {storage.migration.state !== "idle" ? (
           <div className="grid gap-2 rounded-lg border border-border/60 bg-muted/20 p-4">
-            <div className="flex justify-between text-sm"><span>迁移进度</span><span>{storage.migration.processed} / {storage.migration.total}</span></div>
-            <div className="h-2 overflow-hidden rounded-full bg-surface-muted"><div className="h-full rounded-full bg-brand transition-[width]" style={{ width: `${progress}%` }} /></div>
-            <div className="text-xs text-muted-foreground">已迁移 {storage.migration.migrated}，跳过 {storage.migration.skipped}，待重试 {storage.migration.pending}，失败 {storage.migration.failed}</div>
+            <div className="flex justify-between text-sm"><span>迁移进度</span><span className="font-mono tabular-nums">{storage.migration.processed} / {storage.migration.total}</span></div>
+            <div className="h-2 overflow-hidden rounded-full bg-surface-muted"><div className="h-full rounded-full bg-foreground transition-[width]" style={{ width: `${progress}%` }} /></div>
+            <div className="text-xs tabular-nums text-muted-foreground">已迁移 {storage.migration.migrated}，跳过 {storage.migration.skipped}，待重试 {storage.migration.pending}，失败 {storage.migration.failed}</div>
           </div>
         ) : null}
 
         {storage.cleanup.state !== "idle" ? (
           <div className={`grid gap-2 rounded-lg border p-4 ${storage.cleanup.failed > 0 || storage.cleanup.state === "failed" ? "border-amber-500/30 bg-amber-500/10" : "border-emerald-500/30 bg-emerald-500/10"}`}>
             <div className="flex flex-wrap justify-between gap-2 text-sm"><span>{storage.cleanup.mode === "delete" ? "本地副本清理" : "R2 副本验证"}</span><span className="font-mono tabular-nums">{storage.cleanup.processed} / {storage.cleanup.total}</span></div>
-            <div className="h-2 overflow-hidden rounded-full bg-surface"><div className="h-full rounded-full bg-brand transition-[width]" style={{ width: `${cleanupProgress}%` }} /></div>
-            <div className="text-xs text-muted-foreground">通过 {storage.cleanup.verified}，可清理 {storage.cleanup.eligible}，跳过 {storage.cleanup.skipped}，异常 {storage.cleanup.failed}；{storage.cleanup.mode === "delete" ? `已释放 ${formatBytes(storage.cleanup.freed_bytes)}` : `预计释放 ${formatBytes(storage.cleanup.reclaimable_bytes)}`}</div>
+            <div className="h-2 overflow-hidden rounded-full bg-surface"><div className="h-full rounded-full bg-foreground transition-[width]" style={{ width: `${cleanupProgress}%` }} /></div>
+            <div className="text-xs tabular-nums text-muted-foreground">通过 {storage.cleanup.verified}，可清理 {storage.cleanup.eligible}，跳过 {storage.cleanup.skipped}，异常 {storage.cleanup.failed}；{storage.cleanup.mode === "delete" ? `已释放 ${formatBytes(storage.cleanup.freed_bytes)}` : `预计释放 ${formatBytes(storage.cleanup.reclaimable_bytes)}`}</div>
             {storage.cleanup.error ? <div className="break-all text-xs text-amber-800 dark:text-amber-300">最后异常：{storage.cleanup.error}</div> : null}
           </div>
         ) : null}

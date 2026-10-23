@@ -6,11 +6,9 @@ import {
   useLocation,
 } from "react-router-dom";
 import {
-  AnimatePresence,
   motion,
   useReducedMotion,
   type Transition,
-  type Variants,
 } from "motion/react";
 import { LoaderCircle } from "lucide-react";
 
@@ -23,30 +21,12 @@ import {
 import { canAccessPath, getDefaultRouteForSession, type StoredAuthSession } from "@/store/auth";
 
 const routeTransition: Transition = {
-  duration: 0.2,
+  duration: 0.14,
   ease: [0.22, 1, 0.36, 1],
 };
 
 const reducedRouteTransition: Transition = {
   duration: 0.01,
-};
-
-const routeVariants: Variants = {
-  initial: {
-    opacity: 0,
-  },
-  animate: {
-    opacity: 1,
-  },
-  exit: {
-    opacity: 0,
-  },
-};
-
-const reducedRouteVariants: Variants = {
-  initial: { opacity: 0 },
-  animate: { opacity: 1 },
-  exit: { opacity: 0 },
 };
 
 function PermissionRoute({ requiredPath, children }: { requiredPath?: string; children: ReactNode }) {
@@ -82,7 +62,7 @@ function PermissionRoute({ requiredPath, children }: { requiredPath?: string; ch
   if (session === undefined) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center">
-        <LoaderCircle className="size-5 animate-spin text-stone-400" />
+        <LoaderCircle className="size-5 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -101,26 +81,22 @@ export function AnimatedRoutes() {
   const prefersReducedMotion = useReducedMotion();
 
   return (
-    <AnimatePresence mode="sync" initial={false}>
-      <motion.div
-        key={location.pathname}
-        variants={prefersReducedMotion ? reducedRouteVariants : routeVariants}
-        initial="initial"
-        animate="animate"
-        exit="exit"
-        transition={prefersReducedMotion ? reducedRouteTransition : routeTransition}
-        className="min-w-0"
-      >
-        <Routes location={location}>
-          {appRoutes.map((route) => (
-            <Route
-              key={route.path}
-              path={route.path}
-              element={<PermissionRoute requiredPath={route.requiredPath}>{route.element}</PermissionRoute>}
-            />
-          ))}
-        </Routes>
-      </motion.div>
-    </AnimatePresence>
+    <motion.div
+      key={location.pathname}
+      initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0, y: 3 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={prefersReducedMotion ? reducedRouteTransition : routeTransition}
+      className="min-w-0"
+    >
+      <Routes location={location}>
+        {appRoutes.map((route) => (
+          <Route
+            key={route.path}
+            path={route.path}
+            element={<PermissionRoute requiredPath={route.requiredPath}>{route.element}</PermissionRoute>}
+          />
+        ))}
+      </Routes>
+    </motion.div>
   );
 }

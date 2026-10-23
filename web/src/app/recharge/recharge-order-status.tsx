@@ -84,13 +84,13 @@ export function RechargeOrderStatus({
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 text-base font-semibold">
           {success ? (
-            <CheckCircle2 className="size-5 text-emerald-600" />
+            <CheckCircle2 className="size-5 text-emerald-600 dark:text-emerald-400" />
           ) : (
             <LoaderCircle
               className={
                 terminal
                   ? "size-5 text-muted-foreground"
-                  : "size-5 animate-spin text-primary"
+                  : "size-5 animate-spin text-foreground"
               }
             />
           )}
@@ -98,11 +98,11 @@ export function RechargeOrderStatus({
             ? "充值已到账"
             : terminal
               ? (order.status === "exception" ? "订单需要核查" : order.status === "failed" ? "订单创建失败" : "订单已关闭")
-                : closing
-                  ? "正在关闭订单"
-                  : expired
-                ? "正在确认订单"
-                : "等待扫码支付"}
+              : closing
+                ? "正在关闭订单"
+                : expired
+                  ? "正在确认订单"
+                  : "等待扫码支付"}
         </div>
         <Badge
           variant={success ? "success" : terminal ? "secondary" : "warning"}
@@ -113,7 +113,7 @@ export function RechargeOrderStatus({
       </div>
       {!success && !qrUnavailable ? (
         <div className="mt-5 flex flex-col items-center gap-5 sm:flex-row sm:items-start">
-          <div className="flex size-56 shrink-0 items-center justify-center rounded-lg border bg-white p-3">
+          <div className="flex size-56 shrink-0 items-center justify-center rounded-lg border border-border/70 bg-white p-3">
             {qrCode ? (
               <img
                 src={qrCode}
@@ -124,34 +124,34 @@ export function RechargeOrderStatus({
               <LoaderCircle className="size-6 animate-spin text-muted-foreground" />
             )}
           </div>
-          <div className="min-w-0 space-y-3">
+          <div className="min-w-0 flex-1 space-y-3">
             <p className="text-sm leading-6 text-muted-foreground">
               请使用{paymentName}扫描二维码完成支付，页面会自动查询到账状态。
             </p>
-            <div className="flex items-center justify-between gap-3 rounded-lg bg-blue-50 px-3 py-2 text-sm text-blue-700 dark:bg-blue-950/35 dark:text-blue-300">
-              <span>支付剩余时间</span>
-              <strong className="tabular-nums">
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-border/70 bg-surface-muted px-3 py-2 text-sm text-foreground">
+              <span className="text-muted-foreground">支付剩余时间</span>
+              <strong className="font-mono tabular-nums">
                 {formatPaymentCountdown(remainingMs)}
               </strong>
             </div>
-            <p className="break-all rounded-lg bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+            <p className="break-all rounded-lg bg-muted/50 px-3 py-2 font-mono text-xs text-muted-foreground tabular-nums">
               订单号：{order.out_trade_no}
             </p>
           </div>
         </div>
       ) : null}
       {expired && !terminal && !closing ? (
-        <p className="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-300">
+        <p className="mt-5 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-300">
           订单已到期，正在确认支付结果并关闭二维码，请勿重复下单。
         </p>
       ) : null}
       {closing ? (
-        <p className="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-300">
+        <p className="mt-5 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-300">
           支付平台正在确认关单结果，页面会自动更新状态。
         </p>
       ) : null}
       <RechargeOrderActions order={order} querying={querying} cancelling={cancelling} onRefresh={onRefresh} onCancel={onCancel} onReset={onReset} />
-      <p className="mt-5 text-xs text-muted-foreground">
+      <p className="mt-5 text-xs text-muted-foreground tabular-nums">
         金额 ¥{(order.amount_fen / 100).toFixed(2)} · {order.product_type === "cloud_storage" ? `${order.product_name} · ${order.storage_days ?? 0} 天` : `${order.credits} 积分`}
       </p>
     </section>

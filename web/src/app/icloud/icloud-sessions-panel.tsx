@@ -1,5 +1,8 @@
-import { Checkbox } from "@/components/ui/checkbox";
+import { ShieldCheck } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { EmptyState } from "@/components/ui/empty-state";
 import { resolveLoginChannelState } from "@/lib/icloud-api";
 
 import { LoginStateChip, SectionCard, SectionLoadError } from "./icloud-cards";
@@ -24,9 +27,13 @@ export function ICloudSessionsPanel({ controller }: { controller: ICloudPageCont
     >
       <SectionLoadError message={loadErrors.sessions} />
       {!loadErrors.sessions && sessions.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-border px-3 py-8 text-center text-sm text-muted-foreground">
-          还没有登录态，请在右侧完成登录。
-        </p>
+        <EmptyState
+          compact
+          icon={ShieldCheck}
+          title="暂无 Apple 登录态"
+          description="请在右侧面板完成 Apple 账号登录与 IMAP 配置。"
+          className="rounded-xl border border-dashed border-border/70 bg-surface-muted/25 py-10"
+        />
       ) : sessions.length > 0 ? (
         <ul className="space-y-2.5">
           {sessions.map((session) => {
@@ -35,10 +42,10 @@ export function ICloudSessionsPanel({ controller }: { controller: ICloudPageCont
             return (
               <li
                 key={id || session.apple_id}
-                className={`flex items-start gap-3 rounded-xl border px-3 py-3 transition ${
+                className={`flex items-start gap-3 rounded-xl border px-3.5 py-3 transition-all ${
                   selected
-                    ? "border-emerald-200 bg-emerald-50/50 dark:border-emerald-900/40 dark:bg-emerald-950/20"
-                    : "border-border/80 bg-background/60 hover:border-border"
+                    ? "border-foreground bg-surface shadow-xs ring-1 ring-foreground/10"
+                    : "border-border/80 bg-surface-muted/25 hover:border-border hover:bg-surface-hover/50"
                 }`}
               >
                 <Checkbox

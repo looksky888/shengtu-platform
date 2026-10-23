@@ -19,27 +19,38 @@ export function VideoResult({ controller }: { controller: VideoCreationControlle
   const { task, video, pollError } = controller;
   const frame = selectedVideoSize(controller.size);
   const active = task?.status === "queued" || task?.status === "running";
+  const resolutionLabel = controller.resolutionName.toUpperCase();
 
   return (
-    <section className="relative flex min-h-[520px] overflow-hidden rounded-xl border border-border/70 bg-card shadow-2xs xl:h-full xl:min-h-0">
-      <div className="relative z-10 flex w-full flex-col p-4">
-        <header className="flex min-h-8 items-center justify-between gap-3 border-b border-border/60 pb-2.5">
+    <section className="relative flex min-h-[520px] overflow-hidden rounded-2xl border border-zinc-800/90 bg-[#0b0b0d] text-zinc-100 shadow-sm xl:h-full xl:min-h-0">
+      <div className="video-stage-grain pointer-events-none absolute inset-0 opacity-[0.05]" />
+      <div className="relative z-10 flex w-full flex-col p-4 sm:p-5">
+        <header className="flex min-h-8 items-center justify-between gap-3 border-b border-zinc-800/80 pb-3">
           <div className="flex items-center gap-2.5">
-            <span className="inline-flex size-2 rounded-full bg-primary" />
-            <p className="text-sm font-semibold text-foreground">
+            <span
+              className={cn(
+                "inline-flex size-2 rounded-full",
+                active
+                  ? "animate-pulse bg-emerald-400"
+                  : task?.status === "success"
+                    ? "bg-emerald-500"
+                    : "bg-zinc-600",
+              )}
+            />
+            <p className="text-sm font-medium tracking-tight text-zinc-100">
               {active
                 ? "Grok 渲染引擎工作中"
                 : task?.status === "success"
                   ? "视频已生成"
-                  : "视频预览画布"}
+                  : "暗房监看画布"}
             </p>
-            <span className="rounded-md bg-muted px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
-              {frame.ratio}
+            <span className="rounded-md border border-zinc-800 bg-zinc-900/90 px-2 py-0.5 font-mono text-[11px] text-zinc-400 tabular-nums">
+              {frame.ratio} · {resolutionLabel} · {controller.seconds}S
             </span>
           </div>
           {active ? (
             <CreationTaskCancelButton
-              tone="light"
+              tone="dark"
               label="终止任务"
               onCancel={() => void controller.cancel()}
             />
@@ -48,7 +59,7 @@ export function VideoResult({ controller }: { controller: VideoCreationControlle
               asChild
               size="sm"
               variant="outline"
-              className="h-7 rounded-lg px-2.5 text-xs"
+              className="h-7 rounded-lg border-zinc-800 bg-zinc-900/80 px-2.5 text-xs text-zinc-200 hover:bg-zinc-800 hover:text-white"
             >
               <Link to="/video-library">
                 <Library className="size-3.5" />
@@ -58,19 +69,30 @@ export function VideoResult({ controller }: { controller: VideoCreationControlle
           )}
         </header>
 
-        <div className="my-2.5 flex min-h-0 flex-1 items-center justify-center rounded-lg border border-border/50 bg-muted/25 p-4">
+        <div className="relative my-3 flex min-h-0 flex-1 items-center justify-center rounded-xl border border-zinc-800/70 bg-[#0e0e11] p-5 sm:p-6">
+          <span className="pointer-events-none absolute top-3.5 left-3.5 size-3 border-t border-l border-zinc-600/60" />
+          <span className="pointer-events-none absolute top-3.5 right-3.5 size-3 border-t border-r border-zinc-600/60" />
+          <span className="pointer-events-none absolute bottom-3.5 left-3.5 size-3 border-b border-l border-zinc-600/60" />
+          <span className="pointer-events-none absolute right-3.5 bottom-3.5 size-3 border-r border-b border-zinc-600/60" />
+
           <div
             className={cn(
-              "relative flex w-full items-center justify-center overflow-hidden rounded-xl border border-border/80 bg-zinc-950 text-white shadow-sm",
+              "relative flex w-full items-center justify-center overflow-hidden rounded-xl border border-zinc-800/90 bg-zinc-950/90 text-zinc-100 shadow-[0_24px_64px_-24px_rgba(0,0,0,0.85)]",
               frame.frameClass,
               frame.ratio === "9:16"
                 ? "max-w-[330px]"
-                : frame.ratio === "1:1"
-                  ? "max-w-[520px]"
-                  : "max-w-[760px]",
+                : frame.ratio === "2:3"
+                  ? "max-w-[390px]"
+                  : frame.ratio === "1:1"
+                    ? "max-w-[520px]"
+                    : "max-w-[760px]",
             )}
           >
-            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_35%,rgba(20,86,240,0.16),transparent_60%)]" />
+            <span className="pointer-events-none absolute top-2.5 left-2.5 z-20 size-2.5 border-t border-l border-zinc-600/60" />
+            <span className="pointer-events-none absolute top-2.5 right-2.5 z-20 size-2.5 border-t border-r border-zinc-600/60" />
+            <span className="pointer-events-none absolute bottom-2.5 left-2.5 z-20 size-2.5 border-b border-l border-zinc-600/60" />
+            <span className="pointer-events-none absolute right-2.5 bottom-2.5 z-20 size-2.5 border-r border-b border-zinc-600/60" />
+
             {active ? (
               <CreationTaskProgressState
                 tone="dark"
@@ -86,7 +108,9 @@ export function VideoResult({ controller }: { controller: VideoCreationControlle
                 className="relative z-10"
               />
             ) : null}
-            {!task && !pollError ? <EmptyResult frameLabel={frame.ratio} /> : null}
+            {!task && !pollError ? (
+              <EmptyResult frameLabel={frame.ratio} resolutionLabel={resolutionLabel} />
+            ) : null}
             {pollError ? (
               <CreationTaskMessageState
                 tone="dark"
@@ -122,26 +146,42 @@ export function VideoResult({ controller }: { controller: VideoCreationControlle
           </div>
         </div>
 
-        <footer className="flex items-center justify-center text-center text-[11px] text-muted-foreground">
-          {active
-            ? "离开页面不会中断任务；刷新后可继续查看生成进度"
-            : "生成的视频会自动保存到视频库"}
+        <footer className="flex items-center justify-between gap-2 text-[11px] text-zinc-500">
+          <span className="font-mono tracking-wider uppercase">
+            {frame.ratio} · {resolutionLabel} · CINEMA STAGE
+          </span>
+          <span>
+            {active
+              ? "离开页面不会中断任务；刷新后可继续查看生成进度"
+              : "生成的视频会自动保存到视频库"}
+          </span>
         </footer>
       </div>
     </section>
   );
 }
 
-function EmptyResult({ frameLabel }: { frameLabel: string }) {
+function EmptyResult({
+  frameLabel,
+  resolutionLabel,
+}: {
+  frameLabel: string;
+  resolutionLabel: string;
+}) {
   return (
     <div className="relative z-10 flex flex-col items-center gap-3.5 px-6 text-center">
-      <div className="flex size-12 items-center justify-center rounded-xl border border-white/10 bg-white/[0.06] text-blue-400">
+      <span className="rounded-full border border-zinc-800 bg-zinc-900/90 px-2.5 py-0.5 font-mono text-[10px] font-medium tracking-[0.16em] text-zinc-400 uppercase">
+        {frameLabel} · {resolutionLabel} · CINEMA STAGE
+      </span>
+      <div className="flex size-12 items-center justify-center rounded-xl border border-zinc-800 bg-zinc-900/80 text-zinc-300 shadow-inner">
         <Film className="size-5" />
       </div>
       <div>
-        <p className="text-base font-medium text-white/90">准备生成 {frameLabel} 视频</p>
-        <p className="mt-1 max-w-xs text-xs leading-5 text-white/50">
-          在左侧设置画面描述、时长和首帧参考，点击底部按钮开始生成
+        <p className="text-base font-medium tracking-tight text-zinc-100">
+          准备生成 {frameLabel} 视频
+        </p>
+        <p className="mt-1 max-w-xs text-xs leading-5 text-zinc-400">
+          在左侧设定镜头描述、时长与参考帧，点击底部生成按钮开启暗房渲染
         </p>
       </div>
     </div>
@@ -158,7 +198,7 @@ function SuccessResult({
   url: string;
 }) {
   return (
-    <div className="relative z-10 flex h-full w-full flex-col justify-between bg-black/90">
+    <div className="relative z-10 flex h-full w-full flex-col justify-between bg-black">
       <video
         src={url}
         controls
@@ -168,12 +208,12 @@ function SuccessResult({
         playsInline
         className="h-full max-h-[60vh] w-full flex-1 object-contain"
       />
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/10 bg-black/75 px-3.5 py-2.5 backdrop-blur-md">
-        <div className="flex items-center gap-2 text-xs text-emerald-300">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-zinc-800/90 bg-zinc-950/90 px-3.5 py-2.5 backdrop-blur-md">
+        <div className="flex items-center gap-2 text-xs text-emerald-400">
           <CheckCircle2 className="size-3.5 shrink-0" />
           <span>已自动归档至视频库</span>
           {task.duration_seconds ? (
-            <span className="font-mono text-[11px] text-white/45">
+            <span className="font-mono text-[11px] text-zinc-400 tabular-nums">
               · {task.duration_seconds.toFixed(1)}s
             </span>
           ) : null}
@@ -183,7 +223,7 @@ function SuccessResult({
             type="button"
             size="xs"
             variant="ghost"
-            className="text-white/80 hover:bg-white/15 hover:text-white"
+            className="text-zinc-200 hover:bg-zinc-800 hover:text-white"
             onClick={controller.watchVideo}
           >
             <Maximize2 className="size-3.5" />

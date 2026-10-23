@@ -164,7 +164,7 @@ export function TopNav() {
   const navToggleLabel = navCollapsed ? "展开导航栏" : "收起导航栏";
 
   return (
-    <header className="sticky top-0 z-40 w-full min-w-0 border-b border-border/70 bg-background/85 backdrop-blur-md">
+    <header className="sticky top-0 z-40 w-full min-w-0 border-b border-border/80 bg-background/85 backdrop-blur-xl">
       <div className="mx-auto flex min-h-14 w-full max-w-[1440px] flex-col gap-1.5 px-3 py-1.5 sm:px-5 lg:grid lg:grid-cols-[auto_1fr_auto] lg:items-center lg:gap-4 lg:px-6 lg:py-0">
         <div className="flex min-w-0 items-center justify-between gap-2 lg:justify-start">
           <NavBrandButton
@@ -185,7 +185,7 @@ export function TopNav() {
             onThemeToggle={handleThemeToggle}
             onLogout={handleLogout}
             compact
-            className="ml-auto flex shrink-0 items-center gap-1 lg:hidden"
+            className="ml-auto flex shrink-0 items-center gap-0.5 lg:hidden"
           />
         </div>
         <nav
@@ -196,7 +196,7 @@ export function TopNav() {
             navCollapsed ? "hidden" : "flex"
           )}
         >
-          <div className="hide-scrollbar flex min-w-0 items-center gap-0.5 overflow-x-auto overscroll-x-contain rounded-xl border border-border/70 bg-muted/40 p-1 scroll-px-1 touch-pan-x [-webkit-overflow-scrolling:touch]">
+          <div className="hide-scrollbar flex min-w-0 items-center gap-0.5 overflow-x-auto overscroll-x-contain rounded-[10px] bg-surface-muted/95 p-1 scroll-px-1 touch-pan-x [-webkit-overflow-scrolling:touch]">
             {primaryNavItems.map((item) => (
               <NavPill
                 key={item.matchPaths ? "media-center" : item.href}
@@ -207,7 +207,7 @@ export function TopNav() {
             <MoreNavMenu items={overflowNavItems} pathname={pathname} />
           </div>
         </nav>
-        <div className="hidden items-center justify-end gap-1.5 lg:flex">
+        <div className="hidden items-center justify-end gap-1 lg:flex">
           <NavSearchMenu
             items={visibleNavItems}
             pathname={pathname}
@@ -224,7 +224,7 @@ export function TopNav() {
             pathname={pathname}
             onThemeToggle={handleThemeToggle}
             onLogout={handleLogout}
-            className="flex items-center justify-end gap-1.5"
+            className="flex items-center justify-end gap-1"
           />
         </div>
       </div>
@@ -296,9 +296,9 @@ function NavBrandButton({
           type="button"
           onClick={() => navigate("/settings?tab=system-update")}
           title="查看系统版本与在线更新"
-          className="hidden h-5 items-center rounded-md border border-border/70 bg-muted/50 px-1.5 font-mono text-[10px] font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/10 hover:text-primary sm:inline-flex"
+          className="hidden h-5 items-center rounded-md bg-surface-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground sm:inline-flex"
         >
-          v4.7.2
+          v4.8.0
         </button>
       ) : null}
       <Button
@@ -307,7 +307,7 @@ function NavBrandButton({
         size="icon-xs"
         className={cn(
           "lg:hidden",
-          collapsed && "bg-surface-muted text-brand"
+          collapsed && "bg-surface-muted text-foreground"
         )}
         aria-controls={PRIMARY_NAV_ID}
         aria-expanded={!collapsed}
@@ -356,13 +356,16 @@ function TopNavActions({
         <ImageTaskQueue className={compact ? "size-8 px-0" : undefined} />
       ) : null}
       <AnnouncementNotifications target="image" className="size-8" />
-      {compact ? null : (
-        <CreditBalanceBadge
-          creditBalance={creditBalance}
-          canRecharge={canAccessRecharge}
-        />
-      )}
       <ThemeToggleButton theme={theme} onToggle={onThemeToggle} />
+      {compact ? null : (
+        <>
+          <span aria-hidden="true" className="mx-1 h-4 w-px bg-border/80" />
+          <CreditBalanceBadge
+            creditBalance={creditBalance}
+            canRecharge={canAccessRecharge}
+          />
+        </>
+      )}
       <AccountMenu
         session={session}
         roleLabel={roleLabel}

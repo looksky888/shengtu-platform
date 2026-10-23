@@ -1,123 +1,170 @@
-import type { RefObject } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, Sparkles } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
+import { ArrowRight } from "lucide-react";
 
-import { LANDING_BRAND } from "@/app/landing/landing-brand";
+import { EditorialGalleryStage } from "@/app/landing/editorial-gallery-stage";
+import {
+  LANDING_BRAND,
+  STUDIO_CAPABILITY_SPECS,
+} from "@/app/landing/landing-brand";
 import { Button } from "@/components/ui/button";
+import { usePageVisible } from "@/lib/use-page-visible";
 import { cn } from "@/lib/utils";
 
 interface LandingCTAProps {
-  ctaRef: RefObject<HTMLElement | null>;
+  brandTitle: string;
   entered: boolean;
-  isDark: boolean;
+  prefersReducedMotion: boolean;
   registrationEnabled: boolean;
 }
 
-export function LandingCTA({ ctaRef, entered, isDark, registrationEnabled }: LandingCTAProps) {
+export function LandingCTA({
+  brandTitle,
+  entered,
+  prefersReducedMotion,
+  registrationEnabled,
+}: LandingCTAProps) {
+  const pageVisible = usePageVisible();
+  const [phraseIndex, setPhraseIndex] = useState(0);
+  const phrases = LANDING_BRAND.headlineRotatingPhrases;
+
+  useEffect(() => {
+    if (prefersReducedMotion || !pageVisible) return;
+    const timer = window.setInterval(() => {
+      setPhraseIndex((prev) => (prev + 1) % phrases.length);
+    }, 3800);
+    return () => window.clearInterval(timer);
+  }, [pageVisible, phrases.length, prefersReducedMotion]);
+
+  const currentPhrase = phrases[phraseIndex] ?? phrases[0];
+
   return (
     <main
       id="hero-main"
-      ref={ctaRef}
       tabIndex={-1}
       className={cn(
-        "relative z-10 flex h-[calc(100%-4.5rem)] flex-col items-center justify-end px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] will-change-transform sm:px-6 sm:pb-16",
-        "transition-all duration-700 delay-150 ease-out outline-none",
-        entered ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0",
+        "relative z-10 flex flex-1 flex-col justify-between outline-none",
+        "transition-opacity duration-500 ease-out motion-reduce:transition-none",
+        entered ? "opacity-100" : "opacity-0",
       )}
     >
-      <div
-        className={cn(
-          "mx-auto w-full max-w-lg rounded-2xl border px-5 py-6 backdrop-blur-xl sm:px-8 sm:py-7",
-          isDark
-            ? "border-white/10 bg-slate-950/65 shadow-[0_20px_60px_rgba(0,0,0,0.45)]"
-            : "border-slate-200/80 bg-white/75 shadow-[0_20px_60px_rgba(15,23,42,0.08),0_4px_16px_rgba(15,23,42,0.04)]",
-        )}
-      >
-        <div className="flex flex-col items-center gap-3.5 text-center sm:gap-4">
-          <div
-            className={cn(
-              "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em]",
-              isDark
-                ? "border-blue-500/30 bg-blue-500/10 text-blue-300"
-                : "border-blue-200/90 bg-blue-50/90 text-[#1456f0]",
-            )}
-          >
-            <Sparkles className="size-3.5 text-[#1456f0] dark:text-blue-400" aria-hidden="true" />
-            {LANDING_BRAND.badge}
+      <div className="mx-auto grid w-full max-w-[1380px] flex-1 items-center gap-10 px-4 py-8 sm:px-8 sm:py-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.08fr)] lg:gap-12 lg:px-10 xl:gap-16">
+        {/* Hero Left Column — Editorial Studio Copy & Capability Spec Strip */}
+        <div className="flex flex-col items-start gap-6 sm:gap-7">
+          {/* Eyebrow Monochrome Studio Pill */}
+          <div className="inline-flex items-center gap-2.5 rounded-full border border-border/80 bg-surface/90 px-3.5 py-1.5 shadow-[0_1px_2px_rgba(0,0,0,0.03)] backdrop-blur-sm">
+            <span className="relative flex size-2" aria-hidden="true">
+              <span
+                className={cn(
+                  "absolute inline-flex h-full w-full rounded-full bg-emerald-500/60",
+                  !prefersReducedMotion && "animate-ping",
+                )}
+              />
+              <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
+            </span>
+            <span className="font-mono text-[10.5px] font-medium tracking-[0.06em] text-muted-foreground sm:text-[11px]">
+              {LANDING_BRAND.eyebrow}
+            </span>
           </div>
 
-          <div className="flex flex-col gap-2">
+          {/* Editorial Headline */}
+          <div className="flex flex-col gap-3.5">
             <h1
-              className={cn(
-                "text-balance text-[1.65rem] font-semibold tracking-[-0.03em] sm:text-3xl",
-                isDark ? "text-slate-50" : "text-slate-900",
-              )}
+              className="text-balance text-[2rem] leading-[1.15] font-semibold tracking-[-0.035em] text-foreground sm:text-[2.65rem] xl:text-[3.1rem]"
+              aria-label={`${LANDING_BRAND.headlinePrefix}${phrases[0]}`}
             >
-              {LANDING_BRAND.headline}
+              <span className="block">{LANDING_BRAND.headlinePrefix}</span>
+              <span className="mt-1 inline-flex min-h-[1.22em] items-baseline">
+                <AnimatePresence mode="wait" initial={false}>
+                  <motion.span
+                    key={currentPhrase}
+                    initial={prefersReducedMotion ? false : { opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={prefersReducedMotion ? undefined : { opacity: 0, y: -6 }}
+                    transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+                    className="inline-block border-b-2 border-foreground/20 pb-0.5 text-foreground"
+                  >
+                    {currentPhrase}
+                  </motion.span>
+                </AnimatePresence>
+              </span>
             </h1>
-            <p
-              className={cn(
-                "mx-auto max-w-sm text-pretty text-sm leading-6 sm:text-[0.95rem]",
-                isDark ? "text-slate-400" : "text-slate-500",
-              )}
-            >
-              {LANDING_BRAND.tagline}
+
+            <p className="max-w-[34rem] text-pretty text-sm leading-7 text-muted-foreground sm:text-[15px]">
+              {LANDING_BRAND.description}
             </p>
           </div>
 
-          <ul className="flex flex-wrap items-center justify-center gap-2 pt-0.5" aria-label="能力亮点">
-            {LANDING_BRAND.channels.map(({ label, icon: Icon }) => (
-              <li
-                key={label}
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[11px] font-medium shadow-2xs",
-                  isDark
-                    ? "border-white/10 bg-slate-900/70 text-slate-300"
-                    : "border-slate-200/80 bg-white/85 text-slate-600",
-                )}
-              >
-                <Icon className="size-3 text-[#1456f0] dark:text-blue-400" aria-hidden="true" />
-                {label}
-              </li>
-            ))}
-          </ul>
-
-          <div className="flex w-full flex-col items-stretch justify-center gap-2.5 pt-1 sm:flex-row sm:items-center sm:justify-center">
+          {/* Primary & Secondary CTAs */}
+          <div className="flex w-full flex-col items-stretch gap-3 sm:w-auto sm:flex-row sm:items-center">
             <Button
               asChild
-              className="h-10 rounded-lg bg-[#1456f0] px-6 text-sm font-semibold text-white shadow-xs transition hover:bg-[#0f49cf] focus-visible:ring-2 focus-visible:ring-primary/50"
+              size="xl"
+              className="group h-11 rounded-xl bg-primary px-6 text-sm font-medium text-primary-foreground shadow-[0_2px_10px_rgba(0,0,0,0.12)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-primary/90"
             >
               <Link to="/login">
-                进入控制台
-                <ArrowRight className="ml-1.5 size-4" aria-hidden="true" />
+                <span>立即开始创作</span>
+                <ArrowRight
+                  className="size-4 transition-transform duration-200 group-hover:translate-x-0.5"
+                  aria-hidden="true"
+                />
               </Link>
             </Button>
-            {registrationEnabled ? (
-              <Button
-                asChild
-                variant="outline"
-                className={cn(
-                  "h-10 rounded-lg px-6 text-sm font-medium transition focus-visible:ring-2 focus-visible:ring-primary/50",
-                  isDark
-                    ? "border-white/15 bg-slate-900/50 text-slate-100 hover:border-white/25 hover:bg-slate-900"
-                    : "border-slate-200 bg-white/80 text-slate-700 hover:border-slate-300 hover:bg-white",
-                )}
-              >
-                <Link to="/login?register=1">创建账号</Link>
-              </Button>
-            ) : null}
+
+            <Button
+              asChild
+              variant="outline"
+              size="xl"
+              className="h-11 rounded-xl border-border/90 bg-surface/85 px-6 text-sm font-medium text-foreground backdrop-blur-sm transition-all duration-200 hover:border-border-strong hover:bg-surface-hover"
+            >
+              <Link to={registrationEnabled ? "/login?register=1" : "/login"}>
+                {registrationEnabled ? "创建工作室账号" : "进入控制台"}
+              </Link>
+            </Button>
+          </div>
+
+          {/* Studio Capability Architectural Spec Strip */}
+          <div className="w-full pt-2">
+            <dl
+              className="grid grid-cols-2 divide-y divide-border/80 overflow-hidden rounded-xl border border-border/80 bg-surface/80 backdrop-blur-sm sm:grid-cols-4 sm:divide-x sm:divide-y-0"
+              aria-label="核心创作能力"
+            >
+              {STUDIO_CAPABILITY_SPECS.map((spec, idx) => (
+                <div
+                  key={spec.index}
+                  className={cn(
+                    "flex flex-col gap-1 px-3.5 py-3 transition-colors hover:bg-surface-hover/60",
+                    idx % 2 === 1 && "border-l border-border/80 sm:border-l-0",
+                  )}
+                >
+                  <dt className="flex items-center justify-between gap-1 font-mono text-[10px] tracking-[0.08em] text-subtle-foreground">
+                    <span>{spec.index}</span>
+                    <span>{spec.code}</span>
+                  </dt>
+                  <dd className="text-[13px] font-semibold tracking-[-0.01em] text-foreground">
+                    {spec.label}
+                  </dd>
+                  <dd className="line-clamp-1 text-[11px] leading-4 text-muted-foreground">
+                    {spec.detail}
+                  </dd>
+                </div>
+              ))}
+            </dl>
           </div>
         </div>
+
+        {/* Hero Right Column — Curated Exhibition Gallery Stage */}
+        <EditorialGalleryStage prefersReducedMotion={prefersReducedMotion} />
       </div>
 
-      <p
-        className={cn(
-          "mt-4 text-center text-[11px] tracking-wide",
-          isDark ? "text-slate-500" : "text-slate-400",
-        )}
-      >
-        {LANDING_BRAND.footer}
-      </p>
+      {/* Minimalist Architectural Footer Hairline */}
+      <footer className="border-t border-border/60 bg-background/70 backdrop-blur-xs">
+        <div className="mx-auto flex w-full max-w-[1380px] flex-col items-center justify-between gap-1.5 px-4 py-3 text-center font-mono text-[10px] tracking-[0.09em] text-subtle-foreground uppercase sm:flex-row sm:px-8 lg:px-10">
+          <span>{brandTitle} · GALLERY PAPER &amp; OBSIDIAN INK</span>
+          <span className="hidden sm:inline">{LANDING_BRAND.footerRight}</span>
+        </div>
+      </footer>
     </main>
   );
 }

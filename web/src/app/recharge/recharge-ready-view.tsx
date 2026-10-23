@@ -1,8 +1,11 @@
+import { PackageOpen } from "lucide-react";
+
 import { CustomCreditsPanel, ProductTile, RechargeErrorPanel } from "@/app/recharge/recharge-panels";
 import { RechargeOrderStatus } from "@/app/recharge/recharge-order-status";
 import { StorageEntitlementPanel } from "@/app/recharge/storage-entitlement-panel";
 import { PageHeader } from "@/components/page-header";
-import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { cn } from "@/lib/utils";
 import type { PaymentChannel, PaymentOrder, PaymentSettings, RechargeProduct } from "@/lib/user-admin-api";
 
 export function RechargeReadyView({
@@ -55,19 +58,39 @@ export function RechargeReadyView({
       ) : null}
       {!order && channels.length > 0 ? (
         <section className="flex flex-wrap items-center gap-3 rounded-xl border border-border/70 bg-card p-4 shadow-2xs">
-          <span className="text-sm font-medium">支付方式</span>
-          {channels.map((channel) => (
-            <Button key={channel.id} type="button" size="sm" variant={selectedChannelID === channel.id ? "default" : "outline"} onClick={() => onChannelChange(channel.id)} disabled={submitting}>
-              {channel.provider === "alipay" ? "支付宝扫码" : "微信支付扫码"}
-            </Button>
-          ))}
+          <span className="text-sm font-medium text-foreground">支付方式</span>
+          {channels.map((channel) => {
+            const active = selectedChannelID === channel.id;
+            return (
+              <button
+                key={channel.id}
+                type="button"
+                onClick={() => onChannelChange(channel.id)}
+                disabled={submitting}
+                className={cn(
+                  "inline-flex h-9 items-center gap-2 rounded-lg border px-3.5 text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50",
+                  active
+                    ? "border-foreground bg-surface text-foreground shadow-xs ring-1 ring-foreground/10"
+                    : "border-border/70 bg-surface-muted/40 text-muted-foreground hover:border-border hover:text-foreground",
+                )}
+              >
+                <span className={cn("size-1.5 rounded-full", active ? "bg-foreground" : "bg-border")} />
+                {channel.provider === "alipay" ? "支付宝扫码" : "微信支付扫码"}
+              </button>
+            );
+          })}
         </section>
       ) : null}
       {!order ? (
         <>
           <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {products.length > 0 ? products.map((product) => <ProductTile key={product.id} product={product} disabled={submitting} onSubmit={onSubmit} />) : (
-              <div className="rounded-xl border border-dashed border-border/70 bg-card p-8 text-center text-sm text-muted-foreground md:col-span-2 lg:col-span-3">暂无可购买套餐，请稍后再试。</div>
+              <EmptyState
+                icon={PackageOpen}
+                title="暂无可购买套餐"
+                description="当前没有上架的充值套餐，请稍后再试。"
+                className="md:col-span-2 lg:col-span-3"
+              />
             )}
           </section>
           {settings.custom_credits_enabled ? <CustomCreditsPanel settings={settings} value={custom} disabled={submitting} onChange={onCustomChange} onSubmit={() => onSubmit()} /> : null}

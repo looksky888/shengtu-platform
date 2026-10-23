@@ -1,5 +1,5 @@
 import type { RefObject } from "react";
-import { ArrowUp, Coins, ImagePlus } from "lucide-react";
+import { ArrowUp, ImagePlus } from "lucide-react";
 
 import { ComposerModeSwitch } from "@/app/image/components/composer-mode-switch";
 import { ComposerModelMenu } from "@/app/image/components/composer-model-menu";
@@ -121,29 +121,33 @@ export function ComposerToolbar(props: ComposerToolbarProps) {
         <button
           type="button"
           onClick={props.onPickReferenceImage}
-          className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-border/75 bg-background px-2.5 text-xs font-medium text-muted-foreground transition hover:bg-surface-hover hover:text-foreground"
+          className="inline-flex h-7.5 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-surface-muted/90 px-2.5 text-xs font-medium text-foreground/85 transition-colors hover:bg-surface-hover hover:text-foreground"
           aria-label="上传参考图"
           title="上传参考图"
         >
           <ImagePlus className="size-3.5" />
           <span className="hidden md:inline">参考图</span>
+          {props.referenceImageCount > 0 ? (
+            <span className="font-mono text-[11px] font-semibold tabular-nums text-foreground">
+              {props.referenceImageCount}
+            </span>
+          ) : null}
         </button>
       </div>
-      <div className="flex shrink-0 items-center gap-2">
+      <div className="flex shrink-0 items-center gap-2.5">
         {props.composerMode === "image" && props.estimatedCreditCost > 0 ? (
           <span
-            className="hidden h-8 items-center gap-1 rounded-lg border border-primary/20 bg-primary/8 px-2.5 text-xs font-medium text-primary tabular-nums sm:inline-flex"
+            className="hidden items-center px-1 text-xs text-muted-foreground tabular-nums sm:inline-flex"
             title={props.estimatedCreditCostDetail}
           >
-            <Coins className="size-3.5" />
-            <span>{props.estimatedCreditCost} 积分</span>
+            预计消耗 {props.estimatedCreditCost} 积分
           </span>
         ) : null}
         <button
           type="button"
           onClick={() => void props.onSubmit()}
           disabled={!props.prompt.trim() || paidSizeUnavailable}
-          className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-primary px-3.5 text-xs font-medium text-primary-foreground shadow-2xs transition hover:bg-primary/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-primary/45 disabled:text-primary-foreground/85"
+          className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-primary px-3.5 text-xs font-medium text-primary-foreground shadow-xs transition hover:bg-primary/90 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40"
           aria-label={submitLabel}
           title={submitTitle}
         >

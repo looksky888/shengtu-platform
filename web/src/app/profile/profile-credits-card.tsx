@@ -14,6 +14,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import type { CreditLedgerEntry, ProfileCredits } from "@/lib/api";
 
 type ProfileCreditsCardProps = ProfileCreditLedgerTableProps & {
@@ -43,7 +44,7 @@ export function ProfileCreditsCard({
       <CardHeader className="pb-3">
         <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-brand-border bg-brand-soft text-brand">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-border/80 bg-surface-muted text-foreground">
               <Coins className="size-5" />
             </div>
             <div className="min-w-0">
@@ -69,9 +70,12 @@ export function ProfileCreditsCard({
         ) : creditsError ? (
           <CreditsError message={creditsError} onRetry={onRetry} />
         ) : !credits ? (
-          <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-4 text-sm text-muted-foreground">
-            暂无积分信息。
-          </div>
+          <EmptyState
+            compact
+            icon={Coins}
+            title="暂无积分信息"
+            description="稍后刷新即可同步账户积分数据。"
+          />
         ) : (
           <>
             <ProfileCreditBalanceSummary
@@ -110,7 +114,7 @@ function CreditsError({
   onRetry: () => void;
 }) {
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-rose-200 bg-rose-50/70 p-4 text-sm text-rose-700 sm:flex-row sm:items-center sm:justify-between dark:border-rose-900/70 dark:bg-rose-950/20 dark:text-rose-300">
+    <div className="flex flex-col gap-3 rounded-lg border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-700 sm:flex-row sm:items-center sm:justify-between dark:text-rose-300">
       <span>积分信息加载失败：{message}</span>
       <Button
         type="button"

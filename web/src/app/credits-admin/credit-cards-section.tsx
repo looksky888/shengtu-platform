@@ -6,6 +6,7 @@ import type { CreditsAdminState } from "@/app/credits-admin/use-credits-admin";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -15,7 +16,10 @@ export function CreditCardsSection({ state }: { state: CreditsAdminState }) {
     <Card className="overflow-hidden">
       <CardHeader className="border-b border-border/70 px-5 py-3.5 sm:px-5 sm:py-3.5">
         <div className="flex flex-col gap-1">
-          <CardTitle className="flex items-center gap-2 text-base"><KeyRound className="size-4.5 text-primary" />卡密列表</CardTitle>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <KeyRound className="size-4.5 text-muted-foreground" />
+            卡密列表
+          </CardTitle>
           <CardDescription>生成后的明文兑换码只会在弹窗里显示一次，常驻列表仅保留公开字段。</CardDescription>
         </div>
       </CardHeader>
@@ -43,10 +47,16 @@ export function CreditCardsSection({ state }: { state: CreditsAdminState }) {
         </div>
         <div className="overflow-x-auto">
           <Table>
-            <TableHeader className="bg-muted/40">
-              <TableRow>
-                <TableHead>卡密 ID</TableHead><TableHead>兑换码</TableHead><TableHead>面值</TableHead><TableHead>状态</TableHead><TableHead>使用用户</TableHead>
-                <TableHead>使用时间</TableHead><TableHead>创建时间</TableHead><TableHead className="text-right">操作</TableHead>
+            <TableHeader className="bg-surface-subtle/80 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              <TableRow className="hover:bg-transparent">
+                <TableHead>卡密 ID</TableHead>
+                <TableHead>兑换码</TableHead>
+                <TableHead>面值</TableHead>
+                <TableHead>状态</TableHead>
+                <TableHead>使用用户</TableHead>
+                <TableHead>使用时间</TableHead>
+                <TableHead>创建时间</TableHead>
+                <TableHead className="text-right">操作</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>{renderCardRows(state)}</TableBody>
@@ -59,24 +69,49 @@ export function CreditCardsSection({ state }: { state: CreditsAdminState }) {
 }
 
 function renderCardRows(state: CreditsAdminState) {
-  if (state.isCardsLoading) return <CardTableMessage message="正在加载卡密数据..." loading />;
-  if (state.cardsTotal === 0) return <CardTableMessage message="暂无卡密记录。" />;
+  if (state.isCardsLoading) {
+    return (
+      <TableRow className="hover:bg-transparent">
+        <TableCell colSpan={8} className="h-28 text-center text-muted-foreground">
+          <div className="flex items-center justify-center gap-2">
+            <LoaderCircle className="size-4 animate-spin" />
+            正在加载卡密数据...
+          </div>
+        </TableCell>
+      </TableRow>
+    );
+  }
+  if (state.cardsTotal === 0) {
+    return (
+      <TableRow className="hover:bg-transparent">
+        <TableCell colSpan={8} className="p-0">
+          <EmptyState
+            compact
+            icon={KeyRound}
+            title="暂无卡密记录"
+            description="点击右上角「生成卡密」创建积分兑换码，或调整筛选条件。"
+            className="border-0 bg-transparent py-10"
+          />
+        </TableCell>
+      </TableRow>
+    );
+  }
   return state.pagedCards.items.map((card) => (
-    <TableRow key={card.id} className="text-muted-foreground">
-      <TableCell className="max-w-[220px] font-mono text-xs text-foreground">{card.id}</TableCell>
+    <TableRow key={card.id} className="text-muted-foreground transition-colors hover:bg-surface-hover/60">
+      <TableCell className="max-w-[220px] font-mono text-xs text-foreground tabular-nums">{card.id}</TableCell>
       <TableCell className="max-w-[280px]">
         {card.key ? (
           <div className="flex items-center gap-2">
-            <code className="min-w-0 flex-1 truncate rounded-md bg-background px-2 py-1 font-mono text-xs text-foreground">{card.key}</code>
+            <code className="min-w-0 flex-1 truncate rounded-md bg-surface-muted px-2 py-1 font-mono text-xs text-foreground">{card.key}</code>
             <Button type="button" variant="outline" className="h-8 rounded-md px-3" onClick={() => void state.handleCopy(card.key || "")}><Copy className="size-4" />复制</Button>
           </div>
         ) : <span className="text-xs text-muted-foreground">历史卡密无明文</span>}
       </TableCell>
-      <TableCell>{formatCreditNumber(card.amount)} 积分</TableCell>
+      <TableCell className="font-medium text-foreground tabular-nums">{formatCreditNumber(card.amount)} 积分</TableCell>
       <TableCell><Badge variant={cardStatusVariant(card.status)} className="rounded-md">{formatCardStatus(card.status)}</Badge></TableCell>
-      <TableCell className="font-mono text-xs">{card.used_by || "—"}</TableCell>
-      <TableCell>{formatDateTime(card.used_at)}</TableCell>
-      <TableCell>{formatDateTime(card.created_at)}</TableCell>
+      <TableCell className="font-mono text-xs tabular-nums">{card.used_by || "—"}</TableCell>
+      <TableCell className="tabular-nums">{formatDateTime(card.used_at)}</TableCell>
+      <TableCell className="tabular-nums">{formatDateTime(card.created_at)}</TableCell>
       <TableCell>
         <div className="flex justify-end">
           {card.status === "active" && state.permissions.canManageCredits ? (
@@ -90,14 +125,4 @@ function renderCardRows(state: CreditsAdminState) {
       </TableCell>
     </TableRow>
   ));
-}
-
-function CardTableMessage({ message, loading }: { message: string; loading?: boolean }) {
-  return (
-    <TableRow>
-      <TableCell colSpan={8} className="h-28 text-center text-muted-foreground">
-        {loading ? <div className="flex items-center justify-center gap-2"><LoaderCircle className="size-4 animate-spin" />{message}</div> : message}
-      </TableCell>
-    </TableRow>
-  );
 }

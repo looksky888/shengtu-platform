@@ -142,8 +142,8 @@ export function GrokProviderToolbar({
       </div>
 
       {selected > 0 ? (
-        <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-brand-border bg-brand-soft/60 p-2.5">
-          <span className="mr-1 px-1.5 text-xs font-medium text-foreground">
+        <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-foreground/20 bg-surface-muted/70 p-2.5 shadow-2xs">
+          <span className="mr-1 px-1.5 text-xs font-medium tabular-nums text-foreground">
             已选 {selected} 个
             {!scoped ? " · 批量操作需保持同一 Provider" : ""}
           </span>
@@ -253,7 +253,7 @@ export function GrokProviderToolbar({
             删除
           </Button>
           {controller.busy ? (
-            <span className="inline-flex items-center gap-1 px-1.5 text-xs text-brand">
+            <span className="inline-flex items-center gap-1 px-1.5 text-xs text-foreground">
               <LoaderCircle className="size-3.5 animate-spin" />
               任务执行中
             </span>

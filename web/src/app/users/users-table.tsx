@@ -1,4 +1,4 @@
-import { LoaderCircle } from "lucide-react";
+import { LoaderCircle, Search, Users } from "lucide-react";
 
 import { UsersTableRow } from "@/app/users/users-table-row";
 import {
@@ -8,8 +8,9 @@ import {
 } from "@/app/users/users-utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { ManagedRole, ManagedUser, ManagedUserUsage } from "@/lib/api";
 
 type UsersTablePermissions = {
@@ -58,26 +59,52 @@ export function UsersTable(props: UsersTableProps) {
           <Table className="min-w-[1340px]">
             <UsersTableHeader />
             <TableBody>
-              {users.map((user) => (
-                <UsersTableRow
-                  key={user.id}
-                  user={user}
-                  roles={roles}
-                  creditBalance={creditBalanceByUserId.get(user.id) ?? 0}
-                  isPending={pendingIds.has(user.id)}
-                  usage={usageByUserId?.get(user.id)}
-                  usageReady={usageReady}
-                  permissions={permissions}
-                  onAdjustCredits={props.onAdjustCredits}
-                  onRole={props.onRole}
-                  onToggle={props.onToggle}
-                  onDelete={props.onDelete}
-                />
-              ))}
+              {props.isLoading ? (
+                <TableRow className="hover:bg-transparent">
+                  <TableCell colSpan={9} className="py-14 text-center">
+                    <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                      <LoaderCircle className="size-4 animate-spin" />
+                      <span>正在加载用户列表...</span>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : users.length === 0 ? (
+                <TableRow className="hover:bg-transparent">
+                  <TableCell colSpan={9} className="p-0">
+                    <EmptyState
+                      compact
+                      icon={props.totalCount === 0 ? Users : Search}
+                      title={props.totalCount === 0 ? "暂无用户" : "没有匹配的用户"}
+                      description={
+                        props.totalCount === 0
+                          ? "创建第一个本地用户或等待新用户注册。"
+                          : "请尝试调整搜索词、来源、状态或时间筛选条件。"
+                      }
+                      className="border-0 bg-transparent py-12"
+                    />
+                  </TableCell>
+                </TableRow>
+              ) : (
+                users.map((user) => (
+                  <UsersTableRow
+                    key={user.id}
+                    user={user}
+                    roles={roles}
+                    creditBalance={creditBalanceByUserId.get(user.id) ?? 0}
+                    isPending={pendingIds.has(user.id)}
+                    usage={usageByUserId?.get(user.id)}
+                    usageReady={usageReady}
+                    permissions={permissions}
+                    onAdjustCredits={props.onAdjustCredits}
+                    onRole={props.onRole}
+                    onToggle={props.onToggle}
+                    onDelete={props.onDelete}
+                  />
+                ))
+              )}
             </TableBody>
           </Table>
         </div>
-        <UsersTableStatus isLoading={props.isLoading} totalCount={props.totalCount} filteredCount={props.filteredCount} />
         {!props.isLoading && props.filteredCount > 0 ? <UsersPagination {...props} /> : null}
       </CardContent>
     </Card>
@@ -86,8 +113,8 @@ export function UsersTable(props: UsersTableProps) {
 
 function UsersTableHeader() {
   return (
-    <TableHeader className="bg-muted/40">
-      <TableRow>
+    <TableHeader className="bg-surface-subtle/80 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+      <TableRow className="hover:bg-transparent">
         <TableHead>用户</TableHead>
         <TableHead>积分</TableHead>
         <TableHead>角色</TableHead>
@@ -96,25 +123,15 @@ function UsersTableHeader() {
         <TableHead>额度消耗</TableHead>
         <TableHead className="w-[340px]">调用曲线</TableHead>
         <TableHead>时间</TableHead>
-        <TableHead className="w-[260px]">操作</TableHead>
+        <TableHead className="w-[260px] text-right">操作</TableHead>
       </TableRow>
     </TableHeader>
   );
 }
 
-function UsersTableStatus({ isLoading, totalCount, filteredCount }: { isLoading: boolean; totalCount: number; filteredCount: number }) {
-  if (isLoading) {
-    return <div className="flex items-center justify-center py-14"><LoaderCircle className="size-5 animate-spin text-stone-400" /></div>;
-  }
-  if (filteredCount === 0) {
-    return <div className="px-6 py-14 text-center text-sm text-stone-500">{totalCount === 0 ? "暂无用户" : "没有匹配的用户"}</div>;
-  }
-  return null;
-}
-
 function UsersPagination({ pageSize, filteredCount, currentPage, totalPages, onPageSizeChange, onPageChange }: UsersTableProps) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3 text-sm text-muted-foreground">
+    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3 text-sm text-muted-foreground tabular-nums">
       <span>{`每页 ${pageSize} 个用户，共 ${filteredCount} 个；第 ${currentPage} / ${totalPages} 页`}</span>
       <div className="flex flex-wrap items-center gap-2">
         <Select value={String(pageSize)} onValueChange={(value) => onPageSizeChange(Number(value) as UserTablePageSize)}>

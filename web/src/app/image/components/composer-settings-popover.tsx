@@ -119,16 +119,17 @@ export function ComposerSettingsPopover(props: ComposerSettingsPopoverProps) {
         <button
           type="button"
           className={cn(
-            "inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-border/75 bg-background px-2.5 text-xs font-medium text-muted-foreground transition hover:bg-surface-hover hover:text-foreground",
-            isOpen && "border-primary/40 bg-primary/8 text-primary",
+            "inline-flex h-7.5 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-surface-muted/90 px-2.5 text-xs font-medium text-foreground/85 transition-colors hover:bg-surface-hover hover:text-foreground",
+            isOpen && "bg-surface-active text-foreground ring-1 ring-foreground/15",
           )}
           aria-label={isOpen ? "收起参数设置" : "显示更多参数设置"}
           aria-expanded={isOpen}
           title={isOpen ? "收起参数" : "更多参数"}
         >
-          <SlidersHorizontal className="size-3.5" />
+          <SlidersHorizontal className="size-3.5 text-muted-foreground" />
           <span className="hidden sm:inline">参数</span>
-          <span className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-[10px] font-semibold text-foreground/85 tabular-nums">
+          <span className="hidden text-muted-foreground/50 sm:inline">·</span>
+          <span className="font-mono text-[11px] font-medium text-foreground/90 tabular-nums">
             {sizePreviewLabel} · {imageCount}张
           </span>
         </button>
@@ -137,7 +138,7 @@ export function ComposerSettingsPopover(props: ComposerSettingsPopoverProps) {
         align="start"
         side="top"
         sideOffset={8}
-        className="z-[70] max-h-[min(calc(100dvh-2rem),34rem)] w-[min(calc(100vw-1rem),28rem)] overflow-y-auto overflow-x-hidden rounded-xl border-border/80 bg-card p-3 shadow-xl sm:w-[min(calc(100vw-2rem),28rem)] sm:overflow-visible"
+        className="z-[70] max-h-[min(calc(100dvh-2rem),34rem)] w-[min(calc(100vw-1rem),28rem)] overflow-y-auto overflow-x-hidden rounded-xl border-border/85 bg-surface p-3 shadow-xl sm:w-[min(calc(100vw-2rem),28rem)] sm:overflow-visible"
         onOpenAutoFocus={(event) => event.preventDefault()}
       >
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">

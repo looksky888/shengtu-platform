@@ -47,10 +47,10 @@ export function ThemeToggleButton({
   return (
     <Button
       type="button"
-      variant="outline"
+      variant="ghost"
       size="icon"
       className={cn(
-        "relative size-8 rounded-lg border-border/80 bg-surface-muted/70 text-muted-foreground shadow-none hover:bg-surface-hover hover:text-foreground",
+        "relative size-8 rounded-lg text-muted-foreground shadow-none hover:bg-surface-hover hover:text-foreground",
         className
       )}
       onClick={(event) => onToggle(event.currentTarget)}
@@ -86,9 +86,9 @@ export function NavPill({
         referrerPolicy="no-referrer"
         onClick={onClick}
         aria-label={`${item.label}（新标签页打开）`}
-        className="relative inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
+        className="relative inline-flex h-7.5 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[7px] px-2.5 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground"
       >
-        <Icon className="size-3.5 text-brand" />
+        <Icon className="size-3.5 text-muted-foreground" />
         <span>{item.label}</span>
         <ExternalLink className="size-3 opacity-60" />
       </a>
@@ -103,10 +103,10 @@ export function NavPill({
       onFocus={() => preloadRoute(item.href)}
       className={() =>
         cn(
-          "relative isolate inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 text-[13px] font-medium transition-colors",
+          "relative isolate inline-flex h-7.5 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[7px] px-2.5 text-[13px] font-medium transition-colors",
           active
-            ? "text-brand dark:text-brand"
-            : "text-muted-foreground hover:bg-surface-hover hover:text-foreground"
+            ? "font-semibold text-foreground"
+            : "text-muted-foreground hover:text-foreground"
         )
       }
     >
@@ -116,13 +116,13 @@ export function NavPill({
           transition={
             prefersReducedMotion ? reducedNavActiveTransition : navActiveTransition
           }
-          className="absolute inset-0 -z-10 rounded-lg border border-brand-border bg-brand-soft"
+          className="absolute inset-0 -z-10 rounded-[7px] bg-surface shadow-xs ring-1 ring-black/[0.04] dark:bg-zinc-800/95 dark:ring-white/[0.08]"
         />
       ) : null}
       <Icon
         className={cn(
           "relative z-10 size-3.5 shrink-0 transition-colors",
-          active ? "text-brand" : "text-muted-foreground/85"
+          active ? "text-foreground" : "text-muted-foreground/85"
         )}
       />
       <span className="relative z-10 block">{item.label}</span>
@@ -140,8 +140,8 @@ export function CreditBalanceBadge({
   const content = (
     <div
       className={cn(
-        "inline-flex h-8 min-w-[78px] items-center justify-center gap-1.5 rounded-lg border border-border/80 bg-surface-muted/75 px-2.5 text-xs font-medium text-foreground transition-colors",
-        canRecharge && "hover:border-brand-border hover:bg-brand-soft hover:text-brand"
+        "inline-flex h-7.5 min-w-[74px] items-center justify-center gap-1.5 rounded-lg bg-surface-muted/90 px-2.5 text-xs font-medium text-foreground ring-1 ring-border/70 transition-colors",
+        canRecharge && "hover:bg-surface-hover hover:ring-foreground/20"
       )}
       title={canRecharge ? "当前积分余额，点击前往充值中心" : "当前积分余额"}
     >
@@ -177,17 +177,17 @@ export function MoreNavMenu({
           type="button"
           variant="ghost"
           className={cn(
-            "h-8 shrink-0 gap-1.5 rounded-lg px-2.5 text-[13px] font-medium",
+            "h-7.5 shrink-0 gap-1.5 rounded-[7px] px-2.5 text-[13px] font-medium",
             active
-              ? "border border-brand-border bg-brand-soft text-brand"
-              : "text-muted-foreground hover:bg-surface-hover hover:text-foreground"
+              ? "bg-surface font-semibold text-foreground shadow-xs ring-1 ring-black/[0.04] hover:bg-surface dark:bg-zinc-800/95 dark:ring-white/[0.08]"
+              : "text-muted-foreground hover:bg-transparent hover:text-foreground"
           )}
         >
           <LayoutGrid className="size-3.5" />
           <span>
             {activeItem ? `管理控制台 · ${activeItem.label}` : "管理控制台"}
           </span>
-          <ChevronDown className="size-3.5 opacity-75" />
+          <ChevronDown className="size-3.5 opacity-70" />
         </Button>
       </PopoverTrigger>
       <PopoverContent
@@ -214,7 +214,7 @@ export function MoreNavMenu({
                       className={cn(
                         "group flex items-start gap-2.5 rounded-lg px-2.5 py-2 transition-colors",
                         itemActive
-                          ? "bg-brand-soft text-brand"
+                          ? "bg-surface-muted text-foreground"
                           : "text-foreground hover:bg-surface-hover"
                       )}
                     >
@@ -222,7 +222,7 @@ export function MoreNavMenu({
                         className={cn(
                           "mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg border transition-colors",
                           itemActive
-                            ? "border-brand-border bg-surface text-brand"
+                            ? "border-foreground/20 bg-foreground text-background shadow-2xs"
                             : "border-border/70 bg-surface-muted text-muted-foreground group-hover:text-foreground"
                         )}
                       >
@@ -234,7 +234,7 @@ export function MoreNavMenu({
                             {item.label}
                           </span>
                           {itemActive ? (
-                            <span className="size-1.5 shrink-0 rounded-full bg-brand" />
+                            <span className="size-1.5 shrink-0 rounded-full bg-foreground" />
                           ) : null}
                         </div>
                         {item.description ? (
@@ -279,21 +279,21 @@ export function AccountMenu({
       <PopoverTrigger asChild>
         <Button
           type="button"
-          variant="outline"
+          variant="ghost"
           className={cn(
-            "rounded-lg shadow-none",
-            compact ? "size-8 px-0" : "h-8 gap-1.5 px-2",
-            profileActive && "border-brand-border bg-brand-soft text-brand"
+            "rounded-lg shadow-none hover:bg-surface-hover",
+            compact ? "size-8 px-0" : "h-8 gap-1.5 px-1.5",
+            profileActive && "bg-surface-muted text-foreground"
           )}
           aria-label="账号菜单"
         >
-          <span className="flex size-5 shrink-0 items-center justify-center rounded-md bg-brand text-[11px] font-semibold text-white">
+          <span className="flex size-5.5 shrink-0 items-center justify-center rounded-md bg-foreground text-[11px] font-semibold text-background shadow-2xs">
             {initial}
           </span>
-          <span className="hidden max-w-[100px] truncate text-xs font-medium xl:inline">
+          <span className="hidden max-w-[96px] truncate text-xs font-medium xl:inline">
             {displayName}
           </span>
-          <ChevronDown className={cn("size-3.5 opacity-70", compact && "hidden")} />
+          <ChevronDown className={cn("size-3.5 opacity-60", compact && "hidden")} />
         </Button>
       </PopoverTrigger>
       <PopoverContent
@@ -309,13 +309,13 @@ export function AccountMenu({
             initial={initial}
             creditBalance={creditBalance}
           />
-          <div className="grid gap-1 border-t border-border/60 pt-1.5">
+          <div className="grid gap-0.5 border-t border-border/60 pt-1.5">
             <Link
               to={profileNavItem.href}
               onClick={() => setOpen(false)}
               className={cn(
-                "flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium transition hover:bg-surface-hover",
-                profileActive ? "bg-brand-soft text-brand" : "text-foreground"
+                "flex items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-medium transition hover:bg-surface-hover",
+                profileActive ? "bg-surface-muted font-semibold text-foreground" : "text-foreground"
               )}
             >
               <UserCircle2 className="size-4 text-muted-foreground" />
@@ -324,15 +324,15 @@ export function AccountMenu({
             <Link
               to="/profile?tab=api"
               onClick={() => setOpen(false)}
-              className="flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium text-foreground transition hover:bg-surface-hover"
+              className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-medium text-foreground transition hover:bg-surface-hover"
             >
-              <BookOpen className="size-4 text-brand" />
+              <BookOpen className="size-4 text-muted-foreground" />
               <span>接口密钥与 API 文档</span>
             </Link>
             <Link
               to="/profile?tab=credits"
               onClick={() => setOpen(false)}
-              className="flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium text-foreground transition hover:bg-surface-hover"
+              className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-medium text-foreground transition hover:bg-surface-hover"
             >
               <Coins className="size-4 text-amber-500" />
               <span>积分中心与流水</span>
@@ -341,7 +341,7 @@ export function AccountMenu({
               <Link
                 to="/rbac"
                 onClick={() => setOpen(false)}
-                className="flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium text-foreground transition hover:bg-surface-hover"
+                className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-medium text-foreground transition hover:bg-surface-hover"
               >
                 <ShieldCheck className="size-4 text-muted-foreground" />
                 <span>角色与权限</span>
@@ -349,7 +349,7 @@ export function AccountMenu({
             ) : null}
             <button
               type="button"
-              className="flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium text-rose-600 transition hover:bg-rose-500/10 dark:text-rose-400"
+              className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-medium text-rose-600 transition hover:bg-rose-500/10 dark:text-rose-400"
               onClick={() => {
                 setOpen(false);
                 void onLogout();
@@ -382,7 +382,7 @@ function AccountSummary({
     <>
       <div className="rounded-xl bg-surface-muted/80 p-3">
         <div className="flex min-w-0 items-center gap-3">
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-brand text-sm font-semibold text-white">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-foreground text-sm font-semibold text-background shadow-2xs">
             {initial}
           </span>
           <div className="min-w-0 flex-1">

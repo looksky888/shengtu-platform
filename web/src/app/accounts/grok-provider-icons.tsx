@@ -4,9 +4,9 @@ import type { GrokProvider } from "@/lib/grok-provider-accounts-api";
 import { cn } from "@/lib/utils";
 
 const PROVIDER_ICONS: Record<GrokProvider, { icon: LucideIcon; tone: string }> = {
-  build: { icon: SquareTerminal, tone: "text-sky-600" },
-  web: { icon: Compass, tone: "text-emerald-600" },
-  console: { icon: Webhook, tone: "text-violet-600" },
+  build: { icon: SquareTerminal, tone: "text-foreground" },
+  web: { icon: Compass, tone: "text-foreground" },
+  console: { icon: Webhook, tone: "text-foreground" },
 };
 
 export function GrokProviderIcon({ provider, className }: { provider: GrokProvider; className?: string }) {

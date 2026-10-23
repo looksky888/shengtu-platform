@@ -18,12 +18,12 @@ export function StatusPill({ status }: { status: CreationTask["status"] }) {
   const label = statusLabel(status);
   const cls =
     status === "running" || status === "queued"
-      ? "border-blue-200 bg-blue-50 text-blue-600"
+      ? "border-foreground/20 bg-surface-muted text-foreground"
       : status === "success"
-        ? "border-emerald-200 bg-emerald-50 text-emerald-600"
+        ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
         : status === "error"
-          ? "border-rose-200 bg-rose-50 text-rose-600"
-          : "border-stone-200 bg-stone-50 text-stone-500";
+          ? "border-rose-500/25 bg-rose-500/10 text-rose-700 dark:text-rose-300"
+          : "border-border bg-surface-muted text-muted-foreground";
   return (
     <span className={cn("inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium", cls)}>
       {label}
@@ -33,7 +33,7 @@ export function StatusPill({ status }: { status: CreationTask["status"] }) {
 
 export function TypePill({ mode }: { mode: CreationTask["mode"] }) {
   return (
-    <span className="inline-flex items-center rounded-md border border-stone-200 bg-stone-50 px-2 py-0.5 text-xs text-stone-600">
+    <span className="inline-flex items-center rounded-md border border-border/80 bg-surface-muted px-2 py-0.5 text-xs text-muted-foreground">
       {modeLabel(mode)}
     </span>
   );
@@ -45,10 +45,10 @@ export function ProgressCell({ item }: { item: CreationTask }) {
   const active = item.status === "running" || item.status === "queued";
   const bar =
     item.status === "success"
-      ? "bg-emerald-500"
+      ? "emerald"
       : item.status === "error" || item.status === "cancelled"
-        ? "bg-rose-400"
-        : "bg-blue-500";
+        ? "rose"
+        : "obsidian";
 
   return (
     <div className="min-w-[160px] max-w-[220px] space-y-1">
@@ -56,15 +56,28 @@ export function ProgressCell({ item }: { item: CreationTask }) {
         <CreationTaskProgressBar
           progress={progress}
           indeterminate={isProgressIndeterminate(item)}
-          className={cn("flex-1", bar === "bg-emerald-500" ? "[&>div]:bg-emerald-500" : bar === "bg-rose-400" ? "[&>div]:bg-rose-400" : "[&>div]:bg-blue-500")}
+          className={cn(
+            "flex-1",
+            bar === "emerald"
+              ? "[&>div]:bg-emerald-500"
+              : bar === "rose"
+                ? "[&>div]:bg-rose-400"
+                : "[&>div]:bg-foreground",
+          )}
         />
         {item.status === "success" ? <CheckCircle2 className="size-3.5 shrink-0 text-emerald-500" /> : null}
         {item.status === "error" ? <XCircle className="size-3.5 shrink-0 text-rose-400" /> : null}
       </div>
       <div
         className={cn(
-          "truncate text-xs",
-          active ? "text-blue-600" : item.status === "success" ? "text-emerald-600" : item.status === "error" ? "text-rose-500" : "text-stone-500",
+          "truncate text-xs tabular-nums",
+          active
+            ? "font-medium text-foreground"
+            : item.status === "success"
+              ? "text-emerald-600 dark:text-emerald-400"
+              : item.status === "error"
+                ? "text-rose-500 dark:text-rose-400"
+                : "text-muted-foreground",
         )}
       >
         {stage}
@@ -84,18 +97,18 @@ export function MessageCell({ item }: { item: CreationTask }) {
       <div
         className={cn(
           "line-clamp-1 text-sm",
-          item.status === "error" ? "text-rose-600" : "text-stone-700",
+          item.status === "error" ? "text-rose-600 dark:text-rose-400" : "text-foreground",
         )}
         title={msg}
       >
         {msg}
       </div>
-      <div className="text-xs text-stone-400">
+      <div className="text-xs tabular-nums text-muted-foreground">
         日志 {logs} 条 · 账号 {account}
         {(item.account_switch_count || 0) > 0 ? ` · 换号 ${item.account_switch_count}` : ""}
       </div>
       {action?.href ? (
-        <Link to={action.href} className="text-xs text-blue-500 hover:underline">
+        <Link to={action.href} className="text-xs font-medium text-foreground underline-offset-4 hover:underline">
           {action.label}
         </Link>
       ) : null}

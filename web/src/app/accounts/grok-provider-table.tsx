@@ -122,7 +122,7 @@ export function GrokProviderTable(props: Props) {
     <>
       <div className="hidden overflow-x-auto md:block">
         <table className="w-full min-w-[1320px] text-left text-sm">
-          <thead className="bg-surface-muted/65 text-xs text-muted-foreground">
+          <thead className="border-b border-border bg-surface-subtle/80 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
             <tr>
               <th className="w-12 px-4 py-3">
                 <Checkbox

@@ -159,7 +159,7 @@ export function PaymentChannelsSection() {
           ) : loadError ? (
             <PaymentSectionState mode="error" title="支付渠道加载失败" detail={loadError} onRetry={() => void load()} />
           ) : channels.length === 0 ? (
-            <PaymentSectionState mode="empty" title="暂无支付渠道" action={<Button type="button" variant="outline" onClick={openCreate}>创建第一个渠道</Button>} />
+            <PaymentSectionState mode="empty" icon={CreditCard} title="暂无支付渠道" detail="添加微信支付或支付宝渠道后即可启用在线充值。" action={<Button type="button" variant="outline" onClick={openCreate}>创建第一个渠道</Button>} />
           ) : (
             <div className="grid gap-3 md:grid-cols-2">
               {channels.map((item) => (

@@ -19,31 +19,26 @@ export function ComposerSettingsInfoCard({
   return (
     <div
       className={cn(
-        "col-span-2 rounded-2xl border px-3 py-2 sm:col-span-3",
+        "col-span-2 rounded-xl border px-3 py-2 sm:col-span-3",
         isCredit
-          ? "border-[#dbeafe] bg-[#eef4ff] dark:border-sky-900/70 dark:bg-sky-950/20"
-          : "border-[#e5e7eb] bg-[#f8fafc] dark:border-border dark:bg-background/50",
+          ? "border-border/85 bg-surface-muted/80"
+          : "border-border/70 bg-surface-muted/45",
       )}
     >
       <div className="flex min-w-0 items-center justify-between gap-3">
-        <span
-          className={cn(
-            "shrink-0 text-[11px] font-medium text-[#45515e]",
-            isCredit ? "dark:text-sky-200/80" : "dark:text-muted-foreground",
-          )}
-        >
+        <span className="shrink-0 text-[11px] font-medium text-muted-foreground">
           {title}
         </span>
         <span
           className={cn(
-            "min-w-0 truncate text-right text-sm font-semibold",
-            isCredit ? "text-[#1456f0] dark:text-sky-300" : "font-mono text-[#18181b] dark:text-foreground",
+            "min-w-0 truncate text-right text-sm font-semibold text-foreground tabular-nums",
+            !isCredit && "font-mono",
           )}
         >
           {value}
         </span>
       </div>
-      <p className="mt-1 truncate text-[11px] text-[#8e8e93] dark:text-muted-foreground">{detail}</p>
+      <p className="mt-1 truncate text-[11px] text-muted-foreground">{detail}</p>
     </div>
   );
 }

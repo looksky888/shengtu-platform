@@ -1,6 +1,6 @@
 "use client";
 
-import { Copy } from "lucide-react";
+import { Copy, ListTodo, LoaderCircle } from "lucide-react";
 
 import { MessageCell, ProgressCell, StatusPill, TypePill } from "@/app/task-queue/task-queue-cells";
 import { failureAction, formatDateTime, formatDuration } from "@/app/task-queue/task-queue-utils";
@@ -9,6 +9,7 @@ import { CreationTaskCancelButton } from "@/components/creation-task-state";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { CreationTask } from "@/lib/api";
 
@@ -41,36 +42,43 @@ export function TaskQueueTable({
     <Card className="max-w-full overflow-hidden rounded-xl border border-border/70 bg-card shadow-2xs">
       <div className="max-w-full overflow-x-auto">
         <Table>
-          <TableHeader>
+          <TableHeader className="bg-surface-subtle/80 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
             <TableRow className="border-border/70 hover:bg-transparent">
-              <TableHead className="h-9 w-10 bg-muted/40" />
-              <TableHead className="h-9 min-w-[200px] bg-muted/40 text-xs font-medium text-muted-foreground">任务 ID</TableHead>
-              <TableHead className="h-9 min-w-[190px] bg-muted/40 text-xs font-medium text-muted-foreground">类型 / 模型</TableHead>
-              <TableHead className="h-9 min-w-[190px] bg-muted/40 text-xs font-medium text-muted-foreground">状态 / 进度</TableHead>
-              <TableHead className="h-9 min-w-[220px] bg-muted/40 text-xs font-medium text-muted-foreground">阶段 / 账号</TableHead>
-              <TableHead className="h-9 min-w-[150px] bg-muted/40 text-xs font-medium text-muted-foreground">耗时 / 尝试</TableHead>
-              <TableHead className="h-9 bg-muted/40 text-xs font-medium text-muted-foreground">时间</TableHead>
-              <TableHead className="h-9 bg-muted/40 text-right text-xs font-medium text-muted-foreground">操作</TableHead>
+              <TableHead className="h-9 w-10" />
+              <TableHead className="h-9 min-w-[200px]">任务 ID</TableHead>
+              <TableHead className="h-9 min-w-[190px]">类型 / 模型</TableHead>
+              <TableHead className="h-9 min-w-[190px]">状态 / 进度</TableHead>
+              <TableHead className="h-9 min-w-[220px]">阶段 / 账号</TableHead>
+              <TableHead className="h-9 min-w-[150px]">耗时 / 尝试</TableHead>
+              <TableHead className="h-9">时间</TableHead>
+              <TableHead className="h-9 text-right">操作</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow>
-                  <TableCell colSpan={8} className="h-24 text-center text-sm text-muted-foreground">
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={8} className="h-28 text-center text-sm text-muted-foreground">
+                  <LoaderCircle className="mr-2 inline size-4 animate-spin" />
                   加载中…
                 </TableCell>
               </TableRow>
             ) : pageItems.length === 0 ? (
-              <TableRow>
-                  <TableCell colSpan={8} className="h-24 text-center text-sm text-muted-foreground">
-                  暂无任务
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={8} className="p-0">
+                  <EmptyState
+                    compact
+                    icon={ListTodo}
+                    title="暂无队列任务"
+                    description="当前没有正在排队或执行的任务，新任务触发后会实时展示在此。"
+                    className="border-0 bg-transparent py-10"
+                  />
                 </TableCell>
               </TableRow>
             ) : (
               pageItems.map((item) => {
                 const active = item.status === "running" || item.status === "queued";
                 return (
-                  <TableRow key={item.id} className="border-border/70">
+                  <TableRow key={item.id} className="border-border/70 transition-colors hover:bg-surface-hover/60">
                     <TableCell className="align-top">
                       <Checkbox
                         aria-label={`选择任务 ${item.id}`}
@@ -80,14 +88,14 @@ export function TaskQueueTable({
                       />
                     </TableCell>
                     <TableCell className="align-top">
-                      <div className="font-mono text-xs text-foreground">{item.id}</div>
+                      <div className="font-mono text-xs tabular-nums text-foreground">{item.id}</div>
                       <div className="mt-0.5 text-xs text-muted-foreground">{item.owner_name || item.owner_id || "—"}</div>
                     </TableCell>
                     <TableCell className="align-top">
                       <div className="space-y-1.5">
                         <TypePill mode={item.mode} />
                         <div className="truncate text-xs text-foreground">{item.effective_model || item.model || "—"}</div>
-                        <div className="text-xs text-muted-foreground">{item.size || "—"}{item.count ? ` · ${item.count} 张` : ""}</div>
+                        <div className="text-xs tabular-nums text-muted-foreground">{item.size || "—"}{item.count ? ` · ${item.count} 张` : ""}</div>
                       </div>
                     </TableCell>
                     <TableCell className="align-top">
@@ -99,14 +107,14 @@ export function TaskQueueTable({
                     <TableCell className="align-top">
                       <MessageCell item={item} />
                     </TableCell>
-                    <TableCell className="align-top text-xs text-foreground">
-                      <div className="font-mono tabular-nums">{formatDuration(item)}</div>
+                    <TableCell className="align-top text-xs tabular-nums text-foreground">
+                      <div className="font-mono">{formatDuration(item)}</div>
                       <div className="mt-1 text-muted-foreground">
                         重试 {typeof item.retry_index === "number" ? item.retry_index : "—"} / {typeof item.attempt_count === "number" ? item.attempt_count : "—"}
                       </div>
-                      {(item.account_switch_count || 0) > 0 ? <div className="mt-1 text-amber-600">换号 {item.account_switch_count}</div> : null}
+                      {(item.account_switch_count || 0) > 0 ? <div className="mt-1 text-amber-600 dark:text-amber-400">换号 {item.account_switch_count}</div> : null}
                     </TableCell>
-                    <TableCell className="align-top text-xs text-muted-foreground">{formatDateTime(item.created_at)}</TableCell>
+                    <TableCell className="align-top font-mono text-xs tabular-nums text-muted-foreground">{formatDateTime(item.created_at)}</TableCell>
                     <TableCell className="align-top text-right">
                       <div className="flex flex-wrap justify-end gap-1">
                         <Button type="button" variant="ghost" className="h-8 rounded-lg px-2 text-xs" onClick={() => setDetailId(item.id)}>
@@ -123,7 +131,7 @@ export function TaskQueueTable({
                         </Button>
                         {active && canManageTasks ? (
                           <CreationTaskCancelButton
-                            className="h-8 rounded-lg border-transparent bg-transparent px-2 text-xs text-rose-600 hover:bg-rose-50"
+                            className="h-8 rounded-lg border-transparent bg-transparent px-2 text-xs text-rose-600 hover:bg-rose-500/10 dark:text-rose-400"
                             loading={cancellingId === item.id}
                             label="取消"
                             onCancel={() => void cancelOne(item.id)}
@@ -143,7 +151,7 @@ export function TaskQueueTable({
           </TableBody>
         </Table>
       </div>
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/70 px-3 py-2 text-xs text-muted-foreground">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/70 px-3.5 py-2.5 text-xs tabular-nums text-muted-foreground">
         <span>
           每页 {pageSize} 条，共 {filteredCount} 条；第 {page} / {totalPages} 页
         </span>

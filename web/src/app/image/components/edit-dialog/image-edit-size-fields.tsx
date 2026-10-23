@@ -66,7 +66,7 @@ export function ImageEditSizeFields({ draft, setDraft }: ImageEditSizeFieldsProp
 
   return (
     <>
-      <label className="flex flex-col gap-2 text-sm font-medium text-stone-700">
+      <label className="flex flex-col gap-2 text-sm font-medium text-foreground">
         尺寸
         <Select
           value={draft.sizeMode}
@@ -104,14 +104,14 @@ export function ImageEditSizeFields({ draft, setDraft }: ImageEditSizeFieldsProp
         <RatioSizeFields draft={draft} setDraft={setDraft} customRatioInvalid={customRatioInvalid} />
       ) : null}
       {draft.sizeMode !== "auto" ? (
-        <div className="rounded-2xl border border-stone-200 bg-stone-50 px-3 py-2 text-sm sm:col-span-2 lg:col-span-4">
+        <div className="rounded-xl border border-border/75 bg-surface-muted/60 px-3 py-2 text-sm sm:col-span-2 lg:col-span-4">
           <div className="flex min-w-0 items-center justify-between gap-3">
-            <span className="shrink-0 font-medium text-stone-600">计算后分辨率</span>
-            <span className="min-w-0 truncate text-right font-mono font-semibold text-stone-900">
+            <span className="shrink-0 font-medium text-muted-foreground">计算后分辨率</span>
+            <span className="min-w-0 truncate text-right font-mono font-semibold text-foreground">
               {previewLabel}
             </span>
           </div>
-          <div className="mt-1 truncate text-xs text-stone-500">{previewDetail}</div>
+          <div className="mt-1 truncate text-xs text-muted-foreground">{previewDetail}</div>
         </div>
       ) : null}
     </>
@@ -121,7 +121,7 @@ export function ImageEditSizeFields({ draft, setDraft }: ImageEditSizeFieldsProp
 function CustomSizeFields({ draft, setDraft }: ImageEditSizeFieldsProps) {
   return (
     <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-end gap-2 lg:col-span-2">
-      <label className="flex min-w-0 flex-col gap-2 text-sm font-medium text-stone-700">
+      <label className="flex min-w-0 flex-col gap-2 text-sm font-medium text-foreground">
         宽度
         <Input
           type="number"
@@ -132,8 +132,8 @@ function CustomSizeFields({ draft, setDraft }: ImageEditSizeFieldsProps) {
           onChange={(event) => setDraft((current) => (current ? { ...current, customWidth: event.target.value } : current))}
         />
       </label>
-      <span className="pb-2 text-sm font-medium text-stone-400">x</span>
-      <label className="flex min-w-0 flex-col gap-2 text-sm font-medium text-stone-700">
+      <span className="pb-2 text-sm font-medium text-muted-foreground">x</span>
+      <label className="flex min-w-0 flex-col gap-2 text-sm font-medium text-foreground">
         高度
         <Input
           type="number"

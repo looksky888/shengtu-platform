@@ -1,4 +1,4 @@
-import { Eye, LoaderCircle, RefreshCw } from "lucide-react";
+import { Eye, LoaderCircle, ReceiptText, RefreshCw } from "lucide-react";
 
 import {
   formatPaymentAmount,
@@ -8,6 +8,7 @@ import {
 } from "@/app/payment-admin/payment-order-presentation";
 import { StatusBadge } from "@/app/payment-admin/payment-order-status-badge";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   Table,
   TableBody,
@@ -37,8 +38,8 @@ export function PaymentOrdersTable({
   return (
     <div className="overflow-x-auto rounded-xl border border-border/80">
       <Table className="min-w-[900px]">
-        <TableHeader>
-          <TableRow>
+        <TableHeader className="bg-surface-subtle/80 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+          <TableRow className="hover:bg-transparent">
             <TableHead>订单 ID</TableHead>
             <TableHead>订单编号</TableHead>
             <TableHead>实付</TableHead>
@@ -50,15 +51,21 @@ export function PaymentOrdersTable({
         </TableHeader>
         <TableBody>
           {loading ? (
-            <TableRow>
+            <TableRow className="hover:bg-transparent">
               <TableCell colSpan={7} className="h-32 text-center">
                 <LoaderCircle className="mx-auto size-5 animate-spin text-muted-foreground" />
               </TableCell>
             </TableRow>
           ) : items.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={7} className="h-32 text-center text-muted-foreground">
-                暂无符合条件的订单
+            <TableRow className="hover:bg-transparent">
+              <TableCell colSpan={7} className="p-0">
+                <EmptyState
+                  compact
+                  icon={ReceiptText}
+                  title="暂无符合条件的订单"
+                  description="尝试调整搜索词或订单状态筛选条件。"
+                  className="border-0 bg-transparent py-10"
+                />
               </TableCell>
             </TableRow>
           ) : (
@@ -93,16 +100,16 @@ function OrderRow({
   onOpen: () => void;
 }) {
   return (
-    <TableRow className="group">
+    <TableRow className="group transition-colors hover:bg-surface-hover/60">
       <TableCell>
-        <button type="button" className="font-semibold tabular-nums transition-colors group-hover:text-primary" onClick={onOpen}>
+        <button type="button" className="font-semibold tabular-nums transition-colors group-hover:text-foreground" onClick={onOpen}>
           {shortPaymentOrderID(item.id)}
         </button>
       </TableCell>
       <TableCell>
         <button type="button" className="min-w-48 text-left" onClick={onOpen}>
           <div className="flex items-center gap-2 font-medium">
-            <span className="truncate">{item.out_trade_no}</span>
+            <span className="truncate font-mono text-xs tabular-nums">{item.out_trade_no}</span>
             <Eye className="size-3.5 shrink-0 opacity-0 transition-opacity group-hover:opacity-100" />
           </div>
           <div className="mt-1 text-xs text-muted-foreground">{item.product_name} · {item.user_id}</div>
@@ -110,7 +117,7 @@ function OrderRow({
       </TableCell>
       <TableCell>
         <div className="font-semibold tabular-nums">{formatPaymentAmount(item.amount_fen)}</div>
-        <div className="text-xs text-muted-foreground">{item.credits} 积分</div>
+        <div className="text-xs text-muted-foreground tabular-nums">{item.credits} 积分</div>
       </TableCell>
       <TableCell>
         <span className="inline-flex items-center gap-1.5 text-sm">
@@ -119,7 +126,7 @@ function OrderRow({
         </span>
       </TableCell>
       <TableCell><StatusBadge status={item.status} /></TableCell>
-      <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
+      <TableCell className="whitespace-nowrap text-sm text-muted-foreground tabular-nums">
         {formatDateTime(item.created_at, { withSeconds: false })}
       </TableCell>
       <TableCell>

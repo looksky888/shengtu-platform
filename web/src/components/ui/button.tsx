@@ -6,25 +6,25 @@ import { LoaderCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex shrink-0 select-none items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-[background-color,border-color,color,box-shadow,transform,opacity] duration-150 outline-none motion-safe:active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40",
+  "inline-flex shrink-0 select-none items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-[background-color,border-color,color,box-shadow,transform,opacity] duration-150 outline-none motion-safe:active:scale-[0.985] disabled:pointer-events-none disabled:opacity-45 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 focus-visible:border-foreground/40 focus-visible:ring-[3px] focus-visible:ring-foreground/10 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40",
   {
     variants: {
       variant: {
         default:
-          "bg-primary text-primary-foreground shadow-xs hover:bg-primary/90",
+          "bg-primary text-primary-foreground shadow-[0_1px_2px_rgba(0,0,0,0.16),inset_0_1px_0_rgba(255,255,255,0.16)] hover:bg-primary/90 dark:shadow-[0_1px_2px_rgba(0,0,0,0.45)]",
         brand:
-          "bg-brand text-white shadow-xs hover:bg-brand-hover",
+          "bg-primary text-primary-foreground shadow-[0_1px_2px_rgba(0,0,0,0.16),inset_0_1px_0_rgba(255,255,255,0.16)] hover:bg-primary/90 dark:shadow-[0_1px_2px_rgba(0,0,0,0.45)]",
         destructive:
           "bg-destructive text-white shadow-xs hover:bg-destructive/90 focus-visible:ring-destructive/25",
         "destructive-outline":
-          "border border-status-danger/30 bg-status-danger-soft/50 text-status-danger hover:bg-status-danger-soft",
+          "border border-status-danger/25 bg-status-danger-soft/60 text-status-danger hover:bg-status-danger-soft",
         outline:
-          "border border-border bg-surface text-foreground shadow-2xs hover:bg-surface-hover hover:text-foreground dark:border-border dark:bg-surface/80 dark:hover:bg-surface-hover",
+          "border border-border bg-surface text-foreground shadow-[0_1px_2px_rgba(0,0,0,0.025)] hover:border-border-strong hover:bg-surface-hover hover:text-foreground dark:border-border dark:bg-surface/80 dark:hover:bg-surface-hover",
         secondary:
           "bg-surface-muted text-secondary-foreground shadow-none hover:bg-surface-hover active:bg-surface-active",
         ghost:
           "text-muted-foreground hover:bg-surface-hover hover:text-foreground active:bg-surface-active",
-        link: "text-brand underline-offset-4 hover:underline",
+        link: "text-foreground underline-offset-4 hover:underline",
       },
       size: {
         xs: "h-7 gap-1 rounded-md px-2.5 text-xs [&_svg:not([class*='size-'])]:size-3.5",

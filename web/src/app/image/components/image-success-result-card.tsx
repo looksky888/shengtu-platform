@@ -6,11 +6,7 @@ import {
   imageResolutionLabel,
 } from "@/app/image/components/image-results-utils";
 import type { ImageVisibility } from "@/lib/api";
-import {
-  imageVisibilityActionClass,
-  imageVisibilityLabel,
-  imageVisibilityPillClass,
-} from "@/lib/image-card-utils";
+import { imageVisibilityLabel } from "@/lib/image-card-utils";
 import { formatBase64ImageFileSize } from "@/lib/image-size";
 import { cn } from "@/lib/utils";
 import type { StoredImage, StoredReferenceImage } from "@/store/image-conversations";
@@ -76,20 +72,20 @@ export function ImageSuccessResultCard({
   return (
     <figure
       className={cn(
-        "group relative mb-3 inline-block w-full break-inside-avoid overflow-hidden rounded-xl border border-border/60 bg-surface-muted shadow-2xs transition-shadow hover:shadow-md sm:mb-4",
-        selected && "ring-2 ring-brand ring-offset-2 ring-offset-background",
+        "group relative mb-3 inline-block w-full break-inside-avoid overflow-hidden rounded-xl border border-border/75 bg-surface-muted shadow-2xs transition-all duration-200 hover:shadow-md sm:mb-4",
+        selected && "ring-2 ring-foreground ring-offset-2 ring-offset-background",
       )}
     >
       <button
         type="button"
         onClick={() => onOpenLightbox(lightboxImages, lightboxIndex)}
-        className="block w-full cursor-zoom-in overflow-hidden text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand"
+        className="block w-full cursor-zoom-in overflow-hidden text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-foreground/40"
         aria-label={`预览第 ${imageIndex + 1} 张生成图片`}
       >
         <img
           src={imageSrc}
           alt={`生成结果 ${imageIndex + 1}`}
-          className="block h-auto w-full transition duration-200 group-hover:scale-[1.01] group-hover:brightness-95"
+          className="block h-auto w-full transition duration-300 ease-out group-hover:scale-[1.01]"
           onLoad={(event) => {
             onImageLoad(image.id, event.currentTarget.naturalWidth, event.currentTarget.naturalHeight);
             if (!image.b64_json) {
@@ -107,8 +103,8 @@ export function ImageSuccessResultCard({
         className={cn(
           "absolute top-2.5 left-2.5 z-10 inline-flex size-7 items-center justify-center rounded-full border transition duration-150 focus-visible:pointer-events-auto focus-visible:opacity-100",
           selected
-            ? "border-brand bg-brand text-white opacity-100 shadow-sm"
-            : "pointer-events-none border-white/90 bg-black/30 text-transparent opacity-0 shadow-sm group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100 hover:bg-black/45",
+            ? "border-foreground bg-foreground text-background opacity-100 shadow-sm"
+            : "pointer-events-none border-white/80 bg-black/45 text-transparent opacity-0 shadow-sm backdrop-blur-md group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100 hover:bg-black/65",
         )}
         aria-label={selected ? "取消选择图片" : "选择图片"}
         title={selected ? "取消选择" : "选择图片"}
@@ -122,7 +118,7 @@ export function ImageSuccessResultCard({
             event.stopPropagation();
             onOpenLightbox(lightboxImages, lightboxIndex);
           }}
-          className="inline-flex h-7 items-center gap-1 rounded-full bg-black/65 px-2.5 text-[11px] font-medium text-white shadow-sm backdrop-blur-md transition hover:bg-black/80"
+          className="inline-flex h-7 items-center gap-1 rounded-full border border-white/15 bg-black/55 px-2.5 text-[11px] font-medium text-white shadow-sm backdrop-blur-md transition hover:bg-black/75"
           aria-label="查看原图"
           title="查看原图"
         >
@@ -135,7 +131,7 @@ export function ImageSuccessResultCard({
             event.stopPropagation();
             onLocalEdit(conversationId, image);
           }}
-          className="inline-flex size-7 items-center justify-center rounded-full bg-black/65 text-white shadow-sm backdrop-blur-md transition hover:bg-black/80"
+          className="inline-flex size-7 items-center justify-center rounded-full border border-white/15 bg-black/55 text-white shadow-sm backdrop-blur-md transition hover:bg-black/75"
           aria-label="局部修改"
           title="局部修改"
         >
@@ -147,7 +143,7 @@ export function ImageSuccessResultCard({
             event.stopPropagation();
             onContinueEdit(conversationId, image);
           }}
-          className="inline-flex size-7 items-center justify-center rounded-full bg-black/65 text-white shadow-sm backdrop-blur-md transition hover:bg-black/80"
+          className="inline-flex size-7 items-center justify-center rounded-full border border-white/15 bg-black/55 text-white shadow-sm backdrop-blur-md transition hover:bg-black/75"
           aria-label="加入参考继续编辑"
           title="加入参考继续编辑"
         >
@@ -163,10 +159,7 @@ export function ImageSuccessResultCard({
               void onVisibilityChange(conversationId, turnId, imageIndex, nextVisibility);
             }}
             disabled={isVisibilityMutating}
-            className={cn(
-              "inline-flex h-7 items-center gap-1.5 rounded-full px-2.5 text-[11px] font-medium opacity-0 shadow-sm transition group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100 disabled:cursor-not-allowed disabled:opacity-70",
-              imageVisibilityActionClass(visibility),
-            )}
+            className="inline-flex h-7 items-center gap-1.5 rounded-full border border-white/15 bg-black/55 px-2.5 text-[11px] font-medium text-white opacity-0 shadow-sm backdrop-blur-md transition hover:bg-black/75 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100 disabled:cursor-not-allowed disabled:opacity-70"
             aria-label={visibility === "public" ? "取消公开图片" : "公开图片"}
             title={visibility === "public" ? "取消公开" : "公开"}
           >
@@ -182,18 +175,20 @@ export function ImageSuccessResultCard({
         ) : null}
         <div
           className={cn(
-            "pointer-events-none inline-flex h-7 items-center gap-1 rounded-full px-2 text-[11px] font-medium shadow-sm backdrop-blur-sm",
-            imageVisibilityPillClass(visibility),
+            "pointer-events-none inline-flex h-7 items-center gap-1 rounded-full border px-2 text-[11px] font-medium shadow-sm backdrop-blur-md",
+            visibility === "public"
+              ? "border-emerald-400/30 bg-black/55 text-emerald-300"
+              : "border-white/15 bg-black/55 text-white/90",
           )}
         >
           {visibility === "public" ? <Globe2 className="size-3" /> : <Lock className="size-3" />}
           {imageVisibilityLabel(visibility)}
         </div>
       </div>
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent px-3 pt-8 pb-11 opacity-0 transition duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/65 via-black/20 to-transparent px-3 pt-8 pb-11 opacity-0 transition duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
         <div className="text-left text-white drop-shadow-sm">
-          <div className="text-[10px] font-bold tracking-wide">{formatLabel}</div>
-          {imageMeta ? <div className="mt-0.5 truncate text-[11px] text-white/90">{imageMeta}</div> : null}
+          <div className="font-mono text-[10px] font-semibold tracking-wider">{formatLabel}</div>
+          {imageMeta ? <div className="mt-0.5 truncate font-mono text-[11px] text-white/85">{imageMeta}</div> : null}
         </div>
       </div>
     </figure>

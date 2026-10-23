@@ -67,7 +67,7 @@ export function BackupSettingsCard() {
             </div>
           </div>
           {config.provider === "cloudflare_r2" ? (
-            <div className="space-y-3 rounded-lg border border-violet-200/70 bg-violet-50/40 p-4">
+            <div className="space-y-3 rounded-lg border border-border/70 bg-surface-muted/40 p-4">
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2"><label className="text-sm font-medium">R2 Account ID</label><Input className={settingsInputClassName} value={config.r2_account_id || ""} onChange={(event) => setConfig((current) => ({ ...current, r2_account_id: event.target.value }))} placeholder="Cloudflare 账户 ID" /></div>
                 <div className="space-y-2"><label className="text-sm font-medium">R2 Bucket</label><Input className={settingsInputClassName} value={config.r2_bucket || ""} onChange={(event) => setConfig((current) => ({ ...current, r2_bucket: event.target.value }))} placeholder="例如 shengtu-backups" /></div>
@@ -75,7 +75,7 @@ export function BackupSettingsCard() {
                 <div className="space-y-2"><label className="text-sm font-medium">Secret Access Key</label><Input type="password" className={settingsInputClassName} value={config.r2_secret_access_key || ""} onChange={(event) => setConfig((current) => ({ ...current, r2_secret_access_key: event.target.value }))} /></div>
                 <div className="space-y-2 md:col-span-2"><label className="text-sm font-medium">对象前缀 Prefix</label><Input className={settingsInputClassName} value={config.r2_prefix || ""} onChange={(event) => setConfig((current) => ({ ...current, r2_prefix: event.target.value }))} placeholder="shengtu-backups" /></div>
               </div>
-              <div className="rounded-lg bg-white/70 px-3 py-2 text-xs leading-5 text-violet-900">
+              <div className="rounded-lg border border-border/60 bg-surface px-3 py-2 text-xs leading-5 text-muted-foreground">
                 Cloudflare 后台路径：R2 对象存储 → 创建 Bucket → 管理 R2 API 令牌 → 复制 Account ID、Access Key ID、Secret Access Key；令牌权限至少需要目标 Bucket 的对象读写。
               </div>
             </div>

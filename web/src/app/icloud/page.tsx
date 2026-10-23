@@ -79,12 +79,12 @@ export default function ICloudPage() {
       </div>
 
       {pageError ? (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100">
+        <div className="rounded-xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-300">
           {pageError}
         </div>
       ) : null}
       {notice ? (
-        <div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-100">
+        <div className="rounded-xl border border-border/80 bg-surface-muted/70 px-4 py-3 text-sm text-foreground">
           {notice}
         </div>
       ) : null}

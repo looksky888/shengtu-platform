@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import type {
   PaymentChannel,
   PaymentStats,
@@ -62,7 +63,7 @@ export function PaymentStatsDashboard({
         <Card className="rounded-xl">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="size-5 text-primary" />近 7 日收入趋势
+              <BarChart3 className="size-5 text-muted-foreground" />近 7 日收入趋势
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -79,12 +80,12 @@ export function PaymentStatsDashboard({
                   >
                     <div className="relative flex w-full flex-1 items-end">
                       <div
-                        className="w-full rounded-t-md bg-primary/80 transition-all group-hover:bg-primary"
+                        className="w-full rounded-t-md bg-foreground/80 transition-all group-hover:bg-foreground"
                         style={{ height: `${height}px` }}
                         title={`${item.date} ${money(item.succeeded_amount_fen)} · ${item.succeeded_orders} 笔`}
                       />
                     </div>
-                    <span className="text-[10px] text-muted-foreground">
+                    <span className="text-[10px] text-muted-foreground tabular-nums">
                       {item.date.slice(5)}
                     </span>
                   </div>
@@ -96,15 +97,18 @@ export function PaymentStatsDashboard({
         <Card className="rounded-xl">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <CircleDollarSign className="size-5 text-primary" />
+              <CircleDollarSign className="size-5 text-muted-foreground" />
               渠道表现
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {stats.channel_breakdown.length === 0 ? (
-              <p className="rounded-xl border border-dashed p-5 text-center text-sm text-muted-foreground">
-                暂无交易数据
-              </p>
+              <EmptyState
+                compact
+                icon={CircleDollarSign}
+                title="暂无交易数据"
+                description="产生已支付订单后，各渠道的成交额与成功率将展示在此。"
+              />
             ) : (
               stats.channel_breakdown.map((item) => (
                 <div
@@ -116,12 +120,12 @@ export function PaymentStatsDashboard({
                       <p className="truncate font-medium">
                         {channelNames.get(item.channel_id) || item.channel_id}
                       </p>
-                      <p className="mt-1 text-xs text-muted-foreground">
+                      <p className="mt-1 text-xs text-muted-foreground tabular-nums">
                         {item.succeeded_orders} / {item.total_orders} 笔成功
                       </p>
                     </div>
-                    <div className="text-right">
-                      <p className="font-semibold tabular-nums">
+                    <div className="text-right tabular-nums">
+                      <p className="font-semibold">
                         {money(item.succeeded_amount_fen)}
                       </p>
                       <p className="text-xs text-muted-foreground">
@@ -131,7 +135,7 @@ export function PaymentStatsDashboard({
                   </div>
                   <div className="mt-3 h-1.5 overflow-hidden rounded-md bg-muted">
                     <div
-                      className="h-full rounded-md bg-primary"
+                      className="h-full rounded-md bg-foreground"
                       style={{
                         width: `${Math.min(100, Math.max(0, item.success_rate))}%`,
                       }}
@@ -159,24 +163,24 @@ function StatsCard({
   return (
     <div className="rounded-xl border border-border/70 bg-card p-4 shadow-2xs">
       <div className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-        {featured ? <span className="size-2 rounded-full bg-primary" /> : null}
+        {featured ? <span className="size-1.5 rounded-full bg-foreground" /> : null}
         <span>{label}</span>
       </div>
       <div className="mt-2 text-2xl font-semibold tabular-nums tracking-tight">
         {money(data.succeeded_amount_fen)}
       </div>
-      <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
-        <span className="inline-flex items-center gap-1 text-emerald-700">
+      <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground tabular-nums">
+        <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400">
           <CheckCircle2 className="size-3.5" />
           成功 {data.succeeded_orders} 笔
         </span>
-        <span className="inline-flex items-center gap-1 text-rose-700">
+        <span className="inline-flex items-center gap-1 text-rose-700 dark:text-rose-400">
           <XCircle className="size-3.5" />
           失败 {data.failed_orders} 笔
         </span>
         <span>关闭 {data.closed_orders} 笔</span>
       </div>
-      <div className="mt-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
+      <div className="mt-2 flex items-center justify-between gap-2 text-xs text-muted-foreground tabular-nums">
         <span>成功率 {percent(data.success_rate)}</span>
         <span>到账 {data.credited_credits} 积分</span>
       </div>

@@ -37,13 +37,14 @@ export function toggleListValue(values: string[], value: string, checked: boolea
 export function apiMethodClass(method: string) {
   switch (method.toUpperCase()) {
     case "GET":
-      return "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900 dark:bg-sky-950/30 dark:text-sky-300";
+      return "border-border bg-surface-muted text-foreground";
     case "POST":
-      return "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300";
+      return "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
     case "PATCH":
-      return "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300";
+    case "PUT":
+      return "border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-300";
     case "DELETE":
-      return "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-300";
+      return "border-rose-500/25 bg-rose-500/10 text-rose-700 dark:text-rose-300";
     default:
       return "border-border bg-muted text-muted-foreground";
   }

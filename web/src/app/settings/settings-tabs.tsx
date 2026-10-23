@@ -23,6 +23,7 @@ import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { SubNav } from "@/components/ui/sub-nav";
+import { cn } from "@/lib/utils";
 
 import { SettingsHeader } from "./components/settings-header";
 import { SettingsDataController } from "./settings-data-controller";
@@ -181,7 +182,7 @@ export function SettingsTabs({
       <SettingsDataController />
       <SettingsHeader dirtyModules={dirtyModules} />
 
-      <div className="min-w-0">
+      <div className="min-w-0 xl:hidden">
         <SubNav
           ariaLabel="设置分组导航"
           value={activeTab}
@@ -195,26 +196,71 @@ export function SettingsTabs({
         />
       </div>
 
-      {/* Settings Tab Panels */}
-      <div className="min-w-0">
-        {visitedTabs.map((tab) => {
-          const active = tab === activeTab;
-          return (
-            <div
-              key={tab}
-              id={`settings-panel-${tab}`}
-              role="tabpanel"
-              aria-hidden={!active}
-              hidden={!active}
-            >
-              <SettingsTabContent
-                active={active}
-                canManageSystem={canManageSystem}
-                tab={tab}
-              />
-            </div>
-          );
-        })}
+      {/* Settings Secondary Sidebar + Tab Panels */}
+      <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[196px_minmax(0,1fr)]">
+        <aside
+          aria-label="设置分组侧栏"
+          className="sticky top-17 hidden rounded-xl border border-border/70 bg-card p-1.5 shadow-2xs xl:block"
+        >
+          <div
+            role="tablist"
+            aria-orientation="vertical"
+            aria-label="设置分组导航"
+            className="space-y-0.5"
+          >
+            {SETTINGS_TABS.map((tab) => {
+              const Icon = TAB_ICON_MAP[tab.key];
+              const active = tab.key === activeTab;
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  aria-controls={`settings-panel-${tab.key}`}
+                  onClick={() => selectTab(tab.key)}
+                  className={cn(
+                    "group relative flex h-8.5 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-[13px] font-medium transition-colors",
+                    active
+                      ? "bg-foreground/[0.06] font-semibold text-foreground dark:bg-white/[0.08] before:absolute before:top-2 before:bottom-2 before:left-0 before:w-0.5 before:rounded-full before:bg-foreground"
+                      : "text-muted-foreground hover:bg-surface-hover hover:text-foreground",
+                  )}
+                >
+                  <Icon
+                    className={cn(
+                      "size-4 shrink-0 transition-colors",
+                      active
+                        ? "text-foreground"
+                        : "text-muted-foreground group-hover:text-foreground",
+                    )}
+                  />
+                  <span className="truncate">{tab.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </aside>
+
+        <div className="min-w-0">
+          {visitedTabs.map((tab) => {
+            const active = tab === activeTab;
+            return (
+              <div
+                key={tab}
+                id={`settings-panel-${tab}`}
+                role="tabpanel"
+                aria-hidden={!active}
+                hidden={!active}
+              >
+                <SettingsTabContent
+                  active={active}
+                  canManageSystem={canManageSystem}
+                  tab={tab}
+                />
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* Sticky Bottom Unsaved Changes Bar */}

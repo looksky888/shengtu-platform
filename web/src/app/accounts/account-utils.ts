@@ -31,12 +31,12 @@ export const statusMeta: Record<AccountStatus, { icon: typeof CheckCircle2; badg
 };
 
 export const metricCards = [
-  { key: "total", label: "账户总数", subtitle: "已接入池内账户", icon: UserRound, iconBadgeClassName: "bg-primary/10 text-primary" },
-  { key: "active", label: "正常账户", subtitle: "当前可正常调度", icon: CheckCircle2, iconBadgeClassName: "bg-emerald-500/10 text-emerald-600" },
-  { key: "limited", label: "限流账户", subtitle: "冷却恢复中", icon: CircleAlert, iconBadgeClassName: "bg-amber-500/10 text-amber-600" },
-  { key: "abnormal", label: "异常账户", subtitle: "需检查凭据状态", icon: CircleOff, iconBadgeClassName: "bg-rose-500/10 text-rose-600" },
-  { key: "disabled", label: "禁用账户", subtitle: "已手动停用", icon: Ban, iconBadgeClassName: "bg-violet-500/10 text-violet-600" },
-  { key: "quota", label: "剩余额度", subtitle: "可用账户总额度", icon: RefreshCw, iconBadgeClassName: "bg-sky-500/10 text-sky-600" },
+  { key: "total", label: "账户总数", subtitle: "已接入池内账户", icon: UserRound, iconBadgeClassName: "bg-surface-muted text-foreground ring-1 ring-border/60" },
+  { key: "active", label: "正常账户", subtitle: "当前可正常调度", icon: CheckCircle2, iconBadgeClassName: "bg-emerald-500/10 text-emerald-600 ring-1 ring-emerald-500/20 dark:text-emerald-400" },
+  { key: "limited", label: "限流账户", subtitle: "冷却恢复中", icon: CircleAlert, iconBadgeClassName: "bg-amber-500/10 text-amber-600 ring-1 ring-amber-500/20 dark:text-amber-400" },
+  { key: "abnormal", label: "异常账户", subtitle: "需检查凭据状态", icon: CircleOff, iconBadgeClassName: "bg-rose-500/10 text-rose-600 ring-1 ring-rose-500/20 dark:text-rose-400" },
+  { key: "disabled", label: "禁用账户", subtitle: "已手动停用", icon: Ban, iconBadgeClassName: "bg-surface-muted text-muted-foreground ring-1 ring-border/60" },
+  { key: "quota", label: "剩余额度", subtitle: "可用账户总额度", icon: RefreshCw, iconBadgeClassName: "bg-surface-muted text-foreground ring-1 ring-border/60" },
 ] as const;
 
 export type AccountsSummary = {

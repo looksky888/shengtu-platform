@@ -37,11 +37,11 @@ export function AdjustCreditsDialog({ user, balance, delta, reason, isAdjusting,
         </DialogHeader>
         <div className="grid gap-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-stone-700 dark:text-foreground">调整值</label>
+            <label className="text-sm font-medium text-foreground">调整值</label>
             <Input value={delta} onChange={(event) => onDeltaChange(event.target.value)} placeholder="正数增加，负数扣减，例如 10 或 -5" className="h-9 rounded-lg" inputMode="numeric" />
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-stone-700 dark:text-foreground">原因说明（可选）</label>
+            <label className="text-sm font-medium text-foreground">原因说明（可选）</label>
             <Input value={reason} onChange={(event) => onReasonChange(event.target.value)} placeholder="例如：后台补偿、人工扣减、活动发放" className="h-9 rounded-lg" />
           </div>
         </div>

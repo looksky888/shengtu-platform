@@ -19,7 +19,7 @@ export function GeneratedCreditCardsDialog({ state }: { state: CreditsAdminState
             <div key={`${item.id}-${item.key}`} className="rounded-xl border border-border bg-muted/30 p-3">
               <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
                 <span className="font-mono">{item.id}</span>
-                <Badge variant="info" className="rounded-md">{formatCreditNumber(item.amount)} 积分</Badge>
+                <Badge variant="default" className="rounded-md tabular-nums">{formatCreditNumber(item.amount)} 积分</Badge>
               </div>
               <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
                 <code className="min-w-0 flex-1 truncate rounded-lg bg-background px-3 py-2 font-mono text-sm text-foreground">{item.key}</code>

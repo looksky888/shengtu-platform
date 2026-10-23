@@ -41,10 +41,10 @@ type UsersTableRowProps = {
 export function UsersTableRow(props: UsersTableRowProps) {
   const { user, roles, creditBalance, isPending, usage, usageReady = true } = props;
   return (
-    <TableRow className="text-muted-foreground">
+    <TableRow className="text-muted-foreground transition-colors hover:bg-surface-hover/60">
       <TableCell><UserIdentity user={user} /></TableCell>
       <TableCell>
-        <div className="space-y-1">
+        <div className="space-y-1 tabular-nums">
           <div className="text-base font-semibold text-foreground">{formatCreditNumber(creditBalance)}</div>
           <div className="text-xs text-muted-foreground">当前积分</div>
         </div>
@@ -55,14 +55,14 @@ export function UsersTableRow(props: UsersTableRowProps) {
         <Badge variant={user.enabled ? "success" : "danger"} className="rounded-md">{user.enabled ? "已启用" : "已禁用"}</Badge>
       </TableCell>
       <TableCell>
-        <div className="space-y-1">
+        <div className="space-y-1 tabular-nums">
           <div className="text-base font-semibold text-foreground">{usageReady ? numeric(usage?.quota_used) : "—"}</div>
           <div className="text-xs text-muted-foreground">今日 {usageReady ? todayQuotaUsed(usage) : "—"}</div>
         </div>
       </TableCell>
       <TableCell className="w-[340px]"><UserUsageBlock usage={usage} usageReady={usageReady} /></TableCell>
       <TableCell>
-        <div className="space-y-1 text-xs">
+        <div className="space-y-1 text-xs tabular-nums">
           <div className="font-medium text-foreground">{formatInactiveDays(user.inactive_days)}</div>
           <div>创建 {formatDateTime(user.created_at)}</div>
           <div>活跃 {formatDateTime(user.last_used_at)}</div>
@@ -78,8 +78,8 @@ function UserIdentity({ user }: { user: ManagedUser }) {
     <div className="min-w-0 space-y-1">
       <div className="truncate font-medium text-foreground">{user.name || "普通用户"}</div>
       {user.email ? (
-        <div className="flex items-center gap-1.5 text-xs font-medium text-primary">
-          <Mail className="size-3.5" />
+        <div className="flex items-center gap-1.5 text-xs font-medium text-foreground/85">
+          <Mail className="size-3.5 text-muted-foreground" />
           <span className="truncate">{user.email}</span>
         </div>
       ) : null}
@@ -89,7 +89,7 @@ function UserIdentity({ user }: { user: ManagedUser }) {
           <span className="truncate">{user.email ? `内部账号：${user.username}` : user.username}</span>
         </div>
       ) : null}
-      <code className="block max-w-[260px] truncate font-mono text-xs text-muted-foreground">{user.id}</code>
+      <code className="block max-w-[260px] truncate font-mono text-xs text-muted-foreground tabular-nums">{user.id}</code>
     </div>
   );
 }
@@ -124,7 +124,7 @@ function UserUsageBlock({ usage, usageReady }: { usage?: ManagedUserUsage | null
           {usageReady ? "暂无调用" : "点「加载用量」"}
         </div>
       )}
-      <div className="min-w-[72px] space-y-1 text-xs text-muted-foreground">
+      <div className="min-w-[72px] space-y-1 text-xs text-muted-foreground tabular-nums">
         <div>总计 {usageReady ? formatCompactNumber(usage?.call_count) : "—"}</div>
         <div>今日 {usageReady ? formatCompactNumber(todayCallCount(usage)) : "—"}</div>
         <div>失败 {usageReady ? formatCompactNumber(usage?.failure_count) : "—"}</div>
@@ -141,7 +141,7 @@ function UserActions({ user, isPending, permissions, onAdjustCredits, onRole, on
           <Button type="button" variant="outline" className="h-8 rounded-md px-3" onClick={() => onAdjustCredits(user, "add")} disabled={isPending}>
             <Coins className="size-4" />加积分
           </Button>
-          <Button type="button" variant="outline" className="h-8 rounded-md border-rose-200 px-3 text-rose-600 hover:bg-rose-50 hover:text-rose-700" onClick={() => onAdjustCredits(user, "deduct")} disabled={isPending}>
+          <Button type="button" variant="outline" className="h-8 rounded-md border-rose-500/30 px-3 text-rose-600 hover:bg-rose-500/10 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300" onClick={() => onAdjustCredits(user, "deduct")} disabled={isPending}>
             <Minus className="size-4" />减积分
           </Button>
         </>
@@ -158,7 +158,7 @@ function UserActions({ user, isPending, permissions, onAdjustCredits, onRole, on
         </>
       ) : null}
       {permissions.canDeleteUser ? (
-        <Button type="button" variant="outline" className="h-8 rounded-md border-rose-200 px-3 text-rose-600 hover:bg-rose-50 hover:text-rose-700" onClick={() => onDelete(user)} disabled={isPending}>
+        <Button type="button" variant="outline" className="h-8 rounded-md border-rose-500/30 px-3 text-rose-600 hover:bg-rose-500/10 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300" onClick={() => onDelete(user)} disabled={isPending}>
           <Trash2 className="size-4" />删除
         </Button>
       ) : null}

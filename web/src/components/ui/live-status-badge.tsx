@@ -34,10 +34,10 @@ const STATE_CONFIG: Record<
   },
   polling: {
     defaultLabel: "自动同步中",
-    dotClass: "bg-sky-500",
-    pulseClass: "bg-sky-400 animate-pulse",
+    dotClass: "bg-foreground",
+    pulseClass: "bg-foreground/40 animate-pulse",
     badgeClass:
-      "border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-300",
+      "border-border/80 bg-surface-muted text-foreground",
   },
   reconnecting: {
     defaultLabel: "重连中",
@@ -89,7 +89,7 @@ export function LiveStatusBadge({
   return (
     <div
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
+        "inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-medium transition-colors",
         config.badgeClass,
         className
       )}

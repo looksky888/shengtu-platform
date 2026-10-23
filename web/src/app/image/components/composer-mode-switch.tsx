@@ -12,10 +12,10 @@ export function ComposerModeSwitch({
   onComposerModeChange,
 }: ComposerModeSwitchProps) {
   return (
-    <div className="inline-flex h-8 shrink-0 items-center rounded-lg border border-border/75 bg-muted/50 p-0.5 text-xs font-medium text-muted-foreground">
+    <div className="inline-flex h-7.5 shrink-0 items-center rounded-lg bg-surface-muted/95 p-0.5 text-xs font-medium text-muted-foreground">
       {[
+        { value: "image" as const, label: "生图", icon: ImageIcon },
         { value: "chat" as const, label: "对话", icon: MessageCircle },
-        { value: "image" as const, label: "作画", icon: ImageIcon },
       ].map((option) => {
         const Icon = option.icon;
         const active = composerMode === option.value;
@@ -24,9 +24,9 @@ export function ComposerModeSwitch({
             key={option.value}
             type="button"
             className={cn(
-              "inline-flex h-7 items-center justify-center gap-1 rounded-md px-2.5 transition-colors",
+              "inline-flex h-6.5 items-center justify-center gap-1 rounded-md px-2.5 transition-all",
               active
-                ? "bg-card font-semibold text-primary shadow-2xs"
+                ? "bg-surface font-semibold text-foreground shadow-2xs ring-1 ring-black/[0.04] dark:bg-zinc-800 dark:ring-white/[0.08]"
                 : "text-muted-foreground hover:text-foreground",
             )}
             onClick={() => onComposerModeChange(option.value)}

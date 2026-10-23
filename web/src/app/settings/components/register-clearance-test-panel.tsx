@@ -28,7 +28,7 @@ export function RegisterClearanceTestPanel({
   return (
     <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-4">
       <div className="flex items-center gap-2 text-sm font-semibold">
-        <PlugZap className="size-4 text-sky-600" />
+        <PlugZap className="size-4 text-muted-foreground" />
         连通性自检
       </div>
       <div className="grid gap-3 md:grid-cols-[1fr_auto]">
@@ -53,8 +53,8 @@ export function RegisterClearanceTestPanel({
         <SettingsNotice
           className={
             testResult.ok
-              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-              : "border-rose-200 bg-rose-50 text-rose-800"
+              ? "border-emerald-500/25 bg-emerald-500/10 tabular-nums text-emerald-800 dark:text-emerald-300"
+              : "border-rose-500/25 bg-rose-500/10 text-rose-700 dark:text-rose-300"
           }
         >
           {testResult.ok

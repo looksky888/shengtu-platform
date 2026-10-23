@@ -166,8 +166,14 @@ function RegisterRunSummary({ state }: { state: RegisterCardState }) {
 
 function RegisterStatCard({ label, value, featured }: { label: string; value: unknown; featured: boolean }) {
   return (
-    <div className={`rounded-lg border px-3 py-2 shadow-2xs ${featured ? "border-brand-border bg-brand-soft text-brand" : "border-border/80 bg-surface text-foreground"}`}>
-      <div className={`text-xs ${featured ? "text-brand/80" : "text-muted-foreground"}`}>{label}</div>
+    <div
+      className={`rounded-lg border px-3 py-2 shadow-2xs ${
+        featured
+          ? "border-foreground bg-surface text-foreground ring-1 ring-foreground/10"
+          : "border-border/80 bg-surface text-foreground"
+      }`}
+    >
+      <div className="text-xs text-muted-foreground">{label}</div>
       <div className="mt-1 font-display text-base font-semibold tabular-nums">{String(value)}</div>
     </div>
   );

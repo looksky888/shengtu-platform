@@ -16,8 +16,13 @@ import type { GrokProviderConversionTask } from "@/lib/grok-provider-accounts-ap
 import { downloadBlob } from "@/lib/image-download";
 
 const OPERATION_LABELS: Record<GrokProviderConversionTask["operation"], string> = {
-  convert: "账号转换", import: "账号导入", status: "状态更新", concurrency: "并发配置",
-  egress: "出口配置", quota: "额度同步", detect: "账号检测",
+  convert: "账号转换",
+  import: "账号导入",
+  status: "状态更新",
+  concurrency: "并发配置",
+  egress: "出口配置",
+  quota: "额度同步",
+  detect: "账号检测",
 };
 
 const STAGE_LABELS: Record<string, { title: string; detail: string }> = {
@@ -29,8 +34,12 @@ const STAGE_LABELS: Record<string, { title: string; detail: string }> = {
 
 function resultSummary(task: GrokProviderConversionTask): string {
   const values = [
-    ["新增", task.result.created], ["更新", task.result.updated], ["成功", task.result.succeeded],
-    ["跳过", task.result.skipped], ["无效", task.result.invalid], ["需检查", task.result.failed],
+    ["新增", task.result.created],
+    ["更新", task.result.updated],
+    ["成功", task.result.succeeded],
+    ["跳过", task.result.skipped],
+    ["无效", task.result.invalid],
+    ["需检查", task.result.failed],
   ].filter((item): item is [string, number] => typeof item[1] === "number" && item[1] > 0);
   return values.map(([label, value]) => `${label} ${value}`).join(" · ");
 }
@@ -49,9 +58,11 @@ export function GrokProviderTaskProgress({
   const foundActive = stages.findIndex((stage) => stage.status === "running" || stage.status === "failed");
   const activeIndex = foundActive < 0 ? Math.max(0, stages.length - 1) : foundActive;
   const finishedStages = stages.filter((stage) => stage.status === "succeeded").length;
-  const calculatedPercent = failed ? task.progress.percent : running
-    ? Math.round(((finishedStages + (stages[activeIndex]?.percent || 0) / 100) / stages.length) * 100)
-    : 100;
+  const calculatedPercent = failed
+    ? task.progress.percent
+    : running
+      ? Math.round(((finishedStages + (stages[activeIndex]?.percent || 0) / 100) / stages.length) * 100)
+      : 100;
   const overallPercent = Math.min(100, Math.max(0, calculatedPercent));
   const summary = resultSummary(task);
   const failureCode = task.error?.code || task.result.failures?.[0]?.code;
@@ -65,7 +76,17 @@ export function GrokProviderTaskProgress({
   }, [defaultOpen, task.id]);
 
   const downloadResult = () => {
-    const payload = { task_id: task.id, operation: task.operation, target: task.target, status: task.status, result: task.result, error: task.error, created_at: task.created_at, started_at: task.started_at, finished_at: task.finished_at };
+    const payload = {
+      task_id: task.id,
+      operation: task.operation,
+      target: task.target,
+      status: task.status,
+      result: task.result,
+      error: task.error,
+      created_at: task.created_at,
+      started_at: task.started_at,
+      finished_at: task.finished_at,
+    };
     downloadBlob(new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" }), `grok-provider-task-${task.id}.json`);
   };
 
@@ -75,7 +96,13 @@ export function GrokProviderTaskProgress({
         <Button
           variant="outline"
           size="sm"
-          className={failed ? "border-rose-500/30 text-rose-600 dark:text-rose-400" : running ? "border-brand-border text-brand" : "border-emerald-500/30 text-emerald-600 dark:text-emerald-400"}
+          className={
+            failed
+              ? "border-rose-500/30 text-rose-600 dark:text-rose-400"
+              : running
+                ? "border-foreground/30 text-foreground"
+                : "border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
+          }
         >
           {failed ? <AlertCircle /> : running ? <LoaderCircle className="animate-spin motion-reduce:animate-none" /> : <CheckCircle2 />}
           <span>{operationLabel}</span>
@@ -85,7 +112,15 @@ export function GrokProviderTaskProgress({
       <DialogContent className="max-h-[min(88dvh,720px)] gap-0 overflow-y-auto p-0 sm:w-[min(92vw,680px)]">
         <DialogHeader className="border-b border-border/70 px-5 py-5 pr-14 sm:px-6">
           <div className="flex items-center gap-3">
-            <span className={`grid size-10 shrink-0 place-items-center rounded-xl ${failed ? "bg-rose-500/10 text-rose-600" : running ? "bg-brand-soft text-brand" : "bg-emerald-500/10 text-emerald-600"}`}>
+            <span
+              className={`grid size-10 shrink-0 place-items-center rounded-xl ${
+                failed
+                  ? "bg-rose-500/10 text-rose-600 dark:text-rose-400"
+                  : running
+                    ? "bg-surface-muted text-foreground ring-1 ring-border/70"
+                    : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+              }`}
+            >
               {failed ? <AlertCircle className="size-5" /> : running ? <LoaderCircle className="size-5 animate-spin motion-reduce:animate-none" /> : <CheckCircle2 className="size-5" />}
             </span>
             <div className="min-w-0">
@@ -98,11 +133,19 @@ export function GrokProviderTaskProgress({
         <div className="space-y-5 px-5 py-5 sm:px-6">
           <div aria-live="polite">
             <div className="mb-2 flex items-end justify-between gap-4">
-              <div><p className="text-sm font-semibold">总体进度</p><p className="mt-0.5 text-xs text-muted-foreground">{finishedStages}/{stages.length} 个阶段完成</p></div>
-              <span className={`font-mono text-2xl font-semibold tabular-nums ${failed ? "text-rose-600" : "text-brand"}`}>{overallPercent}%</span>
+              <div>
+                <p className="text-sm font-semibold">总体进度</p>
+                <p className="mt-0.5 text-xs tabular-nums text-muted-foreground">{finishedStages}/{stages.length} 个阶段完成</p>
+              </div>
+              <span className={`font-mono text-2xl font-semibold tabular-nums ${failed ? "text-rose-600 dark:text-rose-400" : "text-foreground"}`}>{overallPercent}%</span>
             </div>
             <div className="h-2 overflow-hidden rounded-sm bg-surface-muted">
-              <div className={`h-full rounded-sm transition-[width] duration-300 motion-reduce:transition-none ${failed ? "bg-rose-500" : running ? "bg-brand" : "bg-emerald-600"}`} style={{ width: `${overallPercent}%` }} />
+              <div
+                className={`h-full rounded-sm transition-[width] duration-300 motion-reduce:transition-none ${
+                  failed ? "bg-rose-500" : running ? "bg-foreground" : "bg-emerald-600"
+                }`}
+                style={{ width: `${overallPercent}%` }}
+              />
             </div>
           </div>
 
@@ -114,29 +157,68 @@ export function GrokProviderTaskProgress({
               const isDone = stage.status === "succeeded";
               const stagePercent = Math.min(100, Math.max(0, stage.percent || 0));
               return (
-                <div key={`${stage.key}-${index}`} className={`relative min-w-0 overflow-hidden rounded-xl border p-4 ${isRunning ? "border-brand-border bg-brand-soft/60" : isFailed ? "border-rose-500/25 bg-rose-500/10" : isDone ? "border-emerald-500/25 bg-emerald-500/10" : "border-border/70 bg-surface-muted/40"}`}>
+                <div
+                  key={`${stage.key}-${index}`}
+                  className={`relative min-w-0 overflow-hidden rounded-xl border p-4 ${
+                    isRunning
+                      ? "border-foreground/30 bg-surface-muted/65 shadow-2xs"
+                      : isFailed
+                        ? "border-rose-500/25 bg-rose-500/10"
+                        : isDone
+                          ? "border-emerald-500/25 bg-emerald-500/10"
+                          : "border-border/70 bg-surface-muted/40"
+                  }`}
+                >
                   <div className="flex items-start gap-3">
-                    <span className={`mt-0.5 grid size-6 shrink-0 place-items-center rounded-md ${isDone ? "bg-emerald-600 text-white" : isRunning ? "bg-brand text-white" : isFailed ? "bg-rose-600 text-white" : "border border-border bg-surface text-muted-foreground"}`}>
+                    <span
+                      className={`mt-0.5 grid size-6 shrink-0 place-items-center rounded-md ${
+                        isDone
+                          ? "bg-emerald-600 text-white"
+                          : isRunning
+                            ? "bg-foreground text-background"
+                            : isFailed
+                              ? "bg-rose-600 text-white"
+                              : "border border-border bg-surface text-muted-foreground"
+                      }`}
+                    >
                       {isDone ? <Check className="size-3.5" /> : isRunning ? <LoaderCircle className="size-3.5 animate-spin motion-reduce:animate-none" /> : isFailed ? <AlertCircle className="size-3.5" /> : <Circle className="size-2 fill-current" />}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-3"><span className="text-sm font-semibold">{meta.title}</span>{isRunning ? <span className="font-mono text-xs tabular-nums text-brand">{stagePercent}%</span> : null}</div>
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-sm font-semibold">{meta.title}</span>
+                        {isRunning ? <span className="font-mono text-xs tabular-nums text-foreground">{stagePercent}%</span> : null}
+                      </div>
                       <p className="mt-1 text-xs text-muted-foreground">{meta.detail}</p>
                       {(isRunning || isFailed) && stage.total > 0 ? <p className="mt-2 font-mono text-[11px] tabular-nums text-muted-foreground">{stage.completed} / {stage.total}</p> : null}
                     </div>
                   </div>
-                  {isRunning ? <div className="absolute inset-x-0 bottom-0 h-1 bg-brand-soft"><div className="h-full bg-brand transition-[width] duration-300 motion-reduce:transition-none" style={{ width: `${stagePercent}%` }} /></div> : null}
+                  {isRunning ? (
+                    <div className="absolute inset-x-0 bottom-0 h-1 bg-surface-muted">
+                      <div className="h-full bg-foreground transition-[width] duration-300 motion-reduce:transition-none" style={{ width: `${stagePercent}%` }} />
+                    </div>
+                  ) : null}
                 </div>
               );
             })}
           </div>
 
-          {failed ? <div className="rounded-xl border border-rose-500/25 bg-rose-500/10 px-4 py-3 text-sm text-rose-700 dark:text-rose-300">失败码：<span className="font-mono text-xs">{failureCode || "provider_task_failed"}</span></div> : null}
+          {failed ? (
+            <div className="rounded-xl border border-rose-500/25 bg-rose-500/10 px-4 py-3 text-sm text-rose-700 dark:text-rose-300">
+              失败码：<span className="font-mono text-xs">{failureCode || "provider_task_failed"}</span>
+            </div>
+          ) : null}
         </div>
 
         <DialogFooter className="border-t border-border/70 px-5 py-4 sm:px-6">
-          {!running ? <Button variant="outline" onClick={downloadResult}><Download className="size-4" />下载任务结果</Button> : null}
-          <DialogClose asChild><Button variant={running ? "outline" : "default"}>{running ? "收起" : "关闭"}</Button></DialogClose>
+          {!running ? (
+            <Button variant="outline" onClick={downloadResult}>
+              <Download className="size-4" />
+              下载任务结果
+            </Button>
+          ) : null}
+          <DialogClose asChild>
+            <Button variant={running ? "outline" : "default"}>{running ? "收起" : "关闭"}</Button>
+          </DialogClose>
         </DialogFooter>
       </DialogContent>
     </Dialog>

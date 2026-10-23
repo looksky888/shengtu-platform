@@ -1,4 +1,4 @@
-﻿import { useCallback } from "react";
+import { useCallback } from "react";
 import { toast } from "sonner";
 
 import {
@@ -73,7 +73,32 @@ export function useImagePromptPresetAction({
       setImageOutputCompression("");
       setDefaultImageVisibility("private");
       clearReferenceImages();
-      textareaRef.current?.focus();
+
+      const focusComposerTextarea = () => {
+        const el = textareaRef.current;
+        if (!el) return;
+        el.dataset.presetFlash = "1";
+        el.focus({ preventScroll: true });
+        el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        const len = preset.prompt.length;
+        try {
+          el.setSelectionRange(len, len);
+          el.scrollTop = 0;
+        } catch {
+          // Ignore selection errors if textarea is not ready.
+        }
+        window.setTimeout(() => {
+          if (textareaRef.current === el) {
+            delete el.dataset.presetFlash;
+          }
+        }, 700);
+      };
+
+      if (typeof window !== "undefined") {
+        window.requestAnimationFrame(focusComposerTextarea);
+      } else {
+        textareaRef.current?.focus();
+      }
 
       const toastId = toast.loading("正在读取参考图");
       try {

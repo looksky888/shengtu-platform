@@ -1,12 +1,13 @@
 import type { RefObject } from "react";
 import { Link } from "react-router-dom";
-import { MoonStar, Sun } from "lucide-react";
+import { ArrowUpRight, MoonStar, Sun } from "lucide-react";
 
 import { LANDING_BRAND } from "@/app/landing/landing-brand";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 interface LandingHeaderProps {
+  brandTitle: string;
   entered: boolean;
   isDark: boolean;
   onThemeToggle: () => void;
@@ -15,6 +16,7 @@ interface LandingHeaderProps {
 }
 
 export function LandingHeader({
+  brandTitle,
   entered,
   isDark,
   onThemeToggle,
@@ -24,84 +26,65 @@ export function LandingHeader({
   return (
     <header
       className={cn(
-        "relative z-10 flex items-center justify-between gap-3 px-4 py-3 sm:px-8 sm:py-4",
-        "transition-all duration-700 ease-out",
-        entered ? "translate-y-0 opacity-100" : "-translate-y-3 opacity-0",
+        "relative z-20 border-b border-border/70 bg-background/80 backdrop-blur-md",
+        "transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+        entered ? "translate-y-0 opacity-100" : "-translate-y-2 opacity-0",
       )}
     >
-      <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
-        <img
-          src="/logo-mark.svg"
-          alt=""
-          aria-hidden="true"
-          className="size-8 shrink-0 rounded-lg shadow-2xs sm:size-9 sm:rounded-xl"
-        />
-        <div className="min-w-0 leading-tight">
-          <div
-            className={cn(
-              "truncate text-sm font-semibold tracking-tight",
-              isDark ? "text-slate-100" : "text-slate-900",
-            )}
-          >
-            {LANDING_BRAND.name}
-          </div>
-          <div
-            className={cn(
-              "hidden text-[10px] font-medium uppercase tracking-[0.18em] sm:block",
-              isDark ? "text-slate-400" : "text-slate-500",
-            )}
-          >
-            {LANDING_BRAND.badge}
-          </div>
+      <div className="mx-auto flex h-15 w-full max-w-[1380px] items-center justify-between gap-3 px-4 sm:h-16 sm:px-8 lg:px-10">
+        <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
+          <img
+            src="/logo-mark.svg"
+            alt=""
+            aria-hidden="true"
+            className="size-8 shrink-0 rounded-[10px] ring-1 ring-black/[0.08] sm:size-8.5 dark:ring-white/[0.14]"
+          />
+          <span className="truncate text-[15px] font-semibold tracking-[-0.02em] text-foreground">
+            {brandTitle}
+          </span>
+          <span className="hidden items-center rounded-md border border-border/80 bg-surface-muted px-2 py-0.5 font-mono text-[10px] font-medium tracking-[0.08em] text-muted-foreground sm:inline-flex">
+            {LANDING_BRAND.versionPill}
+          </span>
         </div>
-      </div>
 
-      <nav className="flex shrink-0 items-center gap-1.5 sm:gap-2" aria-label="账户与主题">
-        <Button
-          ref={themeToggleRef}
-          type="button"
-          variant="outline"
-          size="icon"
-          className={cn(
-            "relative size-9 rounded-lg shadow-2xs backdrop-blur",
-            isDark
-              ? "border-white/10 bg-slate-900/70 hover:border-white/20 hover:bg-slate-900"
-              : "border-slate-200/80 bg-white/80 hover:border-slate-300 hover:bg-white",
-          )}
-          onClick={onThemeToggle}
-          aria-label={isDark ? "切换到浅色模式" : "切换到深色模式"}
-          title={isDark ? "浅色模式" : "深色模式"}
-        >
-          <Sun className="scale-100 rotate-0 transition-all dark:scale-0 dark:-rotate-90" aria-hidden="true" />
-          <MoonStar className="absolute scale-0 rotate-90 transition-all dark:scale-100 dark:rotate-0" aria-hidden="true" />
-        </Button>
-        {registrationEnabled ? (
-          <Link
-            to="/login?register=1"
-            className={cn(
-              "hidden rounded-lg px-3 py-1.5 text-sm font-medium transition sm:inline-flex",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
-              isDark
-                ? "text-slate-300 hover:bg-white/5 hover:text-white"
-                : "text-slate-600 hover:bg-white/60 hover:text-slate-900",
-            )}
+        <nav className="flex shrink-0 items-center gap-2" aria-label="工作台入口与主题切换">
+          <Button
+            ref={themeToggleRef}
+            type="button"
+            variant="outline"
+            size="icon"
+            className="relative size-8.5 rounded-lg border-border/80 bg-surface/85 text-muted-foreground shadow-none hover:border-border-strong hover:bg-surface-hover hover:text-foreground sm:size-9"
+            onClick={onThemeToggle}
+            aria-label={isDark ? "切换到浅色模式" : "切换到深色模式"}
+            title={isDark ? "浅色模式" : "深色模式"}
           >
-            注册
-          </Link>
-        ) : null}
-        <Link
-          to="/login"
-          className={cn(
-            "inline-flex h-9 items-center rounded-lg border px-4 text-sm font-semibold shadow-2xs backdrop-blur-md transition",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
-            isDark
-              ? "border-blue-500/40 bg-blue-600 text-white hover:bg-blue-500"
-              : "border-[#1456f0] bg-[#1456f0] text-white hover:bg-[#0f49cf]",
-          )}
-        >
-          登录
-        </Link>
-      </nav>
+            <Sun className="size-4 scale-100 rotate-0 transition-all dark:scale-0 dark:-rotate-90" aria-hidden="true" />
+            <MoonStar className="absolute size-4 scale-0 rotate-90 transition-all dark:scale-100 dark:rotate-0" aria-hidden="true" />
+          </Button>
+
+          {registrationEnabled ? (
+            <Button
+              asChild
+              variant="ghost"
+              size="sm"
+              className="hidden h-9 rounded-lg px-3 text-xs font-medium text-muted-foreground hover:bg-surface-hover hover:text-foreground sm:inline-flex"
+            >
+              <Link to="/login?register=1">注册账号</Link>
+            </Button>
+          ) : null}
+
+          <Button
+            asChild
+            size="sm"
+            className="h-8.5 rounded-lg bg-primary px-3.5 text-xs font-medium text-primary-foreground transition-all hover:bg-primary/90 sm:h-9 sm:px-4 sm:text-[13px]"
+          >
+            <Link to="/login">
+              <span>登录工作台</span>
+              <ArrowUpRight className="size-3.5 opacity-80" aria-hidden="true" />
+            </Link>
+          </Button>
+        </nav>
+      </div>
     </header>
   );
 }

@@ -29,7 +29,7 @@ export function ImageEditOutputFields({ draft, setDraft }: ImageEditOutputFields
 
   return (
     <>
-      <label className="flex flex-col gap-2 text-sm font-medium text-stone-700">
+      <label className="flex flex-col gap-2 text-sm font-medium text-foreground">
         格式
         <Select
           value={draft.outputFormat}
@@ -55,7 +55,7 @@ export function ImageEditOutputFields({ draft, setDraft }: ImageEditOutputFields
           </SelectContent>
         </Select>
       </label>
-      <label className="flex flex-col gap-2 text-sm font-medium text-stone-700">
+      <label className="flex flex-col gap-2 text-sm font-medium text-foreground">
         压缩率
         <Input
           type="number"
@@ -72,7 +72,7 @@ export function ImageEditOutputFields({ draft, setDraft }: ImageEditOutputFields
         />
       </label>
       {supportsImageQuality(draft.model) ? (
-        <label className="flex flex-col gap-2 text-sm font-medium text-stone-700">
+        <label className="flex flex-col gap-2 text-sm font-medium text-foreground">
           质量
           <Select
             value={draft.quality}

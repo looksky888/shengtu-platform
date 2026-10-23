@@ -1,17 +1,19 @@
 import type { ReactNode } from "react";
-import { AlertCircle, LoaderCircle, RefreshCw } from "lucide-react";
+import { AlertCircle, Inbox, LoaderCircle, RefreshCw, type LucideIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 
 type PaymentSectionStateProps = {
   mode: "loading" | "error" | "empty";
   title: string;
   detail?: string;
+  icon?: LucideIcon;
   onRetry?: () => void;
   action?: ReactNode;
 };
 
-export function PaymentSectionState({ mode, title, detail, onRetry, action }: PaymentSectionStateProps) {
+export function PaymentSectionState({ mode, title, detail, icon = Inbox, onRetry, action }: PaymentSectionStateProps) {
   if (mode === "loading") {
     return (
       <div className="flex min-h-32 items-center justify-center gap-2 text-sm text-muted-foreground" role="status" aria-live="polite">
@@ -33,10 +35,12 @@ export function PaymentSectionState({ mode, title, detail, onRetry, action }: Pa
     );
   }
   return (
-    <div className="flex min-h-32 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border px-4 text-center">
-      <p className="text-sm text-muted-foreground">{title}</p>
-      {detail ? <p className="max-w-lg text-xs text-muted-foreground">{detail}</p> : null}
-      {action}
-    </div>
+    <EmptyState
+      compact
+      icon={icon}
+      title={title}
+      description={detail}
+      action={action}
+    />
   );
 }

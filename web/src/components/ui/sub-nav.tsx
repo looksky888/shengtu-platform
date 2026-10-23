@@ -119,7 +119,7 @@ export function SubNav<T extends string = string>({
                 <Icon
                   className={cn(
                     "size-4 shrink-0 transition-colors",
-                    active ? "text-brand" : "text-muted-foreground"
+                    active ? "text-foreground" : "text-muted-foreground"
                   )}
                 />
               ) : null}
@@ -129,7 +129,7 @@ export function SubNav<T extends string = string>({
                   className={cn(
                     "inline-flex h-4.5 min-w-4.5 items-center justify-center rounded-full px-1.5 text-[11px] font-medium tabular-nums transition-colors",
                     active
-                      ? "bg-brand-soft text-brand"
+                      ? "bg-primary text-primary-foreground"
                       : "bg-muted text-muted-foreground"
                   )}
                 >
@@ -139,8 +139,8 @@ export function SubNav<T extends string = string>({
               {active ? (
                 <motion.span
                   layoutId={activeIndicatorId}
-                  transition={{ type: "spring", stiffness: 420, damping: 34 }}
-                  className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-brand"
+                  transition={{ type: "spring", stiffness: 460, damping: 36 }}
+                  className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-foreground"
                 />
               ) : null}
             </button>
@@ -156,7 +156,7 @@ export function SubNav<T extends string = string>({
       aria-label={ariaLabel}
       onKeyDown={handleKeyDown}
       className={cn(
-        "inline-flex max-w-full items-center gap-1 overflow-x-auto rounded-xl border border-border/75 bg-surface-muted/85 p-1 scrollbar-none",
+        "inline-flex max-w-full items-center gap-0.5 overflow-x-auto rounded-xl bg-surface-muted/95 p-1 scrollbar-none dark:bg-zinc-900",
         fullWidth && "flex w-full",
         className
       )}
@@ -182,7 +182,7 @@ export function SubNav<T extends string = string>({
               }
             }}
             className={cn(
-              "relative inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:pointer-events-none disabled:opacity-45",
+              "relative inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 disabled:pointer-events-none disabled:opacity-45",
               size === "sm" ? "h-7 px-2.5 text-xs" : "h-8 px-3 text-[13px]",
               fullWidth && "flex-1",
               active
@@ -193,8 +193,8 @@ export function SubNav<T extends string = string>({
             {active ? (
               <motion.span
                 layoutId={activeIndicatorId}
-                transition={{ type: "spring", stiffness: 420, damping: 34 }}
-                className="absolute inset-0 rounded-lg border border-border/60 bg-surface shadow-xs"
+                transition={{ type: "spring", stiffness: 480, damping: 38 }}
+                className="absolute inset-0 rounded-lg bg-surface shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_1px_rgba(0,0,0,0.04)] ring-1 ring-black/[0.04] dark:bg-zinc-800 dark:ring-white/[0.08]"
               />
             ) : null}
             <span className="relative z-10 inline-flex items-center gap-1.5">
@@ -202,7 +202,7 @@ export function SubNav<T extends string = string>({
                 <Icon
                   className={cn(
                     "size-3.5 shrink-0 transition-colors",
-                    active ? "text-brand" : "text-muted-foreground"
+                    active ? "text-foreground" : "text-muted-foreground"
                   )}
                 />
               ) : null}
@@ -210,9 +210,9 @@ export function SubNav<T extends string = string>({
               {item.badge !== undefined && item.badge !== null ? (
                 <span
                   className={cn(
-                    "inline-flex h-4.5 min-w-4.5 items-center justify-center rounded-full px-1.5 text-[11px] font-medium tabular-nums transition-colors",
+                    "inline-flex h-4.5 min-w-4.5 items-center justify-center rounded-md px-1.5 text-[10px] font-semibold tabular-nums transition-colors",
                     active
-                      ? "bg-brand-soft text-brand"
+                      ? "bg-surface-muted text-foreground"
                       : "bg-background/70 text-muted-foreground"
                   )}
                 >

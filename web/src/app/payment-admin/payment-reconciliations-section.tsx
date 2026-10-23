@@ -120,7 +120,7 @@ export function PaymentReconciliationsSection({
           ) : loadError ? (
             <PaymentSectionState mode="error" title="对账记录加载失败" detail={loadError} onRetry={() => void load()} />
           ) : items.length === 0 ? (
-            <PaymentSectionState mode="empty" title="暂无对账记录" />
+            <PaymentSectionState mode="empty" icon={Scale} title="暂无对账记录" detail="可选择微信支付渠道与账单日期，点击「手动对账」拉取账单核对。" />
           ) : (
             <div className="grid gap-2">
               {items.map((item) => (
@@ -139,9 +139,9 @@ export function PaymentReconciliationsSection({
                         ),
                       )
                   }
-                  className="grid gap-2 rounded-xl border p-3 text-left text-sm md:grid-cols-[120px_1fr_auto]"
+                  className="grid gap-2 rounded-xl border border-border/70 bg-card p-3 text-left text-sm transition-colors hover:bg-surface-hover/60 md:grid-cols-[120px_1fr_auto]"
                 >
-                  <strong>{item.bill_date}</strong>
+                  <strong className="tabular-nums">{item.bill_date}</strong>
                   <span>
                     {channels.find((entry) => entry.id === item.channel_id)
                       ?.name || item.channel_id}

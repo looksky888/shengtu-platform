@@ -10,15 +10,23 @@ import {
   managedImageKey,
 } from "@/app/image-manager/image-manager-utils";
 import type { ImageVisibility, ManagedImage } from "@/lib/api";
-import {
-  imageVisibilityActionClass,
-  imageVisibilityLabel,
-  imageVisibilityPillClass,
-} from "@/lib/image-card-utils";
+import { imageVisibilityLabel } from "@/lib/image-card-utils";
 import type { ImageGalleryView } from "@/lib/image-manager-cache";
 import { copyText } from "@/lib/clipboard";
 import { formatImageFileSize } from "@/lib/image-size";
 import { cn } from "@/lib/utils";
+
+function resolveManagedImageVisibilityPillClass(visibility?: ImageVisibility) {
+  return visibility === "public"
+    ? "bg-white/92 text-zinc-900 ring-1 ring-black/10"
+    : "bg-black/65 text-white ring-1 ring-white/20";
+}
+
+function resolveManagedImageVisibilityActionClass(visibility?: ImageVisibility) {
+  return visibility === "public"
+    ? "bg-white/95 text-zinc-900 hover:bg-white"
+    : "bg-white/95 text-zinc-900 hover:bg-white";
+}
 
 type ImageManagerImageCardProps = {
   item: ManagedImage;
@@ -78,7 +86,7 @@ export function ImageManagerImageCard({
     <figure
       className={cn(
         "group relative w-full overflow-hidden rounded-xl border border-border/60 bg-surface-muted shadow-2xs transition-shadow hover:shadow-md",
-        selected && "ring-2 ring-brand ring-offset-2 ring-offset-background",
+        selected && "ring-2 ring-foreground ring-offset-2 ring-offset-background",
       )}
       style={{
         contentVisibility: "auto",
@@ -98,7 +106,7 @@ export function ImageManagerImageCard({
       <button
         type="button"
         onClick={() => onOpenLightbox(index)}
-        className="block w-full cursor-zoom-in overflow-hidden text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand"
+        className="block w-full cursor-zoom-in overflow-hidden text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-foreground"
         onFocus={() => onFocusPathChange(imageKey)}
         aria-label={`预览图片 ${item.name}`}
       >
@@ -119,7 +127,7 @@ export function ImageManagerImageCard({
         className={cn(
           "absolute top-2.5 left-2.5 z-10 inline-flex size-7 items-center justify-center rounded-md border transition duration-150 focus-visible:pointer-events-auto focus-visible:opacity-100",
           selected
-            ? "border-brand bg-brand text-white opacity-100 shadow-sm"
+            ? "border-foreground bg-foreground text-background opacity-100 shadow-sm"
             : "pointer-events-none border-white/90 bg-black/30 text-transparent opacity-0 shadow-sm group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100 hover:bg-black/45",
         )}
         aria-label={selected ? "取消选择图片" : "选择图片"}
@@ -164,8 +172,8 @@ export function ImageManagerImageCard({
       >
         <div className="text-left text-white drop-shadow-sm">
           <div className="text-[10px] font-bold tracking-wide">{getManagedImageFormatLabel(item)}</div>
-          <div className="mt-0.5 truncate text-[11px] text-white/90">{item.created_at}</div>
-          {imageMeta ? <div className="mt-0.5 truncate text-[11px] text-white/90">{imageMeta}</div> : null}
+          <div className="mt-0.5 truncate text-[11px] text-white/90 tabular-nums">{item.created_at}</div>
+          {imageMeta ? <div className="mt-0.5 truncate text-[11px] text-white/90 tabular-nums">{imageMeta}</div> : null}
         </div>
       </div>
     </figure>
@@ -282,7 +290,7 @@ function ImageCardVisibility({
           className={cn(
             "inline-flex h-7 items-center gap-1.5 rounded-lg px-2.5 text-[11px] font-medium shadow-sm transition disabled:cursor-not-allowed disabled:opacity-70 [@media(hover:none)]:opacity-100",
             focused ? "opacity-100" : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100",
-            imageVisibilityActionClass(item.visibility),
+            resolveManagedImageVisibilityActionClass(item.visibility),
           )}
         >
           {visibilityMutatingPath === item.path ? (
@@ -298,7 +306,7 @@ function ImageCardVisibility({
       <div
         className={cn(
           "pointer-events-none inline-flex h-7 items-center gap-1 rounded-md px-2 text-[11px] font-medium shadow-sm backdrop-blur-sm",
-          imageVisibilityPillClass(item.visibility),
+          resolveManagedImageVisibilityPillClass(item.visibility),
         )}
       >
         {item.visibility === "public" ? <Globe2 className="size-3" /> : <Lock className="size-3" />}

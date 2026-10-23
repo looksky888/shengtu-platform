@@ -43,21 +43,22 @@ export function ImageTurnResultSummary({
     <div className="mb-3 flex flex-wrap items-center justify-between gap-2 sm:mb-4">
       <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground sm:gap-2 sm:text-xs">
         <span className="font-medium text-foreground">生成结果</span>
-        <span className="rounded-md bg-muted px-2.5 py-0.5">{resultCount} 张</span>
-        {turn.count !== resultCount ? <span className="rounded-md bg-muted px-2.5 py-0.5">目标 {turn.count} 张</span> : null}
-        {resultSizeLabel ? <span className="rounded-md bg-muted px-2.5 py-0.5">{resultSizeLabel}</span> : null}
-        {turn.quality ? <span className="rounded-md bg-muted px-2.5 py-0.5">Quality {turn.quality}</span> : null}
-        {turn.outputFormat ? <span className="rounded-md bg-muted px-2.5 py-0.5">{turn.outputFormat.toUpperCase()}</span> : null}
+        <span className="rounded-md bg-surface-muted px-2.5 py-0.5 tabular-nums">{resultCount} 张</span>
+        {turn.count !== resultCount ? <span className="rounded-md bg-surface-muted px-2.5 py-0.5 tabular-nums">目标 {turn.count} 张</span> : null}
+        {resultSizeLabel ? <span className="rounded-md bg-surface-muted px-2.5 py-0.5 font-mono">{resultSizeLabel}</span> : null}
+        {turn.quality ? <span className="rounded-md bg-surface-muted px-2.5 py-0.5 font-mono">Quality {turn.quality}</span> : null}
+        {turn.outputFormat ? <span className="rounded-md bg-surface-muted px-2.5 py-0.5 font-mono">{turn.outputFormat.toUpperCase()}</span> : null}
         {turn.outputCompression != null && turn.outputFormat && turn.outputFormat !== "png" ? (
-          <span className="rounded-md bg-muted px-2.5 py-0.5">压缩 {turn.outputCompression}</span>
+          <span className="rounded-md bg-surface-muted px-2.5 py-0.5 font-mono">压缩 {turn.outputCompression}</span>
         ) : null}
-        {outcomeLabel ? <span className="rounded-md bg-muted px-2.5 py-0.5">{outcomeLabel}</span> : null}
+        {outcomeLabel ? <span className="rounded-md bg-surface-muted px-2.5 py-0.5">{outcomeLabel}</span> : null}
         <span className={cn("rounded-md px-2.5 py-0.5", getStatusChipClass(turn.status))}>{getTurnStatusLabel(turn.status)}</span>
       </div>
       {turnBusy || downloadableImages.length > 0 ? (
         <div className="flex flex-wrap items-center justify-end gap-2">
           {turnBusy ? (
-            <span className="w-fit whitespace-nowrap rounded-md bg-amber-50 px-2.5 py-1 text-[11px] text-amber-700 sm:text-xs dark:bg-amber-500/10 dark:text-amber-300">
+            <span className="inline-flex w-fit items-center gap-1.5 whitespace-nowrap rounded-md border border-border/75 bg-surface-muted px-2.5 py-1 text-[11px] font-medium text-foreground/85 sm:text-xs">
+              <span className="size-1.5 animate-pulse rounded-full bg-foreground" />
               {progressMessage}
             </span>
           ) : null}

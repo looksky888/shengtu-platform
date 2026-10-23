@@ -24,15 +24,21 @@ export default function LoginPage() {
 
   if (state.isCheckingAuth) return <LoginLoadingScreen />;
 
-  const modeLabel = state.isRegisterMode ? "注册" : "登录";
+  const modeLabel = state.isRegisterMode ? "注册账号" : "账号登录";
 
   return (
     <div
       className={`${loginBackgroundClass} fixed inset-0 z-50 flex min-h-svh w-screen items-center justify-center overflow-y-auto px-4 py-6 font-login [align-items:safe_center] sm:px-6 lg:px-8`}
     >
+      {/* Subtle radial vignette softening the perimeter of the 32px hairline grid */}
+      <div
+        className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_at_center,transparent_38%,var(--background)_100%)]"
+        aria-hidden="true"
+      />
+
       <a
         href="#login-form"
-        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[60] focus:rounded-lg focus:bg-slate-900 focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white focus:shadow-lg focus:outline-none focus:ring-2 focus:ring-primary/50 dark:focus:bg-slate-100 dark:focus:text-slate-900"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[60] focus:rounded-lg focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-primary-foreground focus:shadow-lg focus:outline-none"
       >
         跳到{modeLabel}表单
       </a>
@@ -48,8 +54,8 @@ export default function LoginPage() {
         role="main"
         aria-label={modeLabel}
       >
-        <LoginFormPanel appMeta={appMeta} state={state} />
         <LoginVisualPanel appMeta={appMeta} isRegisterMode={state.isRegisterMode} />
+        <LoginFormPanel appMeta={appMeta} state={state} />
       </div>
     </div>
   );

@@ -44,14 +44,14 @@ export function DateRangeFilter({ startDate, endDate, onChange, className }: Dat
         <PopoverTrigger asChild>
           <Button
             variant="outline"
-            className="h-9 w-full min-w-0 justify-start rounded-lg px-3 font-normal dark:border-border dark:bg-background/70 dark:text-foreground dark:hover:bg-accent/60"
+            className="h-9 w-full min-w-0 justify-start rounded-lg px-3 font-normal tabular-nums dark:border-border dark:bg-background/70 dark:text-foreground dark:hover:bg-accent/60"
           >
-            <CalendarIcon className="size-4 shrink-0 text-muted-foreground dark:text-muted-foreground" />
+            <CalendarIcon className="size-4 shrink-0 text-muted-foreground" />
             <span className="truncate">{label}</span>
           </Button>
         </PopoverTrigger>
         <PopoverContent
-          className="w-[min(calc(100vw-1.5rem),20.5rem)] border-border bg-popover p-2 shadow-[0_20px_60px_-30px_rgba(15,23,42,0.35)] dark:border-border dark:bg-card dark:shadow-[0_24px_80px_-28px_rgba(0,0,0,0.72)] sm:w-auto sm:max-w-none sm:p-3"
+          className="elevated-shadow w-[min(calc(100vw-1.5rem),20.5rem)] border-border bg-popover p-2 dark:border-border dark:bg-card sm:w-auto sm:max-w-none sm:p-3"
           align="center"
           collisionPadding={12}
           sideOffset={8}

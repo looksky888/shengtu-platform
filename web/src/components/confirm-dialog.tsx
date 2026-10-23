@@ -100,7 +100,7 @@ export function ConfirmDialog({
                 resolvedTone === "warning" &&
                   "border-amber-500/25 bg-amber-500/10 text-amber-600 dark:text-amber-400",
                 resolvedTone === "default" &&
-                  "border-brand-border bg-brand-soft text-brand"
+                  "border-border/80 bg-surface-muted text-foreground"
               )}
             >
               <Icon className="size-4.5" />

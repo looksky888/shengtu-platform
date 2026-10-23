@@ -17,12 +17,12 @@ import { cn } from "@/lib/utils";
 import { icloudApi, type ICloudMailbox, type ICloudMailboxTagColor } from "@/lib/icloud-api";
 
 const tagColors: Array<{ value: ICloudMailboxTagColor; label: string; dot: string }> = [
-  { value: "slate", label: "灰色", dot: "bg-slate-500" },
-  { value: "blue", label: "蓝色", dot: "bg-blue-500" },
+  { value: "slate", label: "灰色", dot: "bg-zinc-500" },
+  { value: "blue", label: "靛青", dot: "bg-indigo-500" },
   { value: "green", label: "绿色", dot: "bg-emerald-500" },
   { value: "amber", label: "黄色", dot: "bg-amber-500" },
   { value: "red", label: "红色", dot: "bg-rose-500" },
-  { value: "violet", label: "紫色", dot: "bg-violet-500" },
+  { value: "violet", label: "暗紫", dot: "bg-fuchsia-500" },
 ];
 
 const tagPresets: Array<{ tag: string; color: ICloudMailboxTagColor }> = [
@@ -34,12 +34,12 @@ const tagPresets: Array<{ tag: string; color: ICloudMailboxTagColor }> = [
 ];
 
 const badgeClass: Record<ICloudMailboxTagColor, string> = {
-  slate: "border-slate-300 bg-slate-100 text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200",
-  blue: "border-blue-300 bg-blue-100 text-blue-700 dark:border-blue-800 dark:bg-blue-950/50 dark:text-blue-200",
-  green: "border-emerald-300 bg-emerald-100 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200",
-  amber: "border-amber-300 bg-amber-100 text-amber-800 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-200",
-  red: "border-rose-300 bg-rose-100 text-rose-700 dark:border-rose-800 dark:bg-rose-950/50 dark:text-rose-200",
-  violet: "border-violet-300 bg-violet-100 text-violet-700 dark:border-violet-800 dark:bg-violet-950/50 dark:text-violet-200",
+  slate: "border-border bg-surface-muted text-foreground",
+  blue: "border-indigo-500/25 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300",
+  green: "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+  amber: "border-amber-500/25 bg-amber-500/10 text-amber-800 dark:text-amber-300",
+  red: "border-rose-500/25 bg-rose-500/10 text-rose-700 dark:text-rose-300",
+  violet: "border-fuchsia-500/25 bg-fuchsia-500/10 text-fuchsia-700 dark:text-fuchsia-300",
 };
 
 function tagColor(value?: string): ICloudMailboxTagColor {
@@ -88,13 +88,26 @@ export function MailboxTagDialog({
     <Dialog open={Boolean(mailbox)} onOpenChange={(open) => !pending && onOpenChange(open)}>
       <DialogContent className="max-w-md rounded-xl p-6">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2"><Tag className="size-4 text-blue-500" />标记邮箱</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <Tag className="size-4 text-muted-foreground" />
+            标记邮箱
+          </DialogTitle>
           <DialogDescription>标记不会被同步覆盖；选择 GPT/Grok 已注册后会归入“已使用”。</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="flex flex-wrap gap-2">
             {tagPresets.map((preset) => (
-              <Button key={preset.tag} type="button" size="sm" variant="outline" className="h-8 rounded-md text-xs" onClick={() => { setTag(preset.tag); setColor(preset.color); }}>
+              <Button
+                key={preset.tag}
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-8 rounded-md text-xs"
+                onClick={() => {
+                  setTag(preset.tag);
+                  setColor(preset.color);
+                }}
+              >
                 {preset.tag}
               </Button>
             ))}
@@ -107,7 +120,17 @@ export function MailboxTagDialog({
             <legend className="text-sm font-medium">标记颜色</legend>
             <div className="flex flex-wrap gap-2">
               {tagColors.map((item) => (
-                <button key={item.value} type="button" aria-label={item.label} aria-pressed={color === item.value} className={cn("grid size-9 place-items-center rounded-lg border transition", color === item.value ? "border-foreground ring-2 ring-ring/25" : "border-border")} onClick={() => setColor(item.value)}>
+                <button
+                  key={item.value}
+                  type="button"
+                  aria-label={item.label}
+                  aria-pressed={color === item.value}
+                  className={cn(
+                    "grid size-9 place-items-center rounded-lg border transition",
+                    color === item.value ? "border-foreground ring-2 ring-foreground/15" : "border-border",
+                  )}
+                  onClick={() => setColor(item.value)}
+                >
                   <span className={cn("size-4 rounded-full", item.dot)} />
                 </button>
               ))}
@@ -115,9 +138,14 @@ export function MailboxTagDialog({
           </fieldset>
         </div>
         <DialogFooter>
-          {mailbox?.tag ? <Button type="button" variant="ghost" onClick={() => setTag("")} disabled={pending}>清除</Button> : null}
+          {mailbox?.tag ? (
+            <Button type="button" variant="ghost" onClick={() => setTag("")} disabled={pending}>
+              清除
+            </Button>
+          ) : null}
           <Button type="button" onClick={() => void save()} disabled={pending}>
-            {pending ? <LoaderCircle className="size-4 animate-spin" /> : <Tag className="size-4" />}保存标记
+            {pending ? <LoaderCircle className="size-4 animate-spin" /> : <Tag className="size-4" />}
+            保存标记
           </Button>
         </DialogFooter>
       </DialogContent>

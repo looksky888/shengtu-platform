@@ -13,6 +13,7 @@ import { creditReasonLabel } from "@/lib/credit-labels";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -23,7 +24,7 @@ export function CreditLedgerSection({ state }: { state: CreditsAdminState }) {
       <CardHeader className="border-b border-border/70 px-5 py-3.5 sm:px-5 sm:py-3.5">
         <div className="flex flex-col gap-1">
           <CardTitle className="flex items-center gap-2 text-base">
-            <Coins className="size-4.5 text-primary" />
+            <Coins className="size-4.5 text-muted-foreground" />
             积分流水
           </CardTitle>
           <CardDescription>服务端分页；正数表示入账，负数表示扣减。</CardDescription>
@@ -85,8 +86,8 @@ export function CreditLedgerSection({ state }: { state: CreditsAdminState }) {
         </div>
         <div className="overflow-x-auto">
           <Table>
-            <TableHeader className="bg-muted/40">
-              <TableRow>
+            <TableHeader className="bg-surface-subtle/80 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              <TableRow className="hover:bg-transparent">
                 <TableHead>用户 ID</TableHead>
                 <TableHead>原因</TableHead>
                 <TableHead>变动</TableHead>
@@ -114,10 +115,21 @@ export function CreditLedgerSection({ state }: { state: CreditsAdminState }) {
 }
 
 function renderLedgerRows(state: CreditsAdminState) {
-  if (state.isLedgerLoading) return <LedgerTableMessage message="正在加载积分流水..." loading />;
+  if (state.isLedgerLoading) {
+    return (
+      <TableRow className="hover:bg-transparent">
+        <TableCell colSpan={6} className="h-28 text-center text-muted-foreground">
+          <div className="flex items-center justify-center gap-2">
+            <LoaderCircle className="size-4 animate-spin" />
+            正在加载积分流水...
+          </div>
+        </TableCell>
+      </TableRow>
+    );
+  }
   if (state.ledgerError) {
     return (
-      <TableRow>
+      <TableRow className="hover:bg-transparent">
         <TableCell colSpan={6} className="h-28 text-center">
           <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
             <p className="text-sm text-foreground">加载失败</p>
@@ -131,36 +143,33 @@ function renderLedgerRows(state: CreditsAdminState) {
       </TableRow>
     );
   }
-  if (state.ledger.length === 0) return <LedgerTableMessage message="暂无积分流水。" />;
+  if (state.ledger.length === 0) {
+    return (
+      <TableRow className="hover:bg-transparent">
+        <TableCell colSpan={6} className="p-0">
+          <EmptyState
+            compact
+            icon={Coins}
+            title="暂无积分流水"
+            description="当发生签到、兑换、创作消费或后台调账时会自动记录在此。"
+            className="border-0 bg-transparent py-10"
+          />
+        </TableCell>
+      </TableRow>
+    );
+  }
   return state.ledger.map((entry) => (
-    <TableRow key={entry.id} className="text-muted-foreground">
-      <TableCell className="max-w-[180px] font-mono text-xs text-foreground">{entry.user_id}</TableCell>
+    <TableRow key={entry.id} className="text-muted-foreground transition-colors hover:bg-surface-hover/60">
+      <TableCell className="max-w-[180px] font-mono text-xs text-foreground tabular-nums">{entry.user_id}</TableCell>
       <TableCell>{creditReasonLabel(entry.reason)}</TableCell>
       <TableCell>
-        <Badge variant={deltaBadgeVariant(entry.delta)} className="rounded-md">
+        <Badge variant={deltaBadgeVariant(entry.delta)} className="rounded-md tabular-nums">
           {formatSignedDelta(entry.delta)} 积分
         </Badge>
       </TableCell>
-      <TableCell>{formatCreditNumber(entry.balance_after)} 积分</TableCell>
-      <TableCell className="max-w-[180px] font-mono text-xs">{entry.ref_id || "—"}</TableCell>
-      <TableCell>{formatDateTime(entry.created_at)}</TableCell>
+      <TableCell className="tabular-nums">{formatCreditNumber(entry.balance_after)} 积分</TableCell>
+      <TableCell className="max-w-[180px] font-mono text-xs tabular-nums">{entry.ref_id || "—"}</TableCell>
+      <TableCell className="tabular-nums">{formatDateTime(entry.created_at)}</TableCell>
     </TableRow>
   ));
-}
-
-function LedgerTableMessage({ message, loading }: { message: string; loading?: boolean }) {
-  return (
-    <TableRow>
-      <TableCell colSpan={6} className="h-28 text-center text-muted-foreground">
-        {loading ? (
-          <div className="flex items-center justify-center gap-2">
-            <LoaderCircle className="size-4 animate-spin" />
-            {message}
-          </div>
-        ) : (
-          message
-        )}
-      </TableCell>
-    </TableRow>
-  );
 }

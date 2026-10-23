@@ -59,9 +59,9 @@ export function ComposerPromptPanel({
     <div
       ref={composerPanelRef}
       className={cn(
-        "relative overflow-visible rounded-2xl border border-border/85 bg-card/95 shadow-[0_12px_40px_-18px_rgba(15,23,42,0.22)] backdrop-blur-xl transition-all duration-150 focus-within:border-primary/45 focus-within:ring-2 focus-within:ring-primary/12 dark:shadow-[0_16px_48px_-20px_rgba(0,0,0,0.65)]",
+        "relative overflow-visible rounded-2xl border border-border/85 bg-surface p-3 shadow-[0_12px_36px_-12px_rgba(24,24,27,0.09)] transition-[box-shadow,border-color] duration-200 focus-within:border-foreground/30 focus-within:shadow-[0_16px_44px_-12px_rgba(24,24,27,0.14)] has-[textarea[data-preset-flash='1']]:border-foreground/50 has-[textarea[data-preset-flash='1']]:ring-2 has-[textarea[data-preset-flash='1']]:ring-foreground/12 dark:shadow-[0_16px_44px_-12px_rgba(0,0,0,0.55)]",
         isReferenceImageDragActive &&
-          "border-primary bg-primary/5 dark:border-primary dark:bg-primary/10",
+          "border-foreground/60 bg-surface-muted/60",
       )}
       onDragEnter={onReferenceImageDragEnter}
       onDragOver={onReferenceImageDragOver}
@@ -69,8 +69,8 @@ export function ComposerPromptPanel({
       onDrop={onReferenceImageDrop}
     >
       {isReferenceImageDragActive ? (
-        <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center rounded-2xl border-2 border-dashed border-primary/70 bg-card/85 text-sm font-medium text-primary backdrop-blur-xs">
-          <span className="inline-flex items-center gap-2 rounded-lg bg-card px-3.5 py-2 shadow-sm">
+        <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center rounded-2xl border-2 border-dashed border-foreground/45 bg-surface/90 text-sm font-medium text-foreground backdrop-blur-xs">
+          <span className="inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-3.5 py-2 shadow-sm">
             <ImagePlus className="size-4" />
             松开上传参考图片
           </span>
@@ -99,13 +99,13 @@ export function ComposerPromptPanel({
               void onSubmit();
             }
           }}
-          className="min-h-[68px] resize-none rounded-none border-0 bg-transparent px-4 pt-3.5 pb-1.5 text-[15px] leading-6 text-foreground shadow-none placeholder:text-muted-foreground/80 focus-visible:ring-0 sm:min-h-[64px] sm:px-4 sm:pt-3.5 sm:pb-1.5"
-          style={{ height: Math.max(64, Math.min(promptAreaHeight, 220)) }}
+          className="min-h-[60px] resize-none rounded-none border-0 bg-transparent px-1 pt-0.5 pb-2 text-[15px] leading-6 text-foreground shadow-none placeholder:text-muted-foreground/75 focus-visible:ring-0 sm:min-h-[58px]"
+          style={{ height: Math.max(58, Math.min(promptAreaHeight, 220)) }}
         />
 
         <div
           ref={composerToolbarRef}
-          className="rounded-b-2xl px-3 pt-1 pb-2.5 sm:px-3.5 sm:pb-3"
+          className="pt-1.5"
           onClick={(event) => event.stopPropagation()}
         >
           {children}

@@ -53,7 +53,7 @@ export function ComposerQualitySettings({
             <PopoverTrigger asChild>
               <button
                 type="button"
-                className="inline-flex size-4 shrink-0 items-center justify-center text-[#8e8e93] transition hover:text-[#45515e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-muted-foreground dark:hover:text-foreground"
+                className="inline-flex size-4 shrink-0 items-center justify-center text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 aria-label="查看图片输出说明"
               >
                 <CircleHelp className="size-3.5" />
@@ -63,7 +63,7 @@ export function ComposerQualitySettings({
               align="center"
               side="top"
               sideOffset={6}
-              className="z-[120] w-[min(calc(100vw-2rem),20rem)] rounded-xl border-[#e5e7eb] bg-white px-4 py-3 text-xs leading-6 text-[#45515e] shadow-[0_24px_80px_-32px_rgba(15,23,42,0.35)] dark:border-border dark:bg-card dark:text-muted-foreground dark:shadow-[0_24px_80px_-28px_rgba(0,0,0,0.72)]"
+              className="z-[120] w-[min(calc(100vw-2rem),20rem)] rounded-xl border-border/85 bg-surface px-4 py-3 text-xs leading-6 text-muted-foreground shadow-xl"
               onOpenAutoFocus={(event) => event.preventDefault()}
             >
               {imageOutputHint}

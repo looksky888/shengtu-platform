@@ -56,7 +56,7 @@ export function ImagePageWorkspace({
       )}
     >
       {!sidebarCollapsed ? (
-        <div className="hidden h-full min-h-0 rounded-xl border border-border/70 bg-card/85 px-2.5 py-2 shadow-2xs lg:block">
+        <div className="hidden h-full min-h-0 rounded-2xl border border-border/75 bg-surface px-2.5 py-2.5 shadow-2xs lg:block">
           <ImageSidebar
             conversations={conversations}
             isLoadingHistory={isLoadingHistory}
@@ -73,7 +73,7 @@ export function ImagePageWorkspace({
 
       {overlays}
 
-      <div className="relative flex min-h-0 flex-col gap-2 rounded-xl lg:border lg:border-border/70 lg:bg-card/65 lg:p-2">
+      <div className="relative flex min-h-0 flex-col gap-2 rounded-2xl lg:border lg:border-border/75 lg:bg-surface/60 lg:p-2">
         {sidebarCollapsed ? (
           <div className="hidden items-center gap-2 px-2 pt-1 lg:flex">
             <Button
@@ -88,12 +88,12 @@ export function ImagePageWorkspace({
             </Button>
             <Button
               type="button"
-              variant="brand"
               size="sm"
+              className="bg-primary text-primary-foreground shadow-2xs hover:bg-primary/90"
               onClick={onCreateDraft}
             >
               <Plus className="size-4" />
-              <span>新建对话</span>
+              <span>新建会话</span>
             </Button>
           </div>
         ) : null}
@@ -171,8 +171,7 @@ function MobileToolbar({
           <span className="truncate">历史会话 ({conversationsCount})</span>
         </Button>
         <Button
-          variant="brand"
-          className="h-9 rounded-lg shadow-2xs"
+          className="h-9 rounded-lg bg-primary text-primary-foreground shadow-2xs hover:bg-primary/90"
           onClick={onCreateDraft}
         >
           <Plus className="size-4" />

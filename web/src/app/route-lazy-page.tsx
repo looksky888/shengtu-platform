@@ -18,8 +18,8 @@ function RouteLoading() {
           <div className="h-9 w-28 animate-pulse rounded-lg bg-muted/80" />
         </div>
       </div>
-      <div className="flex flex-1 flex-col items-center justify-center gap-2.5 rounded-xl border border-border/60 bg-card/60 p-12 text-xs text-muted-foreground shadow-2xs">
-        <LoaderCircle className="size-5 animate-spin text-primary" aria-hidden="true" />
+      <div className="flex flex-1 flex-col items-center justify-center gap-2.5 rounded-xl border border-border/70 bg-card/70 p-12 text-xs text-muted-foreground shadow-2xs">
+        <LoaderCircle className="size-4.5 animate-spin text-muted-foreground" aria-hidden="true" />
         <span>正在加载工作区模块…</span>
       </div>
     </div>

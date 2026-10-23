@@ -125,7 +125,7 @@ export function ProfileContent({ session }: { session: StoredAuthSession }) {
                 size="sm"
                 onClick={scrollToDocs}
               >
-                <BookOpen className="size-3.5 text-brand" />
+                <BookOpen className="size-3.5 text-muted-foreground" />
                 API 接口文档
               </Button>
             ) : null}

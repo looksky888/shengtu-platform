@@ -34,7 +34,7 @@ export function UserRoleDialog({ user, roles, selectedRoleId, isSavingRole, onOp
           <DialogDescription className="truncate text-sm">{user?.name || "普通用户"} · {user?.id}</DialogDescription>
         </DialogHeader>
         <div className="space-y-2">
-          <label className="text-sm font-medium text-stone-700 dark:text-foreground">角色</label>
+          <label className="text-sm font-medium text-foreground">角色</label>
           <Select value={selectedRoleId} onValueChange={onSelectedRoleIdChange}>
             <SelectTrigger className="h-9 rounded-lg"><SelectValue placeholder="选择角色" /></SelectTrigger>
             <SelectContent>{roles.map((role) => <SelectItem key={role.id} value={role.id}>{role.name}</SelectItem>)}</SelectContent>

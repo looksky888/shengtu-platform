@@ -1,7 +1,8 @@
-import { Pencil, Trash2 } from "lucide-react";
+import { PackageOpen, Pencil, Trash2 } from "lucide-react";
 
 import { PaymentSectionState } from "@/app/payment-admin/payment-section-state";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import type { AdminRechargeProduct } from "@/lib/payment-admin-api";
 
 export function PaymentProductList({ items, loading, loadError, selectedID, onRetry, onCreate, onEdit, onDelete }: {
@@ -16,12 +17,20 @@ export function PaymentProductList({ items, loading, loadError, selectedID, onRe
 }) {
   if (loading) return <PaymentSectionState mode="loading" title="正在加载商品" />;
   if (loadError) return <PaymentSectionState mode="error" title="商品加载失败" detail={loadError} onRetry={onRetry} />;
-  if (items.length === 0) return <PaymentSectionState mode="empty" title="暂无商品" action={<Button type="button" variant="outline" onClick={onCreate}>创建第一个商品</Button>} />;
+  if (items.length === 0) return <PaymentSectionState mode="empty" icon={PackageOpen} title="暂无商品" detail="创建积分充值或云存储商品后，用户即可在充值中心选购。" action={<Button type="button" variant="outline" onClick={onCreate}>创建第一个商品</Button>} />;
   return items.map((item) => (
-    <div key={item.id} className={`flex flex-col gap-3 rounded-xl border p-3 transition sm:flex-row sm:items-center sm:justify-between ${selectedID === item.id ? "border-primary bg-primary/5" : "border-border"}`}>
+    <div
+      key={item.id}
+      className={cn(
+        "flex flex-col gap-3 rounded-xl border p-3.5 transition sm:flex-row sm:items-center sm:justify-between",
+        selectedID === item.id
+          ? "border-foreground bg-surface shadow-xs ring-1 ring-foreground/10"
+          : "border-border/70 bg-card hover:border-border",
+      )}
+    >
       <div>
-        <div className="font-medium">{item.name} · {item.sku}</div>
-        <div className="mt-1 text-sm text-muted-foreground">
+        <div className="font-medium text-foreground">{item.name} · <span className="font-mono text-xs text-muted-foreground">{item.sku}</span></div>
+        <div className="mt-1 text-sm text-muted-foreground tabular-nums">
           {item.product_type === "cloud_storage" ? `云存储 · ${formatStorage(item.storage_bytes)} · ${item.storage_days} 天` : `积分 · ${item.credits} 积分`} · ¥{(item.amount_fen / 100).toFixed(2)} · {item.enabled ? "启用" : "停用"}
         </div>
       </div>

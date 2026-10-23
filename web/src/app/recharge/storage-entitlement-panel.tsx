@@ -17,21 +17,21 @@ export function StorageEntitlementPanel({ entitlement }: { entitlement: StorageE
     ? "border-status-danger/30 bg-status-danger-soft text-status-danger"
     : warning
       ? "border-status-warning/30 bg-status-warning-soft text-status-warning"
-      : "border-status-info/25 bg-status-info-soft text-status-info";
-  const bar = urgent ? "bg-status-danger" : warning ? "bg-status-warning" : "bg-status-info";
+      : "border-border/70 bg-card text-foreground shadow-2xs";
+  const bar = urgent ? "bg-status-danger" : warning ? "bg-status-warning" : "bg-foreground";
 
   return (
     <section className={`rounded-xl border p-4 ${tone}`}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2 font-medium">
-          <Cloud className="size-4" />云存储
+          <Cloud className="size-4 text-muted-foreground" />云存储
         </div>
         <strong className="tabular-nums">{percent.toFixed(percent >= 10 ? 0 : 1)}%</strong>
       </div>
-      <div className="mt-3 h-2 overflow-hidden rounded-full bg-background/70">
+      <div className="mt-3 h-2 overflow-hidden rounded-full bg-surface-muted">
         <div className={`h-full rounded-full transition-[width] ${bar}`} style={{ width: `${percent}%` }} />
       </div>
-      <div className="mt-2 flex flex-wrap justify-between gap-2 text-xs text-foreground/70">
+      <div className="mt-2 flex flex-wrap justify-between gap-2 text-xs text-muted-foreground tabular-nums">
         <span>已使用 {formatStorage(used)} / {formatStorage(total)}</span>
         <span>{expiryText(entitlement.expires_at, daysLeft)}</span>
       </div>

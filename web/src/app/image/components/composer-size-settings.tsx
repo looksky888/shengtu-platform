@@ -31,7 +31,7 @@ export function ComposerSizeSettings({
 }: ComposerSizeSettingsProps) {
   return (
     <>
-      <div className="flex h-8.5 min-w-0 items-center justify-between gap-1.5 rounded-lg border border-border/70 bg-background px-2.5">
+      <div className="flex h-8.5 min-w-0 items-center justify-between gap-1.5 rounded-lg bg-surface-muted/75 px-2.5">
         <span className="shrink-0 text-[11px] font-medium text-muted-foreground">张数</span>
         <Input
           aria-label="生成张数"
@@ -45,13 +45,13 @@ export function ComposerSizeSettings({
           className="h-7 w-[36px] border-0 bg-transparent px-0 text-center text-xs font-semibold text-foreground shadow-none focus-visible:ring-0"
         />
       </div>
-      <div className="flex h-8.5 min-w-0 items-center justify-between gap-1.5 rounded-lg border border-border/70 bg-background px-2.5 text-[11px]">
+      <div className="flex h-8.5 min-w-0 items-center justify-between gap-1.5 rounded-lg bg-surface-muted/75 px-2.5 text-[11px]">
         <span className="shrink-0 font-medium text-muted-foreground">尺寸</span>
-        <span className="min-w-0 truncate text-right text-xs font-semibold text-foreground">
+        <span className="min-w-0 truncate text-right font-mono text-xs font-semibold text-foreground tabular-nums">
           {sizePreviewLabel}
         </span>
       </div>
-      <div className="col-span-2 grid grid-cols-3 gap-1 rounded-lg border border-border/70 bg-muted/30 p-1 sm:col-span-3">
+      <div className="col-span-2 grid grid-cols-3 gap-1 rounded-lg bg-surface-muted/95 p-0.5 sm:col-span-3">
         {IMAGE_SIZE_MODE_OPTIONS.map((option) => {
           const active = option.value === imageSizeMode;
           return (
@@ -59,8 +59,8 @@ export function ComposerSizeSettings({
               key={option.value}
               type="button"
               className={cn(
-                "h-7 min-w-0 rounded-md px-2 text-xs font-medium text-muted-foreground transition hover:bg-background/60 hover:text-foreground",
-                active && "bg-primary text-primary-foreground shadow-2xs hover:bg-primary hover:text-primary-foreground",
+                "h-7 min-w-0 rounded-md px-2 text-xs font-medium text-muted-foreground transition-all hover:text-foreground",
+                active && "bg-surface font-semibold text-foreground shadow-xs ring-1 ring-black/[0.05] dark:bg-zinc-800 dark:ring-white/[0.1]",
               )}
               onClick={() => {
                 onImageSizeModeChange(option.value);
@@ -73,7 +73,7 @@ export function ComposerSizeSettings({
         })}
       </div>
       {imageSizeMode === "custom" ? (
-        <div className="col-span-2 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 rounded-lg border border-border/70 bg-background px-3 py-1.5 sm:col-span-3">
+        <div className="col-span-2 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 rounded-lg bg-surface-muted/75 px-3 py-1.5 sm:col-span-3">
           <label className="min-w-0">
             <span className="sr-only">手动输入宽度</span>
             <Input

@@ -69,7 +69,7 @@ export function ProfileApiDocsPanel({
       <CardHeader className="border-b border-border/70 pb-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-start gap-3">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-brand-border bg-brand-soft text-brand">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-border/80 bg-surface-muted text-foreground">
               <BookOpen className="size-5" />
             </div>
             <div>
@@ -90,7 +90,7 @@ export function ProfileApiDocsPanel({
 
           <div className="flex flex-wrap items-center gap-3">
             <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-1.5 text-xs">
-              <KeyRound className="size-3.5 text-brand" />
+              <KeyRound className="size-3.5 text-muted-foreground" />
               <span className="text-foreground">代码示例自动填入我的密钥</span>
               <Switch
                 checked={injectRealKey && Boolean(activePlaintextKey)}
@@ -126,7 +126,7 @@ export function ProfileApiDocsPanel({
         <div className="rounded-lg border border-border/60 bg-muted/20 p-4">
           <div className="mb-3 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
-              <Sparkles className="size-4 text-brand" />
+              <Sparkles className="size-4 text-muted-foreground" />
               主流 AI 客户端 / 工作流对接配置速查
             </div>
             <span className="text-[11px] text-muted-foreground">
@@ -244,7 +244,7 @@ function ClientConfigCard({
             复制地址
           </Button>
         </div>
-        <code className="mt-1 block truncate rounded bg-surface-muted px-2 py-1 font-mono text-[11px] text-brand">
+        <code className="mt-1 block truncate rounded bg-surface-muted px-2 py-1 font-mono text-[11px] text-foreground">
           {baseUrl}
         </code>
       </div>
@@ -278,13 +278,13 @@ function EndpointDocCard({
         <div className="flex flex-wrap items-center gap-2">
           <span
             className={cn(
-              "rounded-md px-2 py-0.5 font-mono text-xs font-bold",
+              "rounded-md px-2 py-0.5 font-mono text-xs font-semibold",
               endpoint.method === "GET" &&
-                "bg-sky-500/15 text-sky-700 dark:text-sky-300",
+                "bg-surface-muted text-foreground ring-1 ring-border/70",
               endpoint.method === "POST" &&
-                "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
+                "bg-emerald-500/12 text-emerald-700 ring-1 ring-emerald-500/20 dark:text-emerald-300",
               endpoint.method === "DELETE" &&
-                "bg-rose-500/15 text-rose-700 dark:text-rose-300"
+                "bg-rose-500/12 text-rose-700 ring-1 ring-rose-500/20 dark:text-rose-300"
             )}
           >
             {endpoint.method}
@@ -311,18 +311,18 @@ function EndpointDocCard({
         {endpoint.params && endpoint.params.length > 0 ? (
           <div className="overflow-x-auto rounded-lg border border-border/70">
             <table className="w-full text-left text-xs">
-              <thead className="border-b border-border/70 bg-surface-muted/60 text-[11px] text-muted-foreground">
+              <thead className="border-b border-border/70 bg-surface-subtle/80 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
                 <tr>
-                  <th className="px-3 py-2 font-semibold">参数名</th>
-                  <th className="px-3 py-2 font-semibold">类型</th>
-                  <th className="px-3 py-2 font-semibold">必填</th>
-                  <th className="px-3 py-2 font-semibold">默认值</th>
-                  <th className="px-3 py-2 font-semibold">说明</th>
+                  <th className="px-3 py-2 font-medium">参数名</th>
+                  <th className="px-3 py-2 font-medium">类型</th>
+                  <th className="px-3 py-2 font-medium">必填</th>
+                  <th className="px-3 py-2 font-medium">默认值</th>
+                  <th className="px-3 py-2 font-medium">说明</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/60">
                 {endpoint.params.map((param) => (
-                  <tr key={param.name} className="hover:bg-surface-hover/50">
+                  <tr key={param.name} className="transition-colors hover:bg-surface-hover/60">
                     <td className="px-3 py-2 font-mono font-medium text-foreground whitespace-nowrap">
                       {param.name}
                     </td>
@@ -356,7 +356,7 @@ function EndpointDocCard({
           <div className="flex flex-col overflow-hidden rounded-lg border border-border/80 bg-zinc-950 text-zinc-100">
             <div className="flex items-center justify-between border-b border-zinc-800 px-3 py-1.5 text-[11px]">
               <div className="flex items-center gap-1.5">
-                <Terminal className="size-3.5 text-sky-400" />
+                <Terminal className="size-3.5 text-zinc-400" />
                 <span className="font-medium text-zinc-300">请求代码示例</span>
                 <div className="ml-2 flex items-center gap-1">
                   {CODE_LANGS.map((item) => (
@@ -367,7 +367,7 @@ function EndpointDocCard({
                       className={cn(
                         "rounded px-2 py-0.5 text-[11px] transition-colors",
                         lang === item.value
-                          ? "bg-sky-500/20 font-semibold text-sky-300"
+                          ? "bg-white/15 font-semibold text-white"
                           : "text-zinc-400 hover:text-zinc-200"
                       )}
                     >
@@ -419,7 +419,7 @@ function EndpointDocCard({
         </div>
 
         {endpoint.notes && endpoint.notes.length > 0 ? (
-          <div className="rounded-lg bg-brand-soft/60 px-3 py-2 text-xs text-foreground">
+          <div className="rounded-lg border border-border/60 bg-surface-muted/60 px-3 py-2 text-xs text-foreground">
             {endpoint.notes.map((note) => (
               <p key={note}>💡 {note}</p>
             ))}
@@ -433,7 +433,7 @@ function EndpointDocCard({
 function StatusNote({ code, desc }: { code: string; desc: string }) {
   return (
     <div className="rounded-lg border border-border/70 bg-surface p-2.5">
-      <div className="font-mono text-xs font-semibold text-foreground">
+      <div className="font-mono text-xs font-semibold text-foreground tabular-nums">
         {code}
       </div>
       <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">

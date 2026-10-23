@@ -8,7 +8,7 @@ export function paymentChannelName(channelID: string, channels: PaymentChannel[]
 }
 
 export function paymentChannelDotClass(channelID: string, channels: PaymentChannel[]): string {
-  return channels.find((item) => item.id === channelID)?.provider === "alipay" ? "bg-sky-500" : "bg-emerald-500";
+  return channels.find((item) => item.id === channelID)?.provider === "alipay" ? "bg-foreground" : "bg-emerald-500";
 }
 
 export function formatPaymentAmount(amountFen: number): string {

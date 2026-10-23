@@ -99,7 +99,7 @@ export function PaymentOverviewSection() {
       <Card className="rounded-xl">
         <CardHeader className="border-b border-border/70 bg-muted/20">
           <CardTitle className="flex items-center gap-2">
-            <BarChart3 className="size-5 text-primary" />
+            <BarChart3 className="size-5 text-muted-foreground" />
             充值业务设置
           </CardTitle>
         </CardHeader>
@@ -108,7 +108,7 @@ export function PaymentOverviewSection() {
             <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border/60 bg-muted/20 p-3.5 text-sm transition-colors hover:bg-muted/35">
               <input
                 type="checkbox"
-                className="mt-0.5 size-4 rounded border-border accent-primary"
+                className="mt-0.5 size-4 rounded border-border accent-foreground"
                 checked={settings.recharge_enabled}
                 onChange={(e) =>
                   setSettings({ ...settings, recharge_enabled: e.target.checked })
@@ -124,7 +124,7 @@ export function PaymentOverviewSection() {
             <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border/60 bg-muted/20 p-3.5 text-sm transition-colors hover:bg-muted/35">
               <input
                 type="checkbox"
-                className="mt-0.5 size-4 rounded border-border accent-primary"
+                className="mt-0.5 size-4 rounded border-border accent-foreground"
                 checked={settings.cloud_storage_enabled}
                 onChange={(e) =>
                   setSettings({ ...settings, cloud_storage_enabled: e.target.checked })
@@ -140,7 +140,7 @@ export function PaymentOverviewSection() {
             <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border/60 bg-muted/20 p-3.5 text-sm transition-colors hover:bg-muted/35">
               <input
                 type="checkbox"
-                className="mt-0.5 size-4 rounded border-border accent-primary"
+                className="mt-0.5 size-4 rounded border-border accent-foreground"
                 checked={settings.custom_credits_enabled}
                 onChange={(e) =>
                   setSettings({

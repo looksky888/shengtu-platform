@@ -32,11 +32,11 @@ export function ImageTextReplies({
       {textReplyImages.map(({ image, index }) => (
         <div
           key={image.id}
-          className="w-full max-w-[min(94%,760px)] rounded-xl border border-border/70 bg-card px-4 py-3 text-left text-sm leading-6 text-foreground shadow-2xs"
+          className="w-full max-w-[min(94%,760px)] rounded-2xl border border-border/75 bg-surface px-4 py-3.5 text-left text-sm leading-6 text-foreground shadow-2xs"
         >
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
             <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
-              <span className="rounded-md bg-muted px-2 py-0.5 text-foreground/80">
+              <span className="rounded-md bg-surface-muted px-2 py-0.5 font-medium text-foreground/85">
                 {turn.mode === "chat" ? "对话回复" : "模型文本回复"}
               </span>
             </div>

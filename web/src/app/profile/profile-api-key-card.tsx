@@ -106,7 +106,7 @@ export function ProfileApiKeyCard({
       <CardHeader>
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-brand-border bg-brand-soft text-brand">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-border/80 bg-surface-muted text-foreground">
               <KeyRound className="size-5" />
             </div>
             <div className="min-w-0">
@@ -433,7 +433,7 @@ function ApiKeyActions({
           <Button
             type="button"
             variant="outline"
-            className="border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:border-rose-900/60 dark:text-rose-400 dark:hover:bg-rose-950/30"
+            className="border-rose-500/30 text-rose-600 hover:bg-rose-500/10 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300"
             onClick={onDeleteOpen}
             disabled={isDeleting}
           >

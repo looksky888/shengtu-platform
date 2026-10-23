@@ -35,7 +35,7 @@ export function PaymentOrdersPagination({ page, pages, total, pageSize, loading,
   const start = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const end = total === 0 ? 0 : Math.min(page * pageSize, total);
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
+    <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground tabular-nums">
       <span>{start === 0 ? "共 0 笔" : `${start}-${end} / 共 ${total} 笔`}</span>
       <div className="flex items-center gap-2">
         <Button aria-label="上一页" variant="outline" size="icon" disabled={page <= 1 || loading} onClick={() => onPageChange(page - 1)}><ChevronLeft className="size-4" /></Button>

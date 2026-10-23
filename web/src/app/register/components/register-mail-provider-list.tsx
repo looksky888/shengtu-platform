@@ -29,21 +29,21 @@ export function RegisterMailProviderList({ state }: { state: RegisterCardState }
 
   return (
     <div className="space-y-3">
-      <div className="rounded-xl border border-border/70 bg-muted/30 px-3 py-2.5">
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          <span className="rounded-md bg-white px-2 py-1 text-stone-700 shadow-sm dark:bg-background">
+      <div className="rounded-xl border border-border/70 bg-surface-muted/35 px-3 py-2.5">
+        <div className="flex flex-wrap items-center gap-2 text-xs tabular-nums">
+          <span className="rounded-md border border-border/70 bg-surface px-2 py-1 font-medium text-foreground shadow-2xs">
             邮箱源 {providers.length} · 已启用 {enabledCount}
           </span>
           {sourceSummary.some((s) => s.isOutlook) ? (
             <>
-              <span className="rounded-md bg-emerald-50 px-2 py-1 text-emerald-700">Outlook 未使用 {outlookUnused}</span>
-              <span className="rounded-md bg-rose-50 px-2 py-1 text-rose-600">Outlook 失败 {outlookFailed}</span>
+              <span className="rounded-md bg-emerald-500/10 px-2 py-1 text-emerald-700 dark:text-emerald-300">Outlook 未使用 {outlookUnused}</span>
+              <span className="rounded-md bg-rose-500/10 px-2 py-1 text-rose-600 dark:text-rose-400">Outlook 失败 {outlookFailed}</span>
             </>
           ) : null}
           {sourceSummary.map((s) => (
             <span
               key={s.index}
-              className={`rounded-md px-2 py-1 ${s.enabled ? "bg-sky-50 text-sky-800" : "bg-stone-100 text-stone-500"}`}
+              className={`rounded-md px-2 py-1 font-mono ${s.enabled ? "border border-foreground/20 bg-surface text-foreground shadow-2xs" : "bg-surface-muted text-muted-foreground"}`}
               title={`#${s.index + 1} ${s.type}`}
             >
               {s.type}

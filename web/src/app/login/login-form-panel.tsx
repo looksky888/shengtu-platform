@@ -1,4 +1,4 @@
-import { KeyRound, ShieldCheck } from "lucide-react";
+import { AlertCircle, KeyRound, ShieldCheck } from "lucide-react";
 
 import { LoginAgreements } from "@/app/login/login-agreements";
 import { LoginFormActions } from "@/app/login/login-form-actions";
@@ -13,10 +13,10 @@ import { cn } from "@/lib/utils";
 export function LoginFormPanel({ appMeta, state }: { appMeta: LoginAppMeta; state: LoginPageState }) {
   return (
     <section
-      className="flex min-h-[min(100%,32rem)] flex-col justify-center px-5 py-7 sm:min-h-[500px] sm:px-10 sm:py-8 lg:px-12"
+      className="flex min-h-[min(100%,32rem)] flex-col justify-center bg-surface px-5 py-7 sm:min-h-[520px] sm:px-9 sm:py-8 lg:border-l lg:border-border/80 lg:px-10 xl:px-11"
       aria-labelledby="login-heading"
     >
-      <div className="flex flex-col gap-6 transition-[gap] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none sm:gap-7">
+      <div className="flex flex-col gap-5 transition-[gap] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none sm:gap-6">
         <LoginBrand appMeta={appMeta} />
 
         <div className="flex flex-col gap-4">
@@ -26,7 +26,7 @@ export function LoginFormPanel({ appMeta, state }: { appMeta: LoginAppMeta; stat
 
         <form
           id="login-form"
-          className="flex flex-col gap-4 sm:gap-4.5"
+          className="flex flex-col gap-4"
           onSubmit={(event) => {
             event.preventDefault();
             void state.handleSubmit();
@@ -34,6 +34,16 @@ export function LoginFormPanel({ appMeta, state }: { appMeta: LoginAppMeta; stat
           aria-busy={state.isSubmitting}
           noValidate
         >
+          {state.errorMessage ? (
+            <div
+              role="alert"
+              className="flex items-start gap-2.5 rounded-lg border border-rose-200/90 bg-rose-50/90 px-3.5 py-2.5 text-xs leading-5 text-rose-700 dark:border-rose-500/25 dark:bg-rose-500/10 dark:text-rose-300"
+            >
+              <AlertCircle className="mt-0.5 size-4 shrink-0 text-rose-600 dark:text-rose-400" aria-hidden="true" />
+              <span className="min-w-0 flex-1 font-medium">{state.errorMessage}</span>
+            </div>
+          ) : null}
+
           <LoginIdentityFields state={state} />
 
           <LoginFormField
@@ -46,14 +56,14 @@ export function LoginFormPanel({ appMeta, state }: { appMeta: LoginAppMeta; stat
             autoComplete={state.isRegisterMode ? "new-password" : "current-password"}
             value={state.password}
             onChange={state.setPassword}
-            placeholder={state.isRegisterMode ? "至少 8 位" : "请输入密码"}
+            placeholder={state.isRegisterMode ? "设置登录密码（至少 8 位）" : "请输入密码"}
             hint={state.isRegisterMode ? "≥ 8 位" : undefined}
           />
 
           {!state.isRegisterMode && state.passwordResetEnabled === true ? (
             <button
               type="button"
-              className="-mt-2 self-end rounded-md px-1 py-0.5 text-xs font-semibold text-[#1456f0] transition hover:text-[#0f49cf] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45 dark:text-blue-400 dark:hover:text-blue-300"
+              className="-mt-2 self-end rounded-md px-1 py-0.5 text-xs font-medium text-muted-foreground underline-offset-4 transition hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20"
               onClick={() => state.openPasswordReset(state.username)}
               disabled={state.isSubmitting}
             >
@@ -67,7 +77,7 @@ export function LoginFormPanel({ appMeta, state }: { appMeta: LoginAppMeta; stat
         </form>
 
         <p className="sr-only" aria-live="polite">
-          {state.isRegisterMode ? "当前为注册模式" : "当前为登录模式"}
+          {state.isRegisterMode ? "当前为注册账号模式" : "当前为账号登录模式"}
         </p>
       </div>
 
@@ -80,39 +90,39 @@ export function LoginFormPanel({ appMeta, state }: { appMeta: LoginAppMeta; stat
 function ModeTabs({ state }: { state: LoginPageState }) {
   return (
     <div
-      className="grid grid-cols-2 rounded-xl border border-slate-200/80 bg-slate-100/70 p-1 dark:border-white/10 dark:bg-white/[0.04]"
+      className="grid grid-cols-2 rounded-xl border border-border/80 bg-surface-muted p-1"
       role="tablist"
-      aria-label="登录或注册"
+      aria-label="账号登录或注册账号"
     >
       <button
         type="button"
         role="tab"
         aria-selected={!state.isRegisterMode}
         className={cn(
-          "h-8.5 rounded-lg text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45",
+          "h-8.5 rounded-lg text-xs font-semibold transition-all sm:text-[13px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20",
           !state.isRegisterMode
-            ? "bg-white text-slate-900 shadow-2xs dark:bg-slate-800 dark:text-white"
-            : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white",
+            ? "bg-surface text-foreground shadow-[0_1px_3px_rgba(0,0,0,0.08)] dark:bg-zinc-800 dark:text-zinc-50"
+            : "text-muted-foreground hover:text-foreground",
         )}
         onClick={() => state.setIsRegisterMode(false)}
         disabled={state.isSubmitting}
       >
-        登录
+        账号登录
       </button>
       <button
         type="button"
         role="tab"
         aria-selected={state.isRegisterMode}
         className={cn(
-          "h-8.5 rounded-lg text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45",
+          "h-8.5 rounded-lg text-xs font-semibold transition-all sm:text-[13px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20",
           state.isRegisterMode
-            ? "bg-white text-slate-900 shadow-2xs dark:bg-slate-800 dark:text-white"
-            : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white",
+            ? "bg-surface text-foreground shadow-[0_1px_3px_rgba(0,0,0,0.08)] dark:bg-zinc-800 dark:text-zinc-50"
+            : "text-muted-foreground hover:text-foreground",
         )}
         onClick={() => state.setIsRegisterMode(true)}
         disabled={state.isSubmitting}
       >
-        注册
+        注册账号
       </button>
     </div>
   );
@@ -125,13 +135,13 @@ function LoginBrand({ appMeta }: { appMeta: LoginAppMeta }) {
         src="/logo-mark.svg"
         alt=""
         aria-hidden="true"
-        className="size-9 rounded-xl shadow-2xs sm:size-10"
+        className="size-9 rounded-[11px] ring-1 ring-black/[0.08] sm:size-9.5 dark:ring-white/[0.14]"
       />
       <div className="grid min-w-0 leading-none">
-        <div className="truncate text-sm font-semibold tracking-[-0.02em] text-slate-900 dark:text-slate-100">
+        <div className="truncate text-[15px] font-semibold tracking-[-0.02em] text-foreground">
           {appTitle(appMeta)}
         </div>
-        <div className="mt-1 truncate text-[10px] font-medium tracking-[0.22em] text-slate-400 uppercase dark:text-slate-500">
+        <div className="mt-1.5 truncate font-mono text-[10px] font-medium tracking-[0.16em] text-muted-foreground uppercase">
           {projectName(appMeta)}
         </div>
       </div>
@@ -140,23 +150,24 @@ function LoginBrand({ appMeta }: { appMeta: LoginAppMeta }) {
 }
 
 function LoginHeading({ appMeta, isRegisterMode }: { appMeta: LoginAppMeta; isRegisterMode: boolean }) {
+  const brand = appTitle(appMeta);
   return (
-    <div className="flex flex-col gap-2.5">
-      <div className="inline-flex w-fit items-center gap-1.5 rounded-md border border-blue-200/80 bg-blue-50/80 px-2.5 py-1 text-[11px] font-semibold tracking-[0.14em] text-[#1456f0] uppercase dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-300">
-        <ShieldCheck className="size-3.5 text-[#1456f0] dark:text-blue-400" aria-hidden="true" />
-        Secure Access
+    <div className="flex flex-col gap-2">
+      <div className="inline-flex w-fit items-center gap-1.5 rounded-md border border-border/80 bg-surface-muted/80 px-2.5 py-1 font-mono text-[10px] font-medium tracking-[0.12em] text-muted-foreground uppercase">
+        <ShieldCheck className="size-3 text-foreground/75" aria-hidden="true" />
+        <span>STUDIO ACCESS</span>
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex flex-col gap-1">
         <h1
           id="login-heading"
-          className="text-2xl leading-tight font-semibold tracking-tight text-slate-900 transition-opacity duration-200 dark:text-white sm:text-3xl"
+          className="text-2xl leading-tight font-semibold tracking-[-0.025em] text-foreground transition-opacity duration-200 sm:text-[1.65rem]"
         >
-          {isRegisterMode ? "创建账号" : "欢迎回来"}
+          {isRegisterMode ? "创建工作台账号" : "欢迎回到工作台"}
         </h1>
-        <p className="max-w-[22rem] text-sm leading-6 text-slate-500 dark:text-slate-400">
+        <p className="max-w-[24rem] text-xs leading-5.5 text-muted-foreground sm:text-[13px]">
           {isRegisterMode
-            ? `注册后即可使用 ${appTitle(appMeta)} 多模型生图工作台。`
-            : `登录后进入 ${appTitle(appMeta)} · GPT 与 Grok 渠道一体接入。`}
+            ? `注册后即可进入 ${brand}，开启影像与多轨视频创作。`
+            : `验证身份以进入 ${brand} 影像与视频创作空间。`}
         </p>
       </div>
     </div>

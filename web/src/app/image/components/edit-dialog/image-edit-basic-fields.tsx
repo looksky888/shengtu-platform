@@ -20,20 +20,20 @@ type ImageEditBasicFieldsProps = {
 export function ImageEditBasicFields({ draft, setDraft, modelOptions }: ImageEditBasicFieldsProps) {
   return (
     <>
-      <label className="flex flex-col gap-2 text-sm font-medium text-stone-700">
+      <label className="flex flex-col gap-2 text-sm font-medium text-foreground">
         提示词
         <Textarea
           value={draft.prompt}
           onChange={(event) =>
             setDraft((current) => (current ? { ...current, prompt: event.target.value } : current))
           }
-          className="min-h-[128px] resize-y rounded-2xl border-stone-200 bg-white text-sm leading-6 shadow-none"
+          className="min-h-[128px] resize-y rounded-xl border-border/80 bg-surface text-sm leading-6 shadow-none"
         />
       </label>
 
       <div className={draft.mode === "chat" ? "grid grid-cols-1 gap-3" : "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"}>
         {draft.mode !== "chat" ? (
-          <label className="flex flex-col gap-2 text-sm font-medium text-stone-700">
+          <label className="flex flex-col gap-2 text-sm font-medium text-foreground">
             张数
             <Input
               type="number"
@@ -48,7 +48,7 @@ export function ImageEditBasicFields({ draft, setDraft, modelOptions }: ImageEdi
             />
           </label>
         ) : null}
-        <label className="flex flex-col gap-2 text-sm font-medium text-stone-700">
+        <label className="flex flex-col gap-2 text-sm font-medium text-foreground">
           模型
           <Select
             value={draft.channelModelId || draft.model}

@@ -61,7 +61,7 @@ export function ImageManagerActionsPopover({
             <MoreHorizontal className="size-4" />
             <span>批量操作</span>
             {selectedCount > 0 ? (
-              <span className="ml-0.5 inline-flex min-w-5 items-center justify-center rounded-md bg-primary/10 px-1.5 text-xs font-semibold text-primary tabular-nums">
+              <span className="ml-0.5 inline-flex min-w-5 items-center justify-center rounded-md bg-surface-muted px-1.5 text-xs font-semibold text-foreground ring-1 ring-border/70 tabular-nums">
                 {selectedCount}
               </span>
             ) : null}
@@ -69,7 +69,7 @@ export function ImageManagerActionsPopover({
         </PopoverTrigger>
         <PopoverContent align="end" sideOffset={8} className="w-[min(calc(100vw-2rem),18rem)] rounded-xl p-1.5">
           <div className="flex flex-col gap-0.5">
-            <div className="px-2.5 py-1.5 text-xs font-medium text-muted-foreground">
+            <div className="px-2.5 py-1.5 text-xs font-medium text-muted-foreground tabular-nums">
               {hasLocalFilters ? `显示 ${filteredCount} / ${totalCount} 张` : `共 ${totalCount} 张`}
             </div>
             <Button type="button" variant="ghost" className="h-9 justify-start rounded-lg px-2.5 text-xs" disabled={filteredCount === 0 || isMutatingImages} onClick={onToggleAll}>
@@ -96,7 +96,7 @@ export function ImageManagerActionsPopover({
             ) : null}
             <ActionButton label={`下载已选 (${selectedCount})`} loading={downloadingKey === "selected"} disabled={selectedCount === 0 || isMutatingImages} onClick={onDownloadSelected} />
             {canDeleteImages ? (
-              <Button type="button" variant="ghost" className="h-9 justify-start rounded-lg px-2.5 text-xs text-rose-600 hover:bg-rose-50 hover:text-rose-700" disabled={selectedCount === 0 || isMutatingImages} onClick={onDeleteSelected}>
+              <Button type="button" variant="ghost" className="h-9 justify-start rounded-lg px-2.5 text-xs text-rose-600 hover:bg-rose-500/10 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300" disabled={selectedCount === 0 || isMutatingImages} onClick={onDeleteSelected}>
                 <Trash2 className="size-4" />
                 删除已选 ({selectedCount})
               </Button>
@@ -135,7 +135,7 @@ export function ImageManagerActionsPopover({
 
 function ActionButton({ label, loading, disabled, onClick }: { label: string; loading: boolean; disabled: boolean; onClick: () => void }) {
   return (
-    <Button type="button" variant="ghost" className="h-9 justify-start rounded-lg px-2.5 text-xs" disabled={disabled} onClick={onClick}>
+    <Button type="button" variant="ghost" className="h-9 justify-start rounded-lg px-2.5 text-xs tabular-nums" disabled={disabled} onClick={onClick}>
       {loading ? <LoaderCircle className="size-4 animate-spin" /> : <Download className="size-4" />}
       {label}
     </Button>
@@ -144,7 +144,7 @@ function ActionButton({ label, loading, disabled, onClick }: { label: string; lo
 
 function VisibilityButton({ label, loading, disabled, icon, onClick }: { label: string; loading: boolean; disabled: boolean; icon: "public" | "private"; onClick: () => void }) {
   return (
-    <Button type="button" variant="ghost" className="h-9 justify-start rounded-lg px-2.5 text-xs" disabled={disabled} onClick={onClick}>
+    <Button type="button" variant="ghost" className="h-9 justify-start rounded-lg px-2.5 text-xs tabular-nums" disabled={disabled} onClick={onClick}>
       {loading ? <LoaderCircle className="size-4 animate-spin" /> : icon === "public" ? <Globe2 className="size-4" /> : <Lock className="size-4" />}
       {label}
     </Button>

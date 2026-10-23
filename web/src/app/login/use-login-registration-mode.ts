@@ -37,7 +37,7 @@ export function useLoginRegistrationMode() {
   }, [searchParams]);
 
   useEffect(() => {
-    document.title = isRegisterMode ? "创建账号 · 登录" : "登录 · 控制台";
+    document.title = isRegisterMode ? "注册账号 · Shengtu Studio" : "登录工作台 · Shengtu Studio";
   }, [isRegisterMode]);
 
   useEffect(() => {

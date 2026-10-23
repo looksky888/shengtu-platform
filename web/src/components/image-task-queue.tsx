@@ -86,7 +86,7 @@ export function ImageTaskQueue({ className }: { className?: string }) {
       <PopoverContent align="end" sideOffset={8} className="w-[min(calc(100vw-2rem),460px)] p-0">
         <QueuePopoverHeader activeCount={activeCount} hasRecentCompletion={hasRecentCompletion} />
         {queueItems.length > 0 || recentCompletions.length > 0 ? (
-          <div aria-live="polite" className="max-h-[min(68vh,560px)] overflow-y-auto bg-[#fbfcfe] p-3 dark:bg-background">
+          <div aria-live="polite" className="max-h-[min(68vh,560px)] overflow-y-auto bg-surface-subtle/60 p-3 dark:bg-background">
             <div className="flex flex-col gap-3">
               {recentCompletions.map((item) => <CompletionItem key={`${item.key}:${item.completedAt}`} item={item} onOpenConversation={openConversation} />)}
               {queueItems.map((item) => <QueueItem key={`${item.conversationId}:${item.turn.id}`} item={item} now={now} onOpenConversation={openConversation} />)}
@@ -104,15 +104,23 @@ function ImageTaskQueueTrigger({ activeCount, hasRecentCompletion, className }: 
   return (
     <Button
       type="button"
-      variant="outline"
-      className={cn("relative h-8 rounded-lg px-2.5 shadow-none", activeCount > 0 ? "border-sky-200 bg-sky-50 text-primary hover:bg-sky-100 dark:border-sky-800 dark:bg-sky-950/30 dark:text-sky-300" : hasRecentCompletion ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300" : "border-border/80 bg-surface-muted/70 text-muted-foreground hover:bg-surface-hover hover:text-foreground", className)}
+      variant="ghost"
+      className={cn(
+        "relative h-8 rounded-lg px-2 shadow-none",
+        activeCount > 0
+          ? "bg-surface-muted font-medium text-foreground ring-1 ring-border hover:bg-surface-hover"
+          : hasRecentCompletion
+            ? "bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/15 dark:text-emerald-300"
+            : "text-muted-foreground hover:bg-surface-hover hover:text-foreground",
+        className
+      )}
       aria-label={activeCount > 0 ? `查看 ${activeCount} 个正在处理的任务` : hasRecentCompletion ? "查看最近完成的任务" : "查看任务队列"}
       title="任务队列"
     >
-      {hasRecentCompletion ? <span className="pointer-events-none absolute -inset-1 rounded-lg border border-emerald-300/70 animate-ping" /> : null}
+      {hasRecentCompletion ? <span className="pointer-events-none absolute -inset-0.5 rounded-lg border border-emerald-400/60 animate-ping" /> : null}
       {activeCount > 0 ? <LoaderCircle className="size-3.5 animate-spin" /> : hasRecentCompletion ? <CheckCircle2 className="size-3.5 animate-in zoom-in-50 duration-300" /> : <ClipboardList className="size-3.5" />}
       <span className="hidden text-xs font-medium xl:inline">队列</span>
-      {activeCount > 0 ? <span className="absolute -top-1 -right-1 inline-flex min-w-4.5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-4.5 text-primary-foreground">{activeCount}</span> : null}
+      {activeCount > 0 ? <span className="absolute -top-1 -right-1 inline-flex min-w-4.5 items-center justify-center rounded-full bg-foreground px-1 text-[10px] font-semibold leading-4.5 text-background">{activeCount}</span> : null}
     </Button>
   );
 }

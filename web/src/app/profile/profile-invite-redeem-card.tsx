@@ -54,7 +54,7 @@ export function ProfileInviteRedeemCard({
     <Card>
       <CardHeader>
         <div className="flex min-w-0 items-center gap-3">
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-brand-border bg-brand-soft text-brand">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-border/80 bg-surface-muted text-foreground">
             <Gift className="size-5" />
           </div>
           <div className="min-w-0">
@@ -142,7 +142,7 @@ function InviteInfoPanel({
           <LoaderCircle className="size-5 animate-spin text-muted-foreground" />
         </div>
       ) : inviteError ? (
-        <div className="flex flex-col gap-3 rounded-lg border border-rose-200 bg-rose-50/70 p-4 text-sm text-rose-700 dark:border-rose-900/70 dark:bg-rose-950/20 dark:text-rose-300">
+        <div className="flex flex-col gap-3 rounded-lg border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-700 dark:text-rose-300">
           <span>邀请信息加载失败：{inviteError}</span>
           <div className="flex justify-end">
             <Button type="button" variant="outline" size="sm" onClick={onRetry}>

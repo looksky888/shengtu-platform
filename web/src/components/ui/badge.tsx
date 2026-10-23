@@ -4,18 +4,18 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const badgeVariants = cva(
-  "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors",
+  "inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-medium tracking-tight transition-colors",
   {
     variants: {
       variant: {
-        default: "border-transparent bg-status-info-soft text-status-info",
+        default: "border-border/80 bg-surface-muted text-foreground",
         secondary: "border-transparent bg-secondary text-secondary-foreground",
-        outline: "border-border bg-background text-foreground",
-        success: "border-status-success/30 bg-status-success-soft text-status-success",
-        warning: "border-status-warning/30 bg-status-warning-soft text-status-warning",
-        danger: "border-status-danger/30 bg-status-danger-soft text-status-danger",
-        info: "border-status-info/30 bg-status-info-soft text-status-info",
-        violet: "border-status-info/30 bg-status-info-soft text-status-info",
+        outline: "border-border bg-surface text-foreground",
+        success: "border-status-success/25 bg-status-success-soft text-status-success",
+        warning: "border-status-warning/25 bg-status-warning-soft text-status-warning",
+        danger: "border-status-danger/25 bg-status-danger-soft text-status-danger",
+        info: "border-border/80 bg-surface-muted text-muted-foreground",
+        violet: "border-indigo-500/20 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300",
       },
     },
     defaultVariants: {

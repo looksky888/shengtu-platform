@@ -52,11 +52,11 @@ export function RegisterOutlookPoolEditor({
         className="min-h-32 rounded-lg font-mono text-xs"
         disabled={disabled}
       />
-      <div className="flex flex-wrap items-center gap-1.5 text-xs">
+      <div className="flex flex-wrap items-center gap-1.5 text-xs tabular-nums">
         <span className="rounded-md bg-surface-muted px-2 py-1 text-muted-foreground">
           未使用 {stats.unused ?? 0}
         </span>
-        <span className="rounded-md bg-brand-soft px-2 py-1 text-brand">
+        <span className="rounded-md border border-foreground/20 bg-surface px-2 py-1 font-medium text-foreground shadow-2xs">
           占用中 {stats.in_use ?? 0}
         </span>
         <span className="rounded-md bg-emerald-500/10 px-2 py-1 text-emerald-700 dark:text-emerald-300">

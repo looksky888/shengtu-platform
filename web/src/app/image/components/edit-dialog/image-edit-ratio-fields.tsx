@@ -31,7 +31,7 @@ type RatioSizeFieldsProps = {
 export function RatioSizeFields({ draft, setDraft, customRatioInvalid }: RatioSizeFieldsProps) {
   return (
     <>
-      <label className="flex flex-col gap-2 text-sm font-medium text-stone-700">
+      <label className="flex flex-col gap-2 text-sm font-medium text-foreground">
         比例
         <Select
           value={draft.aspectRatio || EMPTY_IMAGE_ASPECT_RATIO_SELECT_VALUE}
@@ -69,7 +69,7 @@ export function RatioSizeFields({ draft, setDraft, customRatioInvalid }: RatioSi
           </SelectContent>
         </Select>
       </label>
-      <label className="flex flex-col gap-2 text-sm font-medium text-stone-700">
+      <label className="flex flex-col gap-2 text-sm font-medium text-foreground">
         分辨率
         <Select
           value={draft.resolution}
@@ -92,7 +92,7 @@ export function RatioSizeFields({ draft, setDraft, customRatioInvalid }: RatioSi
         </Select>
       </label>
       {draft.aspectRatio === CUSTOM_IMAGE_ASPECT_RATIO ? (
-        <label className="flex flex-col gap-2 text-sm font-medium text-stone-700 sm:col-span-2">
+        <label className="flex flex-col gap-2 text-sm font-medium text-foreground sm:col-span-2">
           自定义比例
           <Input
             value={draft.customRatio}
@@ -101,7 +101,7 @@ export function RatioSizeFields({ draft, setDraft, customRatioInvalid }: RatioSi
             }
             placeholder="例如 5:4 / 2.39:1"
             aria-invalid={customRatioInvalid}
-            className={cn(customRatioInvalid && "border-red-300 focus-visible:ring-red-500/20")}
+            className={cn(customRatioInvalid && "border-rose-300 focus-visible:ring-rose-500/20")}
           />
         </label>
       ) : null}

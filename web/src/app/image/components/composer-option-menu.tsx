@@ -51,9 +51,9 @@ function ComposerOptionList<T extends string>({
             disabled={disabled}
             title={getOptionTitle?.(option)}
             className={cn(
-              "flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-sm text-[#45515e] transition hover:bg-black/[0.05] dark:text-muted-foreground dark:hover:bg-accent/60",
-              active && "bg-black/[0.05] font-medium text-[#18181b] dark:bg-accent dark:text-foreground",
-              disabled && "cursor-not-allowed opacity-45 hover:bg-transparent dark:hover:bg-transparent",
+              "flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-xs text-muted-foreground transition hover:bg-surface-hover hover:text-foreground",
+              active && "bg-surface-muted font-semibold text-foreground ring-1 ring-border/70",
+              disabled && "cursor-not-allowed opacity-45 hover:bg-transparent",
             )}
             onClick={() => {
               if (!disabled) {
@@ -64,17 +64,17 @@ function ComposerOptionList<T extends string>({
             <span className="min-w-0">
               <span className="block truncate">{option.label}</span>
               {option.description ? (
-                <span className="block truncate text-[11px] font-normal text-[#8e8e93] dark:text-muted-foreground">
+                <span className="block truncate text-[11px] font-normal text-muted-foreground">
                   {option.description}
                 </span>
               ) : null}
             </span>
             {disabled && disabledLabel ? (
-              <span className="ml-auto shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-500 dark:bg-muted dark:text-muted-foreground">
+              <span className="ml-auto shrink-0 rounded-full bg-surface-muted px-2 py-0.5 text-[10px] text-muted-foreground">
                 {disabledLabel}
               </span>
             ) : null}
-            {active ? <Check className="size-4 shrink-0" /> : null}
+            {active ? <Check className="size-3.5 shrink-0 text-foreground" /> : null}
           </button>
         );
       })}
@@ -104,7 +104,7 @@ export function ComposerOptionMenu<T extends string>({
     <>
       <div
         ref={menuRef}
-        className="relative flex h-8.5 min-w-0 items-center justify-between gap-1.5 rounded-lg border border-border/70 bg-background px-2.5 text-[11px]"
+        className="relative flex h-8.5 min-w-0 items-center justify-between gap-1.5 rounded-lg bg-surface-muted/75 px-2.5 text-[11px]"
       >
         <span className="flex shrink-0 items-center gap-1 font-medium text-muted-foreground">
           {label}
@@ -117,12 +117,12 @@ export function ComposerOptionMenu<T extends string>({
           aria-expanded={open}
         >
           <span className="truncate">{valueLabel}</span>
-          <ChevronDown className={cn("size-4 shrink-0 opacity-60 transition", open && "rotate-180")} />
+          <ChevronDown className={cn("size-3.5 shrink-0 opacity-60 transition", open && "rotate-180")} />
         </button>
         {open ? (
           <div
             className={cn(
-              "absolute bottom-[calc(100%+0.5rem)] z-[90] hidden max-h-[14rem] overflow-y-auto rounded-xl border border-border/80 bg-card p-1.5 shadow-lg sm:block",
+              "absolute bottom-[calc(100%+0.5rem)] z-[90] hidden max-h-[14rem] overflow-y-auto rounded-xl border border-border/85 bg-surface p-1.5 shadow-lg sm:block",
               desktopAlign === "left" ? "left-0" : "right-0",
               desktopWidthClass,
             )}
@@ -133,7 +133,7 @@ export function ComposerOptionMenu<T extends string>({
       </div>
       {open ? (
         <div
-          className="col-span-2 grid max-h-[13rem] overflow-y-auto rounded-xl border border-border/80 bg-card p-1.5 sm:hidden"
+          className="col-span-2 grid max-h-[13rem] overflow-y-auto rounded-xl border border-border/85 bg-surface p-1.5 sm:hidden"
           onMouseDown={(event) => event.stopPropagation()}
         >
           <ComposerOptionList {...listProps} />

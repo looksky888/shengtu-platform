@@ -38,7 +38,7 @@ export function ProfileAccountCard({
     <Card>
       <CardHeader>
         <div className="flex min-w-0 items-center gap-3">
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-brand-border bg-brand-soft text-brand">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-border/80 bg-surface-muted text-foreground">
             <UserPen className="size-5" />
           </div>
           <div className="min-w-0">

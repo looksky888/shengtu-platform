@@ -35,7 +35,7 @@ export function ProfileSummaryCard({
       <CardHeader>
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-brand-border bg-brand text-white shadow-xs">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-foreground bg-foreground text-background shadow-xs">
               <UserCircle2 className="size-5" />
             </div>
             <div className="min-w-0">

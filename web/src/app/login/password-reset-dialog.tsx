@@ -20,7 +20,7 @@ export function PasswordResetDialog({ state }: { state: LoginPageState }) {
         <DialogHeader>
           <DialogTitle>找回密码</DialogTitle>
           <DialogDescription className="leading-6">
-            输入注册邮箱并获取验证码。旧用户名账号尚未绑定邮箱，请联系管理员重置。
+            输入注册邮箱并获取验证码。旧用户名账号若尚未绑定邮箱，请联系管理员重置。
           </DialogDescription>
         </DialogHeader>
 
@@ -46,16 +46,19 @@ export function PasswordResetDialog({ state }: { state: LoginPageState }) {
 
           <div className="flex flex-col gap-1.5">
             <div className="flex items-baseline justify-between gap-2">
-              <label htmlFor="reset-email-code" className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+              <label htmlFor="reset-email-code" className="text-xs font-medium text-foreground">
                 邮箱验证码
               </label>
-              <span className="text-[11px] font-medium text-slate-400 dark:text-slate-500">
-                {state.passwordResetCodeLength} 位
+              <span className="font-mono text-[11px] text-muted-foreground">
+                {state.passwordResetCodeLength} 位数字
               </span>
             </div>
-            <div className="grid grid-cols-[minmax(0,1fr)_7rem] gap-2">
+            <div className="grid grid-cols-[minmax(0,1fr)_7.25rem] gap-2">
               <div className="relative">
-                <BadgeCheck className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+                <BadgeCheck
+                  className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-subtle-foreground"
+                  aria-hidden="true"
+                />
                 <Input
                   id="reset-email-code"
                   inputMode="numeric"
@@ -66,7 +69,7 @@ export function PasswordResetDialog({ state }: { state: LoginPageState }) {
                     event.target.value.replace(/\D/g, "").slice(0, state.passwordResetCodeLength),
                   )}
                   placeholder="验证码"
-                  className="h-10 rounded-lg pl-10"
+                  className="h-10 rounded-lg border-input bg-surface pl-10"
                 />
               </div>
               <Button
@@ -77,7 +80,7 @@ export function PasswordResetDialog({ state }: { state: LoginPageState }) {
                 onClick={() => void state.sendResetCode()}
               >
                 {state.isSendingResetCode
-                  ? "发送中"
+                  ? "发送中…"
                   : state.resetCodeCountdown > 0
                     ? `${state.resetCodeCountdown}s`
                     : "获取验证码"}
@@ -117,7 +120,7 @@ export function PasswordResetDialog({ state }: { state: LoginPageState }) {
               取消
             </Button>
             <Button type="submit" disabled={state.isResettingPassword || state.isSendingResetCode}>
-              {state.isResettingPassword ? "重置中" : "重置密码"}
+              {state.isResettingPassword ? "重置中…" : "重置密码"}
             </Button>
           </DialogFooter>
         </form>

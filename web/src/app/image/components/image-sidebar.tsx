@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Images,
   KeyRound,
@@ -15,7 +15,8 @@ import {
 import { Link } from "react-router-dom";
 
 import { ConfirmDialog } from "@/components/confirm-dialog";
-import { Button } from "@/components/ui/button";
+import { fetchStudioImageTaskTodayStats } from "@/lib/api";
+import { httpRequest } from "@/lib/request";
 import { cn } from "@/lib/utils";
 import {
   getImageConversationStats,
@@ -50,6 +51,47 @@ export function ImageSidebar({
   const [searchQuery, setSearchQuery] = useState("");
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
   const [clearing, setClearing] = useState(false);
+  const [todayImages, setTodayImages] = useState<number | null>(null);
+  const [onlineAccounts, setOnlineAccounts] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (hideActionButtons) return;
+    let disposed = false;
+    const abortController = new AbortController();
+
+    const loadFooterStats = async () => {
+      const [todayResult, healthResult] = await Promise.allSettled([
+        fetchStudioImageTaskTodayStats({ signal: abortController.signal }),
+        httpRequest<{ account_pool?: { available?: number; free_slots?: number } }>("/health", {
+          method: "GET",
+          headers: { "Cache-Control": "no-cache" },
+          signal: abortController.signal,
+        }),
+      ]);
+      if (disposed) return;
+      if (todayResult.status === "fulfilled" && todayResult.value) {
+        setTodayImages(Math.max(0, Math.floor(Number(todayResult.value.success_images) || 0)));
+      }
+      if (healthResult.status === "fulfilled" && healthResult.value?.account_pool) {
+        const pool = healthResult.value.account_pool;
+        const count = typeof pool.available === "number" ? pool.available : pool.free_slots;
+        if (typeof count === "number" && Number.isFinite(count)) {
+          setOnlineAccounts(Math.max(0, Math.floor(count)));
+        }
+      }
+    };
+
+    void loadFooterStats();
+    const timer = window.setInterval(() => {
+      void loadFooterStats();
+    }, 60000);
+
+    return () => {
+      disposed = true;
+      abortController.abort();
+      window.clearInterval(timer);
+    };
+  }, [hideActionButtons]);
 
   const filteredConversations = useMemo(() => {
     const q = searchQuery.trim().toLocaleLowerCase();
@@ -73,39 +115,43 @@ export function ImageSidebar({
     <aside className="h-full min-h-0 overflow-hidden">
       <div className="flex h-full min-h-0 flex-col gap-2 py-0.5">
         {!hideActionButtons && (
-          <div className="flex items-center gap-1.5">
-            <Button
-              variant="brand"
-              size="sm"
-              className="h-8 flex-1 justify-center gap-1.5 rounded-lg text-xs"
+          <div className="space-y-2">
+            <div className="flex items-center justify-between px-1">
+              <span className="text-[11px] font-medium tracking-tight text-muted-foreground">
+                创作会话
+              </span>
+              <div className="flex items-center gap-0.5">
+                <button
+                  type="button"
+                  aria-label="清空历史记录"
+                  title="清空历史记录"
+                  className="inline-flex size-6.5 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-hover hover:text-rose-600 disabled:pointer-events-none disabled:opacity-40"
+                  onClick={() => setClearConfirmOpen(true)}
+                  disabled={conversations.length === 0}
+                >
+                  <Trash2 className="size-3.5" />
+                </button>
+                {onCollapse ? (
+                  <button
+                    type="button"
+                    aria-label="收起会话列表"
+                    title="收起会话列表"
+                    className="inline-flex size-6.5 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
+                    onClick={onCollapse}
+                  >
+                    <PanelLeftClose className="size-3.5" />
+                  </button>
+                ) : null}
+              </div>
+            </div>
+            <button
+              type="button"
+              className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground shadow-2xs transition hover:bg-primary/90 active:scale-[0.985]"
               onClick={onCreateDraft}
             >
               <MessageSquarePlus className="size-3.5" />
-              <span>新建对话</span>
-            </Button>
-            <Button
-              variant="outline"
-              size="icon-sm"
-              aria-label="清空历史记录"
-              title="清空历史记录"
-              className="size-8 rounded-lg text-muted-foreground hover:text-destructive"
-              onClick={() => setClearConfirmOpen(true)}
-              disabled={conversations.length === 0}
-            >
-              <Trash2 className="size-3.5" />
-            </Button>
-            {onCollapse ? (
-              <Button
-                variant="outline"
-                size="icon-sm"
-                aria-label="收起会话列表"
-                title="收起会话列表"
-                className="size-8 rounded-lg text-muted-foreground"
-                onClick={onCollapse}
-              >
-                <PanelLeftClose className="size-3.5" />
-              </Button>
-            ) : null}
+              <span>新建会话</span>
+            </button>
           </div>
         )}
 
@@ -118,7 +164,7 @@ export function ImageSidebar({
               onChange={(event) => setSearchQuery(event.target.value)}
               placeholder="搜索历史会话…"
               aria-label="搜索历史会话"
-              className="h-8 w-full rounded-lg border border-border/75 bg-surface-muted/65 pr-7 pl-8 text-xs text-foreground outline-none transition placeholder:text-muted-foreground focus:border-brand/50 focus:bg-surface"
+              className="h-8 w-full rounded-lg border border-border/75 bg-surface-muted/70 pr-7 pl-8 text-xs text-foreground outline-none transition placeholder:text-muted-foreground focus:border-foreground/35 focus:bg-surface"
             />
             {searchQuery ? (
               <button
@@ -138,7 +184,7 @@ export function ImageSidebar({
             "thin-scrollbar min-h-0 flex-1 overflow-y-auto",
             hideActionButtons
               ? "flex flex-col gap-1 pr-0"
-              : "flex flex-col gap-1.5 pr-1"
+              : "flex flex-col gap-1 py-0.5 pr-0.5"
           )}
         >
           {isLoadingHistory ? (
@@ -147,14 +193,14 @@ export function ImageSidebar({
               <span>正在读取会话记录…</span>
             </div>
           ) : conversations.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border/70 bg-surface-muted/25 px-3 py-6 text-center">
-              <span className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border/70 bg-surface-muted/35 px-3 py-6 text-center">
+              <span className="flex size-8 items-center justify-center rounded-lg bg-surface text-foreground/80 ring-1 ring-border/70">
                 <Sparkles className="size-4" />
               </span>
               <div className="space-y-0.5">
                 <p className="text-xs font-medium text-foreground">暂无历史会话</p>
                 <p className="text-[11px] leading-4 text-muted-foreground">
-                  输入提示词或点击右侧灵感模版即可开启新会话
+                  输入提示词或点击右侧灵感画作即可开启新会话
                 </p>
               </div>
             </div>
@@ -170,11 +216,11 @@ export function ImageSidebar({
                 <div
                   key={conversation.id}
                   className={cn(
-                    "group relative w-full rounded-xl border text-left transition-all duration-150",
-                    hideActionButtons ? "px-3.5 py-3" : "px-3 py-2.5",
+                    "group relative w-full rounded-lg text-left transition-colors duration-150",
+                    hideActionButtons ? "px-3.5 py-2.5" : "px-3 py-2",
                     active
-                      ? "border-brand-border bg-brand-soft/75 text-foreground shadow-2xs"
-                      : "border-transparent text-muted-foreground hover:border-border/70 hover:bg-surface-hover hover:text-foreground"
+                      ? "bg-surface-muted font-medium text-foreground ring-1 ring-border/70 before:absolute before:top-2 before:bottom-2 before:left-0 before:w-0.5 before:rounded-full before:bg-foreground"
+                      : "text-muted-foreground hover:bg-surface-hover hover:text-foreground"
                   )}
                 >
                   <button
@@ -187,14 +233,14 @@ export function ImageSidebar({
                   >
                     <div
                       className={cn(
-                        "truncate font-medium",
-                        active && "font-semibold text-brand",
+                        "truncate",
+                        active ? "font-semibold text-foreground" : "font-medium text-foreground/85 group-hover:text-foreground",
                         hideActionButtons ? "text-sm" : "text-[13px]"
                       )}
                     >
                       <span className="truncate">{conversation.title}</span>
                     </div>
-                    <div className="mt-1 flex items-center gap-1.5 text-[11px] text-muted-foreground tabular-nums">
+                    <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-muted-foreground tabular-nums">
                       <span>{conversation.turns.length} 轮</span>
                       <span>·</span>
                       <span>{formatConversationTime(conversation.updatedAt)}</span>
@@ -202,8 +248,8 @@ export function ImageSidebar({
                     {stats.running > 0 || stats.queued > 0 ? (
                       <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[10px] font-medium">
                         {stats.running > 0 ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-brand-soft px-2 py-0.5 text-brand">
-                            <span className="size-1.5 animate-pulse rounded-full bg-brand" />
+                          <span className="inline-flex items-center gap-1 rounded-full bg-foreground/[0.07] px-2 py-0.5 text-foreground">
+                            <span className="size-1.5 animate-pulse rounded-full bg-emerald-500" />
                             生成中 {stats.running}
                           </span>
                         ) : null}
@@ -222,7 +268,7 @@ export function ImageSidebar({
                         event.stopPropagation();
                         void onDeleteConversation(conversation.id);
                       }}
-                      className="absolute top-2.5 right-2 inline-flex size-6 items-center justify-center rounded-lg text-muted-foreground opacity-0 transition hover:bg-rose-500/10 hover:text-rose-600 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100"
+                      className="absolute top-2 right-1.5 inline-flex size-6 items-center justify-center rounded-md text-muted-foreground opacity-0 transition hover:bg-rose-500/10 hover:text-rose-600 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100"
                       aria-label="删除会话"
                       title="删除会话"
                     >
@@ -236,21 +282,30 @@ export function ImageSidebar({
         </div>
 
         {!hideActionButtons ? (
-          <div className="flex items-center justify-between gap-1.5 border-t border-border/60 pt-2">
-            <Link
-              to="/image-manager"
-              className="inline-flex h-7 flex-1 items-center justify-center gap-1.5 rounded-lg border border-border/60 bg-muted/25 px-2 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
-            >
-              <Images className="size-3" />
-              <span>素材中心</span>
-            </Link>
-            <Link
-              to="/profile?tab=api"
-              className="inline-flex h-7 flex-1 items-center justify-center gap-1.5 rounded-lg border border-border/60 bg-muted/25 px-2 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
-            >
-              <KeyRound className="size-3" />
-              <span>API 密钥</span>
-            </Link>
+          <div className="space-y-2 border-t border-border/65 pt-2">
+            <div className="flex items-center gap-1.5">
+              <Link
+                to="/image-manager"
+                className="inline-flex h-7 flex-1 items-center justify-center gap-1.5 rounded-lg bg-surface-muted/70 px-2 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
+              >
+                <Images className="size-3" />
+                <span>素材中心</span>
+              </Link>
+              <Link
+                to="/profile?tab=api"
+                className="inline-flex h-7 flex-1 items-center justify-center gap-1.5 rounded-lg bg-surface-muted/70 px-2 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
+              >
+                <KeyRound className="size-3" />
+                <span>API 密钥</span>
+              </Link>
+            </div>
+            <div className="flex items-center justify-between gap-2 px-1 text-[11px] text-muted-foreground tabular-nums">
+              <span>今日出图 {todayImages !== null ? todayImages.toLocaleString("zh-CN") : "—"}</span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="size-1.5 rounded-full bg-emerald-500" />
+                <span>在线账号 {onlineAccounts !== null ? onlineAccounts : "—"}</span>
+              </span>
+            </div>
           </div>
         ) : null}
       </div>

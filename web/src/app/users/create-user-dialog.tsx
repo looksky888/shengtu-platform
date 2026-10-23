@@ -70,7 +70,7 @@ function TextField({ label, value, onChange, placeholder, type = "text", autoCom
 }) {
   return (
     <div className="space-y-2">
-      <label className="text-sm font-medium text-stone-700 dark:text-foreground">{label}</label>
+      <label className="text-sm font-medium text-foreground">{label}</label>
       <div className={icon ? "relative" : undefined}>
         {icon}
         <Input value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} type={type} autoComplete={autoComplete} className={`h-9 rounded-lg ${icon ? "pl-9" : ""}`} aria-invalid={Boolean(error)} />
@@ -83,7 +83,7 @@ function TextField({ label, value, onChange, placeholder, type = "text", autoCom
 function RoleSelect({ value, roles, onChange }: { value: string; roles: ManagedRole[]; onChange: (value: string) => void }) {
   return (
     <div className="space-y-2">
-      <label className="text-sm font-medium text-stone-700 dark:text-foreground">角色</label>
+      <label className="text-sm font-medium text-foreground">角色</label>
       <Select value={value} onValueChange={onChange}>
         <SelectTrigger className="h-9 rounded-lg"><SelectValue placeholder="选择角色" /></SelectTrigger>
         <SelectContent>{roles.map((role) => <SelectItem key={role.id} value={role.id}>{role.name}</SelectItem>)}</SelectContent>
@@ -95,7 +95,7 @@ function RoleSelect({ value, roles, onChange }: { value: string; roles: ManagedR
 function StatusSelect({ enabled, onChange }: { enabled: boolean; onChange: (value: boolean) => void }) {
   return (
     <div className="space-y-2">
-      <label className="text-sm font-medium text-stone-700 dark:text-foreground">状态</label>
+      <label className="text-sm font-medium text-foreground">状态</label>
       <Select value={enabled ? "true" : "false"} onValueChange={(value) => onChange(value === "true")}>
         <SelectTrigger className="h-9 rounded-lg"><SelectValue /></SelectTrigger>
         <SelectContent><SelectItem value="true">已启用</SelectItem><SelectItem value="false">已禁用</SelectItem></SelectContent>

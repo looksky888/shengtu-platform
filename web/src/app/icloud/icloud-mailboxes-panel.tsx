@@ -4,6 +4,7 @@ import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { icloudApi, type ICloudMailbox } from "@/lib/icloud-api";
 
@@ -86,11 +87,17 @@ export function ICloudMailboxesPanel({ controller }: { controller: ICloudPageCon
 
       <SectionLoadError message={loadErrors.mailboxes} />
       {!loadErrors.mailboxes && mailboxes.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-border px-3 py-8 text-center text-sm text-muted-foreground">
-          {mailboxUsage === "all" && !mailboxSearch.trim()
-            ? "暂无隐私邮箱。请勾选 Apple 账号后点击「创建邮箱」。"
-            : "没有符合当前筛选条件的邮箱。"}
-        </p>
+        <EmptyState
+          compact
+          icon={Mail}
+          title={mailboxUsage === "all" && !mailboxSearch.trim() ? "暂无隐私邮箱" : "没有符合当前筛选条件的邮箱"}
+          description={
+            mailboxUsage === "all" && !mailboxSearch.trim()
+              ? "请勾选 Apple 账号后点击「创建邮箱」。"
+              : "请调整使用状态或搜索关键字后重试。"
+          }
+          className="rounded-xl border border-dashed border-border/70 bg-surface-muted/25 py-10"
+        />
       ) : mailboxes.length > 0 ? (
         <div className="grid gap-3 lg:grid-cols-2">
           {mailboxes.map((mailbox) => (

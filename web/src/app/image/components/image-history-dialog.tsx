@@ -36,10 +36,10 @@ export function ImageHistoryDialog({
 }: ImageHistoryDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex h-[min(82dvh,760px)] w-[92vw] max-w-[440px] flex-col overflow-hidden rounded-xl border border-border/70 bg-card p-0 shadow-lg">
-        <DialogHeader className="border-b border-border/60 px-5 py-4">
-          <DialogTitle className="flex items-center gap-2 text-base font-semibold tracking-tight">
-            <History className="size-4 text-primary" />
+      <DialogContent className="flex h-[min(82dvh,760px)] w-[92vw] max-w-[440px] flex-col overflow-hidden rounded-2xl border border-border/80 bg-surface p-0 shadow-xl">
+        <DialogHeader className="border-b border-border/65 px-5 py-4">
+          <DialogTitle className="flex items-center gap-2 text-base font-semibold tracking-tight text-foreground">
+            <History className="size-4 text-muted-foreground" />
             历史记录
           </DialogTitle>
         </DialogHeader>

@@ -25,7 +25,7 @@ export function StudioStatsFab() {
               "inline-flex h-8 items-center gap-2 rounded-lg border px-2.5 text-xs font-medium shadow-2xs backdrop-blur-md transition-colors",
               elevatedFail
                 ? "border-rose-300/70 bg-rose-50/90 text-rose-700 hover:bg-rose-100/90 dark:border-rose-900/60 dark:bg-rose-950/60 dark:text-rose-300"
-                : "border-border/75 bg-card/90 text-muted-foreground hover:bg-surface-hover hover:text-foreground",
+                : "border-border/75 bg-surface/90 text-muted-foreground hover:bg-surface-hover hover:text-foreground",
             )}
             aria-label="查看今日生图统计"
             title="今日生图实时统计"
@@ -36,18 +36,18 @@ export function StudioStatsFab() {
                 elevatedFail ? "bg-rose-500 animate-pulse" : hasData ? "bg-emerald-500" : "bg-muted-foreground/50",
               )}
             />
-            <Activity className="size-3.5 text-primary" />
+            <Activity className="size-3.5 text-muted-foreground" />
             <span>今日生图</span>
             <span className="font-mono font-semibold text-foreground tabular-nums">
               {loading && !hasData ? "…" : hasData ? `${formatCount(stats.successImages)}张 · ${rateText}` : "0张"}
             </span>
           </button>
         </PopoverTrigger>
-        <PopoverContent align="end" sideOffset={8} className="w-76 rounded-xl border-border/80 bg-card p-3.5 shadow-lg">
+        <PopoverContent align="end" sideOffset={8} className="w-76 rounded-xl border-border/85 bg-surface p-3.5 shadow-xl">
           <div className="flex items-center justify-between gap-2 border-b border-border/60 pb-2.5">
             <div>
               <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-                <Activity className="size-3.5 text-primary" />
+                <Activity className="size-3.5 text-muted-foreground" />
                 <span>今日生图统计</span>
               </div>
               <div className="mt-0.5 text-[11px] text-muted-foreground">{stats.rangeLabel}</div>

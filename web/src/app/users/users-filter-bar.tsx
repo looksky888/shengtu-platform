@@ -40,7 +40,7 @@ export function UsersFilterBar({
 }: UsersFilterBarProps) {
   return (
     <div className="flex flex-col gap-3 border-b border-border px-5 py-4">
-      <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground tabular-nums">
         <span>
           共 {filteredCount} / {totalCount} 个用户
         </span>
