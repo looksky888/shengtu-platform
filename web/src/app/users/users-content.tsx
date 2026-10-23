@@ -8,6 +8,7 @@ import { useUsersManagement } from "@/app/users/use-users-management";
 import { UsersFilterBar } from "@/app/users/users-filter-bar";
 import { UsersTable } from "@/app/users/users-table";
 import { PageHeader } from "@/components/page-header";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { StoredAuthSession } from "@/store/auth";
 
@@ -19,16 +20,25 @@ export function UsersContent({ session }: { session: StoredAuthSession }) {
   return (
     <section className="flex flex-col gap-5">
       <PageHeader
-        eyebrow="用户"
+        eyebrow="用户与身份"
         title="用户管理"
+        badge={
+          !users.isLoading ? (
+            <Badge variant="secondary" className="rounded-md tabular-nums">
+              共 {users.total} 位用户
+            </Badge>
+          ) : null
+        }
+        description="统一管理注册账号、角色绑定、积分余额与近 14 日接口调用活跃趋势。"
         actions={
           <>
-            <Button variant="outline" onClick={() => void users.loadUsers()} disabled={users.isLoading} className="h-9 rounded-lg">
+            <Button variant="outline" size="sm" onClick={() => void users.loadUsers()} disabled={users.isLoading}>
               <RefreshCw className={`size-4 ${users.isLoading ? "animate-spin" : ""}`} />
               刷新列表
             </Button>
             <Button
               variant="outline"
+              size="sm"
               onClick={() => void users.loadUsage()}
               disabled={users.isLoading || users.isLoadingUsage || users.pagedItems.length === 0}
               title={
@@ -42,7 +52,6 @@ export function UsersContent({ session }: { session: StoredAuthSession }) {
                         ? "重新统计本页用户近 14 天用量"
                         : "按需统计本页用量（打开列表不会扫日志）"
               }
-              className="h-9 rounded-lg"
             >
               <RefreshCw className={`size-4 ${users.isLoadingUsage ? "animate-spin" : ""}`} />
               {users.isLoading
@@ -56,7 +65,7 @@ export function UsersContent({ session }: { session: StoredAuthSession }) {
                       : "加载用量"}
             </Button>
             {users.permissions.canCreateUser ? (
-              <Button onClick={users.openCreateDialog} className="h-9 rounded-lg">
+              <Button size="sm" onClick={users.openCreateDialog}>
                 <Plus className="size-4" />
                 创建用户
               </Button>
@@ -65,7 +74,7 @@ export function UsersContent({ session }: { session: StoredAuthSession }) {
         }
       />
 
-      <div className="overflow-hidden rounded-xl border border-border bg-background">
+      <div className="overflow-hidden rounded-xl border border-border bg-card shadow-2xs">
         <UsersFilterBar
           totalCount={users.total}
           filteredCount={users.total}
@@ -87,6 +96,7 @@ export function UsersContent({ session }: { session: StoredAuthSession }) {
           roles={users.roles}
           totalCount={users.total}
           filteredCount={users.total}
+          hasActiveFilters={users.hasActiveFilters}
           isLoading={users.isLoading}
           usageReady={users.usageReady}
           usageByUserId={users.usageByUserId}
@@ -98,6 +108,8 @@ export function UsersContent({ session }: { session: StoredAuthSession }) {
           permissions={users.permissions}
           onPageSizeChange={users.setPageSize}
           onPageChange={users.setPage}
+          onCreateUser={users.openCreateDialog}
+          onClearFilters={users.clearFilters}
           onAdjustCredits={users.openAdjustCreditsDialog}
           onRole={users.openRoleDialog}
           onToggle={(user) => void users.handleToggle(user)}

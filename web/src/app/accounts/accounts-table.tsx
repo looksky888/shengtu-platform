@@ -1,7 +1,11 @@
+import { Plus } from "lucide-react";
+
 import { AccountTableRow } from "@/app/accounts/account-table-row";
 import { AccountsBulkActions } from "@/app/accounts/accounts-bulk-actions";
 import { AccountsFilteredEmptyState, AccountsInitialEmptyState } from "@/app/accounts/accounts-empty-states";
 import { AccountsPagination } from "@/app/accounts/accounts-pagination";
+import { AccountImportDialog } from "@/app/accounts/components/account-import-dialog";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -22,6 +26,7 @@ type AccountsTableProps = {
   isRefreshing: boolean;
   isDeleting: boolean;
   isUpdating: boolean;
+  canImportAccounts?: boolean;
   canRefreshAccounts: boolean;
   canDeleteAccounts: boolean;
   canUpdateAccount: boolean;
@@ -41,25 +46,54 @@ type AccountsTableProps = {
   onDelete: (account: Account) => void;
   onPageSizeChange: (value: string) => void;
   onPageChange: (value: number | ((prev: number) => number)) => void;
+  onImported?: (items: Account[]) => void;
+  onResetFilters?: () => void;
 };
 
 export function AccountsTable(props: AccountsTableProps) {
+  const showBulkBar = !props.showInitialEmptyState && !props.showFilteredEmptyState && props.accounts.length > 0;
   return (
-    <Card className={cn("overflow-hidden rounded-xl border border-border/70 shadow-2xs", props.isHidden ? "hidden" : "")}>
+    <Card className={cn("overflow-hidden rounded-[14px] border border-border/80 bg-surface shadow-2xs", props.isHidden ? "hidden" : "")}>
       <CardContent className="space-y-0 p-0">
-        <AccountsBulkActions
-          selectedCount={props.selectedIds.length}
-          selectedAccountIds={props.selectedAccountIds}
-          abnormalAccountIds={props.abnormalAccountIds}
-          isRefreshing={props.isRefreshing}
-          isDeleting={props.isDeleting}
-          canRefreshAccounts={props.canRefreshAccounts}
-          canDeleteAccounts={props.canDeleteAccounts}
-          onRefreshSelected={props.onRefreshSelected}
-          onDeleteAbnormal={props.onDeleteAbnormal}
-          onDeleteSelected={props.onDeleteSelected}
-        />
-        {props.showInitialEmptyState ? <AccountsInitialEmptyState /> : <AccountsTableBody {...props} />}
+        {showBulkBar ? (
+          <AccountsBulkActions
+            currentPageCount={props.currentRows.length}
+            allCurrentSelected={props.allCurrentSelected}
+            selectedCount={props.selectedIds.length}
+            selectedAccountIds={props.selectedAccountIds}
+            abnormalAccountIds={props.abnormalAccountIds}
+            isRefreshing={props.isRefreshing}
+            isDeleting={props.isDeleting}
+            canRefreshAccounts={props.canRefreshAccounts}
+            canDeleteAccounts={props.canDeleteAccounts}
+            onToggleSelectAll={props.onToggleSelectAll}
+            onRefreshSelected={props.onRefreshSelected}
+            onDeleteAbnormal={props.onDeleteAbnormal}
+            onDeleteSelected={props.onDeleteSelected}
+          />
+        ) : null}
+        {props.showInitialEmptyState ? (
+          <AccountsInitialEmptyState
+            action={
+              props.canImportAccounts && props.onImported ? (
+                <AccountImportDialog
+                  disabled={props.isRefreshing || props.isDeleting}
+                  onImported={props.onImported}
+                  trigger={
+                    <Button size="sm">
+                      <Plus className="size-3.5" />
+                      导入账号 Token
+                    </Button>
+                  }
+                />
+              ) : undefined
+            }
+          />
+        ) : props.showFilteredEmptyState ? (
+          <AccountsFilteredEmptyState onResetFilters={props.onResetFilters} />
+        ) : (
+          <AccountsTableBody {...props} />
+        )}
       </CardContent>
     </Card>
   );
@@ -70,7 +104,7 @@ function AccountsTableBody(props: AccountsTableProps) {
     <>
       <div className="overflow-x-auto">
         <Table className="min-w-[920px]">
-          <TableHeader className="bg-surface-subtle/80 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+          <TableHeader className="bg-surface-muted/45 text-[11px] font-medium tracking-wide text-muted-foreground">
             <TableRow className="hover:bg-transparent">
               <TableHead className="w-12"><Checkbox checked={props.allCurrentSelected} onCheckedChange={(checked) => props.onToggleSelectAll(Boolean(checked))} /></TableHead>
               <TableHead className="w-56">Token</TableHead>
@@ -85,32 +119,24 @@ function AccountsTableBody(props: AccountsTableProps) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {props.showFilteredEmptyState ? (
-              <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={10} className="p-0">
-                  <AccountsFilteredEmptyState />
-                </TableCell>
-              </TableRow>
-            ) : (
-              props.currentRows.map((account) => (
-                <AccountTableRow
-                  key={account.id}
-                  account={account}
-                  selected={props.selectedIds.includes(account.id)}
-                  canExportTokens={props.canExportTokens}
-                  canUpdateAccount={props.canUpdateAccount}
-                  canRefreshAccounts={props.canRefreshAccounts}
-                  canDeleteAccounts={props.canDeleteAccounts}
-                  isUpdating={props.isUpdating}
-                  isRefreshing={props.isRefreshing}
-                  isDeleting={props.isDeleting}
-                  onSelectedChange={(checked) => props.onSelectAccount(account, checked)}
-                  onEdit={props.onEdit}
-                  onRefresh={props.onRefresh}
-                  onDelete={props.onDelete}
-                />
-              ))
-            )}
+            {props.currentRows.map((account) => (
+              <AccountTableRow
+                key={account.id}
+                account={account}
+                selected={props.selectedIds.includes(account.id)}
+                canExportTokens={props.canExportTokens}
+                canUpdateAccount={props.canUpdateAccount}
+                canRefreshAccounts={props.canRefreshAccounts}
+                canDeleteAccounts={props.canDeleteAccounts}
+                isUpdating={props.isUpdating}
+                isRefreshing={props.isRefreshing}
+                isDeleting={props.isDeleting}
+                onSelectedChange={(checked) => props.onSelectAccount(account, checked)}
+                onEdit={props.onEdit}
+                onRefresh={props.onRefresh}
+                onDelete={props.onDelete}
+              />
+            ))}
           </TableBody>
         </Table>
       </div>

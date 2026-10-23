@@ -13,7 +13,11 @@ import {
   BookOpen,
   Coins,
   CornerDownLeft,
+  Film,
+  LogOut,
   MoonStar,
+  PlusCircle,
+  RefreshCw,
   Search,
   Settings2,
   Sun,
@@ -125,11 +129,13 @@ export function NavSearchMenu({
   pathname,
   theme,
   onToggleTheme,
+  onLogout,
 }: {
   items: NavItem[];
   pathname: string;
   theme?: "light" | "dark";
   onToggleTheme?: () => void;
+  onLogout?: () => Promise<void> | void;
 }) {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -143,10 +149,116 @@ export function NavSearchMenu({
     () => items.some((item) => item.href === "/settings"),
     [items]
   );
+  const canAccessImage = useMemo(
+    () => items.some((item) => item.href === "/image"),
+    [items]
+  );
+  const canAccessVideo = useMemo(
+    () => items.some((item) => item.href === "/video"),
+    [items]
+  );
 
   const allEntries = useMemo<CommandEntry[]>(() => {
     const entries: CommandEntry[] = [];
     const groupLabelMap = new Map(navGroups.map((g) => [g.id, g.label]));
+
+    // 1. Quick Studio Actions first so ⌘K immediately feels like Raycast / open-ai-canvas
+    if (canAccessImage) {
+      entries.push({
+        id: "action:new-image-session",
+        groupLabel: "快捷操作",
+        label: "新建图片创作会话",
+        subtitle: "打开图片工作台并开启一个全新空白创作画布",
+        badge: "Action",
+        icon: PlusCircle,
+        keywords: ["new", "image", "create", "session", "新建", "生图", "创作", "会话"],
+        onSelect: () => navigate("/image?new=1"),
+      });
+    }
+
+    if (canAccessVideo) {
+      entries.push({
+        id: "action:open-video-studio",
+        groupLabel: "快捷操作",
+        label: "打开视频暗房工作台",
+        subtitle: "文生视频、图生视频与连续镜头扩展生成",
+        badge: "Studio",
+        icon: Film,
+        keywords: ["video", "cinema", "sora", "grok", "视频", "暗房", "成片"],
+        onSelect: () => navigate("/video"),
+      });
+    }
+
+    if (onToggleTheme) {
+      entries.push({
+        id: "action:toggle-theme",
+        groupLabel: "快捷操作",
+        label: theme === "dark" ? "切换到浅色画廊主题" : "切换到深色暗房主题",
+        subtitle: "一键切换全站浅色纸境 / 深色曜石工作台配色",
+        badge: "Theme",
+        icon: theme === "dark" ? Sun : MoonStar,
+        keywords: ["theme", "dark", "light", "主题", "深色", "浅色", "夜间", "暗黑"],
+        onSelect: () => onToggleTheme(),
+      });
+    }
+
+    entries.push({
+      id: "nav:/profile?tab=api",
+      groupLabel: "快捷操作",
+      label: "生成或查看个人 API 密钥",
+      subtitle: "管理个人 sk- 令牌、自检连通性并查阅 OpenAI / 视频接口文档",
+      badge: "API Key",
+      icon: BookOpen,
+      keywords: [
+        "api",
+        "key",
+        "token",
+        "docs",
+        "openai",
+        "sdk",
+        "接口",
+        "密钥",
+        "文档",
+        "对接",
+      ],
+      onSelect: () => navigate("/profile?tab=api"),
+    });
+
+    entries.push({
+      id: "nav:/profile?tab=credits",
+      groupLabel: "快捷操作",
+      label: "个人积分中心与每日签到",
+      subtitle: "领取每日签到算力积分、查看消费与退费流水明细",
+      badge: "Credits",
+      icon: Coins,
+      keywords: ["credits", "ledger", "balance", "checkin", "积分", "流水", "余额", "签到"],
+      onSelect: () => navigate("/profile?tab=credits"),
+    });
+
+    if (canAccessSettings) {
+      entries.push({
+        id: "action:check-update",
+        groupLabel: "快捷操作",
+        label: "检查系统版本与在线升级",
+        subtitle: "检测 GitHub 最新版本并通过 Host Updater 平滑热更新",
+        badge: "Update",
+        icon: RefreshCw,
+        keywords: ["update", "upgrade", "version", "release", "更新", "升级", "版本"],
+        onSelect: () => navigate("/settings?tab=system-update"),
+      });
+    }
+
+    entries.push({
+      id: "nav:/profile",
+      groupLabel: "快捷操作",
+      label: profileNavItem.label,
+      subtitle: profileNavItem.description,
+      badge: "/profile",
+      icon: UserCircle2,
+      keywords: ["profile", "account", "user", "个人中心", "账号", "密码", "邀请", "卡密"],
+      active: isActivePath(pathname, "/profile"),
+      onSelect: () => navigate("/profile"),
+    });
 
     for (const item of items) {
       const groupName = groupLabelMap.get(item.group ?? "creation") ?? "页面导航";
@@ -174,64 +286,6 @@ export function NavSearchMenu({
       });
     }
 
-    entries.push({
-      id: "nav:/profile",
-      groupLabel: "快捷操作",
-      label: profileNavItem.label,
-      subtitle: profileNavItem.description,
-      badge: "/profile",
-      icon: UserCircle2,
-      keywords: ["profile", "account", "user", "个人中心", "账号", "密码", "签到"],
-      active: isActivePath(pathname, "/profile"),
-      onSelect: () => navigate("/profile"),
-    });
-
-    entries.push({
-      id: "nav:/profile?tab=api",
-      groupLabel: "快捷操作",
-      label: "接口密钥与 API 文档",
-      subtitle: "生成/管理个人 sk- 密钥、测试连通性并查阅 OpenAI / 视频接口文档",
-      badge: "/profile?tab=api",
-      icon: BookOpen,
-      keywords: [
-        "api",
-        "key",
-        "token",
-        "docs",
-        "openai",
-        "sdk",
-        "接口",
-        "密钥",
-        "文档",
-        "对接",
-      ],
-      onSelect: () => navigate("/profile?tab=api"),
-    });
-
-    entries.push({
-      id: "nav:/profile?tab=credits",
-      groupLabel: "快捷操作",
-      label: "个人积分中心与流水",
-      subtitle: "查看当前算力积分余额、签到状态与消费退费明细",
-      badge: "/profile?tab=credits",
-      icon: Coins,
-      keywords: ["credits", "ledger", "balance", "积分", "流水", "余额"],
-      onSelect: () => navigate("/profile?tab=credits"),
-    });
-
-    if (onToggleTheme) {
-      entries.push({
-        id: "action:toggle-theme",
-        groupLabel: "快捷操作",
-        label: theme === "dark" ? "切换到浅色模式" : "切换到深色模式",
-        subtitle: "立即切换工作台配色主题",
-        badge: "Theme",
-        icon: theme === "dark" ? Sun : MoonStar,
-        keywords: ["theme", "dark", "light", "主题", "深色", "浅色", "夜间"],
-        onSelect: () => onToggleTheme(),
-      });
-    }
-
     if (canAccessSettings) {
       for (const sub of SETTINGS_SUB_COMMANDS) {
         entries.push({
@@ -247,8 +301,33 @@ export function NavSearchMenu({
       }
     }
 
+    if (onLogout) {
+      entries.push({
+        id: "action:logout",
+        groupLabel: "账号会话",
+        label: "退出当前登录账号",
+        subtitle: "安全注销本地登录凭据并返回门户首页",
+        badge: "Sign out",
+        icon: LogOut,
+        keywords: ["logout", "signout", "exit", "退出", "注销", "登出"],
+        onSelect: () => {
+          void onLogout();
+        },
+      });
+    }
+
     return entries;
-  }, [canAccessSettings, items, navigate, onToggleTheme, pathname, theme]);
+  }, [
+    canAccessImage,
+    canAccessSettings,
+    canAccessVideo,
+    items,
+    navigate,
+    onLogout,
+    onToggleTheme,
+    pathname,
+    theme,
+  ]);
 
   const matches = useMemo(() => {
     const keyword = query.trim().toLocaleLowerCase();
@@ -381,13 +460,13 @@ export function NavSearchMenu({
             id={resultsId}
             role="listbox"
             aria-label="命令与页面搜索结果"
-            className="thin-scrollbar max-h-[min(24rem,62dvh)] overflow-y-auto p-2"
+            className="thin-scrollbar max-h-[min(25rem,64dvh)] scroll-py-2 overflow-y-auto px-2.5 py-2.5"
           >
             {groupedMatches.length > 0 ? (
-              <div className="space-y-3">
+              <div className="space-y-3 pb-1">
                 {groupedMatches.map((group) => (
                   <div key={group.label} className="space-y-1">
-                    <div className="px-2.5 py-1 text-[11px] font-semibold tracking-wider text-muted-foreground/80">
+                    <div className="px-2.5 py-1 text-[11px] font-semibold tracking-[0.06em] uppercase text-muted-foreground/80">
                       {group.label}
                     </div>
                     {group.items.map(({ entry, flatIndex }) => {

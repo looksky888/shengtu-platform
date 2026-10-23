@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { ChannelEditorDialog } from "@/app/payment-admin/payment-channel-dialogs";
 import { PaymentChannelCard } from "@/app/payment-admin/payment-channel-card";
 import { CredentialsDialog } from "@/app/payment-admin/payment-credentials-dialog";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PaymentSectionState } from "@/app/payment-admin/payment-section-state";
@@ -136,19 +137,31 @@ export function PaymentChannelsSection() {
   return (
     <>
       <Card className="overflow-hidden rounded-xl">
-        <CardHeader className="border-b border-border/70 bg-muted/20">
+        <CardHeader className="border-b border-border/70 bg-surface-muted/35 pb-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <CardTitle className="flex items-center gap-2">
-              <CreditCard className="size-5 text-primary" />
+            <CardTitle className="flex items-center gap-2 text-base font-semibold">
+              <CreditCard className="size-4.5 text-muted-foreground" />
               支付渠道
+              <Badge variant="secondary" className="rounded-md tabular-nums">
+                共 {channels.length} 个
+              </Badge>
             </CardTitle>
             <div className="flex flex-wrap gap-2">
-              <Button type="button" variant="outline" onClick={() => void load()} disabled={loading} className="h-9 rounded-lg">
-                <RefreshCw className={loading ? "size-4 animate-spin" : "size-4"} />刷新
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => void load()}
+                disabled={loading}
+              >
+                <RefreshCw
+                  className={loading ? "size-3.5 animate-spin" : "size-3.5"}
+                />
+                刷新
               </Button>
-              <Button type="button" onClick={openCreate} className="h-9 rounded-lg">
-              <Plus className="size-4" />
-              新增渠道
+              <Button type="button" size="sm" onClick={openCreate}>
+                <Plus className="size-3.5" />
+                新增渠道
               </Button>
             </div>
           </div>

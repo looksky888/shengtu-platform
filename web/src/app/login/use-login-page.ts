@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
+import { PENDING_STUDIO_PROMPT_STORAGE_KEY } from "@/app/landing/landing-brand";
 import { useLoginRegistrationMode } from "@/app/login/use-login-registration-mode";
 import { usePasswordReset } from "@/app/login/use-password-reset";
 import { isRegistrationEmailValid, useRegistrationEmail } from "@/app/login/use-registration-email";
@@ -10,6 +11,7 @@ import { setVerifiedAuthSession } from "@/lib/session";
 import { applyColorTheme, getPreferredColorTheme, saveColorTheme, type ColorTheme } from "@/lib/theme";
 import { useRedirectIfAuthenticated } from "@/lib/use-auth-guard";
 import {
+  canAccessPath,
   getAuthPersistPreference,
   getDefaultRouteForSession,
   getRememberedUsername,
@@ -94,7 +96,7 @@ export function useLoginPage() {
       return reportValidationError("请输入用户名或邮箱");
     }
     if (!password) return reportValidationError("请输入密码");
-    if (!agreedToTerms) return reportValidationError("请先阅读并勾选同意《用户协议与免责声明》");
+    if (!agreedToTerms) return reportValidationError("请先阅读并勾选同意《用户服务协议与免责声明》");
     if (mode.isRegisterMode && mode.registrationEnabled === false) return reportValidationError("当前未开放注册");
 
     setErrorMessage(null);
@@ -121,6 +123,23 @@ export function useLoginPage() {
       await setVerifiedAuthSession(session, { rememberMe });
       setRememberedUsername(rememberMe ? (mode.isRegisterMode ? normalizedEmail : normalizedUsername) : "");
       toast.success(mode.isRegisterMode ? "注册成功" : "登录成功");
+
+      let pendingPrompt = (mode.searchParams.get("prompt") || "").trim();
+      if (typeof window !== "undefined") {
+        try {
+          if (pendingPrompt) {
+            window.sessionStorage.setItem(PENDING_STUDIO_PROMPT_STORAGE_KEY, pendingPrompt);
+          } else {
+            pendingPrompt = (window.sessionStorage.getItem(PENDING_STUDIO_PROMPT_STORAGE_KEY) || "").trim();
+          }
+        } catch {
+          // Ignore storage restrictions.
+        }
+      }
+      if (pendingPrompt && canAccessPath(session, "/image")) {
+        navigate(`/image?prompt=${encodeURIComponent(pendingPrompt)}`, { replace: true });
+        return;
+      }
       navigate(getDefaultRouteForSession(session), { replace: true });
     } catch (error) {
       const message = error instanceof Error ? error.message : mode.isRegisterMode ? "注册失败，请重试" : "登录失败，请检查账号或密码";

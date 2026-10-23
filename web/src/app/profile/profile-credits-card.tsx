@@ -1,11 +1,10 @@
-import { Coins, LoaderCircle, RefreshCw } from "lucide-react";
+import { CheckCircle2, Coins, LoaderCircle, RefreshCw } from "lucide-react";
 
 import { ProfileCreditBalanceSummary } from "@/app/profile/profile-credit-balance-summary";
 import {
   ProfileCreditLedgerTable,
   type ProfileCreditLedgerTableProps,
 } from "@/app/profile/profile-credit-ledger-table";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -21,7 +20,9 @@ type ProfileCreditsCardProps = ProfileCreditLedgerTableProps & {
   credits: ProfileCredits | null;
   creditsError: string;
   isLoadingCredits: boolean;
+  isCheckingIn?: boolean;
   displayLatestCreditEntry: CreditLedgerEntry | null;
+  onCheckin?: () => void;
   onRetry: () => void;
 };
 
@@ -29,6 +30,7 @@ export function ProfileCreditsCard({
   credits,
   creditsError,
   isLoadingCredits,
+  isCheckingIn = false,
   displayLatestCreditEntry,
   creditLedger,
   pagedCreditLedger,
@@ -36,9 +38,12 @@ export function ProfileCreditsCard({
   safeCreditLedgerPage,
   creditLedgerPageCount,
   creditLedgerPageSize,
+  onCheckin,
   onRetry,
   onPageChange,
 }: ProfileCreditsCardProps) {
+  const checkedIn = Boolean(credits?.checked_in_today);
+
   return (
     <Card>
       <CardHeader className="pb-3">
@@ -52,16 +57,28 @@ export function ProfileCreditsCard({
                 积分中心
               </CardTitle>
               <CardDescription className="truncate">
-                余额、签到状态与使用流水
+                余额、每日签到奖励与账户收支流水
               </CardDescription>
             </div>
           </div>
-          <Badge
-            variant={credits?.checked_in_today ? "success" : "secondary"}
-            className="w-fit rounded-md"
-          >
-            {credits?.checked_in_today ? "今日已签到" : "今日未签到"}
-          </Badge>
+          {onCheckin ? (
+            <Button
+              type="button"
+              size="sm"
+              variant={checkedIn ? "outline" : "default"}
+              disabled={isLoadingCredits || isCheckingIn || checkedIn}
+              onClick={onCheckin}
+            >
+              {isCheckingIn ? (
+                <LoaderCircle className="size-3.5 animate-spin" />
+              ) : checkedIn ? (
+                <CheckCircle2 className="size-3.5 text-status-success" />
+              ) : (
+                <Coins className="size-3.5" />
+              )}
+              {checkedIn ? "今日已签到" : "立即签到领积分"}
+            </Button>
+          ) : null}
         </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">

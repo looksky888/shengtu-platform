@@ -51,8 +51,8 @@ export function ProgressCell({ item }: { item: CreationTask }) {
         : "obsidian";
 
   return (
-    <div className="min-w-[160px] max-w-[220px] space-y-1">
-      <div className="flex items-center gap-2">
+    <div className="min-w-[108px] max-w-[148px] space-y-1">
+      <div className="flex items-center gap-1.5">
         <CreationTaskProgressBar
           progress={progress}
           indeterminate={isProgressIndeterminate(item)}
@@ -70,7 +70,7 @@ export function ProgressCell({ item }: { item: CreationTask }) {
       </div>
       <div
         className={cn(
-          "truncate text-xs tabular-nums",
+          "truncate text-[11px] tabular-nums",
           active
             ? "font-medium text-foreground"
             : item.status === "success"
@@ -93,22 +93,22 @@ export function MessageCell({ item }: { item: CreationTask }) {
   const account = item.account_label || "—";
   const action = failureAction(item);
   return (
-    <div className="min-w-[180px] max-w-[280px] space-y-0.5">
+    <div className="min-w-[136px] max-w-[208px] space-y-0.5">
       <div
         className={cn(
-          "line-clamp-1 text-sm",
+          "line-clamp-1 text-xs",
           item.status === "error" ? "text-rose-600 dark:text-rose-400" : "text-foreground",
         )}
         title={msg}
       >
         {msg}
       </div>
-      <div className="text-xs tabular-nums text-muted-foreground">
-        日志 {logs} 条 · 账号 {account}
+      <div className="truncate text-[11px] tabular-nums text-muted-foreground" title={`日志 ${logs} 条 · 账号 ${account}`}>
+        日志 {logs} · {account}
         {(item.account_switch_count || 0) > 0 ? ` · 换号 ${item.account_switch_count}` : ""}
       </div>
       {action?.href ? (
-        <Link to={action.href} className="text-xs font-medium text-foreground underline-offset-4 hover:underline">
+        <Link to={action.href} className="text-[11px] font-medium text-foreground underline-offset-4 hover:underline">
           {action.label}
         </Link>
       ) : null}

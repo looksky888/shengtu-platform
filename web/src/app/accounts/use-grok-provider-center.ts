@@ -38,7 +38,7 @@ function downloadJson(value: unknown, filename: string) {
   downloadBlob(new Blob([JSON.stringify(value, null, 2)], { type: "application/json" }), filename);
 }
 
-export function useGrokProviderCenter() {
+export function useGrokProviderCenter(enabled = true) {
   const [provider, setProvider] = useState<GrokProviderFilter>("all");
   const [status, setStatus] = useState<GrokProviderStatusFilter>("all");
   const [keyword, setKeyword] = useState("");
@@ -59,7 +59,9 @@ export function useGrokProviderCenter() {
     setLoading(true);
     setError("");
     try {
-      setData(await listGrokProviderAccounts({ page, page_size: pageSize, provider, status, keyword }, signal));
+      const nextData = await listGrokProviderAccounts({ page, page_size: pageSize, provider, status, keyword }, signal);
+      setData(nextData);
+      setActionError("");
     } catch (reason) {
       if (!signal?.aborted) setError(reason instanceof Error ? reason.message : "Grok 账号加载失败");
     } finally {
@@ -68,12 +70,14 @@ export function useGrokProviderCenter() {
   }, [keyword, page, pageSize, provider, status]);
 
   useEffect(() => {
+    if (!enabled) return;
     const controller = new AbortController();
     const timer = window.setTimeout(() => void load(controller.signal), 220);
     return () => { controller.abort(); window.clearTimeout(timer); };
-  }, [load]);
+  }, [enabled, load]);
 
   useEffect(() => {
+    if (!enabled) return;
     const controller = new AbortController();
     listActiveGrokProviderConversionTasks(controller.signal)
       .then(({ items }) => {
@@ -84,12 +88,12 @@ export function useGrokProviderCenter() {
         }
       })
       .catch((reason) => {
-        if (!controller.signal.aborted) {
+        if (!controller.signal.aborted && data) {
           setActionError(reason instanceof Error ? reason.message : "恢复账号任务失败");
         }
       });
     return () => controller.abort();
-  }, []);
+  }, [data, enabled]);
 
   useEffect(() => {
     if (!task) return;

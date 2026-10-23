@@ -15,11 +15,19 @@ import {
 } from "@/lib/system-update-api";
 import { SettingsNotice } from "./settings-ui";
 
-export function HostUpdaterStatusPanel() {
+export function HostUpdaterStatusPanel({
+  onStatusChange,
+}: {
+  onStatusChange?: (status: HostUpdaterStatus | null, loading: boolean) => void;
+}) {
   const [status, setStatus] = useState<HostUpdaterStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
   const [confirming, setConfirming] = useState(false);
+
+  useEffect(() => {
+    onStatusChange?.(status, loading);
+  }, [status, loading, onStatusChange]);
 
   const load = useCallback(async (signal?: AbortSignal, silent = false) => {
     try {
@@ -81,25 +89,53 @@ export function HostUpdaterStatusPanel() {
   const checking = state?.status === "preflight";
   const updating = state?.status === "updating" || state?.status === "rolling_back";
   return (
-    <div className="rounded-lg border border-border/60 bg-muted/20 p-4">
+    <div className="rounded-xl border border-border/75 bg-surface-muted/30 p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-start gap-3">
-          <div className="rounded-lg bg-surface-muted p-2 text-foreground ring-1 ring-border/60"><ServerCog className="size-4.5" /></div>
+          <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-surface text-foreground ring-1 ring-border/70">
+            <ServerCog className="size-4" />
+          </div>
           <div>
-            <div className="flex items-center gap-2 text-sm font-semibold">Host Updater
-              {status?.connected ? <Badge variant="success">已连接</Badge> : <Badge variant="secondary">未连接</Badge>}
+            <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-foreground">
+              <span>Host Updater 守护服务</span>
+              {loading ? (
+                <Badge variant="secondary">检测中…</Badge>
+              ) : status?.connected ? (
+                <Badge variant="success">已连接</Badge>
+              ) : (
+                <Badge variant="secondary">未连接</Badge>
+              )}
             </div>
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">独立宿主更新器负责预检；业务容器不接触 Docker Socket。</p>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              {status?.connected
+                ? "独立宿主守护进程已就绪，负责排空任务、创建冷备份与切换容器镜像；业务容器无需挂载 Docker Socket。"
+                : "独立宿主更新器负责环境预检与镜像切换；业务容器不直接接触 Docker Socket。"}
+            </p>
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button size="sm" variant="outline" disabled={loading || starting || checking || updating || !status?.connected} onClick={() => void runPreflight()}>
-            {checking ? <LoaderCircle className="size-4 animate-spin" /> : <CircleDashed className="size-4" />}运行更新前检查
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={loading || starting || checking || updating || !status?.connected}
+            onClick={() => void runPreflight()}
+          >
+            {checking ? <LoaderCircle className="size-3.5 animate-spin" /> : <CircleDashed className="size-3.5" />}
+            运行更新前检查
           </Button>
-          {state?.status === "ready" ? <Button size="sm" disabled={starting} onClick={() => setConfirming(true)}><UploadCloud className="size-4" />开始更新</Button> : null}
+          {state?.status === "ready" ? (
+            <Button size="sm" variant="brand" disabled={starting} onClick={() => setConfirming(true)}>
+              <UploadCloud className="size-3.5" />
+              开始平滑升级
+            </Button>
+          ) : null}
         </div>
       </div>
-      {!loading && !status?.connected ? <SettingsNotice className="mt-4 border-amber-500/25 bg-amber-500/10 text-amber-800 dark:text-amber-300">{status?.reason || "Host Updater 尚未连接，请检查宿主服务、Socket 与通信密钥。"}</SettingsNotice> : null}
+      {!loading && !status?.connected ? (
+        <SettingsNotice className="mt-3.5 border-status-warning/30 bg-status-warning-soft/55 text-foreground">
+          {status?.reason || "尚未检测到宿主更新守护服务（Host Updater），当前仅支持在线检查新版本；如需一键升级请先配置宿主服务与通信密钥。"}
+        </SettingsNotice>
+      ) : null}
       {state?.checks?.length ? (
         <div className="mt-4 grid gap-2 sm:grid-cols-2">
           {state.checks.map((check) => (

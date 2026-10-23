@@ -71,12 +71,12 @@ export function ApiIntegrationQuickPanel({
   );
 
   return (
-    <div className="flex flex-col justify-between gap-3.5 rounded-lg border border-border/60 bg-muted/20 p-3.5">
-      <div className="space-y-3">
-        <div className="flex items-center justify-between gap-2">
+    <div className="flex flex-col justify-between gap-4 rounded-xl border border-border/70 bg-surface-muted/25 p-4">
+      <div className="space-y-3.5">
+        <div className="flex min-h-7 items-center justify-between gap-2">
           <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-foreground">
             <Globe className="size-3.5 text-muted-foreground" />
-            接入端点与配额速览
+            快速接入信息与配额速览
           </span>
           <Button
             type="button"

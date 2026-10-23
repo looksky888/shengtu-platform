@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { LoaderCircle, Mail, RefreshCw, ShieldCheck } from "lucide-react";
+import { AlertCircle, ArrowRight, LoaderCircle, Mail, RefreshCw, ShieldCheck } from "lucide-react";
+import { Link } from "react-router-dom";
 
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +34,12 @@ export default function ICloudPage() {
 
   const { loading, bridge, selectedAccountIds, pageError, notice, metrics, refreshAll, mailboxSummary, sessions } = controller;
 
+  const isModuleDisabled =
+    !loading &&
+    (bridge?.enabled === false ||
+      /未启用|disabled|feature_icloud/i.test(`${bridge?.error || ""} ${pageError}`));
+  const hasBridgeWarning = !loading && !isModuleDisabled && (bridge?.reachable === false || Boolean(pageError));
+
   const tabs: readonly SubNavItem<ICloudTab>[] = [
     {
       value: "mailboxes",
@@ -51,40 +58,67 @@ export default function ICloudPage() {
   return (
     <div className="mx-auto flex w-full max-w-[1180px] flex-col gap-5 pb-8">
       <PageHeader
-        eyebrow="邮箱"
+        eyebrow="号池与运维"
         title="iCloud 隐私邮箱"
+        badge={
+          bridge?.reachable ? (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Badge variant="success">Bridge 可达</Badge>
+              {bridge.base_url ? (
+                <span className="rounded-md border border-border/70 bg-surface-muted px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
+                  {bridge.base_url}
+                </span>
+              ) : null}
+            </div>
+          ) : undefined
+        }
+        description="登录 Apple 账号并配置 IMAP 取码通道后即可批量生成隐藏邮件地址，供本地注册流水线（icloud_local）自动领用；凭证仅用于当次请求，不写入前端本地存储。"
         actions={
-          <Button variant="outline" size="sm" onClick={() => void refreshAll()} disabled={loading}>
-            <RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} />
-            刷新
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            {selectedAccountIds.length > 0 ? (
+              <Badge variant="info">已选 {selectedAccountIds.length} 个账号 · 自动记住</Badge>
+            ) : null}
+            <Button variant="outline" size="sm" onClick={() => void refreshAll()} disabled={loading}>
+              <RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} />
+              刷新
+            </Button>
+          </div>
         }
       />
-      <p className="-mt-2 text-sm leading-6 text-muted-foreground">
-        先登录 Apple（新/旧接口）并配置 IMAP 取码，再创建隐私邮箱；注册机{" "}
-        <code className="rounded-md bg-muted px-1.5 py-0.5 text-[11px]">icloud_local</code> 才能 claim。
-        密码仅用于当前请求，不会写入前端本地存储。
-      </p>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <Badge variant={bridge?.reachable ? "success" : "danger"}>
-          {bridge?.reachable ? "Bridge 可达" : "Bridge 未就绪"}
-        </Badge>
-        {bridge?.base_url ? (
-          <span className="rounded-md border border-border/70 bg-muted/40 px-2.5 py-0.5 font-mono text-[11px] text-muted-foreground">
-            {bridge.base_url}
-          </span>
-        ) : null}
-        {selectedAccountIds.length > 0 ? <Badge variant="info">已选 {selectedAccountIds.length} 个账号 · 自动记住</Badge> : null}
-      </div>
-
-      {pageError ? (
-        <div className="rounded-xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-300">
-          {pageError}
+      {isModuleDisabled ? (
+        <div className="flex flex-col gap-3 rounded-[14px] border border-status-warning/30 bg-status-warning-soft/55 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-2.5 text-xs leading-5 text-foreground sm:items-center sm:text-[13px]">
+            <AlertCircle className="mt-0.5 size-4 shrink-0 text-status-warning sm:mt-0" />
+            <span>
+              iCloud 隐私邮箱模块当前未启用 · 请前往「系统设置 → 邮箱与注册」开启后再执行取码与生成操作
+            </span>
+          </div>
+          <Button asChild variant="outline" size="sm" className="shrink-0 bg-surface">
+            <Link to="/settings?tab=email">
+              前往开启
+              <ArrowRight className="size-3.5" />
+            </Link>
+          </Button>
+        </div>
+      ) : hasBridgeWarning ? (
+        <div className="flex flex-col gap-3 rounded-[14px] border border-status-warning/30 bg-status-warning-soft/55 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-2.5 text-xs leading-5 text-foreground sm:items-center sm:text-[13px]">
+            <AlertCircle className="mt-0.5 size-4 shrink-0 text-status-warning sm:mt-0" />
+            <span>
+              iCloud Bridge 服务暂未就绪
+              {pageError && pageError !== "iCloud Bridge 未就绪" ? ` · ${pageError}` : " · 请确认本地 Sidecar 节点已启动后再重试"}
+            </span>
+          </div>
+          <Button variant="outline" size="sm" className="shrink-0 bg-surface" onClick={() => void refreshAll()} disabled={loading}>
+            <RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} />
+            重新检测
+          </Button>
         </div>
       ) : null}
+
       {notice ? (
-        <div className="rounded-xl border border-border/80 bg-surface-muted/70 px-4 py-3 text-sm text-foreground">
+        <div className="rounded-[14px] border border-border/80 bg-surface-muted/70 px-4 py-3 text-xs text-foreground sm:text-[13px]">
           {notice}
         </div>
       ) : null}
@@ -110,7 +144,7 @@ export default function ICloudPage() {
       </div>
 
       {activeTab === "mailboxes" ? (
-        <ICloudMailboxesPanel controller={controller} />
+        <ICloudMailboxesPanel controller={controller} onSwitchToSessions={() => setActiveTab("sessions")} />
       ) : (
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(22rem,.9fr)]">
           <ICloudSessionsPanel controller={controller} />

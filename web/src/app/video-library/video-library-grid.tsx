@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import {
   AlertCircle,
+  ArrowRight,
   Clock3,
   Download,
   Film,
@@ -9,6 +10,7 @@ import {
   LoaderCircle,
   Lock,
   Play,
+  RotateCcw,
   Search,
   Trash2,
   UserRound,
@@ -28,17 +30,19 @@ export function VideoLibraryGrid({
   canDeleteVideos,
   canUpdateVisibility,
   onRetry,
+  onClearFilters,
 }: {
   controller: VideoLibraryController;
   canDeleteVideos: boolean;
   canUpdateVisibility: boolean;
   onRetry: () => void;
+  onClearFilters?: () => void;
 }) {
   if (controller.loading && controller.assets.length === 0) {
     return (
       <LibraryLoadingOrErrorState
         icon={<LoaderCircle className="size-5 animate-spin text-foreground" />}
-        title="正在读取视频库"
+        title="正在读取视频资产"
       />
     );
   }
@@ -55,12 +59,34 @@ export function VideoLibraryGrid({
   if (controller.filteredAssets.length === 0) {
     const filtered = Boolean(controller.searchKeyword.trim() || controller.visibilityFilter !== "all");
     return (
-      <EmptyState
-        icon={filtered ? Search : Film}
-        title={filtered ? "没有符合筛选条件的视频" : "还没有生成视频"}
-        description={filtered ? "调整关键词或公开状态后重试。" : "视频生成成功后会自动归档到这里。"}
-        action={!filtered ? <Button asChild size="sm" className="rounded-lg"><Link to="/video">创作第一个视频</Link></Button> : undefined}
-      />
+      <div className="rounded-[14px] border border-border/80 bg-surface shadow-2xs">
+        <EmptyState
+          icon={filtered ? Search : Film}
+          title={filtered ? "没有匹配筛选条件的视频" : "暂无视频资产"}
+          description={
+            filtered
+              ? "尝试清空搜索词，或切换公开状态筛选后再试。"
+              : "在视频工作台完成生成后，视频资产会自动归档到这里。"
+          }
+          action={
+            filtered ? (
+              onClearFilters ? (
+                <Button type="button" variant="outline" size="sm" onClick={onClearFilters}>
+                  <RotateCcw className="size-3.5" />
+                  重置筛选条件
+                </Button>
+              ) : undefined
+            ) : (
+              <Button asChild size="sm">
+                <Link to="/video">
+                  前往创作第一个视频
+                  <ArrowRight className="size-3.5" />
+                </Link>
+              </Button>
+            )
+          }
+        />
+      </div>
     );
   }
   return (

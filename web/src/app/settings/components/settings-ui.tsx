@@ -29,6 +29,7 @@ type SettingsCardProps = {
   children: ReactNode;
   className?: string;
   contentClassName?: string;
+  description?: string;
   icon: LucideIcon;
   meta?: ReactNode;
   title: string;
@@ -38,21 +39,22 @@ type SettingsCardProps = {
 export const settingsInputClassName = "bg-background";
 export const settingsDialogInputClassName = "bg-background";
 export const settingsInlineCodeClassName =
-  "min-w-0 break-all rounded-md bg-muted px-2.5 py-1.5 font-mono text-xs leading-5 text-muted-foreground";
+  "min-w-0 break-all rounded-md bg-surface-muted px-2.5 py-1.5 font-mono text-xs leading-5 text-muted-foreground ring-1 ring-border/60";
 export const settingsListItemClassName =
-  "rounded-lg border border-border/60 bg-muted/20 p-4";
+  "rounded-xl border border-border/75 bg-surface-muted/30 p-4";
 export const settingsPanelClassName =
-  "rounded-lg border border-border/60 bg-muted/20 p-4";
+  "rounded-xl border border-border/75 bg-surface-muted/30 p-4";
 export const settingsToggleClassName =
-  "flex min-h-10 items-center gap-3 rounded-lg border border-border/60 bg-muted/20 px-3.5 py-2.5 text-sm font-medium text-foreground";
+  "flex min-h-10 items-center gap-3 rounded-xl border border-border/75 bg-surface-muted/30 px-3.5 py-2.5 text-sm font-medium text-foreground";
 export const settingsInlineToggleClassName =
-  "flex min-h-9 items-center gap-3 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-sm font-medium text-foreground";
+  "flex min-h-9 items-center gap-3 rounded-xl border border-border/75 bg-surface-muted/30 px-3 py-2 text-sm font-medium text-foreground";
 
 export function SettingsCard({
   action,
   children,
   className,
   contentClassName,
+  description,
   icon: Icon,
   meta,
   title,
@@ -61,24 +63,27 @@ export function SettingsCard({
   return (
     <Card
       className={cn(
-        "overflow-hidden rounded-xl border border-border/70 bg-card p-5 shadow-2xs",
+        "overflow-hidden rounded-[14px] border border-border/80 bg-surface p-5 shadow-2xs",
         className,
       )}
     >
-      <CardHeader className="gap-4 border-b border-border/50 bg-card p-0 pb-4 sm:flex-row sm:items-center sm:justify-between">
+      <CardHeader className="gap-3.5 border-b border-border/60 bg-transparent p-0 pb-3.5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center gap-3">
           <div
             className={cn(
-              "flex size-9 shrink-0 items-center justify-center rounded-lg",
+              "flex size-8 shrink-0 items-center justify-center rounded-lg",
               toneClassNames[tone],
             )}
           >
-            <Icon className="size-4.5" />
+            <Icon className="size-4" />
           </div>
-          <div className="min-w-0 space-y-1">
-            <CardTitle className="text-base leading-6 font-semibold tracking-tight">
+          <div className="min-w-0 space-y-0.5">
+            <CardTitle className="text-sm leading-5 font-semibold tracking-tight text-foreground sm:text-[15px]">
               {title}
             </CardTitle>
+            {description ? (
+              <p className="text-xs leading-5 text-muted-foreground">{description}</p>
+            ) : null}
           </div>
         </div>
         {meta || action ? (
@@ -88,7 +93,7 @@ export function SettingsCard({
           </div>
         ) : null}
       </CardHeader>
-      <CardContent className={cn("p-0 pt-5", contentClassName)}>
+      <CardContent className={cn("p-0 pt-4", contentClassName)}>
         {children}
       </CardContent>
     </Card>
@@ -142,7 +147,7 @@ export function SettingsNotice({
   return (
     <div
       className={cn(
-        "rounded-lg border border-border/60 bg-muted/20 px-4 py-3 text-sm leading-6 text-muted-foreground",
+        "rounded-xl border border-border/75 bg-surface-muted/35 px-4 py-3 text-xs leading-5 text-muted-foreground sm:text-[13px]",
         className,
       )}
     >

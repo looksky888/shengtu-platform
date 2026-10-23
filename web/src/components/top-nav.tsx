@@ -164,8 +164,8 @@ export function TopNav() {
   const navToggleLabel = navCollapsed ? "展开导航栏" : "收起导航栏";
 
   return (
-    <header className="sticky top-0 z-40 w-full min-w-0 border-b border-border/80 bg-background/85 backdrop-blur-xl">
-      <div className="mx-auto flex min-h-14 w-full max-w-[1440px] flex-col gap-1.5 px-3 py-1.5 sm:px-5 lg:grid lg:grid-cols-[auto_1fr_auto] lg:items-center lg:gap-4 lg:px-6 lg:py-0">
+    <header className="sticky top-0 z-40 w-full min-w-0 border-b border-border/80 bg-surface/85 backdrop-blur-xl">
+      <div className="mx-auto flex min-h-14 w-full max-w-[1520px] flex-col gap-1.5 px-3 py-1.5 sm:px-4 lg:grid lg:grid-cols-[1fr_auto_1fr] lg:items-center lg:gap-4 lg:px-5 lg:py-0">
         <div className="flex min-w-0 items-center justify-between gap-2 lg:justify-start">
           <NavBrandButton
             collapsed={navCollapsed}
@@ -196,7 +196,7 @@ export function TopNav() {
             navCollapsed ? "hidden" : "flex"
           )}
         >
-          <div className="hide-scrollbar flex min-w-0 items-center gap-0.5 overflow-x-auto overscroll-x-contain rounded-[10px] bg-surface-muted/95 p-1 scroll-px-1 touch-pan-x [-webkit-overflow-scrolling:touch]">
+          <div className="hide-scrollbar flex min-w-0 items-center gap-0.5 overflow-x-auto overscroll-x-contain rounded-[11px] bg-surface-muted/95 p-1 ring-1 ring-inset ring-border/60 scroll-px-1 touch-pan-x [-webkit-overflow-scrolling:touch]">
             {primaryNavItems.map((item) => (
               <NavPill
                 key={item.matchPaths ? "media-center" : item.href}
@@ -213,6 +213,7 @@ export function TopNav() {
             pathname={pathname}
             theme={theme}
             onToggleTheme={() => handleThemeToggle()}
+            onLogout={handleLogout}
           />
           <TopNavActions
             canAccessImageTasks={canAccessImageTasks}
@@ -298,7 +299,7 @@ function NavBrandButton({
           title="查看系统版本与在线更新"
           className="hidden h-5 items-center rounded-md bg-surface-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground sm:inline-flex"
         >
-          v4.8.0
+          v4.9.0
         </button>
       ) : null}
       <Button
@@ -370,6 +371,7 @@ function TopNavActions({
         session={session}
         roleLabel={roleLabel}
         creditBalance={creditBalance}
+        canRecharge={canAccessRecharge}
         pathname={pathname}
         onLogout={onLogout}
         compact={compact}

@@ -1,6 +1,7 @@
 import { useMemo, useState, type ReactNode } from "react";
-import { LayoutList, Shield } from "lucide-react";
+import { LayoutList, Search, Shield, X } from "lucide-react";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -30,6 +31,7 @@ type MenuPermissionSectionProps = {
   menuPermissions: PermissionMenu[];
   allMenuPaths: string[];
   selectedMenuPaths: string[];
+  disabled?: boolean;
   onMenuPathsChange: (paths: string[]) => void;
 };
 
@@ -37,18 +39,20 @@ export function MenuPermissionSection({
   menuPermissions,
   allMenuPaths,
   selectedMenuPaths,
+  disabled = false,
   onMenuPathsChange,
 }: MenuPermissionSectionProps) {
   return (
-    <section className="min-w-0 rounded-xl border border-border bg-surface">
+    <section className="min-w-0 overflow-hidden rounded-xl border border-border bg-surface">
       <PermissionSectionHeader
-        title="菜单"
+        title="菜单路由"
         selectedCount={selectedMenuPaths.length}
         totalCount={allMenuPaths.length}
+        disabled={disabled}
         onSelectAll={() => onMenuPathsChange(allMenuPaths)}
         onClear={() => onMenuPathsChange([])}
       />
-      <div className="max-h-[calc(100dvh-20rem)] min-h-[360px] divide-y divide-border/70 overflow-y-auto pr-1">
+      <div className="thin-scrollbar max-h-[calc(100dvh-20rem)] min-h-[380px] divide-y divide-border/65 overflow-y-auto">
         {menuPermissions.length > 0 ? (
           menuPermissions.map((item) => {
             const checked = selectedMenuPaths.includes(item.path);
@@ -56,18 +60,27 @@ export function MenuPermissionSection({
               <label
                 key={item.path}
                 className={cn(
-                  "flex cursor-pointer items-center gap-3 px-4 py-3 transition-colors",
-                  checked ? "bg-surface-muted/55" : "hover:bg-surface-hover/60",
+                  "flex items-start gap-2.5 px-3 py-2.5 transition-colors",
+                  disabled ? "cursor-default opacity-80" : "cursor-pointer",
+                  checked ? "bg-surface-muted/55" : !disabled && "hover:bg-surface-hover/60",
                 )}
               >
                 <Checkbox
                   aria-label={`菜单权限：${item.label}`}
                   checked={checked}
-                  onCheckedChange={(nextChecked) => onMenuPathsChange(toggleListValue(selectedMenuPaths, item.path, Boolean(nextChecked)))}
+                  disabled={disabled}
+                  onCheckedChange={(nextChecked) =>
+                    onMenuPathsChange(toggleListValue(selectedMenuPaths, item.path, Boolean(nextChecked)))
+                  }
+                  className="mt-0.5"
                 />
-                <div className="min-w-0">
-                  <div className="truncate text-sm font-medium text-foreground">{item.label}</div>
-                  <code className="block truncate font-mono text-xs text-muted-foreground">{item.path}</code>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[13px] font-medium leading-snug text-foreground break-words">
+                    {item.label}
+                  </div>
+                  <code className="mt-0.5 block break-all font-mono text-[11px] text-muted-foreground">
+                    {item.path}
+                  </code>
                 </div>
               </label>
             );
@@ -90,6 +103,7 @@ type ApiPermissionSectionProps = {
   groups: ApiPermissionGroup[];
   allPermissionKeys: string[];
   selectedPermissions: string[];
+  disabled?: boolean;
   onPermissionsChange: (permissions: string[]) => void;
   apiSearch?: string;
   onApiSearchChange?: (value: string) => void;
@@ -99,6 +113,7 @@ export function ApiPermissionSection({
   groups,
   allPermissionKeys,
   selectedPermissions,
+  disabled = false,
   onPermissionsChange,
   apiSearch,
   onApiSearchChange,
@@ -106,6 +121,7 @@ export function ApiPermissionSection({
   const [internalSearch, setInternalSearch] = useState("");
   const searchValue = apiSearch ?? internalSearch;
   const handleSearchChange = onApiSearchChange ?? setInternalSearch;
+  const selectedSet = useMemo(() => new Set(selectedPermissions), [selectedPermissions]);
 
   const displayedGroups = useMemo(() => {
     if (apiSearch !== undefined) return groups;
@@ -125,50 +141,125 @@ export function ApiPermissionSection({
       .filter((group) => group.items.length > 0);
   }, [apiSearch, groups, searchValue]);
 
+  const handleSelectGroup = (groupItems: ApiPermission[]) => {
+    if (disabled) return;
+    const next = new Set(selectedPermissions);
+    for (const item of groupItems) {
+      next.add(item.key);
+    }
+    onPermissionsChange(Array.from(next).sort());
+  };
+
+  const handleClearGroup = (groupItems: ApiPermission[]) => {
+    if (disabled) return;
+    const removeSet = new Set(groupItems.map((item) => item.key));
+    onPermissionsChange(selectedPermissions.filter((key) => !removeSet.has(key)));
+  };
+
   return (
-    <section className="min-w-0 rounded-xl border border-border bg-surface">
+    <section className="min-w-0 overflow-hidden rounded-xl border border-border bg-surface">
       <PermissionSectionHeader
-        title="API"
+        title="API 接口权限"
         selectedCount={selectedPermissions.length}
         totalCount={allPermissionKeys.length}
+        disabled={disabled}
         onSelectAll={() => onPermissionsChange(allPermissionKeys)}
         onClear={() => onPermissionsChange([])}
         extra={
-          <Input
-            aria-label="搜索 API 权限"
-            value={searchValue}
-            onChange={(event) => handleSearchChange(event.target.value)}
-            placeholder="搜索权限名称或路径..."
-            className="h-8 w-44 rounded-lg text-xs"
-          />
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              aria-label="搜索 API 权限"
+              value={searchValue}
+              onChange={(event) => handleSearchChange(event.target.value)}
+              placeholder="搜索权限名称、HTTP 方法或路径..."
+              className="h-8 w-52 rounded-lg bg-surface pl-8 pr-7 text-xs sm:w-64"
+            />
+            {searchValue ? (
+              <button
+                type="button"
+                onClick={() => handleSearchChange("")}
+                aria-label="清空 API 搜索"
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:text-foreground"
+              >
+                <X className="size-3" />
+              </button>
+            ) : null}
+          </div>
         }
       />
-      <div className="max-h-[calc(100dvh-20rem)] min-h-[360px] space-y-4 overflow-y-auto p-4 pr-1">
+      <div className="thin-scrollbar max-h-[calc(100dvh-20rem)] min-h-[380px] space-y-5 overflow-y-auto p-3.5 sm:p-4">
         {displayedGroups.length > 0 ? (
-          displayedGroups.map((group) => (
-            <article key={group.group} className="min-w-0">
-              <div className="mb-2 flex items-center justify-between gap-3">
-                <h4 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{group.group}</h4>
-                <span className="font-mono text-xs tabular-nums text-muted-foreground">{group.items.length}</span>
-              </div>
-              <div className="grid gap-2 md:grid-cols-2">
-                {group.items.map((permission) => (
-                  <ApiPermissionItem
-                    key={permission.key}
-                    permission={permission}
-                    checked={selectedPermissions.includes(permission.key)}
-                    onChange={(checked) => onPermissionsChange(toggleListValue(selectedPermissions, permission.key, checked))}
-                  />
-                ))}
-              </div>
-            </article>
-          ))
+          displayedGroups.map((group) => {
+            const groupSelectedCount = group.items.filter((item) => selectedSet.has(item.key)).length;
+            const allGroupSelected = groupSelectedCount === group.items.length && group.items.length > 0;
+            return (
+              <article key={group.group} className="min-w-0">
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2 border-b border-border/50 pb-1.5">
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-xs font-semibold tracking-tight text-foreground">{group.group}</h4>
+                    <Badge
+                      variant={allGroupSelected ? "default" : "secondary"}
+                      className="rounded px-1.5 py-0 font-mono text-[10px] tabular-nums"
+                    >
+                      {groupSelectedCount} / {group.items.length}
+                    </Badge>
+                  </div>
+                  {!disabled ? (
+                    <div className="flex items-center gap-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="xs"
+                        className="h-6 rounded px-2 text-[11px]"
+                        disabled={allGroupSelected}
+                        onClick={() => handleSelectGroup(group.items)}
+                      >
+                        全选本组
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="xs"
+                        className="h-6 rounded px-2 text-[11px]"
+                        disabled={groupSelectedCount === 0}
+                        onClick={() => handleClearGroup(group.items)}
+                      >
+                        清空
+                      </Button>
+                    </div>
+                  ) : null}
+                </div>
+                <div className="grid grid-cols-1 gap-1.5 2xl:grid-cols-2">
+                  {group.items.map((permission) => (
+                    <ApiPermissionItem
+                      key={permission.key}
+                      permission={permission}
+                      checked={selectedSet.has(permission.key)}
+                      disabled={disabled}
+                      onChange={(checked) =>
+                        onPermissionsChange(toggleListValue(selectedPermissions, permission.key, checked))
+                      }
+                    />
+                  ))}
+                </div>
+              </article>
+            );
+          })
         ) : (
           <EmptyState
             compact
             icon={Shield}
-            title="暂无 API 权限"
-            description={searchValue.trim() ? "没有匹配的接口权限，请调整关键字重试。" : "当前没有可分配的接口权限。"}
+            title="暂无匹配的 API 权限"
+            description={searchValue.trim() ? "没有找到匹配的接口名称或路径，请调整搜索关键字。" : "当前没有可分配的接口权限。"}
+            action={
+              searchValue.trim() ? (
+                <Button type="button" variant="outline" size="xs" onClick={() => handleSearchChange("")}>
+                  <X className="size-3.5" />
+                  清空搜索条件
+                </Button>
+              ) : null
+            }
             className="py-12"
           />
         )}
@@ -181,6 +272,7 @@ function PermissionSectionHeader({
   title,
   selectedCount,
   totalCount,
+  disabled = false,
   onSelectAll,
   onClear,
   extra,
@@ -188,20 +280,45 @@ function PermissionSectionHeader({
   title: string;
   selectedCount: number;
   totalCount: number;
+  disabled?: boolean;
   onSelectAll: () => void;
   onClear: () => void;
   extra?: ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-surface-subtle/80 px-4 py-3">
-      <div className="min-w-0">
-        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
-        <p className="font-mono text-xs tabular-nums text-muted-foreground">{selectedCount} / {totalCount}</p>
+    <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-border bg-surface-muted/45 px-3.5 py-2.5">
+      <div className="flex items-center gap-2 min-w-0">
+        <h3 className="text-[13px] font-semibold text-foreground">{title}</h3>
+        <Badge variant="secondary" className="rounded px-1.5 py-0 font-mono text-[10px] tabular-nums">
+          {selectedCount} / {totalCount}
+        </Badge>
       </div>
       <div className="flex shrink-0 flex-wrap items-center gap-1.5">
         {extra}
-        <Button type="button" variant="ghost" className="h-7 rounded-md px-2 text-xs" onClick={onSelectAll}>全选</Button>
-        <Button type="button" variant="ghost" className="h-7 rounded-md px-2 text-xs" onClick={onClear}>清空</Button>
+        {!disabled ? (
+          <>
+            <Button
+              type="button"
+              variant="ghost"
+              size="xs"
+              className="h-7 rounded-md px-2 text-xs"
+              disabled={selectedCount === totalCount && totalCount > 0}
+              onClick={onSelectAll}
+            >
+              全选
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="xs"
+              className="h-7 rounded-md px-2 text-xs"
+              disabled={selectedCount === 0}
+              onClick={onClear}
+            >
+              清空
+            </Button>
+          </>
+        ) : null}
       </div>
     </div>
   );
@@ -210,31 +327,48 @@ function PermissionSectionHeader({
 function ApiPermissionItem({
   permission,
   checked,
+  disabled = false,
   onChange,
 }: {
   permission: ApiPermission;
   checked: boolean;
+  disabled?: boolean;
   onChange: (checked: boolean) => void;
 }) {
+  const fullPath = `${permission.path}${permission.subtree ? "/*" : ""}`;
   return (
     <label
       className={cn(
-        "flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-3 transition-colors",
+        "flex items-center justify-between gap-3 rounded-lg border px-3 py-2 transition-colors",
+        disabled ? "cursor-default opacity-80" : "cursor-pointer",
         checked
           ? "border-foreground/30 bg-surface-muted/55 shadow-2xs"
-          : "border-border hover:bg-surface-hover/60",
+          : "border-border/65 bg-surface hover:border-border hover:bg-surface-hover/60",
       )}
     >
-      <Checkbox aria-label={`API 权限：${permission.label}`} checked={checked} onCheckedChange={(value) => onChange(Boolean(value))} className="mt-0.5" />
-      <div className="min-w-0 flex-1">
-        <div className="flex min-w-0 items-center gap-2">
-          <span className={cn("shrink-0 rounded-md border px-1.5 py-0.5 font-mono text-[10px] font-semibold leading-none", resolvePermissionMethodClass(permission.method))}>
-            {permission.method}
-          </span>
-          <span className="truncate text-sm font-medium text-foreground">{permission.label}</span>
-        </div>
-        <code className="mt-1 block truncate font-mono text-xs text-muted-foreground">
-          {permission.path}{permission.subtree ? "/*" : ""}
+      <div className="flex min-w-0 items-start gap-2.5">
+        <Checkbox
+          aria-label={`API 权限：${permission.label}`}
+          checked={checked}
+          disabled={disabled}
+          onCheckedChange={(value) => onChange(Boolean(value))}
+          className="mt-0.5 shrink-0"
+        />
+        <span className="text-[13px] font-medium leading-snug text-foreground break-words">
+          {permission.label}
+        </span>
+      </div>
+      <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5 text-right">
+        <span
+          className={cn(
+            "shrink-0 rounded border px-1.5 py-0.5 font-mono text-[10px] font-semibold leading-none",
+            resolvePermissionMethodClass(permission.method),
+          )}
+        >
+          {permission.method}
+        </span>
+        <code className="font-mono text-[11px] text-muted-foreground break-all sm:break-normal">
+          {fullPath}
         </code>
       </div>
     </label>

@@ -1,6 +1,7 @@
 import {
   Ban,
   CheckCircle2,
+  Coins,
   Copy,
   Eye,
   EyeOff,
@@ -9,6 +10,7 @@ import {
   RotateCcw,
   Save,
   Sparkles,
+  Terminal,
   Trash2,
 } from "lucide-react";
 
@@ -25,12 +27,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  Field,
-  FieldDescription,
-  FieldGroup,
-  FieldLabel,
-} from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import type { ProfileApiKeyRateLimits, UserKey } from "@/lib/api";
@@ -100,11 +96,12 @@ export function ProfileApiKeyCard({
       ? window.location.origin
       : "https://your-domain.example.com";
   const openAIBaseURL = `${origin}/v1`;
+  const keyExists = Boolean(apiKey) || hasKey;
 
   return (
     <Card>
-      <CardHeader>
-        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+      <CardHeader className="border-b border-border/70 pb-4">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="flex min-w-0 items-center gap-3">
             <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-border/80 bg-surface-muted text-foreground">
               <KeyRound className="size-5" />
@@ -128,13 +125,13 @@ export function ProfileApiKeyCard({
               </Badge>
             ) : (
               <Badge variant="secondary" className="w-fit rounded-md">
-                未生成
+                尚未生成
               </Badge>
             )}
           </div>
         </div>
       </CardHeader>
-      <CardContent className="flex flex-col gap-5">
+      <CardContent className="flex flex-col gap-4 pt-5">
         {isLoadingKey ? (
           <div className="flex min-h-[240px] items-center justify-center">
             <LoaderCircle className="size-5 animate-spin text-muted-foreground" />
@@ -142,7 +139,7 @@ export function ProfileApiKeyCard({
         ) : (
           <>
             {justGeneratedKey ? (
-              <div className="flex flex-col gap-2.5 rounded-lg border border-emerald-500/35 bg-emerald-500/10 p-3.5 text-xs text-emerald-950 dark:text-emerald-100">
+              <div className="flex flex-col gap-2.5 rounded-xl border border-emerald-500/35 bg-emerald-500/10 p-3.5 text-xs text-emerald-950 dark:text-emerald-100">
                 <div className="flex items-center justify-between gap-2 font-semibold">
                   <span className="inline-flex items-center gap-1.5">
                     <Sparkles className="size-4 text-emerald-600 dark:text-emerald-400" />
@@ -190,79 +187,101 @@ export function ProfileApiKeyCard({
               </div>
             ) : null}
 
-            <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
-              <div className="flex flex-col gap-4">
-                <FieldGroup>
-                  <Field>
-                    <FieldLabel htmlFor="profile-api-key-name">
-                      密钥备注名称
-                    </FieldLabel>
-                    <div className="flex flex-col gap-2 sm:flex-row">
-                      <Input
-                        id="profile-api-key-name"
-                        value={keyName}
-                        onChange={(event) => onKeyNameChange(event.target.value)}
-                        placeholder="我的 API 令牌"
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={onSaveName}
-                        disabled={!apiKey || !isNameDirty || isSavingName}
-                      >
-                        {isSavingName ? (
-                          <LoaderCircle className="size-4 animate-spin" />
-                        ) : (
-                          <Save className="size-4" />
-                        )}
-                        保存
-                      </Button>
+            <div className="grid items-stretch gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+              {keyExists ? (
+                <div className="flex flex-col justify-between gap-4 rounded-xl border border-border/70 bg-surface-muted/25 p-4">
+                  <div className="flex flex-col gap-3.5">
+                    <div className="flex min-h-7 items-center justify-between gap-2">
+                      <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                        <KeyRound className="size-3.5 text-muted-foreground" />
+                        凭证管理与安全控制
+                      </span>
+                      <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
+                        {apiKey?.id || "sk-token"}
+                      </span>
                     </div>
-                    <FieldDescription>
-                      用于区分当前账号在日志和任务流水中的接口调用标识。
-                    </FieldDescription>
-                  </Field>
-                </FieldGroup>
 
-                <BearerTokenBox
-                  apiKey={apiKey}
-                  revealedKey={revealedKey}
-                  activePlaintextKey={activePlaintextKey}
-                  isKeyVisible={isKeyVisible}
-                  rememberLocally={rememberLocally}
-                  hasKey={hasKey}
-                  onReveal={onReveal}
-                  onToggleRememberLocally={onToggleRememberLocally}
-                  onCopy={onCopy}
-                />
+                    <div className="space-y-1.5">
+                      <label
+                        htmlFor="profile-api-key-name"
+                        className="text-xs font-medium text-foreground"
+                      >
+                        密钥备注名称
+                      </label>
+                      <div className="flex flex-col gap-2 sm:flex-row">
+                        <Input
+                          id="profile-api-key-name"
+                          value={keyName}
+                          onChange={(event) => onKeyNameChange(event.target.value)}
+                          placeholder="我的 API 令牌"
+                          className="h-9 bg-surface"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-9 px-3.5"
+                          onClick={onSaveName}
+                          disabled={!apiKey || !isNameDirty || isSavingName}
+                        >
+                          {isSavingName ? (
+                            <LoaderCircle className="size-4 animate-spin" />
+                          ) : (
+                            <Save className="size-4" />
+                          )}
+                          保存备注
+                        </Button>
+                      </div>
+                    </div>
 
-                <div className="grid gap-2.5 sm:grid-cols-3">
-                  <ProfileInfoRow
-                    label="密钥 ID"
-                    value={apiKey?.id || "—"}
-                    code
-                  />
-                  <ProfileInfoRow
-                    label="创建时间"
-                    value={formatDateTime(apiKey?.created_at)}
-                  />
-                  <ProfileInfoRow
-                    label="最近调用"
-                    value={formatDateTime(apiKey?.last_used_at)}
+                    <BearerTokenBox
+                      apiKey={apiKey}
+                      revealedKey={revealedKey}
+                      activePlaintextKey={activePlaintextKey}
+                      isKeyVisible={isKeyVisible}
+                      rememberLocally={rememberLocally}
+                      hasKey={hasKey}
+                      onReveal={onReveal}
+                      onToggleRememberLocally={onToggleRememberLocally}
+                      onCopy={onCopy}
+                    />
+
+                    <div className="grid gap-2 sm:grid-cols-3">
+                      <ProfileInfoRow
+                        label="密钥 ID"
+                        value={apiKey?.id || "—"}
+                        code
+                      />
+                      <ProfileInfoRow
+                        label="创建时间"
+                        value={formatDateTime(apiKey?.created_at)}
+                      />
+                      <ProfileInfoRow
+                        label="最近调用"
+                        value={formatDateTime(apiKey?.last_used_at)}
+                      />
+                    </div>
+                  </div>
+
+                  <ApiKeyActions
+                    apiKey={apiKey}
+                    isToggling={isToggling}
+                    isGenerating={isGenerating}
+                    isDeleting={isDeleting}
+                    onToggle={onToggle}
+                    onRotateOpen={onRotateOpen}
+                    onDeleteOpen={onDeleteOpen}
+                    onGenerate={onGenerate}
                   />
                 </div>
-
-                <ApiKeyActions
-                  apiKey={apiKey}
-                  isToggling={isToggling}
+              ) : (
+                <ApiKeyOnboardingPanel
+                  keyName={keyName}
                   isGenerating={isGenerating}
-                  isDeleting={isDeleting}
-                  onToggle={onToggle}
-                  onRotateOpen={onRotateOpen}
-                  onDeleteOpen={onDeleteOpen}
+                  onKeyNameChange={onKeyNameChange}
                   onGenerate={onGenerate}
                 />
-              </div>
+              )}
 
               <ApiIntegrationQuickPanel
                 apiKey={apiKey}
@@ -279,6 +298,105 @@ export function ProfileApiKeyCard({
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function ApiKeyOnboardingPanel({
+  keyName,
+  isGenerating,
+  onKeyNameChange,
+  onGenerate,
+}: {
+  keyName: string;
+  isGenerating: boolean;
+  onKeyNameChange: (value: string) => void;
+  onGenerate: () => void;
+}) {
+  return (
+    <div className="flex flex-col justify-between gap-4 rounded-xl border border-border/70 bg-surface-muted/25 p-4">
+      <div className="space-y-4">
+        <div className="flex min-h-7 items-center justify-between gap-2">
+          <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-foreground">
+            <KeyRound className="size-3.5 text-muted-foreground" />
+            专属 API 凭证初始化
+          </span>
+          <Badge variant="outline" className="rounded-md text-[10px]">
+            SHA-256 哈希托管
+          </Badge>
+        </div>
+
+        <div className="rounded-xl border border-border/75 bg-surface p-4 shadow-2xs">
+          <div className="flex items-start gap-3">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-foreground bg-foreground text-background">
+              <KeyRound className="size-4.5" />
+            </div>
+            <div className="min-w-0 space-y-1">
+              <h3 className="text-sm font-semibold text-foreground">
+                尚未生成个人 API 密钥
+              </h3>
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                一键签发标准 <code className="font-mono text-foreground">sk-</code> 令牌，即可在自有应用、工作流或第三方客户端中无缝调用平台模型。
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-2.5 sm:grid-cols-2">
+            <div className="flex items-start gap-2.5 rounded-lg border border-border/65 bg-surface-muted/35 p-2.5">
+              <Terminal className="mt-0.5 size-3.5 shrink-0 text-foreground" />
+              <div className="min-w-0">
+                <div className="text-xs font-semibold text-foreground">
+                  兼容 OpenAI Images / Chat SDK
+                </div>
+                <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
+                  原生支持文生图、局部重绘、异步视频与对话协议
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start gap-2.5 rounded-lg border border-border/65 bg-surface-muted/35 p-2.5">
+              <Coins className="mt-0.5 size-3.5 shrink-0 text-foreground" />
+              <div className="min-w-0">
+                <div className="text-xs font-semibold text-foreground">
+                  与当前账户共享算力积分池
+                </div>
+                <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
+                  统一扣费记账，上游任务异常失败自动退还预扣积分
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <label
+            htmlFor="profile-api-key-onboarding-name"
+            className="text-xs font-medium text-foreground"
+          >
+            密钥备注名称（可选）
+          </label>
+          <Input
+            id="profile-api-key-onboarding-name"
+            value={keyName}
+            onChange={(event) => onKeyNameChange(event.target.value)}
+            placeholder="例如：影策客户端 / 本地开发脚本"
+            className="h-9 bg-surface"
+          />
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-3">
+        <span className="text-[11px] text-muted-foreground">
+          生成后支持随时禁用、轮换或销毁令牌
+        </span>
+        <Button type="button" onClick={onGenerate} disabled={isGenerating}>
+          {isGenerating ? (
+            <LoaderCircle className="size-4 animate-spin" />
+          ) : (
+            <KeyRound className="size-4" />
+          )}
+          立即生成专属密钥
+        </Button>
+      </div>
+    </div>
   );
 }
 

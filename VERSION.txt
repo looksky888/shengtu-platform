@@ -1,1 +1,1 @@
-4.8.0-20261023-obsidian-studio
+4.9.0-20261023-studio-craft

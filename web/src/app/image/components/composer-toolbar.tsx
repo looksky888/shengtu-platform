@@ -7,6 +7,7 @@ import { ComposerSettingsPopover } from "@/app/image/components/composer-setting
 import type { ImageComposerProps } from "@/app/image/components/image-composer-types";
 import { buildImageSize } from "@/app/image/image-options";
 import { requiresPaidAccountImageSize } from "@/app/image/image-paid-size";
+import { Kbd } from "@/components/ui/kbd";
 
 type ComposerToolbarProps = Omit<
   ImageComposerProps,
@@ -147,12 +148,15 @@ export function ComposerToolbar(props: ComposerToolbarProps) {
           type="button"
           onClick={() => void props.onSubmit()}
           disabled={!props.prompt.trim() || paidSizeUnavailable}
-          className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-primary px-3.5 text-xs font-medium text-primary-foreground shadow-xs transition hover:bg-primary/90 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex h-8.5 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-primary px-3.5 text-xs font-medium text-primary-foreground shadow-xs transition hover:bg-primary/90 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40"
           aria-label={submitLabel}
           title={submitTitle}
         >
           <ArrowUp className="size-3.5" />
           <span className="hidden sm:inline">{props.composerMode === "chat" ? "发送" : "开始生成"}</span>
+          <Kbd className="hidden border-white/20 bg-white/15 text-current shadow-none sm:inline-flex">
+            ⏎
+          </Kbd>
         </button>
       </div>
     </div>

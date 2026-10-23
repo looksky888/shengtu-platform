@@ -13,6 +13,7 @@ type PermissionEditorProps = {
   apis: ApiPermission[];
   selectedMenuPaths: string[];
   selectedApiPermissions: string[];
+  disabled?: boolean;
   onMenuPathsChange: (paths: string[]) => void;
   onApiPermissionsChange: (permissions: string[]) => void;
   className?: string;
@@ -23,6 +24,7 @@ export function PermissionEditor({
   apis,
   selectedMenuPaths,
   selectedApiPermissions,
+  disabled = false,
   onMenuPathsChange,
   onApiPermissionsChange,
   className,
@@ -45,17 +47,19 @@ export function PermissionEditor({
   const allApiPermissionKeys = useMemo(() => apis.map((item) => item.key), [apis]);
 
   return (
-    <div className={cn("grid gap-5 lg:grid-cols-[280px_1fr]", className)}>
+    <div className={cn("grid items-start gap-4 lg:grid-cols-[216px_minmax(0,1fr)]", className)}>
       <MenuPermissionSection
         menuPermissions={menuPermissions}
         allMenuPaths={allMenuPaths}
         selectedMenuPaths={selectedMenuPaths}
+        disabled={disabled}
         onMenuPathsChange={onMenuPathsChange}
       />
       <ApiPermissionSection
         groups={apiPermissionGroups}
         allPermissionKeys={allApiPermissionKeys}
         selectedPermissions={selectedApiPermissions}
+        disabled={disabled}
         onPermissionsChange={onApiPermissionsChange}
         apiSearch={apiSearch}
         onApiSearchChange={setApiSearch}

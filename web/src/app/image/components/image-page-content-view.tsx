@@ -1,4 +1,4 @@
-﻿import type { ComponentProps } from "react";
+import type { ComponentProps } from "react";
 
 import { ImageComposer } from "@/app/image/components/image-composer";
 import { ImageDeleteConfirmDialog } from "@/app/image/components/image-delete-confirm-dialog";
@@ -7,7 +7,6 @@ import { ImageHistoryDialog } from "@/app/image/components/image-history-dialog"
 import { ImageInpaintDialog } from "@/app/image/components/image-inpaint-dialog";
 import { ImagePageWorkspace } from "@/app/image/components/image-page-workspace";
 import { ImageResults } from "@/app/image/components/image-results";
-import { StudioStatsFab } from "@/app/image/components/studio-stats-fab";
 import { ImageLightbox } from "@/components/image-lightbox";
 
 type WorkspaceProps = Omit<ComponentProps<typeof ImagePageWorkspace>, "overlays" | "results" | "composer">;
@@ -50,8 +49,6 @@ export function ImagePageContentView({
 
       <ImageLightbox {...lightboxProps} />
       <ImageDeleteConfirmDialog {...deleteConfirmDialogProps} />
-      <StudioStatsFab />
     </>
   );
 }
-

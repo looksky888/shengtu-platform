@@ -127,14 +127,14 @@ export function LandingCTA({
           {/* Studio Capability Architectural Spec Strip */}
           <div className="w-full pt-2">
             <dl
-              className="grid grid-cols-2 divide-y divide-border/80 overflow-hidden rounded-xl border border-border/80 bg-surface/80 backdrop-blur-sm sm:grid-cols-4 sm:divide-x sm:divide-y-0"
+              className="grid grid-cols-2 divide-y divide-border/80 overflow-hidden rounded-xl border border-border/80 bg-surface/85 shadow-2xs backdrop-blur-sm sm:grid-cols-4 sm:divide-x sm:divide-y-0"
               aria-label="核心创作能力"
             >
               {STUDIO_CAPABILITY_SPECS.map((spec, idx) => (
                 <div
                   key={spec.index}
                   className={cn(
-                    "flex flex-col gap-1 px-3.5 py-3 transition-colors hover:bg-surface-hover/60",
+                    "flex flex-col gap-1 px-3 py-3 transition-colors hover:bg-surface-hover/60",
                     idx % 2 === 1 && "border-l border-border/80 sm:border-l-0",
                   )}
                 >
@@ -145,7 +145,7 @@ export function LandingCTA({
                   <dd className="text-[13px] font-semibold tracking-[-0.01em] text-foreground">
                     {spec.label}
                   </dd>
-                  <dd className="line-clamp-1 text-[11px] leading-4 text-muted-foreground">
+                  <dd className="line-clamp-2 text-[11px] leading-[1.45] text-muted-foreground">
                     {spec.detail}
                   </dd>
                 </div>

@@ -1,13 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
-import { Aperture, Terminal } from "lucide-react";
+import { Aperture, ArrowUpRight, Terminal } from "lucide-react";
 
 import {
   CURATED_GALLERY_ARTWORKS,
+  PENDING_STUDIO_PROMPT_STORAGE_KEY,
   type CuratedArtwork,
 } from "@/app/landing/landing-brand";
+import { getCachedAuthSession } from "@/lib/session";
 import { usePageVisible } from "@/lib/use-page-visible";
 import { cn } from "@/lib/utils";
 
@@ -18,6 +21,7 @@ interface EditorialGalleryStageProps {
 export function EditorialGalleryStage({
   prefersReducedMotion,
 }: EditorialGalleryStageProps) {
+  const navigate = useNavigate();
   const pageVisible = usePageVisible();
   const [activeIndex, setActiveIndex] = useState(0);
   const [paused, setPaused] = useState(false);
@@ -31,6 +35,23 @@ export function EditorialGalleryStage({
   }, [pageVisible, paused, prefersReducedMotion]);
 
   const activeArtwork = CURATED_GALLERY_ARTWORKS[activeIndex] ?? CURATED_GALLERY_ARTWORKS[0];
+
+  const handleCreateWithInspiration = () => {
+    const prompt = activeArtwork.prompt.trim();
+    if (typeof window !== "undefined") {
+      try {
+        window.sessionStorage.setItem(PENDING_STUDIO_PROMPT_STORAGE_KEY, prompt);
+      } catch {
+        // Ignore private-mode storage restrictions; URL query param still carries prompt.
+      }
+    }
+    const encodedPrompt = encodeURIComponent(prompt);
+    if (getCachedAuthSession()) {
+      navigate(`/image?prompt=${encodedPrompt}`);
+    } else {
+      navigate(`/login?prompt=${encodedPrompt}`);
+    }
+  };
 
   return (
     <div
@@ -130,22 +151,36 @@ export function EditorialGalleryStage({
             </div>
           </div>
 
-          <div className="mt-2 flex items-start gap-2 min-h-[2.25rem]">
-            <span className="mt-0.5 select-none font-mono text-xs font-semibold text-muted-foreground" aria-hidden="true">
-              ›
-            </span>
-            <AnimatePresence mode="wait" initial={false}>
-              <motion.p
-                key={activeArtwork.id}
-                initial={prefersReducedMotion ? false : { opacity: 0, y: 3 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={prefersReducedMotion ? undefined : { opacity: 0, y: -3 }}
-                transition={{ duration: 0.2, ease: "easeOut" }}
-                className="line-clamp-2 text-xs leading-[1.55] text-foreground/90"
-              >
-                {activeArtwork.prompt}
-              </motion.p>
-            </AnimatePresence>
+          <div className="mt-2.5 flex flex-col gap-2.5 sm:flex-row sm:items-end sm:justify-between sm:gap-3">
+            <div className="flex min-h-[2.25rem] min-w-0 flex-1 items-start gap-2">
+              <span className="mt-0.5 select-none font-mono text-xs font-semibold text-muted-foreground" aria-hidden="true">
+                ›
+              </span>
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.p
+                  key={activeArtwork.id}
+                  initial={prefersReducedMotion ? false : { opacity: 0, y: 3 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={prefersReducedMotion ? undefined : { opacity: 0, y: -3 }}
+                  transition={{ duration: 0.2, ease: "easeOut" }}
+                  className="line-clamp-2 text-xs leading-[1.55] text-foreground/90"
+                >
+                  {activeArtwork.prompt}
+                </motion.p>
+              </AnimatePresence>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleCreateWithInspiration}
+              className="group/inspire inline-flex h-7.5 shrink-0 items-center justify-center gap-1 rounded-lg border border-border-strong/75 bg-surface-muted/85 px-2.5 text-[11px] font-semibold tracking-[-0.01em] text-foreground shadow-2xs transition-all duration-150 hover:-translate-y-[1px] hover:border-foreground/40 hover:bg-foreground hover:text-background active:scale-[0.98]"
+            >
+              <span>以此灵感创作</span>
+              <ArrowUpRight
+                className="size-3.5 transition-transform duration-150 group-hover/inspire:translate-x-0.5 group-hover/inspire:-translate-y-0.5"
+                aria-hidden="true"
+              />
+            </button>
           </div>
         </motion.div>
       </div>
@@ -203,7 +238,7 @@ function GalleryExhibitionFrame({
         <img
           src={artwork.src}
           alt={artwork.title}
-          loading={index < 2 ? "eager" : "lazy"}
+          loading="eager"
           decoding="async"
           draggable={false}
           className={cn(
@@ -224,11 +259,16 @@ function GalleryExhibitionFrame({
           <span className="shrink-0 font-mono text-[10px] font-medium text-subtle-foreground">
             {artwork.plate}
           </span>
-          <span className="truncate text-xs font-medium tracking-[-0.01em] text-foreground">
+          <span className=" whitespace-nowrap text-xs font-medium tracking-[-0.01em] text-foreground">
             {artwork.title}
           </span>
         </div>
-        <span className="hidden shrink-0 truncate text-[10px] text-muted-foreground xl:inline">
+        <span
+          className={cn(
+            "shrink-0 whitespace-nowrap text-[10px] text-muted-foreground",
+            isHeroSpan ? "hidden xl:inline" : "hidden 2xl:inline",
+          )}
+        >
           {artwork.subtitle}
         </span>
       </div>

@@ -83,7 +83,7 @@ export function ImageTaskQueue({ className }: { className?: string }) {
       <PopoverTrigger asChild>
         <ImageTaskQueueTrigger activeCount={activeCount} hasRecentCompletion={hasRecentCompletion} className={className} />
       </PopoverTrigger>
-      <PopoverContent align="end" sideOffset={8} className="w-[min(calc(100vw-2rem),460px)] p-0">
+      <PopoverContent align="end" sideOffset={8} className="w-[min(calc(100vw-2rem),440px)] overflow-hidden rounded-2xl border-border/85 bg-surface-raised p-0 shadow-xl">
         <QueuePopoverHeader activeCount={activeCount} hasRecentCompletion={hasRecentCompletion} />
         {queueItems.length > 0 || recentCompletions.length > 0 ? (
           <div aria-live="polite" className="max-h-[min(68vh,560px)] overflow-y-auto bg-surface-subtle/60 p-3 dark:bg-background">

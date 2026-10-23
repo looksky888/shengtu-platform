@@ -10,13 +10,13 @@ const DARKROOM_SECONDARY_PLATES = [
   {
     plate: "PL.02",
     src: "/presets/stellar-poster.webp",
-    title: "暗曜石拱门与星穹",
+    title: "暗曜石星穹拱门",
     tag: "2:3 PRINT",
   },
   {
     plate: "PL.03",
     src: "/presets/forza-horizon-shenzhen.webp",
-    title: "滨海雨夜超跑摄影",
+    title: "滨海雨夜超跑追焦",
     tag: "16:10 RAW",
   },
 ] as const;
@@ -185,7 +185,7 @@ function DarkroomBrandHeader({ brand }: { brand: string }) {
         </span>
       </div>
       <span className="rounded-md border border-white/10 bg-white/[0.04] px-2 py-0.5 font-mono text-[10px] tracking-[0.1em] text-zinc-400">
-        DARKROOM · v4.8
+        DARKROOM · v4.9
       </span>
     </div>
   );

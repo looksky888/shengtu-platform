@@ -10,9 +10,9 @@ export function resolveTermsVersion() {
   return getAuthTermsVersion();
 }
 
-export const TERMS_TITLE = "用户协议与免责声明";
+export const TERMS_TITLE = "用户服务协议与免责声明";
 
-export const TERMS_SHORT_LABEL = "《用户协议与免责声明》";
+export const TERMS_SHORT_LABEL = "《用户服务协议与免责声明》";
 
 /**
  * Full terms body shown in the login/register dialog.

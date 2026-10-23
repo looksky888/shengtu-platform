@@ -91,58 +91,79 @@ export function TaskHistoryPanel({ embedded = false, reloadKey = 0 }: { embedded
       {!embedded ? (
         <>
           <PageHeader
-            eyebrow="诊断"
+            eyebrow="资产与任务"
             title="任务历史"
+            description="按创建时间倒序分页归档；实时进度请前往「任务中心 → 实时队列」。"
             actions={
               <div className="flex flex-wrap gap-2">
-                <Button variant="outline" onClick={() => void load()} disabled={isLoading} className="h-9 rounded-lg">
-                  <RefreshCw className={`size-4 ${isLoading ? "animate-spin" : ""}`} />刷新
+                <Button variant="outline" size="sm" onClick={() => void load()} disabled={isLoading}>
+                  <RefreshCw className={`size-3.5 ${isLoading ? "animate-spin" : ""}`} />刷新
                 </Button>
-                <Button variant="outline" onClick={() => setClearConfirmOpen(true)} disabled={clearing || isLoading} className="h-9 rounded-lg">
-                  <X className={`size-4 ${clearing ? "animate-spin" : ""}`} />清理已完成
+                <Button variant="outline" size="sm" onClick={() => setClearConfirmOpen(true)} disabled={clearing || isLoading}>
+                  <X className={`size-3.5 ${clearing ? "animate-spin" : ""}`} />清理已完成
                 </Button>
               </div>
             }
           />
-          <p className="text-sm text-muted-foreground">按创建时间新→旧分页；实时进度请用「任务中心 → 实时队列」。</p>
         </>
-      ) : (
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-sm text-muted-foreground">按创建时间新→旧分页；与实时队列同源数据。</p>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={() => void load()} disabled={isLoading} className="h-9 rounded-lg">
-              <RefreshCw className={`size-4 ${isLoading ? "animate-spin" : ""}`} />刷新
-            </Button>
-            <Button variant="outline" onClick={() => setClearConfirmOpen(true)} disabled={clearing || isLoading} className="h-9 rounded-lg">
-              <X className="size-4" />清理已完成
-            </Button>
-          </div>
+      ) : null}
+      <div className="grid grid-cols-3 gap-3">
+        <div className="rounded-[14px] border border-border/80 bg-surface p-3.5 shadow-2xs">
+          <div className="text-xs font-medium text-muted-foreground">匹配结果</div>
+          <div className="mt-1.5 text-2xl font-semibold tracking-tight text-foreground tabular-nums">{summary.total}</div>
         </div>
-      )}
-      <div className="grid gap-3 md:grid-cols-3">
-        <div className="rounded-xl border border-border/70 bg-card p-4 shadow-2xs"><div className="text-xs font-medium text-muted-foreground">当前结果</div><div className="mt-1.5 text-2xl font-semibold tracking-tight text-foreground tabular-nums">{summary.total}</div></div>
-        <div className="rounded-xl border border-border/70 bg-card p-4 shadow-2xs"><div className="text-xs font-medium text-muted-foreground">失败任务</div><div className="mt-1.5 text-2xl font-semibold tracking-tight text-rose-600 tabular-nums">{summary.failed}</div></div>
-        <div className="rounded-xl border border-border/70 bg-card p-4 shadow-2xs"><div className="text-xs font-medium text-muted-foreground">处理中</div><div className="mt-1.5 text-2xl font-semibold tracking-tight text-amber-600 tabular-nums">{summary.running}</div></div>
+        <div className="rounded-[14px] border border-border/80 bg-surface p-3.5 shadow-2xs">
+          <div className="text-xs font-medium text-muted-foreground">本页失败</div>
+          <div className="mt-1.5 text-2xl font-semibold tracking-tight text-rose-600 dark:text-rose-400 tabular-nums">{summary.failed}</div>
+        </div>
+        <div className="rounded-[14px] border border-border/80 bg-surface p-3.5 shadow-2xs">
+          <div className="text-xs font-medium text-muted-foreground">本页处理中</div>
+          <div className="mt-1.5 text-2xl font-semibold tracking-tight text-amber-600 dark:text-amber-400 tabular-nums">{summary.running}</div>
+        </div>
       </div>
 
-      <Card className="overflow-hidden rounded-xl border border-border/70 shadow-2xs">
+      <Card className="overflow-hidden rounded-[14px] border border-border/80 bg-surface shadow-2xs">
         <CardContent className="p-0">
-          <div className="grid gap-2 border-b border-border/70 px-4 py-3 xl:grid-cols-[minmax(16rem,1fr)_140px_160px_160px_140px_auto]">
-            <div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input aria-label="搜索任务历史" value={q} onChange={(event) => { setQ(event.target.value); setPage(1); }} placeholder="搜索任务 ID、错误码、Request ID" className="h-9 rounded-lg pl-9" /></div>
-            <Select value={status} onValueChange={(value) => { setStatus(value); setPage(1); }}><SelectTrigger aria-label="任务历史状态筛选" className="h-9 rounded-lg"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">全部状态</SelectItem><SelectItem value="queued">排队中</SelectItem><SelectItem value="running">处理中</SelectItem><SelectItem value="success">成功</SelectItem><SelectItem value="error">失败</SelectItem><SelectItem value="cancelled">已终止</SelectItem></SelectContent></Select>
-            <Input aria-label="任务历史用户筛选" value={user} onChange={(event) => { setUser(event.target.value); setPage(1); }} placeholder="用户" className="h-9 rounded-lg" />
-            <Input aria-label="任务历史模型筛选" value={model} onChange={(event) => { setModel(event.target.value); setPage(1); }} placeholder="模型" className="h-9 rounded-lg" />
-            <Input aria-label="任务历史尺寸筛选" value={size} onChange={(event) => { setSize(event.target.value); setPage(1); }} placeholder="尺寸" className="h-9 rounded-lg" />
-            <Button type="button" variant="outline" className="h-9 rounded-lg" disabled={!hasFilters} onClick={() => { setQ(""); setStatus("all"); setUser(""); setModel(""); setSize(""); setPage(1); }}><X className="size-4" />清除</Button>
+          <div className="flex flex-wrap items-center gap-2 border-b border-border/75 p-3">
+            <div className="relative min-w-[220px] flex-1">
+              <Search className="pointer-events-none absolute top-1/2 left-3 size-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input aria-label="搜索任务历史" value={q} onChange={(event) => { setQ(event.target.value); setPage(1); }} placeholder="搜索任务 ID、错误码、Request ID…" className="h-9 rounded-lg pl-8 text-xs" />
+            </div>
+            <Select value={status} onValueChange={(value) => { setStatus(value); setPage(1); }}>
+              <SelectTrigger aria-label="任务历史状态筛选" className="h-9 w-32 rounded-lg text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">全部状态</SelectItem>
+                <SelectItem value="queued">排队中</SelectItem>
+                <SelectItem value="running">处理中</SelectItem>
+                <SelectItem value="success">成功</SelectItem>
+                <SelectItem value="error">失败</SelectItem>
+                <SelectItem value="cancelled">已终止</SelectItem>
+              </SelectContent>
+            </Select>
+            <Input aria-label="任务历史用户筛选" value={user} onChange={(event) => { setUser(event.target.value); setPage(1); }} placeholder="用户" className="h-9 w-32 rounded-lg text-xs" />
+            <Input aria-label="任务历史模型筛选" value={model} onChange={(event) => { setModel(event.target.value); setPage(1); }} placeholder="模型" className="h-9 w-36 rounded-lg text-xs" />
+            <Input aria-label="任务历史尺寸筛选" value={size} onChange={(event) => { setSize(event.target.value); setPage(1); }} placeholder="尺寸" className="h-9 w-28 rounded-lg text-xs" />
+            {hasFilters ? (
+              <Button type="button" variant="ghost" size="sm" onClick={() => { setQ(""); setStatus("all"); setUser(""); setModel(""); setSize(""); setPage(1); }}>
+                <X className="size-3.5" />清除
+              </Button>
+            ) : null}
+            {embedded ? (
+              <Button type="button" variant="outline" size="sm" onClick={() => setClearConfirmOpen(true)} disabled={clearing || isLoading} className="ml-auto">
+                清理已完成
+              </Button>
+            ) : null}
           </div>
           <TaskHistoryResultsTable items={items} isLoading={isLoading} onCopyTroubleshooting={copyTroubleshooting} />
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/70 px-4 py-3 text-xs text-muted-foreground">
-            <span>每页 {pageSize} 条，共 {total} 条；第 {safePage} / {totalPages} 页</span>
-            <div className="flex items-center gap-2">
-              <Button type="button" variant="outline" className="h-9 rounded-lg px-3 text-xs" disabled={safePage <= 1 || isLoading} onClick={() => setPage((value) => Math.max(1, value - 1))}>上一页</Button>
-              <Button type="button" variant="outline" className="h-9 rounded-lg px-3 text-xs" disabled={safePage >= totalPages || isLoading} onClick={() => setPage((value) => Math.min(totalPages, value + 1))}>下一页</Button>
+          {items.length > 0 || total > 0 ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/70 px-4 py-2.5 text-xs text-muted-foreground tabular-nums">
+              <span>共 {total} 条记录 · 第 {safePage} / {totalPages} 页（每页 {pageSize} 条）</span>
+              <div className="flex items-center gap-1.5">
+                <Button type="button" variant="outline" size="xs" disabled={safePage <= 1 || isLoading} onClick={() => setPage((value) => Math.max(1, value - 1))}>上一页</Button>
+                <Button type="button" variant="outline" size="xs" disabled={safePage >= totalPages || isLoading} onClick={() => setPage((value) => Math.min(totalPages, value + 1))}>下一页</Button>
+              </div>
             </div>
-          </div>
+          ) : null}
         </CardContent>
       </Card>
       <ConfirmDialog

@@ -5,6 +5,7 @@ import {
   PackageOpen,
   ReceiptText,
   Scale,
+  SlidersHorizontal,
 } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -14,6 +15,7 @@ import { PaymentOrdersSection } from "@/app/payment-admin/payment-orders-section
 import { PaymentOverviewSection } from "@/app/payment-admin/payment-overview-section";
 import { PaymentProductsSection } from "@/app/payment-admin/payment-products-section";
 import { PaymentReconciliationsSection } from "@/app/payment-admin/payment-reconciliations-section";
+import { PaymentSettingsSection } from "@/app/payment-admin/payment-settings-section";
 import { PageHeader } from "@/components/page-header";
 import { SubNav } from "@/components/ui/sub-nav";
 import {
@@ -23,9 +25,10 @@ import {
 
 const tabs = [
   { value: "overview", label: "经营概览", icon: BarChart3 },
+  { value: "products", label: "充值套餐", icon: PackageOpen },
+  { value: "orders", label: "充值订单", icon: ReceiptText },
+  { value: "settings", label: "业务规则", icon: SlidersHorizontal },
   { value: "channels", label: "支付渠道", icon: CreditCard },
-  { value: "products", label: "商品管理", icon: PackageOpen },
-  { value: "orders", label: "订单流水", icon: ReceiptText },
   { value: "reconciliations", label: "账单对账", icon: Scale },
 ] as const;
 
@@ -66,9 +69,9 @@ export function PaymentAdminContent() {
   return (
     <section className="flex min-w-0 flex-col gap-5">
       <PageHeader
-        eyebrow="支付管理"
-        title="在线充值与支付"
-        description="集中管理支付渠道、充值商品、订单和账单对账，所有状态变化都会保留在订单流水中。"
+        eyebrow="商业化与支付中心"
+        title="在线充值与支付管理"
+        description="集中管理收款经营概览、充值套餐上架、订单流水追踪、业务计价规则与支付渠道对账。"
       />
       <div className="sticky top-16 z-20 flex items-center">
         <SubNav
@@ -80,13 +83,15 @@ export function PaymentAdminContent() {
         />
       </div>
       {tab === "overview" ? (
-        <PaymentOverviewSection />
-      ) : tab === "channels" ? (
-        <PaymentChannelsSection />
+        <PaymentOverviewSection onOpenSettings={() => handleTabChange("settings")} />
       ) : tab === "products" ? (
         <PaymentProductsSection />
       ) : tab === "orders" ? (
         <PaymentOrdersSection />
+      ) : tab === "settings" ? (
+        <PaymentSettingsSection />
+      ) : tab === "channels" ? (
+        <PaymentChannelsSection />
       ) : (
         <PaymentReconciliationsSection channels={channels} />
       )}

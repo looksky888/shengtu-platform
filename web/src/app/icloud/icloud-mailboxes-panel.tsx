@@ -35,7 +35,13 @@ async function copyMailboxAPI(mailbox: ICloudMailbox) {
   await copyText(text, "邮箱与 API 已复制");
 }
 
-export function ICloudMailboxesPanel({ controller }: { controller: ICloudPageController }) {
+export function ICloudMailboxesPanel({
+  controller,
+  onSwitchToSessions,
+}: {
+  controller: ICloudPageController;
+  onSwitchToSessions?: () => void;
+}) {
   const [taggingMailbox, setTaggingMailbox] = useState<ICloudMailbox | null>(null);
   const [codeKeyword, setCodeKeyword] = useState("auto");
   const {
@@ -44,6 +50,18 @@ export function ICloudMailboxesPanel({ controller }: { controller: ICloudPageCon
     deletingMailbox, setDeletingMailbox, isDeletingMailbox, confirmDeleteMailbox,
     refreshMailboxList, searchMailboxes, changeMailboxPage, changeMailboxUsage, syncAll, syncMailbox, fetchCode, toggleMessages,
   } = controller;
+
+  const isUnfilteredEmpty = mailboxUsage === "all" && !mailboxSearch.trim();
+
+  async function handleResetFilters() {
+    setMailboxSearch("");
+    if (mailboxUsage !== "all") {
+      await changeMailboxUsage("all");
+    } else {
+      await searchMailboxes();
+    }
+  }
+
   return (
     <SectionCard
       title="隐私邮箱与取件"
@@ -61,26 +79,19 @@ export function ICloudMailboxesPanel({ controller }: { controller: ICloudPageCon
         <div className="flex flex-wrap items-center gap-2">
           <Input
             aria-label="搜索邮箱或标记"
-            className="h-9 w-48 rounded-lg"
-            placeholder="搜索邮箱 / 标记"
+            className="h-8 w-52 rounded-lg text-xs"
+            placeholder="搜索邮箱地址或标记…"
             value={mailboxSearch}
             onChange={(event) => setMailboxSearch(event.target.value)}
             onKeyDown={(event) => event.key === "Enter" && searchMailboxes()}
           />
-          <Button size="sm" variant="outline" className="h-9 rounded-lg" disabled={mailboxLoading} onClick={() => void searchMailboxes()}>
+          <Button size="sm" variant="outline" disabled={mailboxLoading} onClick={() => void searchMailboxes()}>
             {mailboxLoading ? <LoaderCircle className="size-3.5 animate-spin" /> : null}
             搜索
           </Button>
-          <Button size="sm" variant="outline" className="h-9 rounded-lg" disabled={busy} onClick={() => void syncAll()}>
+          <Button size="sm" variant="outline" disabled={busy} onClick={() => void syncAll()}>
             <Download className="size-3.5" />
             同步邮箱
-          </Button>
-          <Button size="sm" variant="outline" className="h-9 rounded-lg" disabled={mailboxLoading || mailboxPage <= 1} onClick={() => void changeMailboxPage(mailboxPage - 1)}>
-            上一页
-          </Button>
-          <span className="text-xs text-muted-foreground">共 {mailboxFilteredTotal} 个 · 第 {mailboxPage}/{mailboxTotalPages} 页</span>
-          <Button size="sm" variant="outline" className="h-9 rounded-lg" disabled={mailboxLoading || mailboxPage >= mailboxTotalPages} onClick={() => void changeMailboxPage(mailboxPage + 1)}>
-            下一页
           </Button>
         </div>
       </div>
@@ -90,13 +101,24 @@ export function ICloudMailboxesPanel({ controller }: { controller: ICloudPageCon
         <EmptyState
           compact
           icon={Mail}
-          title={mailboxUsage === "all" && !mailboxSearch.trim() ? "暂无隐私邮箱" : "没有符合当前筛选条件的邮箱"}
+          title={isUnfilteredEmpty ? "暂无隐私邮箱库存" : "没有符合当前筛选条件的邮箱"}
           description={
-            mailboxUsage === "all" && !mailboxSearch.trim()
-              ? "请勾选 Apple 账号后点击「创建邮箱」。"
-              : "请调整使用状态或搜索关键字后重试。"
+            isUnfilteredEmpty
+              ? "请前往「Apple 账号与批量生成」勾选已登录账号后批量创建隐藏邮件地址。"
+              : "请调整使用状态或清空搜索关键字后重试。"
           }
-          className="rounded-xl border border-dashed border-border/70 bg-surface-muted/25 py-10"
+          action={
+            isUnfilteredEmpty && onSwitchToSessions ? (
+              <Button variant="outline" size="sm" onClick={onSwitchToSessions}>
+                前往绑定与生成邮箱
+              </Button>
+            ) : !isUnfilteredEmpty ? (
+              <Button variant="outline" size="sm" onClick={() => void handleResetFilters()}>
+                重置筛选条件
+              </Button>
+            ) : undefined
+          }
+          className="rounded-xl border border-dashed border-border/75 bg-surface-muted/30 py-10"
         />
       ) : mailboxes.length > 0 ? (
         <div className="grid gap-3 lg:grid-cols-2">
@@ -182,6 +204,32 @@ export function ICloudMailboxesPanel({ controller }: { controller: ICloudPageCon
               ) : null}
             </div>
           ))}
+        </div>
+      ) : null}
+
+      {mailboxes.length > 0 || mailboxPage > 1 ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/70 pt-3.5">
+          <span className="text-xs text-muted-foreground tabular-nums">
+            共 {mailboxFilteredTotal} 个隐私邮箱 · 第 {mailboxPage} / {mailboxTotalPages} 页
+          </span>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={mailboxLoading || mailboxPage <= 1}
+              onClick={() => void changeMailboxPage(mailboxPage - 1)}
+            >
+              上一页
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={mailboxLoading || mailboxPage >= mailboxTotalPages}
+              onClick={() => void changeMailboxPage(mailboxPage + 1)}
+            >
+              下一页
+            </Button>
+          </div>
         </div>
       ) : null}
 

@@ -1,4 +1,4 @@
-import { Ban, Copy, KeyRound, LoaderCircle, Search, X } from "lucide-react";
+import { Ban, Copy, KeyRound, LoaderCircle, Plus, Search, X } from "lucide-react";
 
 import { CreditsTablePagination } from "@/app/credits-admin/credits-table-pagination";
 import { cardStatusVariant, formatCardStatus, formatCreditNumber, formatDateTime, type TimeFilter } from "@/app/credits-admin/credits-admin-utils";
@@ -12,15 +12,33 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 export function CreditCardsSection({ state }: { state: CreditsAdminState }) {
+  const hasFilters = Boolean(state.cardsSearch.trim()) || state.cardsStatus !== "all" || state.cardsTime !== "all";
+  const clearFilters = () => {
+    state.setCardsSearch("");
+    state.setCardsStatus("all");
+    state.setCardsTime("all");
+  };
+
   return (
     <Card className="overflow-hidden">
-      <CardHeader className="border-b border-border/70 px-5 py-3.5 sm:px-5 sm:py-3.5">
-        <div className="flex flex-col gap-1">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <KeyRound className="size-4.5 text-muted-foreground" />
-            卡密列表
-          </CardTitle>
-          <CardDescription>生成后的明文兑换码只会在弹窗里显示一次，常驻列表仅保留公开字段。</CardDescription>
+      <CardHeader className="border-b border-border/70 bg-surface-muted/30 px-5 py-3.5 sm:px-5 sm:py-3.5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-col gap-1">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <KeyRound className="size-4.5 text-muted-foreground" />
+              卡密列表
+              <Badge variant="secondary" className="rounded-md tabular-nums">
+                共 {state.cardsTotal} 个
+              </Badge>
+            </CardTitle>
+            <CardDescription>生成后的明文兑换码支持在弹窗一键批量复制，常驻列表保留核销状态与追踪记录。</CardDescription>
+          </div>
+          {state.permissions.canManageCredits ? (
+            <Button type="button" size="sm" onClick={() => state.setIsGenerateDialogOpen(true)}>
+              <Plus className="size-4" />
+              生成卡密
+            </Button>
+          ) : null}
         </div>
       </CardHeader>
       <CardContent className="p-0 sm:p-0">
@@ -41,61 +59,70 @@ export function CreditCardsSection({ state }: { state: CreditsAdminState }) {
               <SelectItem value="all">全部时间</SelectItem><SelectItem value="today">今天</SelectItem><SelectItem value="7d">近 7 天</SelectItem><SelectItem value="30d">近 30 天</SelectItem>
             </SelectContent>
           </Select>
-          <Button type="button" variant="outline" className="h-9 rounded-lg px-3" disabled={!state.cardsSearch.trim() && state.cardsStatus === "all" && state.cardsTime === "all"} onClick={() => { state.setCardsSearch(""); state.setCardsStatus("all"); state.setCardsTime("all"); }}>
-            <X className="size-4" />清除
-          </Button>
+          {hasFilters ? (
+            <Button type="button" variant="outline" className="h-9 rounded-lg px-3" onClick={clearFilters}>
+              <X className="size-4" />清除
+            </Button>
+          ) : null}
         </div>
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader className="bg-surface-subtle/80 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-              <TableRow className="hover:bg-transparent">
-                <TableHead>卡密 ID</TableHead>
-                <TableHead>兑换码</TableHead>
-                <TableHead>面值</TableHead>
-                <TableHead>状态</TableHead>
-                <TableHead>使用用户</TableHead>
-                <TableHead>使用时间</TableHead>
-                <TableHead>创建时间</TableHead>
-                <TableHead className="text-right">操作</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>{renderCardRows(state)}</TableBody>
-          </Table>
-        </div>
-        {!state.isCardsLoading && state.cardsTotal > 0 ? <CreditsTablePagination label="卡密" total={state.cardsTotal} page={state.pagedCards.currentPage} pageSize={state.cardsPageSize} onPageChange={state.setCardsPage} onPageSizeChange={state.setCardsPageSize} /> : null}
+
+        {state.isCardsLoading ? (
+          <div className="flex min-h-[240px] items-center justify-center gap-2 text-sm text-muted-foreground">
+            <LoaderCircle className="size-4 animate-spin" />
+            正在加载卡密数据...
+          </div>
+        ) : state.cardsTotal === 0 || state.pagedCards.items.length === 0 ? (
+          <EmptyState
+            icon={KeyRound}
+            title={hasFilters ? "没有符合筛选条件的卡密" : "暂无积分卡密记录"}
+            description={
+              hasFilters
+                ? "未找到匹配的兑换码记录，请尝试清空关键字或调整状态筛选。"
+                : "生成积分兑换码后，可用于活动发放、人工充值补单或渠道分发。"
+            }
+            action={
+              hasFilters ? (
+                <Button type="button" variant="outline" size="sm" onClick={clearFilters}>
+                  <X className="size-4" />
+                  清空筛选条件
+                </Button>
+              ) : state.permissions.canManageCredits ? (
+                <Button type="button" size="sm" onClick={() => state.setIsGenerateDialogOpen(true)}>
+                  <Plus className="size-4" />
+                  立即生成卡密
+                </Button>
+              ) : null
+            }
+            className="py-14"
+          />
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader className="bg-surface-muted/45 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead>卡密 ID</TableHead>
+                    <TableHead>兑换码</TableHead>
+                    <TableHead>面值</TableHead>
+                    <TableHead>状态</TableHead>
+                    <TableHead>使用用户</TableHead>
+                    <TableHead>使用时间</TableHead>
+                    <TableHead>创建时间</TableHead>
+                    <TableHead className="text-right">操作</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>{renderCardRows(state)}</TableBody>
+              </Table>
+            </div>
+            <CreditsTablePagination label="卡密" total={state.cardsTotal} page={state.pagedCards.currentPage} pageSize={state.cardsPageSize} onPageChange={state.setCardsPage} onPageSizeChange={state.setCardsPageSize} />
+          </>
+        )}
       </CardContent>
     </Card>
   );
 }
 
 function renderCardRows(state: CreditsAdminState) {
-  if (state.isCardsLoading) {
-    return (
-      <TableRow className="hover:bg-transparent">
-        <TableCell colSpan={8} className="h-28 text-center text-muted-foreground">
-          <div className="flex items-center justify-center gap-2">
-            <LoaderCircle className="size-4 animate-spin" />
-            正在加载卡密数据...
-          </div>
-        </TableCell>
-      </TableRow>
-    );
-  }
-  if (state.cardsTotal === 0) {
-    return (
-      <TableRow className="hover:bg-transparent">
-        <TableCell colSpan={8} className="p-0">
-          <EmptyState
-            compact
-            icon={KeyRound}
-            title="暂无卡密记录"
-            description="点击右上角「生成卡密」创建积分兑换码，或调整筛选条件。"
-            className="border-0 bg-transparent py-10"
-          />
-        </TableCell>
-      </TableRow>
-    );
-  }
   return state.pagedCards.items.map((card) => (
     <TableRow key={card.id} className="text-muted-foreground transition-colors hover:bg-surface-hover/60">
       <TableCell className="max-w-[220px] font-mono text-xs text-foreground tabular-nums">{card.id}</TableCell>

@@ -1,96 +1,127 @@
-import { Activity, CircleAlert, Gauge, TriangleAlert } from "lucide-react";
+import { Activity, CircleAlert, Gauge, Layers, TriangleAlert } from "lucide-react";
 
 import { GrokProviderIcon } from "@/app/accounts/grok-provider-icons";
 import type { GrokProviderAccountsResponse } from "@/lib/grok-provider-accounts-api";
 
-const CARDS = [
-  { provider: "build", label: "Grok Build" },
-  { provider: "web", label: "Grok Web" },
-  { provider: "console", label: "Grok Console" },
-] as const;
-
 export function GrokProviderSummary({ summary }: { summary?: GrokProviderAccountsResponse["summary"] }) {
   const abnormal = summary ? summary.by_status.error + summary.by_status.disabled + summary.by_status.unknown : null;
   const total = summary?.total || 0;
-  const ratio = (value: number | null | undefined) => (total > 0 && value != null ? `${Math.round((value / total) * 100)}%` : "—");
+  const routableTotal = summary
+    ? (summary.routable_by_provider.build || 0) +
+      (summary.routable_by_provider.web || 0) +
+      (summary.routable_by_provider.console || 0)
+    : null;
+  const ratio = (value: number | null | undefined) =>
+    total > 0 && value != null ? `${Math.round((value / total) * 100)}%` : "—";
+  const failureEntries = Object.entries(summary?.recent_failure_codes || {}).slice(0, 4);
+
   return (
-    <div className="grid grid-cols-1 gap-3 border-b border-border/70 bg-surface-subtle/50 p-4 sm:grid-cols-2 xl:grid-cols-4 lg:px-5">
-      {CARDS.map(({ provider, label }) => (
-        <div key={provider} className="rounded-xl border border-border/70 bg-card p-4 shadow-2xs">
-          <div className="flex items-start justify-between gap-2">
-            <span className="text-xs font-medium text-muted-foreground">{label} 账号数</span>
-            <span className="rounded-lg bg-surface-muted p-2 text-foreground ring-1 ring-border/60">
-              <GrokProviderIcon provider={provider} className="size-4" />
+    <section className="flex flex-col gap-2.5">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div className="rounded-[14px] border border-border/80 bg-surface p-4 shadow-2xs transition-colors hover:border-border-strong/70">
+          <div className="flex items-center justify-between gap-2">
+            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+              <span className="size-1.5 rounded-full bg-foreground/75" aria-hidden="true" />
+              池内账号总数
+            </span>
+            <span className="inline-flex size-7 items-center justify-center rounded-lg bg-surface-muted text-foreground ring-1 ring-border/60">
+              <Layers className="size-3.5" />
             </span>
           </div>
-          <div className="mt-1.5 text-2xl font-semibold tracking-tight text-foreground tabular-nums">
-            {summary?.by_provider[provider] ?? "—"}
+          <div className="mt-2.5 text-2xl font-semibold tracking-tight text-foreground tabular-nums">
+            {summary?.total ?? "—"}
           </div>
-          <div className="mt-1 text-xs tabular-nums text-muted-foreground">
-            可调度账号 {summary?.routable_by_provider[provider] ?? "—"}
+          <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground tabular-nums">
+            <span className="inline-flex items-center gap-1">
+              <GrokProviderIcon provider="build" className="size-3" />
+              Build {summary?.by_provider.build ?? "—"}
+            </span>
+            <span className="text-border">·</span>
+            <span className="inline-flex items-center gap-1">
+              <GrokProviderIcon provider="web" className="size-3" />
+              Web {summary?.by_provider.web ?? "—"}
+            </span>
+            <span className="text-border">·</span>
+            <span className="inline-flex items-center gap-1">
+              <GrokProviderIcon provider="console" className="size-3" />
+              Console {summary?.by_provider.console ?? "—"}
+            </span>
           </div>
         </div>
-      ))}
-      <div className="rounded-xl border border-border/70 bg-card p-4 shadow-2xs">
-        <div className="flex items-start justify-between gap-2">
-          <span className="text-xs font-medium text-muted-foreground">异常账号数</span>
-          <span className="rounded-lg bg-amber-500/10 p-2 text-amber-600 ring-1 ring-amber-500/20 dark:text-amber-400">
-            <CircleAlert className="size-4" />
-          </span>
+
+        <div className="rounded-[14px] border border-border/80 bg-surface p-4 shadow-2xs transition-colors hover:border-border-strong/70">
+          <div className="flex items-center justify-between gap-2">
+            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+              <span className="size-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
+              理论并发槽位
+            </span>
+            <span className="inline-flex size-7 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 ring-1 ring-emerald-500/20 dark:text-emerald-400">
+              <Gauge className="size-3.5" />
+            </span>
+          </div>
+          <div className="mt-2.5 text-2xl font-semibold tracking-tight text-foreground tabular-nums">
+            {summary?.theoretical_slots ?? "—"}
+          </div>
+          <div className="mt-1.5 text-[11px] leading-4 text-muted-foreground tabular-nums">
+            可调度账号 {routableTotal ?? "—"}（B {summary?.routable_by_provider.build ?? "—"} / W {summary?.routable_by_provider.web ?? "—"} / C {summary?.routable_by_provider.console ?? "—"}）
+          </div>
         </div>
-        <div className="mt-1.5 text-2xl font-semibold tracking-tight text-foreground tabular-nums">
-          {abnormal ?? "—"}
+
+        <div className="rounded-[14px] border border-border/80 bg-surface p-4 shadow-2xs transition-colors hover:border-border-strong/70">
+          <div className="flex items-center justify-between gap-2">
+            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+              <span className="size-1.5 rounded-full bg-amber-500" aria-hidden="true" />
+              异常与待检账号
+            </span>
+            <span className="inline-flex size-7 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 ring-1 ring-amber-500/20 dark:text-amber-400">
+              <CircleAlert className="size-3.5" />
+            </span>
+          </div>
+          <div className="mt-2.5 text-2xl font-semibold tracking-tight text-foreground tabular-nums">
+            {abnormal ?? "—"}
+          </div>
+          <div className="mt-1.5 text-[11px] leading-4 text-muted-foreground tabular-nums">
+            占比 {ratio(abnormal)} · 异常 {summary?.by_status.error ?? "—"} · 停用 {summary?.by_status.disabled ?? "—"} · 待检 {summary?.by_status.unknown ?? "—"}
+          </div>
         </div>
-        <div className="mt-1 text-xs tabular-nums text-muted-foreground">
-          占账号 {ratio(abnormal)} · 异常 {summary?.by_status.error ?? "—"} · 停用 {summary?.by_status.disabled ?? "—"} · 待检测 {summary?.by_status.unknown ?? "—"}
-        </div>
-      </div>
-      <div className="rounded-xl border border-border/70 bg-card p-4 shadow-2xs">
-        <div className="flex items-start justify-between gap-2">
-          <span className="text-xs font-medium text-muted-foreground">理论并发槽位</span>
-          <span className="rounded-lg bg-surface-muted p-2 text-foreground ring-1 ring-border/60">
-            <Gauge className="size-4" />
-          </span>
-        </div>
-        <div className="mt-1.5 text-2xl font-semibold tracking-tight text-foreground tabular-nums">
-          {summary?.theoretical_slots ?? "—"}
-        </div>
-        <div className="mt-1 text-xs text-muted-foreground">活跃且有凭据账号的并发上限总和</div>
-      </div>
-      <div className="rounded-xl border border-border/70 bg-card p-4 shadow-2xs">
-        <div className="flex items-start justify-between gap-2">
-          <span className="text-xs font-medium text-muted-foreground">额度耗尽</span>
-          <span className="rounded-lg bg-amber-500/10 p-2 text-amber-600 ring-1 ring-amber-500/20 dark:text-amber-400">
-            <TriangleAlert className="size-4" />
-          </span>
-        </div>
-        <div className="mt-1.5 text-2xl font-semibold tracking-tight text-foreground tabular-nums">
-          {summary?.quota_exhausted ?? "—"}
-        </div>
-        <div className="mt-1 text-xs tabular-nums text-muted-foreground">
-          占账号 {ratio(summary?.quota_exhausted)} · 未知 {summary?.quota_unknown ?? "—"}
-        </div>
-      </div>
-      <div className="rounded-xl border border-border/70 bg-card p-4 shadow-2xs">
-        <div className="flex items-start justify-between gap-2">
-          <span className="text-xs font-medium text-muted-foreground">最近失败码</span>
-          <span className="rounded-lg bg-rose-500/10 p-2 text-rose-600 ring-1 ring-rose-500/20 dark:text-rose-400">
-            <Activity className="size-4" />
-          </span>
-        </div>
-        <div className="mt-2 space-y-1 text-xs text-muted-foreground">
-          {Object.entries(summary?.recent_failure_codes || {}).length
-            ? Object.entries(summary?.recent_failure_codes || {})
-                .slice(0, 3)
-                .map(([code, count]) => (
-                  <div key={code} className="flex items-center justify-between gap-2">
-                    <span className="max-w-[13rem] truncate font-mono" title={code}>{code}</span>
-                    <span className="font-semibold tabular-nums text-rose-600 dark:text-rose-400">{count}</span>
-                  </div>
-                ))
-            : <span>暂无失败记录</span>}
+
+        <div className="rounded-[14px] border border-border/80 bg-surface p-4 shadow-2xs transition-colors hover:border-border-strong/70">
+          <div className="flex items-center justify-between gap-2">
+            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+              <span className="size-1.5 rounded-full bg-rose-500" aria-hidden="true" />
+              额度耗尽预警
+            </span>
+            <span className="inline-flex size-7 items-center justify-center rounded-lg bg-rose-500/10 text-rose-600 ring-1 ring-rose-500/20 dark:text-rose-400">
+              <TriangleAlert className="size-3.5" />
+            </span>
+          </div>
+          <div className="mt-2.5 text-2xl font-semibold tracking-tight text-foreground tabular-nums">
+            {summary?.quota_exhausted ?? "—"}
+          </div>
+          <div className="mt-1.5 text-[11px] leading-4 text-muted-foreground tabular-nums">
+            占比 {ratio(summary?.quota_exhausted)} · 额度未知 {summary?.quota_unknown ?? "—"}
+          </div>
         </div>
       </div>
-    </div>
+
+      {failureEntries.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border/75 bg-surface px-3.5 py-2 text-xs shadow-2xs">
+          <span className="inline-flex items-center gap-1.5 font-medium text-muted-foreground">
+            <Activity className="size-3.5 text-rose-500" />
+            最近失败码
+          </span>
+          {failureEntries.map(([code, count]) => (
+            <span
+              key={code}
+              className="inline-flex items-center gap-1.5 rounded-md border border-border/80 bg-surface-muted px-2 py-0.5 font-mono text-[11px] tabular-nums"
+              title={code}
+            >
+              <span className="max-w-[14rem] truncate text-foreground">{code}</span>
+              <span className="font-semibold text-rose-600 dark:text-rose-400">{count}</span>
+            </span>
+          ))}
+        </div>
+      ) : null}
+    </section>
   );
 }

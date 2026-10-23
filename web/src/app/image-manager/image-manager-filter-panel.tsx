@@ -62,7 +62,7 @@ type ImageManagerFilterPanelProps = {
 };
 
 export function ImageManagerFilterPanel(props: ImageManagerFilterPanelProps) {
-  const renderSearchFilter = (placeholder = "搜索文件、路径、作者…", className = "w-full md:w-56") => (
+  const renderSearchFilter = (placeholder = "搜索文件名、路径、作者…", className = "w-full md:w-64") => (
     <div className={`relative min-w-0 ${className}`}>
       <Search className="pointer-events-none absolute top-1/2 left-3 size-3.5 -translate-y-1/2 text-muted-foreground" />
       <Input
@@ -114,7 +114,7 @@ export function ImageManagerFilterPanel(props: ImageManagerFilterPanelProps) {
   );
 
   return (
-    <section className="rounded-xl border border-border/70 bg-card p-3 shadow-2xs">
+    <section className="rounded-[14px] border border-border/80 bg-surface p-3 shadow-2xs">
       <div className="md:hidden">
         <ImageManagerMobileFilters
           isMobileFiltersOpen={props.isMobileFiltersOpen}
@@ -154,16 +154,17 @@ export function ImageManagerFilterPanel(props: ImageManagerFilterPanelProps) {
           onAspectRatioFilterChange={props.onAspectRatioFilterChange}
         />
         {renderDateRangeFilter("w-[210px]")}
-        <Button
-          type="button"
-          variant="ghost"
-          className="h-9 rounded-lg px-2.5 text-xs text-muted-foreground hover:text-foreground"
-          onClick={props.onClearFilters}
-          disabled={!props.hasActiveFilters}
-        >
-          <RotateCcw className="size-3.5" />
-          重置
-        </Button>
+        {props.hasActiveFilters ? (
+          <Button
+            type="button"
+            variant="ghost"
+            className="h-9 rounded-lg px-2.5 text-xs text-muted-foreground hover:text-foreground"
+            onClick={props.onClearFilters}
+          >
+            <RotateCcw className="size-3.5" />
+            重置筛选
+          </Button>
+        ) : null}
       </div>
     </section>
   );

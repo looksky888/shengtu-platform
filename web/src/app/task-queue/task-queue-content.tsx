@@ -52,7 +52,7 @@ export function TaskQueueContent({ session }: { session: StoredAuthSession }) {
   return (
     <section className="min-w-0 space-y-4">
       <PageHeader
-        eyebrow="运维"
+        eyebrow="资产与任务"
         title="任务中心"
         badge={
           tab === "live" ? (
@@ -63,13 +63,13 @@ export function TaskQueueContent({ session }: { session: StoredAuthSession }) {
             />
           ) : undefined
         }
-        description="实时查看生成队列、执行资源和失败原因；历史页用于筛选、排错与清理。"
+        description="实时监控生成队列、Worker 并发负载与异常处置；历史页用于筛选、排错与归档清理。"
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <Button
               type="button"
               variant="outline"
-              className="h-9 rounded-lg"
+              size="sm"
               onClick={() =>
                 tab === "live"
                   ? void live.load()
@@ -79,7 +79,7 @@ export function TaskQueueContent({ session }: { session: StoredAuthSession }) {
             >
               <RefreshCw
                 className={cn(
-                  "size-4",
+                  "size-3.5",
                   tab === "live" && live.isLoading ? "animate-spin" : ""
                 )}
               />
@@ -90,7 +90,7 @@ export function TaskQueueContent({ session }: { session: StoredAuthSession }) {
                 <Button
                   type="button"
                   variant="outline"
-                  className="h-9 rounded-lg"
+                  size="sm"
                   title="删除成功/失败/已取消的任务记录，不影响运行中"
                   disabled={live.clearing}
                   onClick={() => setConfirmClearScope("finished")}
@@ -100,21 +100,22 @@ export function TaskQueueContent({ session }: { session: StoredAuthSession }) {
                 <Button
                   type="button"
                   variant="destructive-outline"
-                  className="h-9 rounded-lg"
+                  size="sm"
                   disabled={live.clearing}
                   onClick={() => setConfirmClearScope("failed")}
                 >
                   清理失败
                 </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-9 rounded-lg"
-                  disabled={!live.selectedIds.length}
-                  onClick={() => void live.cancelSelected()}
-                >
-                  批量取消 ({live.selectedIds.length})
-                </Button>
+                {live.selectedIds.length > 0 ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void live.cancelSelected()}
+                  >
+                    批量取消 ({live.selectedIds.length})
+                  </Button>
+                ) : null}
               </>
             ) : null}
           </div>

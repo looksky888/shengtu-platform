@@ -311,7 +311,7 @@ function EndpointDocCard({
         {endpoint.params && endpoint.params.length > 0 ? (
           <div className="overflow-x-auto rounded-lg border border-border/70">
             <table className="w-full text-left text-xs">
-              <thead className="border-b border-border/70 bg-surface-subtle/80 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              <thead className="border-b border-border/70 bg-surface-muted/45 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
                 <tr>
                   <th className="px-3 py-2 font-medium">参数名</th>
                   <th className="px-3 py-2 font-medium">类型</th>

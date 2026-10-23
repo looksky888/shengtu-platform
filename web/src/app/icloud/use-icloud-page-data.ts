@@ -21,7 +21,16 @@ export type ICloudLoadErrors = {
 const emptyLoadErrors = (): ICloudLoadErrors => ({ sessions: "", mailboxes: "", scheduler: "" });
 
 function errorMessage(error: unknown, fallback: string) {
-  return error instanceof Error && error.message ? error.message : fallback;
+  const raw = error instanceof Error && error.message ? error.message : fallback;
+  return sanitizeICloudMessage(raw);
+}
+
+export function sanitizeICloudMessage(message: string) {
+  return message
+    .replace(/\s*[（(]\s*CHATGPT2API_FEATURE_ICLOUD[^）)]*[）)]/gi, "")
+    .replace(/\bCHATGPT2API_FEATURE_ICLOUD\b/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
 }
 
 export function useICloudPageData(enabled: boolean) {
@@ -125,7 +134,7 @@ export function useICloudPageData(enabled: boolean) {
         setMailboxFilteredTotal(0);
         setMailboxSummary({ total: 0, openAIClaimed: 0 });
         setScheduler(null);
-        setPageError(nextBridge.error || "iCloud Bridge 未就绪");
+        setPageError(sanitizeICloudMessage(nextBridge.error || "iCloud Bridge 未就绪"));
         return;
       }
 

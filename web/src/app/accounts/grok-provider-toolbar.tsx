@@ -4,15 +4,16 @@ import {
   Gauge,
   LoaderCircle,
   Network,
-  Plus,
   Power,
   PowerOff,
-  RefreshCw,
+  RotateCcw,
+  Search,
   Settings2,
   ShieldCheck,
   Trash2,
   WandSparkles,
   Webhook,
+  X,
 } from "lucide-react";
 
 import type { GrokConfigDialogKind } from "@/app/accounts/grok-provider-config-dialog";
@@ -28,14 +29,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { SubNav } from "@/components/ui/sub-nav";
-import { cn } from "@/lib/utils";
 
 type Props = {
   controller: GrokProviderCenterController;
   canWrite: boolean;
   canDelete: boolean;
   isAdmin: boolean;
-  onImport: () => void;
   onConfigure: (kind: GrokConfigDialogKind) => void;
   onDelete: () => void;
 };
@@ -45,13 +44,17 @@ export function GrokProviderToolbar({
   canWrite,
   canDelete,
   isAdmin,
-  onImport,
   onConfigure,
   onDelete,
 }: Props) {
   const selected = controller.selectedAccounts.length;
   const scoped = selected > 0 && Boolean(controller.selectedProvider);
   const disabled = controller.busy || !canWrite;
+  const hasFilters =
+    controller.provider !== "all" ||
+    controller.status !== "all" ||
+    Boolean(controller.keyword.trim());
+
   const tabs = [
     {
       value: "all" as const,
@@ -88,8 +91,8 @@ export function GrokProviderToolbar({
   ] as const;
 
   return (
-    <div className="grid gap-3 border-b border-border/70 p-4 lg:p-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="grid gap-3 border-b border-border/75 p-3.5 lg:px-4">
+      <div className="flex flex-wrap items-center justify-between gap-2.5">
         <SubNav
           ariaLabel="Grok Provider 类型筛选"
           items={tabs}
@@ -97,48 +100,62 @@ export function GrokProviderToolbar({
           onValueChange={controller.setProvider}
           layoutId="grok-provider-subnav"
         />
-        <Button variant="brand" className="h-9 rounded-lg" disabled={disabled} onClick={onImport}>
-          <Plus className="size-4" />
-          <span>账号接入</span>
-        </Button>
-      </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <Input
-          aria-label="搜索 Grok Provider 账号"
-          className="h-9 min-w-52 flex-1 rounded-lg sm:max-w-xs"
-          placeholder="搜索账号、掩码邮箱或来源…"
-          value={controller.keyword}
-          onChange={(event) => controller.setKeyword(event.target.value)}
-        />
-        <Select
-          value={controller.status}
-          onValueChange={(value) =>
-            controller.setStatus(value as typeof controller.status)
-          }
-        >
-          <SelectTrigger aria-label="Provider 状态筛选" className="h-9 w-[136px] rounded-lg">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">全部状态</SelectItem>
-            <SelectItem value="active">可用</SelectItem>
-            <SelectItem value="disabled">已停用</SelectItem>
-            <SelectItem value="error">异常</SelectItem>
-            <SelectItem value="unknown">待检测</SelectItem>
-          </SelectContent>
-        </Select>
-        <Button
-          variant="outline"
-          className="h-9 rounded-lg"
-          disabled={controller.loading}
-          onClick={() => void controller.load()}
-        >
-          <RefreshCw
-            className={cn("size-4", controller.loading && "animate-spin")}
-          />
-          <span>刷新</span>
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative w-full sm:w-64">
+            <Search className="pointer-events-none absolute top-1/2 left-3 size-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              aria-label="搜索 Grok Provider 账号"
+              className="h-9 rounded-lg pr-8 pl-8 text-xs"
+              placeholder="搜索账号、掩码邮箱或来源…"
+              value={controller.keyword}
+              onChange={(event) => controller.setKeyword(event.target.value)}
+            />
+            {controller.keyword ? (
+              <button
+                type="button"
+                onClick={() => controller.setKeyword("")}
+                className="absolute top-1/2 right-1.5 inline-flex size-6 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                aria-label="清空搜索"
+              >
+                <X className="size-3.5" />
+              </button>
+            ) : null}
+          </div>
+          <Select
+            value={controller.status}
+            onValueChange={(value) =>
+              controller.setStatus(value as typeof controller.status)
+            }
+          >
+            <SelectTrigger aria-label="Provider 状态筛选" className="h-9 w-[132px] rounded-lg text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">全部状态</SelectItem>
+              <SelectItem value="active">可用</SelectItem>
+              <SelectItem value="disabled">已停用</SelectItem>
+              <SelectItem value="error">异常</SelectItem>
+              <SelectItem value="unknown">待检测</SelectItem>
+            </SelectContent>
+          </Select>
+          {hasFilters ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-9 px-2.5 text-xs text-muted-foreground hover:text-foreground"
+              onClick={() => {
+                controller.setProvider("all");
+                controller.setStatus("all");
+                controller.setKeyword("");
+              }}
+            >
+              <RotateCcw className="size-3.5" />
+              重置
+            </Button>
+          ) : null}
+        </div>
       </div>
 
       {selected > 0 ? (

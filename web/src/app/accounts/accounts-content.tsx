@@ -1,4 +1,5 @@
-import { Bot, Sparkles } from "lucide-react";
+import { useState } from "react";
+import { AlertCircle, Bot, CheckCircle2, Plus, RefreshCw, Sparkles } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 
 import { AccountEditDialog } from "@/app/accounts/account-edit-dialog";
@@ -8,9 +9,13 @@ import { AccountsLoadingCard } from "@/app/accounts/accounts-empty-states";
 import { AccountsListFilters } from "@/app/accounts/accounts-list-filters";
 import { AccountsTable } from "@/app/accounts/accounts-table";
 import { GrokAccountsPanel } from "@/app/accounts/grok-accounts-panel";
+import { GrokProviderTaskProgress } from "@/app/accounts/grok-provider-task-progress";
 import { useAccountsManagement } from "@/app/accounts/use-accounts-management";
+import { useGrokProviderCenter } from "@/app/accounts/use-grok-provider-center";
+import { Button } from "@/components/ui/button";
 import { SubNav } from "@/components/ui/sub-nav";
-import type { StoredAuthSession } from "@/store/auth";
+import { cn } from "@/lib/utils";
+import { hasAPIPermission, type StoredAuthSession } from "@/store/auth";
 
 type AccountPlatform = "gpt" | "grok";
 
@@ -23,6 +28,7 @@ export function AccountsPageContent({ session }: { session: StoredAuthSession })
   const [searchParams, setSearchParams] = useSearchParams();
   const rawPlatform = searchParams.get("platform");
   const platform: AccountPlatform = rawPlatform === "grok" ? "grok" : "gpt";
+  const [grokImportOpen, setGrokImportOpen] = useState(false);
 
   const handlePlatformChange = (next: AccountPlatform) => {
     const nextParams = new URLSearchParams(searchParams);
@@ -35,6 +41,8 @@ export function AccountsPageContent({ session }: { session: StoredAuthSession })
   };
 
   const accounts = useAccountsManagement(session);
+  const grok = useGrokProviderCenter(platform === "grok");
+  const canWriteGrok = hasAPIPermission(session, "post", "/api/grok");
   const {
     canImportAccounts,
     canRefreshAccounts,
@@ -42,6 +50,13 @@ export function AccountsPageContent({ session }: { session: StoredAuthSession })
     canDeleteAccounts,
     canExportTokens,
   } = accounts.permissions;
+
+  const resetGptFilters = () => {
+    accounts.setQuery("");
+    accounts.setTypeFilter("all");
+    accounts.setStatusFilter("all");
+    accounts.setPage(1);
+  };
 
   return (
     <div className="flex flex-col gap-4">
@@ -54,7 +69,45 @@ export function AccountsPageContent({ session }: { session: StoredAuthSession })
         canImportAccounts={canImportAccounts}
         canRefreshAccounts={canRefreshAccounts}
         canExportTokens={canExportTokens}
-        showActions={platform === "gpt"}
+        platform={platform}
+        grokActions={
+          <>
+            {grok.task ? (
+              <GrokProviderTaskProgress task={grok.task} defaultOpen={grok.taskAutoOpen} />
+            ) : null}
+            {grok.data ? (
+              <span className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border/80 bg-surface px-2.5 text-xs text-muted-foreground shadow-2xs">
+                {grok.data.projection.status === "success" ? (
+                  <CheckCircle2 className="size-3.5 text-emerald-600 dark:text-emerald-400" />
+                ) : (
+                  <AlertCircle className="size-3.5 text-rose-600 dark:text-rose-400" />
+                )}
+                投影{grok.data.projection.status === "success" ? "正常" : "异常"}
+              </span>
+            ) : null}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={grok.loading}
+              onClick={() => void grok.load()}
+            >
+              <RefreshCw className={cn("size-3.5", grok.loading && "animate-spin")} />
+              刷新
+            </Button>
+            {canWriteGrok ? (
+              <Button
+                type="button"
+                size="sm"
+                disabled={grok.busy}
+                onClick={() => setGrokImportOpen(true)}
+              >
+                <Plus className="size-3.5" />
+                账号接入
+              </Button>
+            ) : null}
+          </>
+        }
         onLoad={() => {
           void accounts.loadAccounts();
           void accounts.loadAccountsSummary();
@@ -74,7 +127,14 @@ export function AccountsPageContent({ session }: { session: StoredAuthSession })
         />
       </div>
 
-      {platform === "grok" ? <GrokAccountsPanel session={session} /> : null}
+      {platform === "grok" ? (
+        <GrokAccountsPanel
+          session={session}
+          controller={grok}
+          importOpen={grokImportOpen}
+          onImportOpenChange={setGrokImportOpen}
+        />
+      ) : null}
 
       {platform === "gpt" ? (
         <>
@@ -102,7 +162,7 @@ export function AccountsPageContent({ session }: { session: StoredAuthSession })
 
           <AccountMetricCards summary={accounts.summary} />
 
-          <section className="flex flex-col gap-4">
+          <section className="flex flex-col gap-3">
             <AccountsListFilters
               total={accounts.filteredCount}
               query={accounts.query}
@@ -120,6 +180,7 @@ export function AccountsPageContent({ session }: { session: StoredAuthSession })
                 accounts.setStatusFilter(value);
                 accounts.setPage(1);
               }}
+              onResetFilters={resetGptFilters}
             />
 
             {accounts.isLoading && accounts.accounts.length === 0 ? (
@@ -140,6 +201,7 @@ export function AccountsPageContent({ session }: { session: StoredAuthSession })
               isRefreshing={accounts.isRefreshing}
               isDeleting={accounts.isDeleting}
               isUpdating={accounts.isUpdating}
+              canImportAccounts={canImportAccounts}
               canRefreshAccounts={canRefreshAccounts}
               canDeleteAccounts={canDeleteAccounts}
               canUpdateAccount={canUpdateAccount}
@@ -175,6 +237,8 @@ export function AccountsPageContent({ session }: { session: StoredAuthSession })
               }
               onPageSizeChange={accounts.setPageSize}
               onPageChange={accounts.setPage}
+              onImported={accounts.handleImported}
+              onResetFilters={resetGptFilters}
             />
           </section>
         </>

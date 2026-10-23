@@ -78,7 +78,10 @@ export function LogDetailDialog({
                 <div className="rounded-xl border border-border bg-muted/35 p-4">
                   <div className="text-sm font-medium text-foreground">{detailLog?.summary || "-"}</div>
                   <div className="mt-3 grid gap-3 text-sm sm:grid-cols-4">
-                    <SummaryItem label={"操作人"} value={actorText(detailLog)} />
+                    <SummaryItem
+                      label="操作人"
+                      value={actorText(detailLog).trim().toLowerCase() === "anonymous" ? "匿名访客 (anonymous)" : actorText(detailLog)}
+                    />
                     <SummaryItem label={"模块"} value={moduleText(detailLog)} />
                     <SummaryItem label={"接口"} value={pathText(detailLog)} />
                     <SummaryItem label={"耗时"} value={formatDuration(detailLog)} />

@@ -1,4 +1,4 @@
-import { Coins, LoaderCircle, RefreshCw, Search, X } from "lucide-react";
+import { Coins, LoaderCircle, RefreshCw, Search, SlidersHorizontal, X } from "lucide-react";
 
 import { CreditsTablePagination } from "@/app/credits-admin/credits-table-pagination";
 import {
@@ -19,15 +19,27 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 export function CreditLedgerSection({ state }: { state: CreditsAdminState }) {
+  const hasFilters = Boolean(state.ledgerSearch.trim()) || state.ledgerReason !== "all" || state.ledgerTime !== "all";
+  const clearFilters = () => {
+    state.setLedgerSearch("");
+    state.setLedgerReason("all");
+    state.setLedgerTime("all");
+  };
+
   return (
     <Card className="overflow-hidden">
-      <CardHeader className="border-b border-border/70 px-5 py-3.5 sm:px-5 sm:py-3.5">
-        <div className="flex flex-col gap-1">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Coins className="size-4.5 text-muted-foreground" />
-            积分流水
-          </CardTitle>
-          <CardDescription>服务端分页；正数表示入账，负数表示扣减。</CardDescription>
+      <CardHeader className="border-b border-border/70 bg-surface-muted/30 px-5 py-3.5 sm:px-5 sm:py-3.5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-col gap-1">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Coins className="size-4.5 text-muted-foreground" />
+              积分流水
+              <Badge variant="secondary" className="rounded-md tabular-nums">
+                共 {state.ledgerTotal} 笔
+              </Badge>
+            </CardTitle>
+            <CardDescription>服务端分页记录每一笔入账与扣减，正数表示发放或退费，负数表示算力消耗。</CardDescription>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="p-0 sm:p-0">
@@ -51,6 +63,7 @@ export function CreditLedgerSection({ state }: { state: CreditsAdminState }) {
               <SelectItem value="signup">注册奖励</SelectItem>
               <SelectItem value="checkin">每日签到</SelectItem>
               <SelectItem value="card_redeem">卡密兑换</SelectItem>
+              <SelectItem value="admin_manual_adjust">后台调账</SelectItem>
               <SelectItem value="image_generation">图片生成</SelectItem>
               <SelectItem value="image_edit">图片编辑</SelectItem>
               <SelectItem value="image_refund">图片返还</SelectItem>
@@ -69,95 +82,90 @@ export function CreditLedgerSection({ state }: { state: CreditsAdminState }) {
               <SelectItem value="30d">近 30 天</SelectItem>
             </SelectContent>
           </Select>
-          <Button
-            type="button"
-            variant="outline"
-            className="h-9 rounded-lg px-3"
-            disabled={!state.ledgerSearch.trim() && state.ledgerReason === "all" && state.ledgerTime === "all"}
-            onClick={() => {
-              state.setLedgerSearch("");
-              state.setLedgerReason("all");
-              state.setLedgerTime("all");
-            }}
-          >
-            <X className="size-4" />
-            清除
-          </Button>
+          {hasFilters ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="h-9 rounded-lg px-3"
+              onClick={clearFilters}
+            >
+              <X className="size-4" />
+              清除
+            </Button>
+          ) : null}
         </div>
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader className="bg-surface-subtle/80 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-              <TableRow className="hover:bg-transparent">
-                <TableHead>用户 ID</TableHead>
-                <TableHead>原因</TableHead>
-                <TableHead>变动</TableHead>
-                <TableHead>余额</TableHead>
-                <TableHead>引用</TableHead>
-                <TableHead>时间</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>{renderLedgerRows(state)}</TableBody>
-          </Table>
-        </div>
-        {!state.isLedgerLoading && !state.ledgerError && state.ledgerTotal > 0 ? (
-          <CreditsTablePagination
-            label="流水"
-            total={state.ledgerTotal}
-            page={state.pagedLedger.currentPage}
-            pageSize={state.ledgerPageSize}
-            onPageChange={state.setLedgerPage}
-            onPageSizeChange={state.setLedgerPageSize}
+
+        {state.isLedgerLoading ? (
+          <div className="flex min-h-[240px] items-center justify-center gap-2 text-sm text-muted-foreground">
+            <LoaderCircle className="size-4 animate-spin" />
+            正在加载积分流水...
+          </div>
+        ) : state.ledgerError ? (
+          <div className="flex min-h-[240px] flex-col items-center justify-center gap-2.5 p-6 text-center text-muted-foreground">
+            <p className="text-sm font-medium text-foreground">加载积分流水失败</p>
+            <p className="max-w-md text-xs">{state.ledgerError}</p>
+            <Button type="button" variant="outline" size="sm" onClick={() => void state.loadLedger()}>
+              <RefreshCw className="size-3.5" />
+              重试
+            </Button>
+          </div>
+        ) : state.ledger.length === 0 ? (
+          <EmptyState
+            icon={Coins}
+            title={hasFilters ? "没有符合筛选条件的积分流水" : "暂无积分变动流水"}
+            description={
+              hasFilters
+                ? "请尝试调整关键字、原因类型或时间范围筛选。"
+                : "当发生每日签到、卡密兑换、创作算力扣费或后台人工调账时，明细将自动记录在此。"
+            }
+            action={
+              hasFilters ? (
+                <Button type="button" variant="outline" size="sm" onClick={clearFilters}>
+                  <X className="size-4" />
+                  清空筛选条件
+                </Button>
+              ) : state.permissions.canManageCredits ? (
+                <Button type="button" variant="outline" size="sm" onClick={state.openManualAdjustCreditsDialog}>
+                  <SlidersHorizontal className="size-4" />
+                  调整用户积分
+                </Button>
+              ) : null
+            }
+            className="py-14"
           />
-        ) : null}
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader className="bg-surface-muted/45 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead>用户 ID</TableHead>
+                    <TableHead>原因</TableHead>
+                    <TableHead>变动</TableHead>
+                    <TableHead>余额</TableHead>
+                    <TableHead>引用</TableHead>
+                    <TableHead>时间</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>{renderLedgerRows(state)}</TableBody>
+              </Table>
+            </div>
+            <CreditsTablePagination
+              label="流水"
+              total={state.ledgerTotal}
+              page={state.pagedLedger.currentPage}
+              pageSize={state.ledgerPageSize}
+              onPageChange={state.setLedgerPage}
+              onPageSizeChange={state.setLedgerPageSize}
+            />
+          </>
+        )}
       </CardContent>
     </Card>
   );
 }
 
 function renderLedgerRows(state: CreditsAdminState) {
-  if (state.isLedgerLoading) {
-    return (
-      <TableRow className="hover:bg-transparent">
-        <TableCell colSpan={6} className="h-28 text-center text-muted-foreground">
-          <div className="flex items-center justify-center gap-2">
-            <LoaderCircle className="size-4 animate-spin" />
-            正在加载积分流水...
-          </div>
-        </TableCell>
-      </TableRow>
-    );
-  }
-  if (state.ledgerError) {
-    return (
-      <TableRow className="hover:bg-transparent">
-        <TableCell colSpan={6} className="h-28 text-center">
-          <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
-            <p className="text-sm text-foreground">加载失败</p>
-            <p className="max-w-md text-sm">{state.ledgerError}</p>
-            <Button type="button" variant="outline" className="h-9 rounded-lg px-3" onClick={() => void state.loadLedger()}>
-              <RefreshCw className="size-4" />
-              重试
-            </Button>
-          </div>
-        </TableCell>
-      </TableRow>
-    );
-  }
-  if (state.ledger.length === 0) {
-    return (
-      <TableRow className="hover:bg-transparent">
-        <TableCell colSpan={6} className="p-0">
-          <EmptyState
-            compact
-            icon={Coins}
-            title="暂无积分流水"
-            description="当发生签到、兑换、创作消费或后台调账时会自动记录在此。"
-            className="border-0 bg-transparent py-10"
-          />
-        </TableCell>
-      </TableRow>
-    );
-  }
   return state.ledger.map((entry) => (
     <TableRow key={entry.id} className="text-muted-foreground transition-colors hover:bg-surface-hover/60">
       <TableCell className="max-w-[180px] font-mono text-xs text-foreground tabular-nums">{entry.user_id}</TableCell>

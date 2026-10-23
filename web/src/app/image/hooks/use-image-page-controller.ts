@@ -1,3 +1,7 @@
+import { useCallback, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
+
+import { PENDING_STUDIO_PROMPT_STORAGE_KEY } from "@/app/landing/landing-brand";
 import { useImageComposerSettings } from "@/app/image/hooks/use-image-composer-settings";
 import { useImageComposerWorkflow } from "@/app/image/hooks/use-image-composer-workflow";
 import { useImageConversations } from "@/app/image/hooks/use-image-conversations";
@@ -277,6 +281,105 @@ export function useImagePageController() {
     setSelectedConversationId,
   });
 
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  useEffect(() => {
+    if (isLoadingHistory) return;
+
+    const urlPrompt = (searchParams.get("prompt") || "").trim();
+    const isNewDraft = searchParams.get("new") === "1";
+    let pendingSessionPrompt = "";
+    if (typeof window !== "undefined") {
+      try {
+        pendingSessionPrompt = (window.sessionStorage.getItem(PENDING_STUDIO_PROMPT_STORAGE_KEY) || "").trim();
+      } catch {
+        pendingSessionPrompt = "";
+      }
+    }
+
+    const resolvedPrompt = urlPrompt || pendingSessionPrompt;
+    if (!resolvedPrompt && !isNewDraft) return;
+
+    cancelPromptApplyRequest();
+    clearReferenceImages();
+    setSelectedConversationId(null);
+    setComposerMode("image");
+
+    if (resolvedPrompt) {
+      setImagePrompt(resolvedPrompt);
+    } else {
+      resetComposer();
+    }
+
+    if (typeof window !== "undefined") {
+      try {
+        window.sessionStorage.removeItem(PENDING_STUDIO_PROMPT_STORAGE_KEY);
+      } catch {
+        // Ignore storage restrictions.
+      }
+    }
+
+    if (searchParams.has("prompt") || searchParams.has("new")) {
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.delete("prompt");
+      nextParams.delete("new");
+      setSearchParams(nextParams, { replace: true });
+    }
+
+    if (typeof window !== "undefined") {
+      window.requestAnimationFrame(() => {
+        const el = textareaRef.current;
+        if (!el) return;
+        el.dataset.presetFlash = "1";
+        el.focus({ preventScroll: true });
+        try {
+          el.setSelectionRange(resolvedPrompt.length, resolvedPrompt.length);
+        } catch {
+          // Ignore selection errors.
+        }
+        window.setTimeout(() => {
+          if (textareaRef.current === el) {
+            delete el.dataset.presetFlash;
+          }
+        }, 700);
+      });
+    }
+  }, [
+    cancelPromptApplyRequest,
+    clearReferenceImages,
+    isLoadingHistory,
+    resetComposer,
+    searchParams,
+    setComposerMode,
+    setImagePrompt,
+    setSearchParams,
+    setSelectedConversationId,
+    textareaRef,
+  ]);
+
+  const handleAppendStyleChip = useCallback(
+    (descriptor: string) => {
+      const normalized = descriptor.trim();
+      if (!normalized) return;
+      if (composerMode === "chat") {
+        setComposerMode("image");
+      }
+      setImagePrompt((prev) => {
+        const base = prev.trim();
+        if (!base) return normalized;
+        if (base.includes(normalized)) return prev;
+        const separator = /[，,。；;、]$/.test(base) ? "" : "，";
+        return `${base}${separator}${normalized}`;
+      });
+      if (typeof window !== "undefined") {
+        window.requestAnimationFrame(() => {
+          textareaRef.current?.focus({ preventScroll: true });
+        });
+      }
+    },
+    [composerMode, setComposerMode, setImagePrompt, textareaRef],
+  );
+
   return {
     isSubmitDispatchingRef, cancelledTurnIdsRef, resultsViewportRef, composerDockRef, textareaRef,
     promptApplyRequestIdRef, imageModelOptions, chatModelOptions, defaultImageModel, defaultTextModel,
@@ -296,7 +399,7 @@ export function useImagePageController() {
     clearReferenceImages, handleReferenceImageChange, handleRemoveReferenceImage, handleContinueEdit, handleEditReferenceImageChange,
     handleRemoveEditReferenceImage, composerDockHeight, clearComposerInputs, resetComposer, handleComposerModeChange,
     isHistoryOpen, setIsHistoryOpen, deleteConfirm, setDeleteConfirm, openDeleteConversationConfirm,
-    openClearHistoryConfirm, openDeleteTurnConfirm, handleConfirmDelete, handleCreateDraft, handleApplyPromptPreset, visibilityMutatingImageKey,
+    openClearHistoryConfirm, openDeleteTurnConfirm, handleConfirmDelete, handleCreateDraft, handleApplyPromptPreset, handleAppendStyleChip, visibilityMutatingImageKey,
     handleImageVisibilityChange, runConversationQueue, handleCancelTurn, handleRetryImage, handleRegenerateTurn,
     handleSaveEditingTurn, handleSubmit, handleComposerModelChange, handleRecallTurn, handleDeleteTurn,
     inpaintSource: activeInpaintSource, handleLocalEdit, handleInpaintSubmit, setInpaintSource: setActiveInpaintSource,

@@ -10,7 +10,6 @@ import {
 } from "@/components/ui/card";
 import {
   Field,
-  FieldDescription,
   FieldGroup,
   FieldLabel,
 } from "@/components/ui/field";
@@ -42,24 +41,24 @@ export function ProfilePasswordCard({
 }: ProfilePasswordCardProps) {
   return (
     <Card className="order-2">
-      <CardHeader>
+      <CardHeader className="pb-3">
         <div className="flex min-w-0 items-center gap-3">
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-border/80 bg-surface-muted text-foreground">
-            <LockKeyhole className="size-5" />
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border/80 bg-surface-muted text-foreground">
+            <LockKeyhole className="size-4.5" />
           </div>
           <div className="min-w-0">
-            <CardTitle className="text-base font-semibold">登录密码</CardTitle>
+            <CardTitle className="text-base font-semibold">安全设置</CardTitle>
             <CardDescription className="truncate">
               {session.provider === "local"
-                ? "修改本地账号登录密码"
-                : "外部登录"}
+                ? "定期更新本地账号登录密码"
+                : "外部登录身份托管"}
             </CardDescription>
           </div>
         </div>
       </CardHeader>
       <CardContent>
         {session.provider === "local" ? (
-          <FieldGroup>
+          <FieldGroup className="gap-3">
             <Field>
               <FieldLabel htmlFor="profile-current-password">
                 当前密码
@@ -68,40 +67,49 @@ export function ProfilePasswordCard({
                 id="profile-current-password"
                 type="password"
                 autoComplete="current-password"
+                placeholder="输入当前登录密码"
                 value={currentPassword}
                 onChange={(event) =>
                   onCurrentPasswordChange(event.target.value)
                 }
+                className="h-9"
               />
             </Field>
-            <Field>
-              <FieldLabel htmlFor="profile-new-password">新密码</FieldLabel>
-              <Input
-                id="profile-new-password"
-                type="password"
-                autoComplete="new-password"
-                value={newPassword}
-                onChange={(event) => onNewPasswordChange(event.target.value)}
-              />
-              <FieldDescription>密码长度不能少于 8 位。</FieldDescription>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="profile-confirm-password">
-                确认新密码
-              </FieldLabel>
-              <Input
-                id="profile-confirm-password"
-                type="password"
-                autoComplete="new-password"
-                value={confirmPassword}
-                onChange={(event) =>
-                  onConfirmPasswordChange(event.target.value)
-                }
-              />
-            </Field>
-            <div className="flex justify-end">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+              <Field>
+                <FieldLabel htmlFor="profile-new-password">新密码</FieldLabel>
+                <Input
+                  id="profile-new-password"
+                  type="password"
+                  autoComplete="new-password"
+                  placeholder="不少于 8 位字符"
+                  value={newPassword}
+                  onChange={(event) => onNewPasswordChange(event.target.value)}
+                  className="h-9"
+                />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="profile-confirm-password">
+                  确认新密码
+                </FieldLabel>
+                <Input
+                  id="profile-confirm-password"
+                  type="password"
+                  autoComplete="new-password"
+                  placeholder="再次输入新密码"
+                  value={confirmPassword}
+                  onChange={(event) =>
+                    onConfirmPasswordChange(event.target.value)
+                  }
+                  className="h-9"
+                />
+              </Field>
+            </div>
+            <div className="flex items-center justify-between gap-2 pt-0.5">
+              <span className="text-[11px] text-muted-foreground">密码长度至少 8 位</span>
               <Button
                 type="button"
+                size="sm"
                 onClick={onChangePassword}
                 disabled={isChangingPassword}
               >
@@ -110,7 +118,7 @@ export function ProfilePasswordCard({
                 ) : (
                   <Save className="size-4" />
                 )}
-                修改密码
+                更新密码
               </Button>
             </div>
           </FieldGroup>

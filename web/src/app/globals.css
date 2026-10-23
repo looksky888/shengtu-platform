@@ -6,8 +6,10 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-stage: var(--stage);
   --color-surface: var(--surface);
   --color-surface-raised: var(--surface-raised);
+  --color-surface-subtle: var(--surface-subtle);
   --color-surface-muted: var(--surface-muted);
   --color-surface-hover: var(--surface-hover);
   --color-surface-active: var(--surface-active);
@@ -81,13 +83,15 @@
   --theme-transition-radius: 0px;
   --radius: 0.5rem;
 
-  /* 1. Gallery Paper Neutral Surfaces (Zero Cold-Blue Cast) */
-  --background: #fafafa;
+  /* 1. 4-Tier Studio Luminance Hierarchy (Chassis -> Stage -> Card -> Well) */
+  --background: #f3f4f6;
+  --stage: #f9f9fb;
   --surface: #ffffff;
   --surface-raised: #ffffff;
-  --surface-muted: #f4f4f5;
-  --surface-hover: rgba(24, 24, 27, 0.045);
-  --surface-active: rgba(24, 24, 27, 0.08);
+  --surface-subtle: #f4f4f6;
+  --surface-muted: #ebecef;
+  --surface-hover: rgba(24, 24, 27, 0.048);
+  --surface-active: rgba(24, 24, 27, 0.085);
 
   /* 2. Typography Ink Hierarchy */
   --foreground: #09090b;
@@ -161,19 +165,21 @@
 
 .dark {
   --background: #09090b;
-  --surface: #111113;
-  --surface-raised: #18181b;
-  --surface-muted: #18181b;
-  --surface-hover: rgba(255, 255, 255, 0.055);
-  --surface-active: rgba(255, 255, 255, 0.1);
+  --stage: #101013;
+  --surface: #16161a;
+  --surface-raised: #1c1c21;
+  --surface-subtle: #1b1b20;
+  --surface-muted: #222228;
+  --surface-hover: rgba(255, 255, 255, 0.06);
+  --surface-active: rgba(255, 255, 255, 0.11);
 
   --foreground: #fafafa;
   --muted-foreground: #a1a1aa;
   --subtle-foreground: #71717a;
 
-  --card: #111113;
+  --card: #16161a;
   --card-foreground: #fafafa;
-  --popover: #18181b;
+  --popover: #1c1c21;
   --popover-foreground: #fafafa;
   --primary: #fafafa;
   --primary-hover: #e4e4e7;
@@ -304,6 +310,56 @@
 
   .elevated-shadow {
     box-shadow: var(--shadow-elevated);
+  }
+
+  .studio-stage-frame {
+    background-color: var(--stage);
+    border: 1px solid var(--border);
+    box-shadow:
+      0 14px 40px -20px rgba(0, 0, 0, 0.075),
+      0 1px 3px rgba(0, 0, 0, 0.025),
+      inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  }
+
+  .dark .studio-stage-frame {
+    box-shadow:
+      0 20px 52px -22px rgba(0, 0, 0, 0.65),
+      0 2px 8px rgba(0, 0, 0, 0.35),
+      inset 0 1px 0 rgba(255, 255, 255, 0.045);
+  }
+
+  .studio-canvas-dots {
+    background-size: 20px 20px;
+    background-image: radial-gradient(
+      circle,
+      rgba(24, 24, 27, 0.085) 1px,
+      transparent 1px
+    );
+  }
+
+  .dark .studio-canvas-dots {
+    background-image: radial-gradient(
+      circle,
+      rgba(255, 255, 255, 0.068) 1px,
+      transparent 1px
+    );
+  }
+
+  .studio-prompt-well {
+    background: linear-gradient(
+      155deg,
+      color-mix(in srgb, var(--surface) 97%, transparent),
+      color-mix(in srgb, var(--surface-subtle) 88%, transparent)
+    );
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.75),
+      0 8px 24px -12px rgba(0, 0, 0, 0.055);
+  }
+
+  .dark .studio-prompt-well {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.04),
+      0 12px 28px -14px rgba(0, 0, 0, 0.5);
   }
 
   .studio-grid-bg {

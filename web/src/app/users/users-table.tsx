@@ -1,4 +1,4 @@
-import { LoaderCircle, Search, Users } from "lucide-react";
+import { LoaderCircle, Plus, Search, Users, X } from "lucide-react";
 
 import { UsersTableRow } from "@/app/users/users-table-row";
 import {
@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { ManagedRole, ManagedUser, ManagedUserUsage } from "@/lib/api";
 
 type UsersTablePermissions = {
@@ -25,6 +25,7 @@ type UsersTableProps = {
   roles: ManagedRole[];
   totalCount: number;
   filteredCount: number;
+  hasActiveFilters?: boolean;
   isLoading: boolean;
   usageReady?: boolean;
   usageByUserId?: Map<string, ManagedUserUsage>;
@@ -36,6 +37,8 @@ type UsersTableProps = {
   permissions: UsersTablePermissions;
   onPageSizeChange: (value: UserTablePageSize) => void;
   onPageChange: (updater: (value: number) => number) => void;
+  onCreateUser?: () => void;
+  onClearFilters?: () => void;
   onAdjustCredits: (user: ManagedUser, mode: CreditAdjustMode) => void;
   onRole: (user: ManagedUser) => void;
   onToggle: (user: ManagedUser) => void;
@@ -49,9 +52,50 @@ export function UsersTable(props: UsersTableProps) {
     pendingIds,
     creditBalanceByUserId,
     permissions,
+    hasActiveFilters = false,
     usageReady = true,
     usageByUserId,
+    onCreateUser,
+    onClearFilters,
   } = props;
+
+  if (props.isLoading) {
+    return (
+      <div className="flex min-h-[280px] items-center justify-center gap-2.5 text-sm text-muted-foreground">
+        <LoaderCircle className="size-4 animate-spin" />
+        <span>正在加载用户列表...</span>
+      </div>
+    );
+  }
+
+  if (users.length === 0) {
+    return (
+      <EmptyState
+        icon={hasActiveFilters ? Search : Users}
+        title={hasActiveFilters ? "没有符合筛选条件的用户" : "暂无平台用户"}
+        description={
+          hasActiveFilters
+            ? "未找到匹配的账号记录，请尝试放宽关键字、来源、状态或时间范围筛选。"
+            : "当前尚未建立本地用户账号，可立即创建首个本地用户或等待用户自主注册。"
+        }
+        action={
+          hasActiveFilters && onClearFilters ? (
+            <Button type="button" variant="outline" size="sm" onClick={onClearFilters}>
+              <X className="size-4" />
+              清空筛选条件
+            </Button>
+          ) : permissions.canCreateUser && onCreateUser ? (
+            <Button type="button" size="sm" onClick={onCreateUser}>
+              <Plus className="size-4" />
+              创建首个用户
+            </Button>
+          ) : null
+        }
+        className="py-16"
+      />
+    );
+  }
+
   return (
     <Card className="overflow-hidden border-0 shadow-none">
       <CardContent className="p-0 sm:p-0">
@@ -59,53 +103,26 @@ export function UsersTable(props: UsersTableProps) {
           <Table className="min-w-[1340px]">
             <UsersTableHeader />
             <TableBody>
-              {props.isLoading ? (
-                <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={9} className="py-14 text-center">
-                    <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                      <LoaderCircle className="size-4 animate-spin" />
-                      <span>正在加载用户列表...</span>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ) : users.length === 0 ? (
-                <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={9} className="p-0">
-                    <EmptyState
-                      compact
-                      icon={props.totalCount === 0 ? Users : Search}
-                      title={props.totalCount === 0 ? "暂无用户" : "没有匹配的用户"}
-                      description={
-                        props.totalCount === 0
-                          ? "创建第一个本地用户或等待新用户注册。"
-                          : "请尝试调整搜索词、来源、状态或时间筛选条件。"
-                      }
-                      className="border-0 bg-transparent py-12"
-                    />
-                  </TableCell>
-                </TableRow>
-              ) : (
-                users.map((user) => (
-                  <UsersTableRow
-                    key={user.id}
-                    user={user}
-                    roles={roles}
-                    creditBalance={creditBalanceByUserId.get(user.id) ?? 0}
-                    isPending={pendingIds.has(user.id)}
-                    usage={usageByUserId?.get(user.id)}
-                    usageReady={usageReady}
-                    permissions={permissions}
-                    onAdjustCredits={props.onAdjustCredits}
-                    onRole={props.onRole}
-                    onToggle={props.onToggle}
-                    onDelete={props.onDelete}
-                  />
-                ))
-              )}
+              {users.map((user) => (
+                <UsersTableRow
+                  key={user.id}
+                  user={user}
+                  roles={roles}
+                  creditBalance={creditBalanceByUserId.get(user.id) ?? 0}
+                  isPending={pendingIds.has(user.id)}
+                  usage={usageByUserId?.get(user.id)}
+                  usageReady={usageReady}
+                  permissions={permissions}
+                  onAdjustCredits={props.onAdjustCredits}
+                  onRole={props.onRole}
+                  onToggle={props.onToggle}
+                  onDelete={props.onDelete}
+                />
+              ))}
             </TableBody>
           </Table>
         </div>
-        {!props.isLoading && props.filteredCount > 0 ? <UsersPagination {...props} /> : null}
+        {props.filteredCount > 0 ? <UsersPagination {...props} /> : null}
       </CardContent>
     </Card>
   );
@@ -113,7 +130,7 @@ export function UsersTable(props: UsersTableProps) {
 
 function UsersTableHeader() {
   return (
-    <TableHeader className="bg-surface-subtle/80 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+    <TableHeader className="bg-surface-muted/45 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
       <TableRow className="hover:bg-transparent">
         <TableHead>用户</TableHead>
         <TableHead>积分</TableHead>

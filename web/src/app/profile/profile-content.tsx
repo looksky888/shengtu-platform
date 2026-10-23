@@ -156,8 +156,8 @@ export function ProfileContent({ session }: { session: StoredAuthSession }) {
       </div>
 
       {activeTab === "account" ? (
-        <div className="grid min-w-0 gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
-          <div className="flex min-w-0 flex-col gap-5">
+        <div className="grid min-w-0 items-start gap-4 xl:grid-cols-[360px_minmax(0,1fr)]">
+          <div className="flex min-w-0 flex-col gap-4">
             <ProfileSummaryCard
               session={account.currentSession}
               roleLabel={roleLabel}
@@ -180,7 +180,7 @@ export function ProfileContent({ session }: { session: StoredAuthSession }) {
             />
           </div>
 
-          <div className="flex min-w-0 flex-col gap-5">
+          <div className="flex min-w-0 flex-col gap-4">
             <ProfileAccountCard
               session={account.currentSession}
               profileName={account.profileName}
@@ -249,6 +249,7 @@ export function ProfileContent({ session }: { session: StoredAuthSession }) {
           credits={credits.credits}
           creditsError={credits.creditsError}
           isLoadingCredits={credits.isLoadingCredits}
+          isCheckingIn={credits.isCheckingIn}
           displayLatestCreditEntry={credits.displayLatestCreditEntry}
           creditLedger={credits.creditLedger}
           pagedCreditLedger={credits.pagedCreditLedger}
@@ -256,6 +257,7 @@ export function ProfileContent({ session }: { session: StoredAuthSession }) {
           safeCreditLedgerPage={credits.safeCreditLedgerPage}
           creditLedgerPageCount={credits.creditLedgerPageCount}
           creditLedgerPageSize={credits.creditLedgerPageSize}
+          onCheckin={() => void credits.handleCheckin()}
           onRetry={() => void credits.loadCredits()}
           onPageChange={credits.setCreditLedgerPage}
         />

@@ -5,6 +5,7 @@ import {
   XCircle,
 } from "lucide-react";
 
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import type {
@@ -43,10 +44,19 @@ export function PaymentStatsDashboard({
           : channel.name,
     ]),
   );
-  const maxDailyAmount = Math.max(
-    1,
+  const rawMaxDailyAmount = Math.max(
+    0,
     ...stats.daily_trend.map((item) => item.succeeded_amount_fen),
   );
+  const total7dAmount = stats.daily_trend.reduce(
+    (sum, item) => sum + item.succeeded_amount_fen,
+    0,
+  );
+  const total7dOrders = stats.daily_trend.reduce(
+    (sum, item) => sum + item.succeeded_orders,
+    0,
+  );
+
   return (
     <>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -61,47 +71,91 @@ export function PaymentStatsDashboard({
       </div>
       <div className="grid gap-5 xl:grid-cols-[1.3fr_1fr]">
         <Card className="rounded-xl">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="size-5 text-muted-foreground" />近 7 日收入趋势
-            </CardTitle>
+          <CardHeader className="border-b border-border/60 pb-3.5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <BarChart3 className="size-4.5 text-muted-foreground" />
+                近 7 日收入趋势
+              </CardTitle>
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary" className="rounded-md font-mono text-xs tabular-nums">
+                  {money(total7dAmount)} · {total7dOrders} 笔
+                </Badge>
+              </div>
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="flex h-48 items-end gap-2 border-b border-border/70 px-1 pt-3">
-              {stats.daily_trend.map((item) => {
-                const height = Math.max(
-                  6,
-                  (item.succeeded_amount_fen / maxDailyAmount) * 140,
-                );
-                return (
-                  <div
-                    key={item.date}
-                    className="group flex min-w-0 flex-1 flex-col items-center gap-2"
-                  >
-                    <div className="relative flex w-full flex-1 items-end">
-                      <div
-                        className="w-full rounded-t-md bg-foreground/80 transition-all group-hover:bg-foreground"
-                        style={{ height: `${height}px` }}
-                        title={`${item.date} ${money(item.succeeded_amount_fen)} · ${item.succeeded_orders} 笔`}
-                      />
+          <CardContent className="pt-5">
+            <div className="relative">
+              {/* Subtle horizontal reference gridlines */}
+              <div className="pointer-events-none absolute inset-x-0 top-2 bottom-7 flex flex-col justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="h-px flex-1 border-t border-dashed border-border/60" />
+                  <span className="w-12 text-right font-mono text-[10px] text-muted-foreground/80 tabular-nums">
+                    {rawMaxDailyAmount > 0 ? money(rawMaxDailyAmount) : "¥100"}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="h-px flex-1 border-t border-dashed border-border/60" />
+                  <span className="w-12 text-right font-mono text-[10px] text-muted-foreground/80 tabular-nums">
+                    {rawMaxDailyAmount > 0 ? money(Math.round(rawMaxDailyAmount / 2)) : "¥50"}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="h-px flex-1 border-t border-border/75" />
+                  <span className="w-12 text-right font-mono text-[10px] text-muted-foreground/80 tabular-nums">
+                    ¥0.00
+                  </span>
+                </div>
+              </div>
+
+              <div className="relative z-10 flex h-44 items-end gap-2.5 pr-14 pt-6">
+                {stats.daily_trend.map((item) => {
+                  const hasRevenue = item.succeeded_amount_fen > 0 && rawMaxDailyAmount > 0;
+                  const barHeight = hasRevenue
+                    ? Math.max(8, Math.round((item.succeeded_amount_fen / rawMaxDailyAmount) * 112))
+                    : 2;
+                  const tooltipLabel = `${money(item.succeeded_amount_fen)} · ${item.succeeded_orders} 笔`;
+
+                  return (
+                    <div
+                      key={item.date}
+                      className="group relative flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-2"
+                    >
+                      <div className="pointer-events-none absolute -top-1 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-md border border-border bg-popover px-2 py-0.5 font-mono text-[10px] font-medium text-popover-foreground opacity-0 shadow-sm transition-opacity group-hover:opacity-100 tabular-nums">
+                        {tooltipLabel}
+                      </div>
+                      <div className="flex w-full flex-1 items-end justify-center px-1">
+                        {hasRevenue ? (
+                          <div
+                            className="w-full max-w-10 rounded-t-md bg-foreground transition-all group-hover:opacity-90"
+                            style={{ height: `${barHeight}px` }}
+                            title={`${item.date} ${tooltipLabel}`}
+                          />
+                        ) : (
+                          <div
+                            className="h-[2px] w-full rounded-full bg-border-strong/70 transition-colors group-hover:bg-muted-foreground"
+                            title={`${item.date} ${tooltipLabel}`}
+                          />
+                        )}
+                      </div>
+                      <span className="font-mono text-[11px] text-muted-foreground tabular-nums group-hover:text-foreground">
+                        {item.date.slice(5)}
+                      </span>
                     </div>
-                    <span className="text-[10px] text-muted-foreground tabular-nums">
-                      {item.date.slice(5)}
-                    </span>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           </CardContent>
         </Card>
         <Card className="rounded-xl">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <CircleDollarSign className="size-5 text-muted-foreground" />
+          <CardHeader className="border-b border-border/60 pb-3.5">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <CircleDollarSign className="size-4.5 text-muted-foreground" />
               渠道表现
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-3 pt-4">
             {stats.channel_breakdown.length === 0 ? (
               <EmptyState
                 compact

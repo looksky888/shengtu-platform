@@ -1,4 +1,4 @@
-﻿import { IMAGE_PROMPT_PRESETS } from "@/app/image/image-presets";
+import { IMAGE_PROMPT_PRESETS } from "@/app/image/image-presets";
 import type { ImagePageContentViewProps } from "@/app/image/components/image-page-content-view";
 import type { useImagePageController } from "@/app/image/hooks/use-image-page-controller";
 import { formatConversationTime } from "@/app/image/lib/reference-image-utils";
@@ -56,6 +56,7 @@ export function buildImagePageContentViewProps(
       promptPresets: IMAGE_PROMPT_PRESETS,
       onOpenLightbox: controller.openLightbox,
       onApplyPromptPreset: controller.handleApplyPromptPreset,
+      onAppendStyleChip: controller.handleAppendStyleChip,
       onContinueEdit: controller.handleContinueEdit,
       onLocalEdit: controller.handleLocalEdit,
       onEditTurn: controller.handleRecallTurn,

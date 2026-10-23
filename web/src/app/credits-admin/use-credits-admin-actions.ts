@@ -41,6 +41,7 @@ export function useCreditsAdminActions(options: CreditsAdminActionsOptions) {
   const [disablingCard, setDisablingCard] = useState<CreditCard | null>(null);
   const [copyAssistText, setCopyAssistText] = useState("");
   const [adjustingAccount, setAdjustingAccount] = useState<CreditAccount | null>(null);
+  const [manualAdjustUserId, setManualAdjustUserId] = useState("");
   const [adjustDelta, setAdjustDelta] = useState("-10");
   const [adjustReason, setAdjustReason] = useState("人工扣减");
   const [isAdjustingCredits, setIsAdjustingCredits] = useState(false);
@@ -102,12 +103,27 @@ export function useCreditsAdminActions(options: CreditsAdminActionsOptions) {
   const openAdjustCreditsDialog = (account: CreditAccount, mode: "add" | "deduct") => {
     if (!canManageCredits) return toast.error("没有管理积分权限");
     setAdjustingAccount(account);
+    setManualAdjustUserId(account.user_id);
     setAdjustDelta(mode === "add" ? "10" : "-10");
     setAdjustReason(mode === "add" ? "后台加积分" : "人工扣减");
   };
 
+  const openManualAdjustCreditsDialog = () => {
+    if (!canManageCredits) return toast.error("没有管理积分权限");
+    setAdjustingAccount({
+      user_id: "",
+      balance: 0,
+      created_at: null,
+      updated_at: null,
+    });
+    setManualAdjustUserId("");
+    setAdjustDelta("50");
+    setAdjustReason("后台加积分");
+  };
+
   const resetAdjustDialog = () => {
     setAdjustingAccount(null);
+    setManualAdjustUserId("");
     setAdjustDelta("-10");
     setAdjustReason("人工扣减");
   };
@@ -115,11 +131,13 @@ export function useCreditsAdminActions(options: CreditsAdminActionsOptions) {
   const handleAdjustUserCredits = async () => {
     if (!adjustingAccount) return;
     if (!canManageCredits) return toast.error("没有管理积分权限");
+    const targetUserId = (adjustingAccount.user_id || manualAdjustUserId).trim();
+    if (!targetUserId) return toast.error("请输入目标用户 ID");
     const delta = Math.trunc(Number(adjustDelta));
     if (!Number.isFinite(delta) || delta === 0) return toast.error("请输入非 0 的积分调整值");
     setIsAdjustingCredits(true);
     try {
-      await adjustUserCredits(adjustingAccount.user_id, delta, adjustReason.trim() || undefined);
+      await adjustUserCredits(targetUserId, delta, adjustReason.trim() || undefined);
       resetAdjustDialog();
       toast.success(delta > 0 ? "积分已增加" : "积分已扣减");
       void loadUsers();
@@ -142,6 +160,7 @@ export function useCreditsAdminActions(options: CreditsAdminActionsOptions) {
     disablingCard,
     copyAssistText,
     adjustingAccount,
+    manualAdjustUserId,
     adjustDelta,
     adjustReason,
     isAdjustingCredits,
@@ -152,12 +171,14 @@ export function useCreditsAdminActions(options: CreditsAdminActionsOptions) {
     setDisablingCard,
     setCopyAssistText,
     setAdjustingAccount,
+    setManualAdjustUserId,
     setAdjustDelta,
     setAdjustReason,
     handleCopy,
     handleGenerateCards,
     handleDisableCard,
     openAdjustCreditsDialog,
+    openManualAdjustCreditsDialog,
     resetAdjustDialog,
     handleAdjustUserCredits,
   };

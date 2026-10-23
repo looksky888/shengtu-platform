@@ -73,14 +73,47 @@ export function MetricCard({
         : tone === "bad"
           ? "text-status-danger"
           : "text-foreground";
-  const accentClass =
-    tone === "ok" ? "bg-status-success" : tone === "warn" ? "bg-status-warning" : tone === "bad" ? "bg-status-danger" : "bg-muted-foreground/40";
+  const dotClass =
+    tone === "ok"
+      ? "bg-status-success"
+      : tone === "warn"
+        ? "bg-status-warning"
+        : tone === "bad"
+          ? "bg-status-danger"
+          : "bg-muted-foreground/45";
+  const channelMatch =
+    typeof value === "string"
+      ? value.match(/^新(\d+)\s*\/\s*旧(\d+)\s*\/\s*IMAP(\d+)$/)
+      : null;
+
   return (
-    <div className="relative overflow-hidden rounded-xl border border-border/70 bg-card p-4 shadow-2xs">
-      <span className={`absolute inset-y-0 left-0 w-1 ${accentClass}`} aria-hidden="true" />
-      <div className="text-xs font-medium text-muted-foreground">{label}</div>
-      <div className={`mt-1 text-2xl font-semibold tabular-nums tracking-tight ${valueClass}`}>{value}</div>
-      {detail ? <div className="mt-1 text-[11px] text-muted-foreground">{detail}</div> : null}
+    <div className="flex flex-col justify-between rounded-[14px] border border-border/80 bg-surface p-4 shadow-2xs">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs font-medium text-muted-foreground">{label}</span>
+        <span className={`size-2 shrink-0 rounded-full ${dotClass}`} aria-hidden="true" />
+      </div>
+      {channelMatch ? (
+        <div className="mt-2.5 flex flex-wrap items-center gap-1.5" aria-label={String(value)}>
+          {[
+            { name: "新", count: channelMatch[1] },
+            { name: "旧", count: channelMatch[2] },
+            { name: "IMAP", count: channelMatch[3] },
+          ].map((item) => (
+            <span
+              key={item.name}
+              className="inline-flex items-center gap-1 rounded-md border border-border/75 bg-surface-muted/85 px-2 py-0.5 text-xs tabular-nums"
+            >
+              <span className="text-[11px] font-medium text-muted-foreground">{item.name}</span>
+              <span className="font-mono font-semibold text-foreground">{item.count}</span>
+            </span>
+          ))}
+        </div>
+      ) : (
+        <div className={`mt-2 text-2xl font-semibold tabular-nums tracking-tight ${valueClass}`}>
+          {value}
+        </div>
+      )}
+      {detail ? <div className="mt-1.5 text-[11px] text-muted-foreground">{detail}</div> : null}
     </div>
   );
 }
@@ -98,15 +131,15 @@ export function SectionCard({
 }) {
   return (
     <section
-      className={`space-y-3 rounded-xl border p-5 shadow-2xs ${
+      className={`space-y-4 rounded-[14px] border p-5 shadow-2xs ${
         tone === "accent"
-          ? "border-status-info/30 bg-status-info-soft/35"
-          : "border-border/70 bg-card"
+          ? "border-border/90 bg-surface-muted/45"
+          : "border-border/80 bg-surface"
       }`}
     >
-      <div className="flex items-start justify-between gap-2">
+      <div className="flex items-center justify-between gap-2 border-b border-border/60 pb-3">
         <div className="min-w-0">
-          <h2 className="text-base font-semibold tracking-tight">{title}</h2>
+          <h2 className="text-sm font-semibold tracking-tight text-foreground sm:text-[15px]">{title}</h2>
         </div>
         {action ? <div className="shrink-0">{action}</div> : null}
       </div>

@@ -67,11 +67,17 @@ export function getImageManagerStatus(
   loadError: string,
   itemCount: number,
   filteredCount: number,
+  hasActiveFilters = false,
 ) {
+  const isFilteredEmpty =
+    !isLoading &&
+    loadError === "" &&
+    filteredCount === 0 &&
+    (itemCount > 0 || hasActiveFilters);
   return {
     showLoading: isLoading && itemCount === 0,
     showError: !isLoading && loadError !== "" && itemCount === 0,
-    showEmpty: !isLoading && loadError === "" && itemCount === 0,
-    showFilteredEmpty: !isLoading && loadError === "" && itemCount > 0 && filteredCount === 0,
+    showEmpty: !isLoading && loadError === "" && itemCount === 0 && !hasActiveFilters,
+    showFilteredEmpty: isFilteredEmpty,
   };
 }

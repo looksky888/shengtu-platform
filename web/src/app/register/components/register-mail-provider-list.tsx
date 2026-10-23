@@ -1,8 +1,8 @@
 import { Trash2 } from "lucide-react";
 
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { STORED_SECRET_HINT } from "@/lib/register-types";
 
@@ -68,14 +68,31 @@ function RegisterMailProvider({ state, provider, index }: { state: RegisterCardS
   const domains = Array.isArray(provider.domain) ? provider.domain.map(String).join("\n") : "";
   const domainPlaceholder = type === "tempmail_lol" ? "每行一个域名，留空则使用服务默认域名" : "每行一个域名";
   return (
-    <div className="space-y-3 border-t border-border pt-3 first:border-t-0 first:pt-0">
+    <div className="space-y-3 rounded-xl border border-border/75 bg-surface-muted/25 p-3.5">
       <div className="flex items-center justify-between gap-3">
-        <label className="flex items-center gap-3 text-sm text-stone-700">
-          <Checkbox aria-label={`启用邮箱服务 ${index + 1}`} checked={Boolean(provider.enable)} onCheckedChange={(checked) => state.updateProvider(index, { enable: Boolean(checked) })} disabled={config.enabled} />启用
-        </label>
-        <button type="button" className="rounded-lg p-2 text-stone-400 transition hover:bg-rose-50 hover:text-rose-500 disabled:opacity-50" onClick={() => state.deleteProvider(index)} disabled={config.enabled || providers.length <= 1} title="删除 provider"><Trash2 className="size-4" /></button>
+        <div className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap">
+          <Switch
+            size="sm"
+            aria-label={`启用邮箱服务 ${index + 1}`}
+            checked={Boolean(provider.enable)}
+            onCheckedChange={(checked) => state.updateProvider(index, { enable: Boolean(checked) })}
+            disabled={config.enabled}
+          />
+          <span className="text-xs font-medium text-foreground">
+            来源 #{index + 1} · {provider.enable ? "已启用" : "已停用"}
+          </span>
+        </div>
+        <button
+          type="button"
+          className="rounded-lg p-1.5 text-muted-foreground transition hover:bg-rose-500/10 hover:text-rose-500 disabled:opacity-40"
+          onClick={() => state.deleteProvider(index)}
+          disabled={config.enabled || providers.length <= 1}
+          title="删除来源"
+        >
+          <Trash2 className="size-4" />
+        </button>
       </div>
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-3.5 md:grid-cols-2">
         <ProviderTypeSelect type={type} disabled={config.enabled} onChange={(value) => state.updateProviderType(index, value)} />
         {type === "cloudflare_temp_email" || type === "moemail" || type === "icloud_local" || type === "icloud_api" ? (
           <ProviderInput
@@ -99,8 +116,8 @@ function RegisterMailProvider({ state, provider, index }: { state: RegisterCardS
         ) : null}
         {type === "moemail" ? <ProviderInput label="Expiry Time" value={String(provider.expiry_time || "")} disabled={config.enabled} onChange={(value) => state.updateProvider(index, { expiry_time: Number(value) || 0 })} /> : null}
         {type === "outlook_token" ? (
-          <div className="space-y-2">
-            <label className="text-sm text-stone-700">读取方式</label>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-foreground">读取方式</label>
             <Select
               value={["graph", "imap", "auto"].includes(String(provider.mode || "")) ? String(provider.mode) : "auto"}
               onValueChange={(value) => state.updateProvider(index, { mode: value })}
@@ -113,13 +130,13 @@ function RegisterMailProvider({ state, provider, index }: { state: RegisterCardS
                 <SelectItem value="imap">IMAP XOAUTH2</SelectItem>
               </SelectContent>
             </Select>
-            <p className="text-xs text-stone-500">市面 Outlook 号池多为 IMAP 授权；auto 会先试 Graph，失败自动改 IMAP。</p>
+            <p className="text-xs text-muted-foreground">市面 Outlook 号池多为 IMAP 授权；auto 会先试 Graph，失败自动改 IMAP。</p>
           </div>
         ) : null}
       </div>
       {type === "tempmail_lol" || type === "cloudflare_temp_email" || type === "moemail" ? (
-        <div className="space-y-2">
-          <label className="text-sm text-stone-700">Domain</label>
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium text-foreground">Domain</label>
           <Textarea aria-label="邮箱域名" value={domains} onChange={(event) => state.updateProvider(index, { domain: event.target.value.split(/[\n,]/).map((item) => item.trim()).filter(Boolean) })} placeholder={domainPlaceholder} className="min-h-20 rounded-lg font-mono text-xs" disabled={config.enabled} />
         </div>
       ) : null}
@@ -130,8 +147,8 @@ function RegisterMailProvider({ state, provider, index }: { state: RegisterCardS
 
 function ProviderTypeSelect({ type, disabled, onChange }: { type: string; disabled?: boolean; onChange: (value: string) => void }) {
   return (
-    <div className="space-y-2">
-      <label className="text-sm text-stone-700">类型</label>
+    <div className="space-y-1.5">
+      <label className="text-xs font-medium text-foreground">类型</label>
       <Select value={type} onValueChange={onChange} disabled={disabled}>
         <SelectTrigger aria-label="邮箱来源类型" className="h-9 rounded-lg"><SelectValue /></SelectTrigger>
         <SelectContent>
@@ -150,5 +167,5 @@ function ProviderTypeSelect({ type, disabled, onChange }: { type: string; disabl
 }
 
 function ProviderInput({ label, value, disabled, placeholder, onChange }: { label: string; value: string; disabled?: boolean; placeholder?: string; onChange: (value: string) => void }) {
-  return <div className="space-y-2"><label className="text-sm text-stone-700">{label}</label><Input aria-label={label} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className="h-9 rounded-lg" disabled={disabled} /></div>;
+  return <div className="space-y-1.5"><label className="text-xs font-medium text-foreground">{label}</label><Input aria-label={label} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className="h-9 rounded-lg" disabled={disabled} /></div>;
 }

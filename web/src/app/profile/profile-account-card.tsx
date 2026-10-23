@@ -36,14 +36,14 @@ export function ProfileAccountCard({
 }: ProfileAccountCardProps) {
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="pb-3">
         <div className="flex min-w-0 items-center gap-3">
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-border/80 bg-surface-muted text-foreground">
-            <UserPen className="size-5" />
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border/80 bg-surface-muted text-foreground">
+            <UserPen className="size-4.5" />
           </div>
           <div className="min-w-0">
             <CardTitle className="text-base font-semibold">账号资料</CardTitle>
-            <CardDescription className="truncate">
+            <CardDescription className="truncate font-mono text-xs">
               {session.subjectId || "—"}
             </CardDescription>
           </div>
@@ -52,17 +52,20 @@ export function ProfileAccountCard({
       <CardContent>
         <FieldGroup>
           <Field>
-            <FieldLabel htmlFor="profile-display-name">昵称</FieldLabel>
+            <FieldLabel htmlFor="profile-display-name">显示昵称</FieldLabel>
             <div className="flex flex-col gap-2 sm:flex-row">
               <Input
                 id="profile-display-name"
                 value={profileName}
                 onChange={(event) => onProfileNameChange(event.target.value)}
-                placeholder="昵称"
+                placeholder="输入昵称"
+                className="h-9"
               />
               <Button
                 type="button"
                 variant="outline"
+                size="sm"
+                className="h-9 px-3.5"
                 onClick={onSaveProfile}
                 disabled={!isProfileNameDirty || isSavingProfile}
               >
@@ -71,11 +74,11 @@ export function ProfileAccountCard({
                 ) : (
                   <Save className="size-4" />
                 )}
-                保存
+                保存资料
               </Button>
             </div>
             <FieldDescription>
-              昵称会显示在导航栏和接口调用记录中。
+              昵称将同步展示在顶部导航栏与接口调用日志中。
             </FieldDescription>
           </Field>
         </FieldGroup>

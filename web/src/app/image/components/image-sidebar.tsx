@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Images,
   KeyRound,
@@ -14,9 +14,8 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 
+import { StudioStatsPopover } from "@/app/image/components/studio-stats-popover";
 import { ConfirmDialog } from "@/components/confirm-dialog";
-import { fetchStudioImageTaskTodayStats } from "@/lib/api";
-import { httpRequest } from "@/lib/request";
 import { cn } from "@/lib/utils";
 import {
   getImageConversationStats,
@@ -51,47 +50,6 @@ export function ImageSidebar({
   const [searchQuery, setSearchQuery] = useState("");
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
   const [clearing, setClearing] = useState(false);
-  const [todayImages, setTodayImages] = useState<number | null>(null);
-  const [onlineAccounts, setOnlineAccounts] = useState<number | null>(null);
-
-  useEffect(() => {
-    if (hideActionButtons) return;
-    let disposed = false;
-    const abortController = new AbortController();
-
-    const loadFooterStats = async () => {
-      const [todayResult, healthResult] = await Promise.allSettled([
-        fetchStudioImageTaskTodayStats({ signal: abortController.signal }),
-        httpRequest<{ account_pool?: { available?: number; free_slots?: number } }>("/health", {
-          method: "GET",
-          headers: { "Cache-Control": "no-cache" },
-          signal: abortController.signal,
-        }),
-      ]);
-      if (disposed) return;
-      if (todayResult.status === "fulfilled" && todayResult.value) {
-        setTodayImages(Math.max(0, Math.floor(Number(todayResult.value.success_images) || 0)));
-      }
-      if (healthResult.status === "fulfilled" && healthResult.value?.account_pool) {
-        const pool = healthResult.value.account_pool;
-        const count = typeof pool.available === "number" ? pool.available : pool.free_slots;
-        if (typeof count === "number" && Number.isFinite(count)) {
-          setOnlineAccounts(Math.max(0, Math.floor(count)));
-        }
-      }
-    };
-
-    void loadFooterStats();
-    const timer = window.setInterval(() => {
-      void loadFooterStats();
-    }, 60000);
-
-    return () => {
-      disposed = true;
-      abortController.abort();
-      window.clearInterval(timer);
-    };
-  }, [hideActionButtons]);
 
   const filteredConversations = useMemo(() => {
     const q = searchQuery.trim().toLocaleLowerCase();
@@ -146,7 +104,7 @@ export function ImageSidebar({
             </div>
             <button
               type="button"
-              className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground shadow-2xs transition hover:bg-primary/90 active:scale-[0.985]"
+              className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-xl bg-primary px-3 text-xs font-medium text-primary-foreground shadow-2xs transition hover:bg-primary/90 active:scale-[0.985]"
               onClick={onCreateDraft}
             >
               <MessageSquarePlus className="size-3.5" />
@@ -216,7 +174,7 @@ export function ImageSidebar({
                 <div
                   key={conversation.id}
                   className={cn(
-                    "group relative w-full rounded-lg text-left transition-colors duration-150",
+                    "group relative w-full rounded-xl text-left transition-colors duration-150",
                     hideActionButtons ? "px-3.5 py-2.5" : "px-3 py-2",
                     active
                       ? "bg-surface-muted font-medium text-foreground ring-1 ring-border/70 before:absolute before:top-2 before:bottom-2 before:left-0 before:w-0.5 before:rounded-full before:bg-foreground"
@@ -282,30 +240,24 @@ export function ImageSidebar({
         </div>
 
         {!hideActionButtons ? (
-          <div className="space-y-2 border-t border-border/65 pt-2">
+          <div className="space-y-1.5 pt-1.5">
             <div className="flex items-center gap-1.5">
               <Link
                 to="/image-manager"
-                className="inline-flex h-7 flex-1 items-center justify-center gap-1.5 rounded-lg bg-surface-muted/70 px-2 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
+                className="inline-flex h-7.5 flex-1 items-center justify-center gap-1.5 rounded-xl bg-surface-muted/75 px-2 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
               >
                 <Images className="size-3" />
                 <span>素材中心</span>
               </Link>
               <Link
                 to="/profile?tab=api"
-                className="inline-flex h-7 flex-1 items-center justify-center gap-1.5 rounded-lg bg-surface-muted/70 px-2 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
+                className="inline-flex h-7.5 flex-1 items-center justify-center gap-1.5 rounded-xl bg-surface-muted/75 px-2 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
               >
                 <KeyRound className="size-3" />
                 <span>API 密钥</span>
               </Link>
             </div>
-            <div className="flex items-center justify-between gap-2 px-1 text-[11px] text-muted-foreground tabular-nums">
-              <span>今日出图 {todayImages !== null ? todayImages.toLocaleString("zh-CN") : "—"}</span>
-              <span className="inline-flex items-center gap-1.5">
-                <span className="size-1.5 rounded-full bg-emerald-500" />
-                <span>在线账号 {onlineAccounts !== null ? onlineAccounts : "—"}</span>
-              </span>
-            </div>
+            <StudioStatsPopover variant="sidebar-footer" align="start" side="top" />
           </div>
         ) : null}
       </div>

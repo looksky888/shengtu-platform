@@ -1,5 +1,6 @@
 import * as React from "react";
 import {
+  ArrowUpRight,
   BookOpen,
   ChevronDown,
   Coins,
@@ -140,12 +141,12 @@ export function CreditBalanceBadge({
   const content = (
     <div
       className={cn(
-        "inline-flex h-7.5 min-w-[74px] items-center justify-center gap-1.5 rounded-lg bg-surface-muted/90 px-2.5 text-xs font-medium text-foreground ring-1 ring-border/70 transition-colors",
-        canRecharge && "hover:bg-surface-hover hover:ring-foreground/20"
+        "inline-flex h-8 min-w-[76px] items-center justify-center gap-1.5 rounded-lg bg-surface-muted/85 px-2.5 text-xs font-medium text-foreground ring-1 ring-inset ring-border/75 transition-all duration-150",
+        canRecharge && "hover:-translate-y-px hover:bg-surface hover:shadow-2xs hover:ring-border-strong"
       )}
-      title={canRecharge ? "当前积分余额，点击前往充值中心" : "当前积分余额"}
+      title={canRecharge ? "当前算力积分余额，点击前往充值中心" : "当前算力积分余额"}
     >
-      <Coins className="size-3.5 text-amber-500" />
+      <Coins className="size-3.5 text-foreground/70" />
       <span className="font-mono font-semibold tabular-nums">{creditBalance}</span>
     </div>
   );
@@ -164,6 +165,7 @@ export function MoreNavMenu({
   pathname: string;
 }) {
   const [open, setOpen] = React.useState(false);
+  const prefersReducedMotion = useReducedMotion();
 
   if (items.length === 0) return null;
   const activeItem = items.find((item) => isActivePath(pathname, item.href));
@@ -173,32 +175,61 @@ export function MoreNavMenu({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button
+        <button
           type="button"
-          variant="ghost"
           className={cn(
-            "h-7.5 shrink-0 gap-1.5 rounded-[7px] px-2.5 text-[13px] font-medium",
+            "relative isolate inline-flex h-7.5 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[7px] px-2.5 text-[13px] font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-foreground/20",
             active
-              ? "bg-surface font-semibold text-foreground shadow-xs ring-1 ring-black/[0.04] hover:bg-surface dark:bg-zinc-800/95 dark:ring-white/[0.08]"
-              : "text-muted-foreground hover:bg-transparent hover:text-foreground"
+              ? "font-semibold text-foreground"
+              : "text-muted-foreground hover:text-foreground"
           )}
         >
-          <LayoutGrid className="size-3.5" />
-          <span>
-            {activeItem ? `管理控制台 · ${activeItem.label}` : "管理控制台"}
+          {active ? (
+            <motion.span
+              layoutId={NAV_ACTIVE_LAYOUT_ID}
+              transition={
+                prefersReducedMotion ? reducedNavActiveTransition : navActiveTransition
+              }
+              className="absolute inset-0 -z-10 rounded-[7px] bg-surface shadow-xs ring-1 ring-black/[0.04] dark:bg-zinc-800/95 dark:ring-white/[0.08]"
+            />
+          ) : null}
+          <LayoutGrid
+            className={cn(
+              "relative z-10 size-3.5 shrink-0 transition-colors",
+              active ? "text-foreground" : "text-muted-foreground/85"
+            )}
+          />
+          <span className="relative z-10 inline-flex items-center gap-1.5">
+            <span>管理控制台</span>
+            {activeItem ? (
+              <span className="text-muted-foreground lg:hidden">
+                · {activeItem.label}
+              </span>
+            ) : null}
+            {active ? (
+              <span
+                aria-hidden="true"
+                className="hidden size-1.5 rounded-full bg-foreground lg:inline-block"
+              />
+            ) : null}
           </span>
-          <ChevronDown className="size-3.5 opacity-70" />
-        </Button>
+          <ChevronDown
+            className={cn(
+              "relative z-10 size-3.5 opacity-65 transition-transform duration-150",
+              open && "rotate-180"
+            )}
+          />
+        </button>
       </PopoverTrigger>
       <PopoverContent
-        align="start"
+        align="center"
         sideOffset={8}
-        className="w-[min(32rem,calc(100vw-1.5rem))] rounded-xl p-3"
+        className="w-[min(33rem,calc(100vw-1.5rem))] rounded-2xl border-border/85 bg-surface-raised p-3 shadow-xl"
       >
         <div className="space-y-3">
           {grouped.map((group) => (
             <div key={group.id} className="space-y-1.5">
-              <div className="px-2 text-[11px] font-semibold tracking-wider text-muted-foreground/80">
+              <div className="px-2 text-[11px] font-semibold tracking-[0.06em] uppercase text-muted-foreground/80">
                 {group.label}
               </div>
               <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
@@ -212,7 +243,7 @@ export function MoreNavMenu({
                       onMouseEnter={() => preloadRoute(item.href)}
                       onClick={() => setOpen(false)}
                       className={cn(
-                        "group flex items-start gap-2.5 rounded-lg px-2.5 py-2 transition-colors",
+                        "group flex items-start gap-2.5 rounded-xl px-2.5 py-2 transition-colors",
                         itemActive
                           ? "bg-surface-muted text-foreground"
                           : "text-foreground hover:bg-surface-hover"
@@ -220,10 +251,10 @@ export function MoreNavMenu({
                     >
                       <div
                         className={cn(
-                          "mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg border transition-colors",
+                          "mt-0.5 flex size-7.5 shrink-0 items-center justify-center rounded-lg border transition-colors",
                           itemActive
                             ? "border-foreground/20 bg-foreground text-background shadow-2xs"
-                            : "border-border/70 bg-surface-muted text-muted-foreground group-hover:text-foreground"
+                            : "border-border/75 bg-surface-subtle text-muted-foreground group-hover:bg-surface group-hover:text-foreground"
                         )}
                       >
                         <Icon className="size-3.5" />
@@ -259,6 +290,7 @@ export function AccountMenu({
   session,
   roleLabel,
   creditBalance,
+  canRecharge = false,
   pathname,
   onLogout,
   compact = false,
@@ -266,6 +298,7 @@ export function AccountMenu({
   session: StoredAuthSession;
   roleLabel: string;
   creditBalance: string;
+  canRecharge?: boolean;
   pathname: string;
   onLogout: () => Promise<void>;
   compact?: boolean;
@@ -287,7 +320,7 @@ export function AccountMenu({
           )}
           aria-label="账号菜单"
         >
-          <span className="flex size-5.5 shrink-0 items-center justify-center rounded-md bg-foreground text-[11px] font-semibold text-background shadow-2xs">
+          <span className="flex size-6 shrink-0 items-center justify-center rounded-lg bg-foreground text-[11px] font-semibold text-background shadow-2xs">
             {initial}
           </span>
           <span className="hidden max-w-[96px] truncate text-xs font-medium xl:inline">
@@ -299,69 +332,95 @@ export function AccountMenu({
       <PopoverContent
         align="end"
         sideOffset={8}
-        className="w-72 rounded-xl p-2.5"
+        className="w-[296px] rounded-2xl border-border/85 bg-surface-raised p-3 shadow-xl"
       >
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2.5">
           <AccountSummary
             session={session}
             roleLabel={roleLabel}
             displayName={displayName}
             initial={initial}
             creditBalance={creditBalance}
+            canRecharge={canRecharge}
+            onClose={() => setOpen(false)}
           />
-          <div className="grid gap-0.5 border-t border-border/60 pt-1.5">
-            <Link
+          <div className="grid gap-0.5 pt-0.5">
+            <AccountActionLink
               to={profileNavItem.href}
+              icon={UserCircle2}
+              label="个人中心 · 账号概览"
+              active={profileActive}
               onClick={() => setOpen(false)}
-              className={cn(
-                "flex items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-medium transition hover:bg-surface-hover",
-                profileActive ? "bg-surface-muted font-semibold text-foreground" : "text-foreground"
-              )}
-            >
-              <UserCircle2 className="size-4 text-muted-foreground" />
-              <span>个人中心 · 账号概览</span>
-            </Link>
-            <Link
+            />
+            <AccountActionLink
               to="/profile?tab=api"
+              icon={BookOpen}
+              label="接口密钥与 API 文档"
               onClick={() => setOpen(false)}
-              className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-medium text-foreground transition hover:bg-surface-hover"
-            >
-              <BookOpen className="size-4 text-muted-foreground" />
-              <span>接口密钥与 API 文档</span>
-            </Link>
-            <Link
+            />
+            <AccountActionLink
               to="/profile?tab=credits"
+              icon={Coins}
+              label="积分中心与每日签到"
               onClick={() => setOpen(false)}
-              className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-medium text-foreground transition hover:bg-surface-hover"
-            >
-              <Coins className="size-4 text-amber-500" />
-              <span>积分中心与流水</span>
-            </Link>
+            />
             {session.role === "admin" ? (
-              <Link
+              <AccountActionLink
                 to="/rbac"
+                icon={ShieldCheck}
+                label="角色与权限矩阵"
                 onClick={() => setOpen(false)}
-                className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-medium text-foreground transition hover:bg-surface-hover"
-              >
-                <ShieldCheck className="size-4 text-muted-foreground" />
-                <span>角色与权限</span>
-              </Link>
+              />
             ) : null}
+            <div className="my-1 h-px bg-border/70" />
             <button
               type="button"
-              className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-medium text-rose-600 transition hover:bg-rose-500/10 dark:text-rose-400"
+              className="flex min-h-9 items-center justify-between rounded-xl px-2.5 py-2 text-[13px] font-medium text-status-danger transition-all hover:bg-status-danger-soft/75 motion-safe:active:scale-[0.985]"
               onClick={() => {
                 setOpen(false);
                 void onLogout();
               }}
             >
-              <LogOut className="size-4" />
-              <span>退出登录</span>
+              <span className="inline-flex items-center gap-2.5">
+                <LogOut className="size-4" />
+                <span>退出登录</span>
+              </span>
             </button>
           </div>
         </div>
       </PopoverContent>
     </Popover>
+  );
+}
+
+function AccountActionLink({
+  to,
+  icon: Icon,
+  label,
+  active,
+  onClick,
+}: {
+  to: string;
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  active?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <Link
+      to={to}
+      onClick={onClick}
+      className={cn(
+        "group flex min-h-9 items-center justify-between rounded-xl px-2.5 py-2 text-[13px] font-medium transition-all hover:bg-surface-hover motion-safe:active:scale-[0.985]",
+        active ? "bg-surface-muted font-semibold text-foreground" : "text-foreground"
+      )}
+    >
+      <span className="inline-flex items-center gap-2.5">
+        <Icon className="size-4 text-muted-foreground transition-colors group-hover:text-foreground" />
+        <span>{label}</span>
+      </span>
+      <ArrowUpRight className="size-3.5 text-muted-foreground/50 transition-transform duration-150 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-foreground" />
+    </Link>
   );
 }
 
@@ -371,46 +430,58 @@ function AccountSummary({
   displayName,
   initial,
   creditBalance,
+  canRecharge,
+  onClose,
 }: {
   session: StoredAuthSession;
   roleLabel: string;
   displayName: string;
   initial: string;
   creditBalance: string;
+  canRecharge: boolean;
+  onClose: () => void;
 }) {
   return (
     <>
-      <div className="rounded-xl bg-surface-muted/80 p-3">
-        <div className="flex min-w-0 items-center gap-3">
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-foreground text-sm font-semibold text-background shadow-2xs">
-            {initial}
-          </span>
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-semibold text-foreground">
+      <div className="flex items-center gap-3 px-1 pt-0.5">
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-foreground text-sm font-semibold text-background shadow-2xs">
+          {initial}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5">
+            <span className="truncate text-sm font-semibold text-foreground">
               {displayName}
-            </div>
-            <code className="block truncate font-mono text-[11px] text-muted-foreground">
-              {session.subjectId || session.role}
-            </code>
+            </span>
+            <span className="shrink-0 rounded-full bg-surface-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+              {roleLabel}
+            </span>
           </div>
+          <code className="mt-0.5 block truncate font-mono text-[11px] text-muted-foreground">
+            @{session.subjectId || session.role} · v{webConfig.appVersion}
+          </code>
         </div>
       </div>
-      <div className="grid grid-cols-3 gap-1.5 text-xs">
-        <AccountMetric label="角色" value={roleLabel} />
-        <AccountMetric label="积分" value={creditBalance} />
-        <AccountMetric label="版本" value={`v${webConfig.appVersion}`} />
+
+      <div className="rounded-xl bg-surface-muted/85 p-3 ring-1 ring-inset ring-border/70">
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <div className="text-[11px] font-medium text-muted-foreground">
+              算力积分余额
+            </div>
+            <div className="mt-0.5 font-mono text-xl font-semibold tracking-tight text-foreground tabular-nums">
+              {creditBalance}
+            </div>
+          </div>
+          <Link
+            to={canRecharge ? "/recharge" : "/profile?tab=credits"}
+            onClick={onClose}
+            className="inline-flex h-7.5 items-center gap-1 rounded-lg bg-foreground px-2.5 text-xs font-medium text-background shadow-2xs transition-opacity hover:opacity-90"
+          >
+            <span>{canRecharge ? "充值" : "明细"}</span>
+            <ArrowUpRight className="size-3" />
+          </Link>
+        </div>
       </div>
     </>
-  );
-}
-
-function AccountMetric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg bg-surface-muted/55 px-2.5 py-1.5">
-      <div className="text-[11px] text-muted-foreground">{label}</div>
-      <div className="mt-0.5 truncate font-medium text-foreground tabular-nums">
-        {value}
-      </div>
-    </div>
   );
 }

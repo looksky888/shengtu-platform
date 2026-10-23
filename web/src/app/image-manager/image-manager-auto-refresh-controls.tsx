@@ -47,7 +47,8 @@ export function ImageManagerAutoRefreshControls({
           <Button
             type="button"
             variant="outline"
-            className="h-9 min-w-0 justify-start rounded-lg px-3 text-xs font-medium"
+            size="sm"
+            className="min-w-0 justify-start"
             aria-label={buttonLabel}
           >
             <RefreshCw className={cn("size-3.5", isAutoRefreshing && "animate-spin")} />
@@ -98,7 +99,7 @@ export function ImageManagerAutoRefreshControls({
       <Button
         type="button"
         variant="outline"
-        className="h-9 rounded-lg px-3 text-xs"
+        size="sm"
         disabled={isLoading || isMutatingImages}
         onClick={onRefresh}
         aria-label="刷新图片库"

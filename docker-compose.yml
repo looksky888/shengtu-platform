@@ -54,7 +54,7 @@ services:
     build:
       context: .
       dockerfile: deploy/icloud-privacy-mail/Dockerfile
-    image: ${ICLOUD_PRIVACY_MAIL_IMAGE:-shengtu/icloud-privacy-mail:4.8.0-20261023-obsidian-studio}
+    image: ${ICLOUD_PRIVACY_MAIL_IMAGE:-shengtu/icloud-privacy-mail:4.9.0-20261023-studio-craft}
     container_name: shengtu39-icloud-privacy-mail
     restart: unless-stopped
     environment:
@@ -87,12 +87,12 @@ services:
     build:
       context: ./services/grok-runtime
       dockerfile: Dockerfile
-    image: ${GROK_RUNTIME_IMAGE:-shengtu/grok-runtime:4.8.0-20261023-obsidian-studio}
+    image: ${GROK_RUNTIME_IMAGE:-shengtu/grok-runtime:4.9.0-20261023-studio-craft}
     container_name: shengtu39-grok-runtime
     restart: unless-stopped
     environment:
       GROK_RUNTIME_PORT: "8091"
-      GROK_RUNTIME_VERSION: ${GROK_RUNTIME_VERSION:-4.8.0-20261023-obsidian-studio}
+      GROK_RUNTIME_VERSION: ${GROK_RUNTIME_VERSION:-4.9.0-20261023-studio-craft}
       DATA_DIR: /data
       INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?set a strong random INTERNAL_SERVICE_TOKEN}
       CHATGPT2API_AUTH_KEY: ${CHATGPT2API_AUTH_KEY:?set a strong random register auth key}
@@ -130,8 +130,8 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        VERSION: "${CHATGPT2API_VERSION:-4.8.0-20261023-obsidian-studio}"
-    image: ${CHATGPT2API_IMAGE:-shengtu:4.8.0-20261023-obsidian-studio}
+        VERSION: "${CHATGPT2API_VERSION:-4.9.0-20261023-studio-craft}"
+    image: ${CHATGPT2API_IMAGE:-shengtu:4.9.0-20261023-studio-craft}
     container_name: shengtu39-app
     restart: unless-stopped
     depends_on:

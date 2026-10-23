@@ -79,11 +79,19 @@ export function PaymentReconciliationsSection({
   };
   return (
     <>
-      <Card className="rounded-xl">
-        <CardHeader>
-          <CardTitle>账单对账</CardTitle>
+      <Card className="overflow-hidden rounded-xl">
+        <CardHeader className="border-b border-border/70 bg-surface-muted/35 pb-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <CardTitle className="flex items-center gap-2 text-base font-semibold">
+              <Scale className="size-4.5 text-muted-foreground" />
+              账单对账
+              <Badge variant="secondary" className="rounded-md tabular-nums">
+                共 {items.length} 条记录
+              </Badge>
+            </CardTitle>
+          </div>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 pt-5">
           <div className="grid gap-3 md:grid-cols-[1fr_180px_auto]">
             <Select value={channelId} onValueChange={setChannelId}>
               <SelectTrigger>

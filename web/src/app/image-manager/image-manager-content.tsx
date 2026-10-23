@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect } from "react";
+import { Plus } from "lucide-react";
+import { Link } from "react-router-dom";
 
 import { ImageManagerActionsPopover } from "@/app/image-manager/image-manager-actions-popover";
 import { ImageManagerAutoRefreshControls } from "@/app/image-manager/image-manager-auto-refresh-controls";
@@ -24,6 +26,7 @@ import { useImageManagerSelection } from "@/app/image-manager/use-image-manager-
 import { ImageLightbox } from "@/components/image-lightbox";
 import { MediaAssetTypeSwitcher } from "@/components/media-library-tabs";
 import { PageHeader } from "@/components/page-header";
+import { Button } from "@/components/ui/button";
 import { imageManagerCacheKey } from "@/lib/image-manager-cache";
 
 export function ImageManagerContent({ cacheScope, canDeleteImages, isAdmin }: ImageManagerContentProps) {
@@ -70,35 +73,23 @@ export function ImageManagerContent({ cacheScope, canDeleteImages, isAdmin }: Im
   }, [clearLoadError, resetSelection]);
   const imageColumns = useOrderedImageMasonryColumns(filters.filteredItems);
   const lightboxImages = useImageManagerLightboxImages(filters.filteredItems);
-  const status = getImageManagerStatus(loader.isLoading, loader.loadError, items.length, filters.filteredItems.length);
+  const status = getImageManagerStatus(
+    loader.isLoading,
+    loader.loadError,
+    items.length,
+    filters.filteredItems.length,
+    filters.hasActiveFilters,
+  );
+  const handleClearFilters = useCallback(() => {
+    filters.clearFilters();
+    resetListState();
+  }, [filters, resetListState]);
 
   return (
     <section className="flex flex-col gap-4 pb-20 sm:pb-24">
       <PageHeader
-        eyebrow="资产与媒体"
+        eyebrow="创作资产库"
         title="素材中心"
-        badge={
-          <div className="flex flex-wrap items-center gap-2">
-            <MediaAssetTypeSwitcher current="image" />
-            <ImageManagerGalleryViewTabs
-              galleryView={filters.galleryView}
-              isAdmin={isAdmin}
-              itemsCount={items.length}
-              filteredCount={filters.filteredItems.length}
-              hasLocalFilters={filters.hasLocalFilters}
-              serverTotal={loader.serverTotal}
-              serverHasMore={loader.serverHasMore}
-              currentPage={loader.currentPage}
-              onGalleryViewChange={(nextView) => {
-                if (!isAdmin && nextView === "all") return;
-                if (nextView !== filters.galleryView) {
-                  filters.setGalleryView(nextView);
-                  resetListState();
-                }
-              }}
-            />
-          </div>
-        }
         actions={
           <>
             <ImageManagerAutoRefreshControls
@@ -143,9 +134,36 @@ export function ImageManagerContent({ cacheScope, canDeleteImages, isAdmin }: Im
               onDeleteSelected={() => { view.setIsImageActionsOpen(false); mutations.openDeleteConfirm(selection.selectedItems); }}
               onRefresh={() => void loader.loadImages({ force: true })}
             />
+            <Button asChild size="sm">
+              <Link to="/image">
+                <Plus className="size-3.5" />
+                去创作图片
+              </Link>
+            </Button>
           </>
         }
       />
+      <div className="flex flex-wrap items-center gap-2.5">
+        <MediaAssetTypeSwitcher current="image" />
+        <span className="hidden h-4 w-px bg-border sm:block" aria-hidden="true" />
+        <ImageManagerGalleryViewTabs
+          galleryView={filters.galleryView}
+          isAdmin={isAdmin}
+          itemsCount={items.length}
+          filteredCount={filters.filteredItems.length}
+          hasLocalFilters={filters.hasLocalFilters}
+          serverTotal={loader.serverTotal}
+          serverHasMore={loader.serverHasMore}
+          currentPage={loader.currentPage}
+          onGalleryViewChange={(nextView) => {
+            if (!isAdmin && nextView === "all") return;
+            if (nextView !== filters.galleryView) {
+              filters.setGalleryView(nextView);
+              resetListState();
+            }
+          }}
+        />
+      </div>
       <div className="flex flex-col gap-4">
         <ImageManagerFilterPanel
           galleryView={filters.galleryView}
@@ -190,7 +208,7 @@ export function ImageManagerContent({ cacheScope, canDeleteImages, isAdmin }: Im
           onOrientationFilterChange={(value) => { filters.setOrientationFilter(value); resetListState(); }}
           onResolutionFilterChange={(value) => { filters.setResolutionFilter(value); resetListState(); }}
           onAspectRatioFilterChange={(value) => { filters.setAspectRatioFilter(value); resetListState(); }}
-          onClearFilters={() => { filters.clearFilters(); resetListState(); }}
+          onClearFilters={handleClearFilters}
           onMobileFiltersOpenChange={view.setIsMobileFiltersOpen}
           onAutoRefreshScopeChange={view.setAutoRefreshMenuScope}
           onToggleAutoRefresh={loader.toggleAutoRefresh}
@@ -205,6 +223,7 @@ export function ImageManagerContent({ cacheScope, canDeleteImages, isAdmin }: Im
           loadError={loader.loadError}
           galleryView={filters.galleryView}
           onRetry={() => void loader.loadImages({ force: true })}
+          onClearFilters={handleClearFilters}
         />
         <ImageManagerGrid
           filteredCount={filters.filteredItems.length}

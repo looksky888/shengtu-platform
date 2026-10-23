@@ -57,11 +57,11 @@ export function ImageManagerActionsPopover({
     <>
       <Popover open={open} onOpenChange={onOpenChange}>
         <PopoverTrigger asChild>
-          <Button type="button" variant="outline" className="h-9 rounded-lg px-3 text-xs" aria-label="打开图片操作">
-            <MoreHorizontal className="size-4" />
+          <Button type="button" variant="outline" size="sm" aria-label="打开图片操作">
+            <MoreHorizontal className="size-3.5" />
             <span>批量操作</span>
             {selectedCount > 0 ? (
-              <span className="ml-0.5 inline-flex min-w-5 items-center justify-center rounded-md bg-surface-muted px-1.5 text-xs font-semibold text-foreground ring-1 ring-border/70 tabular-nums">
+              <span className="ml-0.5 inline-flex min-w-5 items-center justify-center rounded-md bg-surface-muted px-1.5 text-[11px] font-semibold text-foreground ring-1 ring-border/70 tabular-nums">
                 {selectedCount}
               </span>
             ) : null}

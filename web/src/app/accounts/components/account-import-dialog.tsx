@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type ChangeEvent } from "react";
+import { useRef, useState, type ChangeEvent, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { Upload } from "lucide-react";
 import { toast } from "sonner";
@@ -11,11 +11,12 @@ import { AccountImportMethodBody } from "@/app/accounts/components/account-impor
 import type { ImportMethod, PendingCpaImport } from "@/app/accounts/components/account-import-types";
 import { getCpaAccessToken, getSessionAccessToken, readFileAsText, splitTokens } from "@/app/accounts/components/account-import-utils";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { createAccounts, type Account } from "@/lib/api";
 
 type AccountImportDialogProps = {
   disabled?: boolean;
+  trigger?: ReactNode;
   onImported: (items: Account[]) => void;
 };
 
@@ -26,7 +27,7 @@ const dialogCopy: Record<ImportMethod, { title: string; description: string }> =
   cpa: { title: "导入 CPA JSON", description: "支持一次读取多个本地 JSON 文件，并在提交前做数量确认。" },
 };
 
-export function AccountImportDialog({ disabled, onImported }: AccountImportDialogProps) {
+export function AccountImportDialog({ disabled, trigger, onImported }: AccountImportDialogProps) {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [method, setMethod] = useState<ImportMethod>("menu");
@@ -123,9 +124,14 @@ export function AccountImportDialog({ disabled, onImported }: AccountImportDialo
   return (
     <>
       <Dialog open={open} onOpenChange={handleOpenChange}>
-        <Button className="h-9 rounded-lg bg-primary px-3.5 text-primary-foreground hover:bg-primary/90" onClick={() => setOpen(true)} disabled={disabled}>
-          <Upload className="size-4" />导入
-        </Button>
+        <DialogTrigger asChild>
+          {trigger ?? (
+            <Button size="sm" disabled={disabled}>
+              <Upload className="size-3.5" />
+              导入账号
+            </Button>
+          )}
+        </DialogTrigger>
         <DialogContent showCloseButton={false} className="rounded-xl p-6">
           <DialogHeader className="gap-2">
             <DialogTitle>{copy.title}</DialogTitle>

@@ -1,6 +1,7 @@
-import { Search, X } from "lucide-react";
+import { AlertTriangle, Search, X } from "lucide-react";
 
 import type { UserCleanupFilter, UserTimeFilter } from "@/app/users/users-utils";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -23,7 +24,6 @@ type UsersFilterBarProps = {
 };
 
 export function UsersFilterBar({
-  totalCount,
   filteredCount,
   searchText,
   providerFilter,
@@ -39,17 +39,7 @@ export function UsersFilterBar({
   onClearFilters,
 }: UsersFilterBarProps) {
   return (
-    <div className="flex flex-col gap-3 border-b border-border px-5 py-4">
-      <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground tabular-nums">
-        <span>
-          共 {filteredCount} / {totalCount} 个用户
-        </span>
-        {cleanupFilter !== "all" ? (
-          <span className="text-amber-700 dark:text-amber-400">
-            清理筛选已开启：可在行内点击「删除」清理用户（管理员账号受保护）
-          </span>
-        ) : null}
-      </div>
+    <div className="flex flex-col gap-2.5 border-b border-border bg-surface-muted/30 px-4 py-3.5 sm:px-5">
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-[220px] flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -58,20 +48,20 @@ export function UsersFilterBar({
             value={searchText}
             onChange={(event) => onSearchTextChange(event.target.value)}
             placeholder="搜索邮箱、用户名、用户 ID、owner 或会话"
-            className="h-9 rounded-lg pl-9"
+            className="h-9 rounded-lg bg-surface pl-9"
           />
         </div>
         <Select value={providerFilter} onValueChange={onProviderFilterChange}>
-          <SelectTrigger aria-label="用户来源筛选" className="h-9 w-full rounded-lg sm:w-36">
+          <SelectTrigger aria-label="用户来源筛选" className="h-9 w-full rounded-lg bg-surface sm:w-32">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">全部来源</SelectItem>
-            <SelectItem value="local">本地</SelectItem>
+            <SelectItem value="local">本地账号</SelectItem>
           </SelectContent>
         </Select>
         <Select value={statusFilter} onValueChange={onStatusFilterChange}>
-          <SelectTrigger aria-label="用户状态筛选" className="h-9 w-full rounded-lg sm:w-36">
+          <SelectTrigger aria-label="用户状态筛选" className="h-9 w-full rounded-lg bg-surface sm:w-32">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -81,7 +71,7 @@ export function UsersFilterBar({
           </SelectContent>
         </Select>
         <Select value={timeFilter} onValueChange={(value) => onTimeFilterChange(value as UserTimeFilter)}>
-          <SelectTrigger aria-label="用户时间筛选" className="h-9 w-full rounded-lg sm:w-36">
+          <SelectTrigger aria-label="用户时间筛选" className="h-9 w-full rounded-lg bg-surface sm:w-32">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -92,7 +82,7 @@ export function UsersFilterBar({
           </SelectContent>
         </Select>
         <Select value={cleanupFilter} onValueChange={(value) => onCleanupFilterChange(value as UserCleanupFilter)}>
-          <SelectTrigger aria-label="待清理用户筛选" className="h-9 w-full rounded-lg sm:w-44">
+          <SelectTrigger aria-label="待清理用户筛选" className="h-9 w-full rounded-lg bg-surface sm:w-44">
             <SelectValue placeholder="清理筛选" />
           </SelectTrigger>
           <SelectContent>
@@ -102,17 +92,28 @@ export function UsersFilterBar({
             <SelectItem value="credit0">仅 积分≤0</SelectItem>
           </SelectContent>
         </Select>
-        <Button
-          type="button"
-          variant="outline"
-          className="h-9 rounded-lg px-3"
-          disabled={!hasActiveFilters}
-          onClick={onClearFilters}
-        >
-          <X className="size-4" />
-          清除
-        </Button>
+        {hasActiveFilters ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-9 rounded-lg px-3"
+            onClick={onClearFilters}
+          >
+            <X className="size-3.5" />
+            清除
+          </Button>
+        ) : null}
+        <Badge variant="secondary" className="ml-auto h-7 rounded-md px-2.5 text-xs tabular-nums">
+          共 {filteredCount} 位用户
+        </Badge>
       </div>
+      {cleanupFilter !== "all" ? (
+        <div className="flex items-center gap-2 rounded-lg border border-status-warning/25 bg-status-warning-soft px-3 py-1.5 text-xs text-status-warning">
+          <AlertTriangle className="size-3.5 shrink-0" />
+          <span>清理筛选已开启：可在行内点击「删除」清理长期未活跃或零余额用户（管理员账号受保护）。</span>
+        </div>
+      ) : null}
     </div>
   );
 }

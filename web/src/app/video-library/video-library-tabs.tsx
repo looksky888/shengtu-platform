@@ -21,14 +21,14 @@ export function VideoLibraryTabs({ scope, isAdmin, total, onChange }: {
     { value: "public" as const, icon: Globe2 },
   ];
   return (
-    <div className="flex min-w-0 flex-wrap items-center gap-2.5">
+    <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-2.5">
       <MediaLibraryTabs
         value={scope}
         label="视频库视图"
         options={options.map((option) => ({ ...option, label: labels[option.value] }))}
         onChange={onChange}
       />
-      <div className="inline-flex min-w-0 items-center gap-1.5 rounded-lg border border-border/70 bg-muted/40 px-2.5 py-1 text-xs text-muted-foreground tabular-nums">
+      <div className="inline-flex min-w-0 items-center gap-1.5 rounded-lg border border-border/80 bg-surface px-2.5 py-1 text-xs text-muted-foreground shadow-2xs tabular-nums">
         <span className="font-medium text-foreground/85">{labels[scope]}</span>
         <span className="text-border">·</span>
         <span>共 {total} 个</span>

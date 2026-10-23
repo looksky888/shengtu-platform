@@ -29,9 +29,9 @@ import { CanvasLinkCard } from "./components/canvas-link-card";
 
 function TabLoading() {
   return (
-    <div className="flex min-h-52 items-center justify-center rounded-xl border border-border/70 bg-card/80 text-sm text-muted-foreground">
+    <div className="flex min-h-52 items-center justify-center rounded-[14px] border border-border/80 bg-surface text-sm text-muted-foreground shadow-2xs">
       <LoaderCircle className="mr-2 size-5 animate-spin" />
-      正在加载设置模块...
+      正在加载设置模块…
     </div>
   );
 }
@@ -116,30 +116,33 @@ function BackupTab() {
 function MaintenanceTab({ canManageSystem }: { canManageSystem: boolean }) {
   return (
     <section className="grid gap-5 md:grid-cols-2">
-      <div className="rounded-xl border border-border/70 bg-card p-5 shadow-2xs md:col-span-2">
+      <div className="rounded-[14px] border border-border/80 bg-surface p-4 shadow-2xs md:col-span-2">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
-            <div className="text-base font-semibold text-foreground">
-              日志与任务入口
+            <div className="text-sm font-semibold text-foreground sm:text-[15px]">
+              日志与任务治理快捷入口
             </div>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              快速跳转至审计日志检索台或历史创作任务队列
+            </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button asChild variant="outline" className="rounded-lg">
+            <Button asChild variant="outline" size="sm">
               <Link to="/logs">
-                <FileClock className="size-4" />
-                日志管理
+                <FileClock className="size-3.5" />
+                系统日志
               </Link>
             </Button>
-            <Button asChild variant="outline" className="rounded-lg">
+            <Button asChild variant="outline" size="sm">
               <Link to="/task-queue?tab=history">
-                <ListChecks className="size-4" />
+                <ListChecks className="size-3.5" />
                 任务历史
               </Link>
             </Button>
           </div>
         </div>
       </div>
-      <LogGovernanceCard />
+      {canManageSystem ? <LogGovernanceCard /> : null}
     </section>
   );
 }

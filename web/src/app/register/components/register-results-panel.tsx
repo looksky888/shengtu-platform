@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AlertTriangle, LoaderCircle, Play, RotateCcw, Save, Square, Trash2 } from "lucide-react";
+import { Activity, Square, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -18,7 +18,7 @@ export function RegisterResultsPanel({ state }: { state: RegisterCardState }) {
   const { config } = state;
   if (!config) return null;
   return (
-    <section className="flex min-h-0 flex-col p-4">
+    <section className="flex min-h-0 flex-col p-5">
       <RegisterRunSummary state={state} />
       <CheckoutTasksPanel state={state} />
       <RegisterLogPanel state={state} />
@@ -132,49 +132,80 @@ function CheckoutTasksPanel({ state }: { state: RegisterCardState }) {
 function RegisterRunSummary({ state }: { state: RegisterCardState }) {
   const { config, stats } = state;
   if (!config) return null;
+  const statItems: Array<{
+    label: string;
+    value: unknown;
+    tone?: "default" | "success" | "danger";
+  }> = [
+    {
+      label: "成功 / 成功率",
+      value: `${stats.success} / ${stats.success_rate || 0}%`,
+      tone: Number(stats.success) > 0 ? "success" : "default",
+    },
+    {
+      label: "失败",
+      value: stats.fail,
+      tone: Number(stats.fail) > 0 ? "danger" : "default",
+    },
+    { label: "完成", value: stats.done },
+    { label: "运行 / 线程", value: `${stats.running} / ${stats.threads}` },
+    { label: "运行时间", value: `${stats.elapsed_seconds || 0}s` },
+    { label: "平均注册单个", value: `${stats.avg_seconds || 0}s` },
+    { label: "当前额度", value: stats.current_quota || 0 },
+    { label: "正常账号", value: stats.current_available || 0 },
+  ];
+
   return (
-    <div className="space-y-3">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold tracking-tight">运行面板</h2>
+    <div className="space-y-3.5">
+      <div className="flex items-center justify-between gap-3 border-b border-border/60 pb-3.5">
+        <div className="flex items-center gap-3">
+          <div className="flex size-8 items-center justify-center rounded-lg border border-border/70 bg-surface-muted">
+            <Activity className="size-4 text-muted-foreground" />
+          </div>
+          <div>
+            <h2 className="text-sm font-semibold tracking-tight text-foreground sm:text-[15px]">运行遥测</h2>
+            <p className="text-xs text-muted-foreground">修改左侧参数后，请先点击顶部「保存配置」再启动任务</p>
+          </div>
         </div>
-        <Badge variant={config.enabled ? "success" : "secondary"} className="rounded-md">{config.enabled ? "运行中" : "已停止"}</Badge>
+        <Badge variant={config.enabled ? "success" : "secondary"}>
+          {config.enabled ? "运行中" : "已停止"}
+        </Badge>
       </div>
-      <div className="grid grid-cols-4 gap-2">
-        {[
-          ["成功 / 成功率", `${stats.success} / ${stats.success_rate || 0}%`],
-          ["失败", stats.fail],
-          ["完成", stats.done],
-          ["运行 / 线程", `${stats.running} / ${stats.threads}`],
-          ["运行时间", `${stats.elapsed_seconds || 0}s`],
-          ["平均注册单个", `${stats.avg_seconds || 0}s`],
-          ["当前额度", stats.current_quota || 0],
-          ["正常账号", stats.current_available || 0],
-        ].map(([label, value], index) => <RegisterStatCard key={label} label={String(label)} value={value} featured={index === 0} />)}
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+        {statItems.map((item) => (
+          <RegisterStatCard
+            key={item.label}
+            label={item.label}
+            value={item.value}
+            tone={item.tone}
+          />
+        ))}
       </div>
-      <div className="grid grid-cols-3 gap-2">
-        <Button variant="brand" onClick={() => void state.toggle()} disabled={state.isSaving}>
-          {state.isSaving ? <LoaderCircle className="size-4 animate-spin" /> : config.enabled ? <Square className="size-4" /> : <Play className="size-4" />}{config.enabled ? "停止" : "启动"}
-        </Button>
-        <Button variant="outline" onClick={() => void state.reset()} disabled={state.isSaving || config.enabled}><RotateCcw className="size-4" />重置</Button>
-        <Button variant="outline" onClick={() => void state.save()} disabled={state.isSaving || config.enabled}><Save className="size-4" />保存</Button>
-      </div>
-      <div className="flex items-center gap-2 rounded-xl border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-300"><AlertTriangle className="size-4 shrink-0" />启动之前注意先保存配置。</div>
     </div>
   );
 }
 
-function RegisterStatCard({ label, value, featured }: { label: string; value: unknown; featured: boolean }) {
+function RegisterStatCard({
+  label,
+  value,
+  tone = "default",
+}: {
+  label: string;
+  value: unknown;
+  tone?: "default" | "success" | "danger";
+}) {
+  const valueClass =
+    tone === "success"
+      ? "text-status-success"
+      : tone === "danger"
+        ? "text-status-danger"
+        : "text-foreground";
   return (
-    <div
-      className={`rounded-lg border px-3 py-2 shadow-2xs ${
-        featured
-          ? "border-foreground bg-surface text-foreground ring-1 ring-foreground/10"
-          : "border-border/80 bg-surface text-foreground"
-      }`}
-    >
-      <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="mt-1 font-display text-base font-semibold tabular-nums">{String(value)}</div>
+    <div className="rounded-xl border border-border/80 bg-surface-muted/35 px-3 py-2.5">
+      <div className="text-[11px] font-medium text-muted-foreground">{label}</div>
+      <div className={`mt-1 font-display text-base font-semibold tabular-nums ${valueClass}`}>
+        {String(value)}
+      </div>
     </div>
   );
 }

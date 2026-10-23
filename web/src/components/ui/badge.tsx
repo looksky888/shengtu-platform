@@ -15,7 +15,7 @@ const badgeVariants = cva(
         warning: "border-status-warning/25 bg-status-warning-soft text-status-warning",
         danger: "border-status-danger/25 bg-status-danger-soft text-status-danger",
         info: "border-border/80 bg-surface-muted text-muted-foreground",
-        violet: "border-indigo-500/20 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300",
+        violet: "border-foreground/15 bg-foreground text-background shadow-2xs",
       },
     },
     defaultVariants: {

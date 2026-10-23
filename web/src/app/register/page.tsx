@@ -28,13 +28,15 @@ function RegisterDataController() {
 
 function RegisterPageContent() {
   return (
-    <>
+    <div className="flex flex-col gap-5 pb-8">
       <RegisterDataController />
-      <PageHeader eyebrow="注册机" title="账号注册" />
-      <section className="mt-4">
-        <RegisterCard />
-      </section>
-    </>
+      <PageHeader
+        eyebrow="号池与运维"
+        title="账号注册"
+        description="配置多源邮箱池、代理与并发流水线，自动化执行 ChatGPT 或 Grok 账号注册并同步写入运行号池。"
+      />
+      <RegisterCard />
+    </div>
   );
 }
 
@@ -44,7 +46,7 @@ export default function RegisterPage() {
   if (isCheckingAuth || !session) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center">
-        <LoaderCircle className="size-5 animate-spin text-stone-400" />
+        <LoaderCircle className="size-5 animate-spin text-muted-foreground" />
       </div>
     );
   }

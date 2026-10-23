@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
-import { PackagePlus, RefreshCw } from "lucide-react";
+import { PackageOpen, PackagePlus, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
 import { ProductEditorDialog } from "@/app/payment-admin/payment-product-dialog";
 import { PaymentProductList } from "@/app/payment-admin/payment-product-list";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   createAdminRechargeProduct,
   deleteAdminRechargeProduct,
@@ -122,22 +123,35 @@ export function PaymentProductsSection() {
 
   return (
     <>
-      <Card>
-        <CardHeader>
+      <Card className="overflow-hidden rounded-xl">
+        <CardHeader className="border-b border-border/70 bg-surface-muted/35">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <CardTitle>商品管理</CardTitle>
+            <div className="space-y-1">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <PackageOpen className="size-4.5 text-muted-foreground" />
+                充值套餐管理
+                {!loading ? (
+                  <Badge variant="secondary" className="rounded-md tabular-nums">
+                    共 {items.length} 个套餐
+                  </Badge>
+                ) : null}
+              </CardTitle>
+              <CardDescription>
+                配置前台充值中心展示的算力积分包与云存储套餐，支持随时调整排序与上下架状态。
+              </CardDescription>
+            </div>
             <div className="flex flex-wrap gap-2">
-              <Button type="button" variant="outline" onClick={() => void load()} disabled={loading}>
+              <Button type="button" variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
                 <RefreshCw className={loading ? "size-4 animate-spin" : "size-4"} />刷新
               </Button>
-              <Button type="button" onClick={openCreate}>
-                <PackagePlus className="size-4" />新增商品
+              <Button type="button" size="sm" onClick={openCreate}>
+                <PackagePlus className="size-4" />新建充值套餐
               </Button>
             </div>
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-2">
+        <CardContent className="space-y-4 pt-5">
+          <div className="grid gap-2.5">
             <PaymentProductList items={items} loading={loading} loadError={loadError} selectedID={selected} onRetry={() => void load()} onCreate={openCreate} onEdit={edit} onDelete={setDeleteTarget} />
           </div>
         </CardContent>

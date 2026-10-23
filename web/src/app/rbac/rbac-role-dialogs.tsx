@@ -50,11 +50,11 @@ export function RBACCreateRoleDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-2">
-          <label className="text-sm font-medium text-stone-700 dark:text-foreground">名称</label>
+          <label className="text-sm font-medium text-foreground">名称</label>
           <Input aria-label="新角色名称" value={createName} onChange={(event) => onCreateNameChange(event.target.value)} placeholder="例如：运营人员" className="h-9 rounded-lg" />
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium text-stone-700 dark:text-foreground">描述</label>
+          <label className="text-sm font-medium text-foreground">描述</label>
           <Input aria-label="新角色描述" value={createDescription} onChange={(event) => onCreateDescriptionChange(event.target.value)} placeholder="角色职责或使用范围" className="h-9 rounded-lg" />
         </div>
         <DialogFooter>

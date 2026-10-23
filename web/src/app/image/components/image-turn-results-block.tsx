@@ -16,6 +16,7 @@ import { formatBase64ImageFileSize } from "@/lib/image-size";
 import { isTurnBusy } from "@/lib/image-turn-state";
 import type { ImageTurn, StoredImage, StoredReferenceImage } from "@/store/image-conversations";
 import type { ImageTurnProgress } from "@/store/image-turn-progress";
+
 type ImageTurnResultsBlockProps = {
   conversationId: string;
   turn: ImageTurn;
@@ -47,6 +48,7 @@ type ImageTurnResultsBlockProps = {
   onEnsureImageSizeLabel: (id: string, src: string) => void;
   onDownloadItems: (key: string, items: DownloadableImage[]) => void;
 };
+
 export function ImageTurnResultsBlock({
   conversationId,
   turn,
@@ -149,6 +151,8 @@ export function ImageTurnResultsBlock({
             turnBusy={turnBusy}
             visualImages={visualImages}
             successfulTurnImages={successfulTurnImages}
+            downloadableImages={downloadableImages}
+            downloadingKey={downloadingKey}
             selectedImageIds={selectedImageIds}
             imageDimensions={imageDimensions}
             imageSizeLabels={imageSizeLabels}
@@ -162,6 +166,7 @@ export function ImageTurnResultsBlock({
             onToggleImageSelection={onToggleImageSelection}
             onUpdateImageDimensions={onUpdateImageDimensions}
             onEnsureImageSizeLabel={onEnsureImageSizeLabel}
+            onDownloadItems={onDownloadItems}
           />
         </section>
       </div>

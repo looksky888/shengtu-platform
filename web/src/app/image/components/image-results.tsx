@@ -22,6 +22,7 @@ type ImageResultsProps = {
   promptPresets: readonly ImagePromptPreset[];
   onOpenLightbox: (images: ImageLightboxItem[], index: number) => void;
   onApplyPromptPreset: (preset: ImagePromptPreset) => void | Promise<void>;
+  onAppendStyleChip?: (descriptor: string) => void;
   onContinueEdit: (conversationId: string, image: StoredImage | StoredReferenceImage) => void;
   onLocalEdit: (conversationId: string, image: StoredImage) => void;
   onEditTurn: (conversationId: string, turnId: string) => void;
@@ -46,6 +47,7 @@ export function ImageResults({
   promptPresets,
   onOpenLightbox,
   onApplyPromptPreset,
+  onAppendStyleChip,
   onContinueEdit,
   onLocalEdit,
   onEditTurn,
@@ -114,39 +116,45 @@ export function ImageResults({
       return;
     }
 
-	setDownloadingKey(key);
-	const toastId = `image-download:${key}`;
-	try {
-		if (items.length === 1) {
-			await downloadImage(items[0]);
-			toast.success("图片已开始下载", { id: toastId });
-		} else {
-			toast.loading("请选择保存文件夹，随后将逐张写入原图", { id: toastId });
-			const result = await downloadImages(items);
-			if (result.failed.length > 0) {
-				toast.error(`已处理 ${result.total} 张：成功 ${result.completed} 张，失败 ${result.failed.length} 张`, { id: toastId });
-			} else {
-				toast.success(
-					result.mode === "directory"
-						? `已保存 ${result.completed} 张原图`
-						: `已提交 ${result.completed} 张原图下载`,
-					{ id: toastId },
-				);
-			}
-		}
-	} catch (error) {
-		if (isImageDownloadCanceled(error)) {
-			toast.info("已取消选择保存文件夹", { id: toastId });
-		} else {
-			toast.error(error instanceof Error ? error.message : "下载图片失败", { id: toastId });
-		}
-	} finally {
+    setDownloadingKey(key);
+    const toastId = `image-download:${key}`;
+    try {
+      if (items.length === 1) {
+        await downloadImage(items[0]);
+        toast.success("图片已开始下载", { id: toastId });
+      } else {
+        toast.loading("请选择保存文件夹，随后将逐张写入原图", { id: toastId });
+        const result = await downloadImages(items);
+        if (result.failed.length > 0) {
+          toast.error(`已处理 ${result.total} 张：成功 ${result.completed} 张，失败 ${result.failed.length} 张`, { id: toastId });
+        } else {
+          toast.success(
+            result.mode === "directory"
+              ? `已保存 ${result.completed} 张原图`
+              : `已提交 ${result.completed} 张原图下载`,
+            { id: toastId },
+          );
+        }
+      }
+    } catch (error) {
+      if (isImageDownloadCanceled(error)) {
+        toast.info("已取消选择保存文件夹", { id: toastId });
+      } else {
+        toast.error(error instanceof Error ? error.message : "下载图片失败", { id: toastId });
+      }
+    } finally {
       setDownloadingKey(null);
     }
   };
 
   if (!selectedConversation || selectedConversation.turns.length === 0) {
-    return <ImageResultsEmptyState promptPresets={promptPresets} onApplyPromptPreset={onApplyPromptPreset} />;
+    return (
+      <ImageResultsEmptyState
+        promptPresets={promptPresets}
+        onApplyPromptPreset={onApplyPromptPreset}
+        onAppendStyleChip={onAppendStyleChip}
+      />
+    );
   }
 
   return (
@@ -187,4 +195,3 @@ export function ImageResults({
     </div>
   );
 }
-

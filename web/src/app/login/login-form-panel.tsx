@@ -60,17 +60,6 @@ export function LoginFormPanel({ appMeta, state }: { appMeta: LoginAppMeta; stat
             hint={state.isRegisterMode ? "≥ 8 位" : undefined}
           />
 
-          {!state.isRegisterMode && state.passwordResetEnabled === true ? (
-            <button
-              type="button"
-              className="-mt-2 self-end rounded-md px-1 py-0.5 text-xs font-medium text-muted-foreground underline-offset-4 transition hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20"
-              onClick={() => state.openPasswordReset(state.username)}
-              disabled={state.isSubmitting}
-            >
-              忘记密码？
-            </button>
-          ) : null}
-
           <LoginAgreements state={state} />
 
           <LoginFormActions state={state} />
@@ -130,7 +119,7 @@ function ModeTabs({ state }: { state: LoginPageState }) {
 
 function LoginBrand({ appMeta }: { appMeta: LoginAppMeta }) {
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex items-center gap-3 lg:hidden">
       <img
         src="/logo-mark.svg"
         alt=""
@@ -152,22 +141,22 @@ function LoginBrand({ appMeta }: { appMeta: LoginAppMeta }) {
 function LoginHeading({ appMeta, isRegisterMode }: { appMeta: LoginAppMeta; isRegisterMode: boolean }) {
   const brand = appTitle(appMeta);
   return (
-    <div className="flex flex-col gap-2">
-      <div className="inline-flex w-fit items-center gap-1.5 rounded-md border border-border/80 bg-surface-muted/80 px-2.5 py-1 font-mono text-[10px] font-medium tracking-[0.12em] text-muted-foreground uppercase">
+    <div className="flex flex-col gap-2.5">
+      <div className="inline-flex w-fit items-center gap-1.5 rounded-md border border-border/80 bg-surface-muted/80 px-2.5 py-1 font-mono text-[10px] font-medium tracking-[0.1em] text-muted-foreground uppercase">
         <ShieldCheck className="size-3 text-foreground/75" aria-hidden="true" />
-        <span>STUDIO ACCESS</span>
+        <span>STUDIO ACCESS · 工作台通行证</span>
       </div>
       <div className="flex flex-col gap-1">
         <h1
           id="login-heading"
           className="text-2xl leading-tight font-semibold tracking-[-0.025em] text-foreground transition-opacity duration-200 sm:text-[1.65rem]"
         >
-          {isRegisterMode ? "创建工作台账号" : "欢迎回到工作台"}
+          {isRegisterMode ? "创建工作台账号" : "登录创作工作台"}
         </h1>
         <p className="max-w-[24rem] text-xs leading-5.5 text-muted-foreground sm:text-[13px]">
           {isRegisterMode
             ? `注册后即可进入 ${brand}，开启影像与多轨视频创作。`
-            : `验证身份以进入 ${brand} 影像与视频创作空间。`}
+            : `验证通行证以进入 ${brand} 影像与视频创作空间。`}
         </p>
       </div>
     </div>

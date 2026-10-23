@@ -73,23 +73,35 @@ export function UsersTableRow(props: UsersTableRowProps) {
   );
 }
 
+function resolveAvatarInitial(user: ManagedUser) {
+  const raw = (user.name || user.username || user.email || user.id || "U").trim();
+  return raw.slice(0, 1).toUpperCase();
+}
+
 function UserIdentity({ user }: { user: ManagedUser }) {
   return (
-    <div className="min-w-0 space-y-1">
-      <div className="truncate font-medium text-foreground">{user.name || "普通用户"}</div>
-      {user.email ? (
-        <div className="flex items-center gap-1.5 text-xs font-medium text-foreground/85">
-          <Mail className="size-3.5 text-muted-foreground" />
-          <span className="truncate">{user.email}</span>
-        </div>
-      ) : null}
-      {user.username ? (
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <UserRound className="size-3.5" />
-          <span className="truncate">{user.email ? `内部账号：${user.username}` : user.username}</span>
-        </div>
-      ) : null}
-      <code className="block max-w-[260px] truncate font-mono text-xs text-muted-foreground tabular-nums">{user.id}</code>
+    <div className="flex min-w-0 items-start gap-3">
+      <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg border border-border/80 bg-surface-muted font-display text-xs font-semibold text-foreground shadow-2xs">
+        {resolveAvatarInitial(user)}
+      </div>
+      <div className="min-w-0 space-y-0.5">
+        <div className="truncate font-semibold text-foreground">{user.name || "普通用户"}</div>
+        {user.email ? (
+          <div className="flex items-center gap-1.5 text-xs font-medium text-foreground/85">
+            <Mail className="size-3.5 shrink-0 text-muted-foreground" />
+            <span className="truncate">{user.email}</span>
+          </div>
+        ) : null}
+        {user.username ? (
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <UserRound className="size-3.5 shrink-0" />
+            <span className="truncate">{user.email ? `内部账号：${user.username}` : user.username}</span>
+          </div>
+        ) : null}
+        <code className="block max-w-[240px] truncate font-mono text-[11px] text-muted-foreground tabular-nums">
+          {user.id}
+        </code>
+      </div>
     </div>
   );
 }

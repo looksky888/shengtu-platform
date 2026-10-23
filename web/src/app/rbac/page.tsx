@@ -7,6 +7,7 @@ import { RBACRoleEditorCard } from "@/app/rbac/rbac-role-editor-card";
 import { RBACRoleList } from "@/app/rbac/rbac-role-list";
 import { useRBACManagement } from "@/app/rbac/use-rbac-management";
 import { PageHeader } from "@/components/page-header";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAuthGuard } from "@/lib/use-auth-guard";
 import { cn } from "@/lib/utils";
@@ -16,8 +17,16 @@ function RBACContent() {
   return (
     <section className="flex flex-col gap-4 pb-4">
       <PageHeader
-        eyebrow="权限"
+        eyebrow="权限与访问控制"
         title="角色权限"
+        badge={
+          !rbac.isLoading ? (
+            <Badge variant="secondary" className="rounded-md tabular-nums">
+              共 {rbac.roles.length} 个角色
+            </Badge>
+          ) : null
+        }
+        description="按角色精细化配置前端菜单路由与后端 API 接口授权矩阵，变更保存后即时生效。"
         actions={
           <>
             <Button variant="outline" size="sm" onClick={() => void rbac.loadRBAC()} disabled={rbac.isLoading}>
@@ -30,12 +39,12 @@ function RBACContent() {
             </Button>
             <Button size="sm" onClick={() => void rbac.handleSave()} disabled={!rbac.selectedRole || !rbac.isDirty || rbac.isSaving || rbac.isLoading}>
               {rbac.isSaving ? <LoaderCircle className="size-4 animate-spin" /> : <Save className="size-4" />}
-              保存
+              保存更改
             </Button>
           </>
         }
       />
-      <div className="grid gap-5 xl:grid-cols-[360px_1fr]">
+      <div className="grid items-start gap-4 xl:grid-cols-[228px_minmax(0,1fr)]">
         <RBACRoleList
           roles={rbac.roles}
           filteredRoles={rbac.filteredRoles}
@@ -44,6 +53,7 @@ function RBACContent() {
           isLoading={rbac.isLoading}
           onSearchTextChange={rbac.setSearchText}
           onSelectRole={rbac.applySelectedRole}
+          onCreateRole={() => rbac.setIsCreateDialogOpen(true)}
         />
         <RBACRoleEditorCard
           selectedRole={rbac.selectedRole}
@@ -59,13 +69,14 @@ function RBACContent() {
           onMenuPathsChange={rbac.setSelectedMenuPaths}
           onApiPermissionsChange={rbac.setSelectedApiPermissions}
           onDeleteRole={rbac.setDeletingRole}
+          onCreateRole={() => rbac.setIsCreateDialogOpen(true)}
         />
       </div>
 
       {rbac.isDirty && rbac.selectedRole ? (
-        <div className="sticky bottom-4 z-30 mx-auto flex w-full max-w-3xl flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/40 bg-background/95 px-4 py-3 shadow-lg backdrop-blur-md">
+        <div className="sticky bottom-4 z-30 mx-auto flex w-full max-w-3xl flex-wrap items-center justify-between gap-3 rounded-xl border border-status-warning/35 bg-surface/95 px-4 py-3 shadow-lg backdrop-blur-md">
           <div className="flex items-center gap-2.5 text-sm">
-            <AlertTriangle className="size-4 shrink-0 text-amber-500" />
+            <AlertTriangle className="size-4 shrink-0 text-status-warning" />
             <span className="font-medium text-foreground">
               角色「{rbac.selectedRole.name}」有未保存的权限修改
             </span>
@@ -119,7 +130,7 @@ export default function RBACPage() {
   if (isCheckingAuth || !session) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center">
-        <LoaderCircle className="size-5 animate-spin text-stone-400" />
+        <LoaderCircle className="size-5 animate-spin text-muted-foreground" />
       </div>
     );
   }

@@ -7,13 +7,29 @@ import {
   submitVideoGeneration,
   uploadVideoInput,
   deleteVideoReferenceAsset,
+  fetchVideoAssets,
   fetchVideoReferenceAssets,
   uploadVideoReferenceAsset,
   type VideoGenerationRequest,
   type VideoInputUpload,
   type VideoReferenceAsset,
 } from "@/lib/video-task-api";
-import { LEGACY_VIDEO_TASK_KEY, videoTaskStorageKey } from "@/app/video/video-task-storage";
+import {
+  LEGACY_VIDEO_TASK_KEY,
+  MAX_RECENT_VIDEO_TAKES,
+  normalizeVideoModel,
+  normalizeVideoPreset,
+  normalizeVideoResolution,
+  normalizeVideoSeconds,
+  normalizeVideoSize,
+  ratioForVideoSize,
+  readRecentVideoTakes,
+  recentVideoTakesStorageKey,
+  upsertRecentVideoTake,
+  videoTaskStorageKey,
+  writeRecentVideoTakes,
+  type RecentVideoTake,
+} from "@/app/video/video-task-storage";
 import type { VideoPreview } from "@/components/video-preview-dialog";
 import type { StoredAuthSession } from "@/store/auth";
 import { createRequestId } from "@/lib/request-id";
@@ -48,6 +64,7 @@ function newTaskID() {
 
 export function useVideoCreation(session: StoredAuthSession | null | undefined) {
   const taskStorageKey = videoTaskStorageKey(session);
+  const recentTakesKey = recentVideoTakesStorageKey(session);
   const [prompt, setPrompt] = useState("");
   const [seconds, setSeconds] = useState<VideoGenerationRequest["seconds"]>(6);
   const [size, setSize] = useState<VideoGenerationRequest["size"]>("720x1280");
@@ -71,11 +88,32 @@ export function useVideoCreation(session: StoredAuthSession | null | undefined) 
   }));
   const taskID = taskScope.storageKey === taskStorageKey ? taskScope.taskID : "";
   const [task, setTask] = useState<CreationTask | null>(null);
+  const [recentTakes, setRecentTakes] = useState<RecentVideoTake[]>(() =>
+    readRecentVideoTakes(recentTakesKey),
+  );
+  const [selectedTakeId, setSelectedTakeId] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [pollError, setPollError] = useState("");
   const [creditCostPerSecond, setCreditCostPerSecond] = useState(1);
   const [previewVideo, setPreviewVideo] = useState<(VideoPreview & { taskID: string }) | null>(null);
   const observedActiveTaskRef = useRef(false);
+
+  const formSnapshotRef = useRef({
+    prompt,
+    seconds,
+    size,
+    resolutionName,
+    preset,
+    model,
+  });
+  formSnapshotRef.current = {
+    prompt,
+    seconds,
+    size,
+    resolutionName,
+    preset,
+    model,
+  };
 
   useEffect(() => {
     writeTaskID(LEGACY_VIDEO_TASK_KEY, "");
@@ -87,6 +125,64 @@ export function useVideoCreation(session: StoredAuthSession | null | undefined) 
     setPollError("");
     observedActiveTaskRef.current = false;
   }, [taskStorageKey]);
+
+  useEffect(() => {
+    setRecentTakes(readRecentVideoTakes(recentTakesKey));
+    setSelectedTakeId("");
+    if (!recentTakesKey) return;
+
+    const abortController = new AbortController();
+    fetchVideoAssets("mine", {
+      limit: MAX_RECENT_VIDEO_TAKES,
+      signal: abortController.signal,
+    })
+      .then((page) => {
+        if (abortController.signal.aborted) return;
+        const cloudTakes: RecentVideoTake[] = (page.items || [])
+          .filter((asset) => Boolean(asset.url))
+          .map((asset) => {
+            const normalizedSize = normalizeVideoSize(asset.size);
+            return {
+              taskId: asset.task_id || asset.id,
+              prompt: (asset.prompt || "").trim(),
+              ratio: ratioForVideoSize(normalizedSize),
+              size: normalizedSize,
+              seconds: normalizeVideoSeconds(asset.seconds),
+              resolutionName: normalizeVideoResolution(asset.resolution_name),
+              preset: normalizeVideoPreset(asset.preset),
+              model: normalizeVideoModel(asset.model),
+              status: "success" as const,
+              videoUrl: asset.url,
+              createdAt: asset.created_at || new Date().toISOString(),
+            };
+          });
+        if (cloudTakes.length === 0) return;
+        setRecentTakes((prev) => {
+          const merged = [...prev];
+          for (const cloudTake of cloudTakes) {
+            const existingIndex = merged.findIndex((item) => item.taskId === cloudTake.taskId);
+            if (existingIndex >= 0) {
+              merged[existingIndex] = {
+                ...merged[existingIndex],
+                prompt: merged[existingIndex].prompt || cloudTake.prompt,
+                status: "success",
+                videoUrl: cloudTake.videoUrl || merged[existingIndex].videoUrl,
+              };
+            } else if (merged.length < MAX_RECENT_VIDEO_TAKES) {
+              merged.push(cloudTake);
+            }
+          }
+          const trimmed = merged.slice(0, MAX_RECENT_VIDEO_TAKES);
+          writeRecentVideoTakes(recentTakesKey, trimmed);
+          return trimmed;
+        });
+      })
+      .catch(() => undefined);
+
+    return () => {
+      abortController.abort();
+    };
+  }, [recentTakesKey]);
 
   useEffect(() => {
     let disposed = false;
@@ -113,19 +209,54 @@ export function useVideoCreation(session: StoredAuthSession | null | undefined) 
           setPollError("");
           return;
         }
+
+        const currentVideo = current.data?.find(
+          (item) => item.url && item.content_type?.startsWith("video/"),
+        );
+
         if (current.status === "success" && taskStorageKey) {
           writeTaskID(taskStorageKey, "");
         }
+
+        if (!TERMINAL_STATUSES.has(current.status)) {
+          observedActiveTaskRef.current = true;
+        }
+
+        setRecentTakes((prev) => {
+          const existing = prev.find((item) => item.taskId === current.id);
+          if (!existing && !observedActiveTaskRef.current) {
+            return prev;
+          }
+          const snap = formSnapshotRef.current;
+          const resolvedSize = existing?.size || snap.size;
+          const next = upsertRecentVideoTake(prev, {
+            taskId: current.id,
+            prompt: existing?.prompt || snap.prompt.trim(),
+            ratio: existing?.ratio || ratioForVideoSize(resolvedSize),
+            size: resolvedSize,
+            seconds: existing?.seconds || snap.seconds,
+            resolutionName: existing?.resolutionName || snap.resolutionName,
+            preset: existing?.preset || snap.preset,
+            model: existing?.model || snap.model,
+            status: current.status,
+            videoUrl: currentVideo?.url || existing?.videoUrl,
+            createdAt: existing?.createdAt || new Date().toISOString(),
+          });
+          writeRecentVideoTakes(recentTakesKey, next);
+          return next;
+        });
+
         if (current.status === "success" && !observedActiveTaskRef.current) {
           setTask(null);
           setTaskScope({ storageKey: taskStorageKey, taskID: "" });
           setPollError("");
           return;
         }
-        if (!TERMINAL_STATUSES.has(current.status)) {
-          observedActiveTaskRef.current = true;
-        }
+
         setTask(current);
+        if (current.status === "success") {
+          setSelectedTakeId(current.id);
+        }
         setPollError("");
         if (!TERMINAL_STATUSES.has(current.status)) {
           timer = window.setTimeout(sync, 2000);
@@ -142,11 +273,16 @@ export function useVideoCreation(session: StoredAuthSession | null | undefined) 
       disposed = true;
       if (timer !== undefined) window.clearTimeout(timer);
     };
-  }, [taskID, taskStorageKey]);
+  }, [recentTakesKey, taskID, taskStorageKey]);
 
   const video = useMemo(
     () => task?.data?.find((item) => item.url && item.content_type?.startsWith("video/")),
     [task],
+  );
+
+  const selectedTake = useMemo(
+    () => recentTakes.find((item) => item.taskId === selectedTakeId) || null,
+    [recentTakes, selectedTakeId],
   );
 
   useEffect(() => {
@@ -273,10 +409,32 @@ export function useVideoCreation(session: StoredAuthSession | null | undefined) 
           : {}),
         ...(selectedReferenceAssetIds.length ? { reference_images: selectedReferenceAssetIds.map((id) => `video-ref:${id}`) } : {}),
       });
-      writeTaskID(taskStorageKey, id);
+      const taskKeyId = created.id || id;
+      writeTaskID(taskStorageKey, taskKeyId);
       observedActiveTaskRef.current = true;
       setTask(created);
-      setTaskScope({ storageKey: taskStorageKey, taskID: id });
+      setTaskScope({ storageKey: taskStorageKey, taskID: taskKeyId });
+      setSelectedTakeId(taskKeyId);
+      setRecentTakes((prev) => {
+        const next = upsertRecentVideoTake(
+          prev,
+          {
+            taskId: taskKeyId,
+            prompt: normalizedPrompt,
+            ratio: ratioForVideoSize(size),
+            size,
+            seconds,
+            resolutionName,
+            preset,
+            model,
+            status: created.status,
+            createdAt: new Date().toISOString(),
+          },
+          { moveToFront: true },
+        );
+        writeRecentVideoTakes(recentTakesKey, next);
+        return next;
+      });
       toast.success("视频任务已提交");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "提交视频任务失败");
@@ -288,22 +446,77 @@ export function useVideoCreation(session: StoredAuthSession | null | undefined) 
   async function cancel() {
     if (!taskID || !task || TERMINAL_STATUSES.has(task.status)) return;
     try {
-      setTask(await cancelCreationTask(taskID));
+      const cancelled = await cancelCreationTask(taskID);
+      setTask(cancelled);
+      setRecentTakes((prev) => {
+        const existing = prev.find((item) => item.taskId === cancelled.id);
+        if (!existing) return prev;
+        const next = upsertRecentVideoTake(prev, {
+          ...existing,
+          status: cancelled.status,
+        });
+        writeRecentVideoTakes(recentTakesKey, next);
+        return next;
+      });
       toast.success("视频任务已取消");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "取消视频任务失败");
     }
   }
 
+  function selectRecentTake(takeTaskId: string) {
+    setSelectedTakeId((current) => (current === takeTaskId && takeTaskId !== task?.id ? "" : takeTaskId));
+  }
+
+  function clearSelectedTake() {
+    setSelectedTakeId("");
+  }
+
+  function applyRecentTakePrompt(take: RecentVideoTake) {
+    if (take.prompt) {
+      setPrompt(take.prompt);
+    }
+    setSize(take.size);
+    setSeconds(take.seconds);
+    setResolutionName(take.resolutionName);
+    setPreset(take.preset);
+    setModel(take.model);
+    toast.success(take.prompt ? "已填入提示词与镜头参数" : "已同步镜头参数");
+  }
+
+  function appendCameraStyleChip(descriptor: string) {
+    const clean = descriptor.trim();
+    if (!clean) return;
+    setPrompt((current) => {
+      const base = current.trim();
+      if (!base) return clean;
+      if (base.includes(clean)) return current;
+      const needsSeparator = !/[，,。.；;、]$/.test(base);
+      return `${base}${needsSeparator ? "，" : ""}${clean}`;
+    });
+  }
+
   function watchVideo() {
+    if (selectedTake && selectedTake.taskId !== task?.id && selectedTake.videoUrl) {
+      setPreviewVideo({
+        url: selectedTake.videoUrl,
+        taskID: selectedTake.taskId,
+        prompt: selectedTake.prompt,
+        seconds: selectedTake.seconds,
+        size: selectedTake.size,
+        resolution: selectedTake.resolutionName,
+      });
+      return;
+    }
     if (!task || !video?.url) return;
+    const matchedTake = recentTakes.find((item) => item.taskId === task.id);
     setPreviewVideo({
       url: video.url,
       taskID: task.id,
-      prompt: prompt.trim(),
-      seconds: video.seconds || seconds,
-      size,
-      resolution: resolutionName,
+      prompt: matchedTake?.prompt || prompt.trim(),
+      seconds: video.seconds || matchedTake?.seconds || seconds,
+      size: matchedTake?.size || size,
+      resolution: matchedTake?.resolutionName || resolutionName,
     });
     writeTaskID(taskStorageKey, "");
   }
@@ -322,6 +535,7 @@ export function useVideoCreation(session: StoredAuthSession | null | undefined) 
     referenceAssetsHasMore, referenceAssetsLoadingMore, loadMoreReferenceAssets,
     openReferenceLibrary, toggleReferenceAsset, setSelectedReferenceAssets, removeReferenceAsset,
     task, video, submitting, pollError, submit, cancel, creditCostPerSecond,
+    recentTakes, selectedTakeId, selectedTake, selectRecentTake, clearSelectedTake, applyRecentTakePrompt, appendCameraStyleChip,
     previewVideo, watchVideo, closePreview,
   };
 }

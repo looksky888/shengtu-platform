@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CreditCard, RefreshCw } from "lucide-react";
+import { ReceiptText, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
 import { PaymentOrderDetailsDialog } from "@/app/payment-admin/payment-order-details-dialog";
 import { PaymentOrdersFilters, PaymentOrdersPagination } from "@/app/payment-admin/payment-orders-controls";
 import { PaymentOrdersTable } from "@/app/payment-admin/payment-orders-table";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PaymentSectionState } from "@/app/payment-admin/payment-section-state";
 import {
   fetchAdminPaymentOrders,
@@ -103,17 +104,35 @@ export function PaymentOrdersSection() {
     setPage(1);
     setKeyword(keywordInput.trim());
   };
+  const clearFilters = () => {
+    setPage(1);
+    setKeywordInput("");
+    setKeyword("");
+    setStatus("all");
+  };
+  const hasFilters = Boolean(keyword.trim() || keywordInput.trim() || status !== "all");
   const pages = Math.max(1, Math.ceil(total / pageSize));
   return (
-    <Card className="overflow-hidden">
-      <CardHeader className="border-b border-border/70 bg-muted/20">
+    <Card className="overflow-hidden rounded-xl">
+      <CardHeader className="border-b border-border/70 bg-surface-muted/35">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <CardTitle className="flex items-center gap-2">
-            <CreditCard className="size-5 text-primary" />
-            订单流水
-          </CardTitle>
+          <div className="space-y-1">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <ReceiptText className="size-4.5 text-muted-foreground" />
+              充值订单流水
+              {!loading ? (
+                <Badge variant="secondary" className="rounded-md tabular-nums">
+                  共 {total} 笔
+                </Badge>
+              ) : null}
+            </CardTitle>
+            <CardDescription>
+              查看用户发起的在线支付订单，支持按状态筛选或主动向第三方渠道发起查单同步。
+            </CardDescription>
+          </div>
           <Button
             variant="outline"
+            size="sm"
             onClick={() => void load()}
             disabled={loading}
           >
@@ -122,8 +141,16 @@ export function PaymentOrdersSection() {
           </Button>
         </div>
       </CardHeader>
-      <CardContent className="space-y-4 p-4 pt-4 sm:p-5 sm:pt-5 md:p-6 md:pt-6">
-        <PaymentOrdersFilters keyword={keywordInput} status={status} onKeywordChange={setKeywordInput} onStatusChange={(value) => { setPage(1); setStatus(value); }} onApply={applySearch} />
+      <CardContent className="space-y-4 p-4 pt-4 sm:p-5 sm:pt-5">
+        <PaymentOrdersFilters
+          keyword={keywordInput}
+          status={status}
+          hasFilters={hasFilters}
+          onKeywordChange={setKeywordInput}
+          onStatusChange={(value) => { setPage(1); setStatus(value); }}
+          onApply={applySearch}
+          onClear={clearFilters}
+        />
         {loadError ? (
           <PaymentSectionState mode="error" title="订单流水加载失败" detail={loadError} onRetry={() => void load()} />
         ) : (
@@ -131,12 +158,16 @@ export function PaymentOrdersSection() {
             items={items}
             channels={channels}
             loading={loading}
+            hasFilters={hasFilters}
             queryingID={queryingID}
             onOpen={setSelected}
             onQuery={(item) => void query(item)}
+            onClearFilters={clearFilters}
           />
         )}
-        <PaymentOrdersPagination page={page} pages={pages} total={total} pageSize={pageSize} loading={loading} onPageChange={setPage} />
+        {!loading && !loadError && total > 0 ? (
+          <PaymentOrdersPagination page={page} pages={pages} total={total} pageSize={pageSize} loading={loading} onPageChange={setPage} />
+        ) : null}
       </CardContent>
       <PaymentOrderDetailsDialog
         item={selected}

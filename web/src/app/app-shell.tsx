@@ -9,24 +9,34 @@ import { cn } from "@/lib/utils";
 export function AppShell() {
   const location = useLocation();
   const pathname = location.pathname.replace(/\/+$/, "") || "/";
+  const isPublicRoute = pathname === "/" || pathname === "/login";
   const isConsoleRoute = isAdminConsolePath(pathname);
   const isStudioRoute = pathname === "/image" || pathname === "/video";
+  const isStageFramed = !isPublicRoute && !isStudioRoute;
 
   return (
     <main className="flex min-h-screen min-w-0 flex-col bg-background text-foreground">
       <TopNav />
       <div
         className={cn(
-          "mx-auto flex w-full min-w-0 max-w-[1440px] flex-1",
-          isConsoleRoute
-            ? "items-start gap-4 px-3 py-3 sm:px-5 lg:px-6"
-            : isStudioRoute
-              ? "flex-col px-2.5 py-2 sm:px-4 lg:px-5"
-              : "flex-col px-3 py-3 sm:px-5 lg:px-6"
+          "mx-auto flex w-full min-w-0 max-w-[1520px] flex-1",
+          isPublicRoute
+            ? "flex-col"
+            : isConsoleRoute
+              ? "items-start gap-3.5 px-3 py-3 sm:px-4 lg:px-5"
+              : isStudioRoute
+                ? "flex-col px-2.5 py-2 sm:px-3.5 lg:px-4"
+                : "flex-col px-3 py-3 sm:px-4 lg:px-5"
         )}
       >
         <AdminConsoleSidebar />
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div
+          className={cn(
+            "flex min-w-0 flex-1 flex-col",
+            isStageFramed &&
+              "studio-stage-frame rounded-2xl p-4 sm:p-5 lg:p-6"
+          )}
+        >
           <AnimatedRoutes />
         </div>
       </div>

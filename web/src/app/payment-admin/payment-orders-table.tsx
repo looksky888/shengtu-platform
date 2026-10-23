@@ -1,4 +1,4 @@
-import { Eye, LoaderCircle, ReceiptText, RefreshCw } from "lucide-react";
+import { Eye, LoaderCircle, ReceiptText, RefreshCw, Search, X } from "lucide-react";
 
 import {
   formatPaymentAmount,
@@ -24,21 +24,59 @@ export function PaymentOrdersTable({
   items,
   channels,
   loading,
+  hasFilters = false,
   queryingID,
   onOpen,
   onQuery,
+  onClearFilters,
 }: {
   items: AdminPaymentOrder[];
   channels: PaymentChannel[];
   loading: boolean;
+  hasFilters?: boolean;
   queryingID: string;
   onOpen: (item: AdminPaymentOrder) => void;
   onQuery: (item: AdminPaymentOrder) => void;
+  onClearFilters?: () => void;
 }) {
+  if (loading) {
+    return (
+      <div className="flex min-h-[240px] items-center justify-center gap-2 rounded-xl border border-border/75 bg-surface text-sm text-muted-foreground">
+        <LoaderCircle className="size-4 animate-spin" />
+        正在加载充值订单…
+      </div>
+    );
+  }
+
+  if (items.length === 0) {
+    return (
+      <div className="rounded-xl border border-border/75 bg-surface">
+        <EmptyState
+          icon={hasFilters ? Search : ReceiptText}
+          title={hasFilters ? "没有符合筛选条件的订单" : "暂无充值订单流水"}
+          description={
+            hasFilters
+              ? "未找到匹配的订单记录，请尝试清空关键字或切换订单状态筛选。"
+              : "用户在充值中心创建支付订单后，所有的交易状态与回调记录将实时汇总在此。"
+          }
+          action={
+            hasFilters && onClearFilters ? (
+              <Button type="button" variant="outline" size="sm" onClick={onClearFilters}>
+                <X className="size-4" />
+                清空筛选条件
+              </Button>
+            ) : null
+          }
+          className="py-14"
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="overflow-x-auto rounded-xl border border-border/80">
       <Table className="min-w-[900px]">
-        <TableHeader className="bg-surface-subtle/80 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+        <TableHeader className="bg-surface-muted/45 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
           <TableRow className="hover:bg-transparent">
             <TableHead>订单 ID</TableHead>
             <TableHead>订单编号</TableHead>
@@ -50,36 +88,16 @@ export function PaymentOrdersTable({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {loading ? (
-            <TableRow className="hover:bg-transparent">
-              <TableCell colSpan={7} className="h-32 text-center">
-                <LoaderCircle className="mx-auto size-5 animate-spin text-muted-foreground" />
-              </TableCell>
-            </TableRow>
-          ) : items.length === 0 ? (
-            <TableRow className="hover:bg-transparent">
-              <TableCell colSpan={7} className="p-0">
-                <EmptyState
-                  compact
-                  icon={ReceiptText}
-                  title="暂无符合条件的订单"
-                  description="尝试调整搜索词或订单状态筛选条件。"
-                  className="border-0 bg-transparent py-10"
-                />
-              </TableCell>
-            </TableRow>
-          ) : (
-            items.map((item) => (
-              <OrderRow
-                key={item.id}
-                item={item}
-                channels={channels}
-                querying={queryingID === item.id}
-                onOpen={() => onOpen(item)}
-                onQuery={() => onQuery(item)}
-              />
-            ))
-          )}
+          {items.map((item) => (
+            <OrderRow
+              key={item.id}
+              item={item}
+              channels={channels}
+              querying={queryingID === item.id}
+              onOpen={() => onOpen(item)}
+              onQuery={() => onQuery(item)}
+            />
+          ))}
         </TableBody>
       </Table>
     </div>

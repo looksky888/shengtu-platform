@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
-import { LoaderCircle } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { LoaderCircle, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
 import { LogDetailDialog } from "@/app/logs/log-detail-dialog";
@@ -9,6 +9,7 @@ import { LogsFilterCard } from "@/app/logs/logs-filter-card";
 import { LogsTableCard } from "@/app/logs/logs-table-card";
 import { detailJSON, emptyFilters, normalizeFilters } from "@/app/logs/logs-utils";
 import { PageHeader } from "@/components/page-header";
+import { Button } from "@/components/ui/button";
 import { fetchSystemLogs, type SystemLog, type SystemLogFilters } from "@/lib/api";
 import { useAuthGuard } from "@/lib/use-auth-guard";
 
@@ -87,16 +88,50 @@ function LogsContent() {
     [],
   );
 
+  const hasActiveFilters = useMemo(() => {
+    const normalized = normalizeFilters(filters);
+    const activeQuery = normalizeFilters(query);
+    return [normalized, activeQuery].some(
+      (f) =>
+        Boolean(f.summary) ||
+        Boolean(f.module) ||
+        Boolean(f.username) ||
+        Boolean(f.operation_type) ||
+        Boolean(f.ip_address) ||
+        (f.method && f.method !== "all") ||
+        (f.status && f.status !== "all") ||
+        (f.log_level && f.log_level !== "all") ||
+        Boolean(f.start_date) ||
+        Boolean(f.end_date),
+    );
+  }, [filters, query]);
+
   return (
-    <section className="flex flex-col gap-4">
-      <PageHeader eyebrow="日志" title={"日志管理"} />
+    <section className="flex flex-col gap-5 pb-8">
+      <PageHeader
+        eyebrow="系统与治理"
+        title="系统日志"
+        description="检索审计轨迹、接口响应耗时与异常事件，点击任意记录即可查看完整请求上下文。"
+        actions={
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => void loadLogs(query)}
+            disabled={isLoading}
+          >
+            <RefreshCw className={`size-3.5 ${isLoading ? "animate-spin" : ""}`} />
+            刷新
+          </Button>
+        }
+      />
       <LogsFilterCard
         filters={filters}
         isLoading={isLoading}
+        hasActiveFilters={hasActiveFilters}
         onSubmit={handleSearch}
         onUpdateFilter={updateFilter}
         onClearFilters={clearFilters}
-        onRefresh={() => void loadLogs(query)}
       />
       <LogsTableCard
         items={items}
@@ -104,6 +139,8 @@ function LogsContent() {
         safePage={safePage}
         pageCount={pageCount}
         isLoading={isLoading}
+        hasActiveFilters={hasActiveFilters}
+        onClearFilters={clearFilters}
         onOpenDetail={openDetail}
         onPreviousPage={() => setPage((value) => Math.max(1, value - 1))}
         onNextPage={() => setPage((value) => Math.min(pageCount, value + 1))}
@@ -131,7 +168,7 @@ export default function LogsPage() {
   if (isCheckingAuth || !session) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center">
-        <LoaderCircle className="size-5 animate-spin text-stone-400" />
+        <LoaderCircle className="size-5 animate-spin text-muted-foreground" />
       </div>
     );
   }

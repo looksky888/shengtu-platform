@@ -1,6 +1,6 @@
 import { ImageStatusResultCard } from "@/app/image/components/image-status-result-card";
 import { ImageSuccessResultCard } from "@/app/image/components/image-success-result-card";
-import type { ImageLightboxItem } from "@/app/image/components/image-results-types";
+import type { DownloadableImage, ImageLightboxItem } from "@/app/image/components/image-results-types";
 import { getStoredImageSrc, imageSelectionKey } from "@/app/image/components/image-results-utils";
 import type { ImageVisibility } from "@/lib/api";
 import type { ImageTurn, StoredImage, StoredReferenceImage } from "@/store/image-conversations";
@@ -16,6 +16,8 @@ type ImageVisualResultGridProps = {
   turnBusy: boolean;
   visualImages: VisualImageItem[];
   successfulTurnImages: ImageLightboxItem[];
+  downloadableImages: DownloadableImage[];
+  downloadingKey: string | null;
   selectedImageIds: Record<string, boolean>;
   imageDimensions: Record<string, string>;
   imageSizeLabels: Record<string, string>;
@@ -34,6 +36,7 @@ type ImageVisualResultGridProps = {
   onToggleImageSelection: (selectionKey: string) => void;
   onUpdateImageDimensions: (id: string, width: number, height: number) => void;
   onEnsureImageSizeLabel: (id: string, src: string) => void;
+  onDownloadItems: (key: string, items: DownloadableImage[]) => void;
 };
 
 export function ImageVisualResultGrid({
@@ -42,6 +45,8 @@ export function ImageVisualResultGrid({
   turnBusy,
   visualImages,
   successfulTurnImages,
+  downloadableImages,
+  downloadingKey,
   selectedImageIds,
   imageDimensions,
   imageSizeLabels,
@@ -55,10 +60,13 @@ export function ImageVisualResultGrid({
   onToggleImageSelection,
   onUpdateImageDimensions,
   onEnsureImageSizeLabel,
+  onDownloadItems,
 }: ImageVisualResultGridProps) {
   if (visualImages.length === 0) {
     return null;
   }
+
+  const modelBadgeLabel = turn.modelLabel || turn.model;
 
   return (
     <div className="columns-1 gap-3 sm:columns-2 sm:gap-4 xl:columns-3">
@@ -70,12 +78,16 @@ export function ImageVisualResultGrid({
           const selectionKey = imageSelectionKey(conversationId, turn.id, image.id);
           const visibility = image.visibility || turn.visibility || "private";
           const visibilityMutatingKey = `${conversationId}:${turn.id}:${image.id}`;
+          const singleDownloadItem = downloadableImages.find((item) => item.id === image.id);
+          const singleDownloadKey = `single:${conversationId}:${turn.id}:${image.id}`;
 
           return (
             <ImageSuccessResultCard
               key={image.id}
               conversationId={conversationId}
               turnId={turn.id}
+              prompt={turn.prompt}
+              modelLabel={modelBadgeLabel}
               image={image}
               imageIndex={index}
               imageSrc={imageSrc}
@@ -87,9 +99,15 @@ export function ImageVisualResultGrid({
               imageSizeLabel={imageSizeLabels[image.id]}
               fallbackVisibility={visibility}
               isVisibilityMutating={visibilityMutatingImageKey === visibilityMutatingKey}
+              isDownloading={downloadingKey === singleDownloadKey}
               onOpenLightbox={onOpenLightbox}
               onContinueEdit={onContinueEdit}
               onLocalEdit={onLocalEdit}
+              onDownload={
+                singleDownloadItem
+                  ? () => onDownloadItems(singleDownloadKey, [singleDownloadItem])
+                  : undefined
+              }
               onToggleSelection={onToggleImageSelection}
               onImageLoad={onUpdateImageDimensions}
               onEnsureImageSizeLabel={onEnsureImageSizeLabel}

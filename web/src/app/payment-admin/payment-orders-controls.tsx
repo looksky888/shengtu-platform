@@ -1,25 +1,42 @@
-import { ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search, X } from "lucide-react";
 
 import { paymentOrderStatuses, paymentOrderStatusLabels } from "@/app/payment-admin/payment-order-presentation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-export function PaymentOrdersFilters({ keyword, status, onKeywordChange, onStatusChange, onApply }: {
+export function PaymentOrdersFilters({ keyword, status, hasFilters, onKeywordChange, onStatusChange, onApply, onClear }: {
   keyword: string;
   status: string;
+  hasFilters?: boolean;
   onKeywordChange: (value: string) => void;
   onStatusChange: (value: string) => void;
   onApply: () => void;
+  onClear?: () => void;
 }) {
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <Input aria-label="订单搜索" className="min-w-[220px] flex-1" placeholder="订单号、用户或交易号" value={keyword} onChange={(event) => onKeywordChange(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") onApply(); }} />
+      <div className="relative min-w-[220px] flex-1">
+        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          aria-label="订单搜索"
+          className="h-9 rounded-lg pl-9"
+          placeholder="搜索商户订单号、用户 ID 或第三方交易号"
+          value={keyword}
+          onChange={(event) => onKeywordChange(event.target.value)}
+          onKeyDown={(event) => { if (event.key === "Enter") onApply(); }}
+        />
+      </div>
       <Select value={status} onValueChange={onStatusChange}>
-        <SelectTrigger aria-label="订单状态" className="w-full sm:w-40"><SelectValue /></SelectTrigger>
+        <SelectTrigger aria-label="订单状态" className="h-9 w-full rounded-lg sm:w-40"><SelectValue /></SelectTrigger>
         <SelectContent><SelectItem value="all">全部状态</SelectItem>{paymentOrderStatuses.map((value) => <SelectItem key={value} value={value}>{paymentOrderStatusLabels[value]}</SelectItem>)}</SelectContent>
       </Select>
-      <Button onClick={onApply}><Search className="size-4" />筛选</Button>
+      <Button type="button" size="sm" className="h-9 rounded-lg" onClick={onApply}><Search className="size-4" />筛选</Button>
+      {hasFilters && onClear ? (
+        <Button type="button" variant="outline" size="sm" className="h-9 rounded-lg" onClick={onClear}>
+          <X className="size-4" />清除
+        </Button>
+      ) : null}
     </div>
   );
 }
