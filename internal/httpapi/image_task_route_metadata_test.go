@@ -67,6 +67,50 @@ func TestImageTaskRouteMetadataFreezesSelectedRelayAndResolutionPrice(t *testing
 	}
 }
 
+func TestImageTaskRouteMetadataResolvesSystemModelWhenChannelModelIDMissing(t *testing.T) {
+	dir := t.TempDir()
+	backend := storage.NewJSONBackend(filepath.Join(dir, "accounts.json"), filepath.Join(dir, "auth_keys.json"))
+	channels, err := service.NewImageChannelService(dir, backend, service.ImageChannelLegacyConfig{
+		GPTModelCosts: map[string]int{util.ImageModelGPT25Sunburst: 4},
+	})
+	if err != nil {
+		t.Fatalf("NewImageChannelService() error = %v", err)
+	}
+	relay, err := channels.CreateChannel(service.ImageChannelInput{
+		Name: "Same-name relay", Type: service.ImageChannelTypeOpenAICompatible,
+		BaseURL: "https://relay.example.test/v1", APIKey: "relay-key", Enabled: true,
+		MaxConcurrency: 2, TimeoutSeconds: 90, MaxRetries: 1,
+	})
+	if err != nil {
+		t.Fatalf("CreateChannel() error = %v", err)
+	}
+	if _, err := channels.CreateModel(relay.ID, service.ImageChannelModelInput{
+		DisplayName: "Relay Sunburst", UpstreamModel: util.ImageModelGPT25Sunburst,
+		Capabilities: []string{service.ImageCapabilityGenerate, service.ImageCapabilityEdit},
+		CreditCost:   99, Enabled: true,
+	}); err != nil {
+		t.Fatalf("CreateModel() error = %v", err)
+	}
+
+	metadata, err := (&App{imageChannels: channels}).imageTaskRouteMetadataForRequest(
+		map[string]any{"image_resolution": "1k"},
+		util.ImageModelGPT25Sunburst,
+		service.ImageCapabilityEdit,
+	)
+	if err != nil {
+		t.Fatalf("imageTaskRouteMetadataForRequest() error = %v", err)
+	}
+	if metadata["channel_model_id"] != "local-gpt-image-2-5-sunburst" {
+		t.Fatalf("channel_model_id = %#v", metadata["channel_model_id"])
+	}
+	if metadata["effective_provider"] != service.ImageTaskProviderAccountPool {
+		t.Fatalf("effective_provider = %#v", metadata["effective_provider"])
+	}
+	if metadata["image_credit_cost"] != 4 {
+		t.Fatalf("image_credit_cost = %#v, want 4", metadata["image_credit_cost"])
+	}
+}
+
 func TestImageTaskRouteMetadataUsesModelRouteForGrok(t *testing.T) {
 	t.Setenv("GROK_RUNTIME_BASE_URL", "https://grok.example.test/v1")
 	cfg := newTestConfigStore(t)

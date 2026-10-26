@@ -50,6 +50,15 @@ func (a *App) imageTaskRouteMetadata(model string) map[string]any {
 func (a *App) imageTaskRouteMetadataForRequest(body map[string]any, model, capability string) (map[string]any, error) {
 	channelModelID := strings.TrimSpace(util.Clean(body["channel_model_id"]))
 	if channelModelID == "" {
+		if a != nil && a.imageChannels != nil {
+			resolved, matched, err := a.imageChannels.ResolveSystemModelByUpstream(model, capability)
+			if err != nil {
+				return nil, err
+			}
+			if matched {
+				return imageTaskRouteMetadataFromResolved(resolved, body), nil
+			}
+		}
 		return a.imageTaskRouteMetadata(model), nil
 	}
 	if a == nil || a.imageChannels == nil {
@@ -66,6 +75,10 @@ func (a *App) imageTaskRouteMetadataForRequest(body map[string]any, model, capab
 		}
 		return nil, fmt.Errorf("所选模型不支持%s", capabilityName)
 	}
+	return imageTaskRouteMetadataFromResolved(resolved, body), nil
+}
+
+func imageTaskRouteMetadataFromResolved(resolved service.ResolvedImageChannelModel, body map[string]any) map[string]any {
 	provider := service.ImageTaskProviderAccountPool
 	channel := service.ImageTaskChannelAccountPool
 	switch resolved.ChannelType {
@@ -76,14 +89,14 @@ func (a *App) imageTaskRouteMetadataForRequest(body map[string]any, model, capab
 	}
 	resolution := firstNonEmpty(strings.TrimSpace(util.Clean(body["image_resolution"])), strings.TrimSpace(util.Clean(body["size"])))
 	return map[string]any{
-		"channel_model_id": channelModelID, "channel_id": resolved.ChannelID, "channel_name": resolved.ChannelName,
+		"channel_model_id": resolved.ID, "channel_id": resolved.ChannelID, "channel_name": resolved.ChannelName,
 		"effective_provider": provider, "effective_channel": channel, "provider_source": "channel_model",
 		"effective_model": resolved.UpstreamModel, "upstream_host": routeHost(resolved.BaseURL),
 		"image_credit_cost": service.ImageChannelModelCreditCost(resolved, resolution), "channel_base_url": resolved.BaseURL,
 		"channel_api_key": resolved.APIKey, "channel_timeout_seconds": resolved.TimeoutSeconds,
 		"channel_max_retries": resolved.MaxRetries, "channel_download_urls": resolved.DownloadURLs,
 		"channel_max_concurrency": resolved.MaxConcurrency,
-	}, nil
+	}
 }
 
 func containsString(values []string, target string) bool {

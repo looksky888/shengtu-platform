@@ -193,32 +193,83 @@ func (s *ImageChannelService) ResolveModel(id string) (ResolvedImageChannelModel
 		if model.ID != id {
 			continue
 		}
-		if !model.Enabled {
-			return ResolvedImageChannelModel{}, errors.New("所选生图模型已停用")
-		}
-		for _, channel := range s.state.Channels {
-			if channel.ID != model.ChannelID {
-				continue
-			}
-			if !channel.Enabled {
-				return ResolvedImageChannelModel{}, errors.New("所选生图渠道已停用")
-			}
-			apiKey, err := decryptImageChannelSecret(s.key, channel.APIKeyCiphertext)
-			if err != nil {
-				return ResolvedImageChannelModel{}, fmt.Errorf("读取生图渠道密钥: %w", err)
-			}
-			if channel.Type == ImageChannelTypeOpenAICompatible && (channel.BaseURL == "" || apiKey == "") {
-				return ResolvedImageChannelModel{}, errors.New("所选中转站配置不完整")
-			}
-			return ResolvedImageChannelModel{
-				ImageChannelModelPublic: publicImageChannelModel(channel, model), BaseURL: channel.BaseURL,
-				APIKey: apiKey, MaxConcurrency: channel.MaxConcurrency, TimeoutSeconds: channel.TimeoutSeconds,
-				MaxRetries: channel.MaxRetries, DownloadURLs: channel.DownloadURLs,
-			}, nil
-		}
-		return ResolvedImageChannelModel{}, errors.New("所选生图渠道不存在")
+		return s.resolveModelLocked(model)
 	}
 	return ResolvedImageChannelModel{}, errors.New("所选生图模型不存在")
+}
+
+// ResolveSystemModelByUpstream resolves only built-in account-pool/runtime
+// models. It lets the server recover the authoritative route and price when a
+// stale client submits a model name without channel_model_id, while relay
+// models still require an explicit ID to avoid ambiguous routing.
+func (s *ImageChannelService) ResolveSystemModelByUpstream(upstreamModel, capability string) (ResolvedImageChannelModel, bool, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	upstreamModel = strings.TrimSpace(upstreamModel)
+	if upstreamModel == "" {
+		return ResolvedImageChannelModel{}, false, nil
+	}
+	systemChannels := make(map[string]struct{}, len(s.state.Channels))
+	for _, channel := range s.state.Channels {
+		if channel.System {
+			systemChannels[channel.ID] = struct{}{}
+		}
+	}
+	var matched *ImageChannelModel
+	for index := range s.state.Models {
+		model := &s.state.Models[index]
+		if _, ok := systemChannels[model.ChannelID]; !ok || !strings.EqualFold(model.UpstreamModel, upstreamModel) {
+			continue
+		}
+		if matched != nil {
+			return ResolvedImageChannelModel{}, true, errors.New("本地生图模型配置重复，请联系管理员")
+		}
+		matched = model
+	}
+	if matched == nil {
+		return ResolvedImageChannelModel{}, false, nil
+	}
+	if !containsImageCapability(matched.Capabilities, capability) {
+		return ResolvedImageChannelModel{}, true, errors.New("所选生图模型不支持当前操作")
+	}
+	resolved, err := s.resolveModelLocked(*matched)
+	return resolved, true, err
+}
+
+func (s *ImageChannelService) resolveModelLocked(model ImageChannelModel) (ResolvedImageChannelModel, error) {
+	if !model.Enabled {
+		return ResolvedImageChannelModel{}, errors.New("所选生图模型已停用")
+	}
+	for _, channel := range s.state.Channels {
+		if channel.ID != model.ChannelID {
+			continue
+		}
+		if !channel.Enabled {
+			return ResolvedImageChannelModel{}, errors.New("所选生图渠道已停用")
+		}
+		apiKey, err := decryptImageChannelSecret(s.key, channel.APIKeyCiphertext)
+		if err != nil {
+			return ResolvedImageChannelModel{}, fmt.Errorf("读取生图渠道密钥: %w", err)
+		}
+		if channel.Type == ImageChannelTypeOpenAICompatible && (channel.BaseURL == "" || apiKey == "") {
+			return ResolvedImageChannelModel{}, errors.New("所选中转站配置不完整")
+		}
+		return ResolvedImageChannelModel{
+			ImageChannelModelPublic: publicImageChannelModel(channel, model), BaseURL: channel.BaseURL,
+			APIKey: apiKey, MaxConcurrency: channel.MaxConcurrency, TimeoutSeconds: channel.TimeoutSeconds,
+			MaxRetries: channel.MaxRetries, DownloadURLs: channel.DownloadURLs,
+		}, nil
+	}
+	return ResolvedImageChannelModel{}, errors.New("所选生图渠道不存在")
+}
+
+func containsImageCapability(capabilities []string, target string) bool {
+	for _, capability := range capabilities {
+		if capability == target {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *ImageChannelService) ResolveChannel(id string) (ResolvedImageChannel, error) {
