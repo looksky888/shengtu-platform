@@ -6,7 +6,7 @@
     "component": {
       "type": "application",
       "name": "shengtu-grok-runtime",
-      "version": "4.6-20261015-sentinel"
+      "version": "5.0.1-20261026-image-edit-credit-fix"
     },
     "source": "requirements.lock"
   },
