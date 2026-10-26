@@ -1,1 +1,1 @@
-5.0.0-20261023-settings-craft
+5.0.1-20261026-image-edit-credit-fix

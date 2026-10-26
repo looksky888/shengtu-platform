@@ -11,7 +11,10 @@ import {
   updateSettingsConfig,
 } from "@/lib/api";
 import { dispatchAppMetaUpdated } from "@/lib/app-meta";
-import { normalizeLoginPageImageMode } from "@/lib/login-page-image-layout";
+import {
+  normalizeLoginPageImageMode,
+  normalizeLoginPageImageTransform,
+} from "@/lib/login-page-image-layout";
 import type { SettingsConfig } from "@/lib/settings-types";
 
 import { buildSettingsPayload } from "./settings-config-payload";
@@ -108,17 +111,20 @@ function syncAppMetaFromConfig(
     keys.has("login_page_image_position_x") ||
     keys.has("login_page_image_position_y")
   ) {
+    const loginImageTransform = normalizeLoginPageImageTransform({
+      zoom: Number(nextConfig.login_page_image_zoom),
+      positionX: Number(nextConfig.login_page_image_position_x),
+      positionY: Number(nextConfig.login_page_image_position_y),
+    });
     dispatchAppMetaUpdated({
       canvas_url: nextConfig.canvas_url || "",
       login_page_image_url: nextConfig.login_page_image_url || "",
       login_page_image_mode: normalizeLoginPageImageMode(
         nextConfig.login_page_image_mode
       ),
-      login_page_image_zoom: Number(nextConfig.login_page_image_zoom) || 1,
-      login_page_image_position_x:
-        Number(nextConfig.login_page_image_position_x) ?? 50,
-      login_page_image_position_y:
-        Number(nextConfig.login_page_image_position_y) ?? 50,
+      login_page_image_zoom: loginImageTransform.zoom,
+      login_page_image_position_x: loginImageTransform.positionX,
+      login_page_image_position_y: loginImageTransform.positionY,
     });
   }
 }

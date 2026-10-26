@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 
-ARG VERSION=5.0.0-20261023-settings-craft
+ARG VERSION=5.0.1-20261026-image-edit-credit-fix
 ARG COMMIT=unknown
 ARG BUILD_DATE=unknown
 
@@ -16,12 +16,12 @@ FROM web-deps AS web-build
 
 COPY VERSION.txt /app/VERSION.txt
 COPY web ./
-ARG VERSION=5.0.0-20261023-settings-craft
+ARG VERSION=5.0.1-20261026-image-edit-credit-fix
 ENV VITE_APP_VERSION=${VERSION}
 RUN npm run build && npm run verify:dist
 
 
-FROM golang:1.26.6-bookworm@sha256:116d58cbd88c1297624acc6e967a060012422bacf9930927e23fb719189c6f36 AS go-build
+FROM golang:1.26.10-bookworm@sha256:632dff7351799a5a9954a48dc06670ade72ee44e8c351cdc0e5a57af2fea21af AS go-build
 
 WORKDIR /src
 
@@ -33,7 +33,7 @@ COPY internal ./internal
 COPY --from=web-build /app/internal/web/dist ./internal/web/dist
 ARG TARGETOS
 ARG TARGETARCH
-ARG VERSION=5.0.0-20261023-settings-craft
+ARG VERSION=5.0.1-20261026-image-edit-credit-fix
 ARG COMMIT=unknown
 ARG BUILD_DATE=unknown
 # Keep cold builds inside the memory envelope of small production hosts.

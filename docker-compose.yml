@@ -130,8 +130,8 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        VERSION: "${CHATGPT2API_VERSION:-5.0.0-20261023-settings-craft}"
-    image: ${CHATGPT2API_IMAGE:-shengtu:5.0.0-20261023-settings-craft}
+        VERSION: "${CHATGPT2API_VERSION:-5.0.1-20261026-image-edit-credit-fix}"
+    image: ${CHATGPT2API_IMAGE:-shengtu:5.0.1-20261026-image-edit-credit-fix}
     container_name: shengtu39-app
     restart: unless-stopped
     depends_on:
