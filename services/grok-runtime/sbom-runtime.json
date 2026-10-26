@@ -12,7 +12,7 @@
   },
   "components": [
     {"type": "library", "name": "aiohappyeyeballs", "version": "2.7.1", "purl": "pkg:pypi/aiohappyeyeballs@2.7.1"},
-    {"type": "library", "name": "aiohttp", "version": "3.14.3", "purl": "pkg:pypi/aiohttp@3.14.3"},
+    {"type": "library", "name": "aiohttp", "version": "3.14.4", "purl": "pkg:pypi/aiohttp@3.14.4"},
     {"type": "library", "name": "aiohttp-socks", "version": "0.11.0", "purl": "pkg:pypi/aiohttp-socks@0.11.0"},
     {"type": "library", "name": "aiosignal", "version": "1.4.0", "purl": "pkg:pypi/aiosignal@1.4.0"},
     {"type": "library", "name": "aiosqlite", "version": "0.20.0", "purl": "pkg:pypi/aiosqlite@0.20.0"},
@@ -40,7 +40,7 @@
     {"type": "library", "name": "mdurl", "version": "0.1.2", "purl": "pkg:pypi/mdurl@0.1.2"},
     {"type": "library", "name": "multidict", "version": "6.7.1", "purl": "pkg:pypi/multidict@6.7.1"},
     {"type": "library", "name": "orjson", "version": "3.11.6", "purl": "pkg:pypi/orjson@3.11.6"},
-    {"type": "library", "name": "pillow", "version": "12.3.0", "purl": "pkg:pypi/pillow@12.3.0"},
+    {"type": "library", "name": "pillow", "version": "13.0.0", "purl": "pkg:pypi/pillow@13.0.0"},
     {"type": "library", "name": "propcache", "version": "0.5.2", "purl": "pkg:pypi/propcache@0.5.2"},
     {"type": "library", "name": "pybase64", "version": "1.4.3", "purl": "pkg:pypi/pybase64@1.4.3"},
     {"type": "library", "name": "pycparser", "version": "3.0", "purl": "pkg:pypi/pycparser@3.0"},
@@ -67,6 +67,6 @@
     {"type": "library", "name": "watchfiles", "version": "1.2.0", "purl": "pkg:pypi/watchfiles@1.2.0"},
     {"type": "library", "name": "websockets", "version": "16.1.1", "purl": "pkg:pypi/websockets@16.1.1"},
     {"type": "library", "name": "win32-setctime", "version": "1.2.0", "purl": "pkg:pypi/win32-setctime@1.2.0"},
-    {"type": "library", "name": "yarl", "version": "1.24.5", "purl": "pkg:pypi/yarl@1.24.5"}
+    {"type": "library", "name": "yarl", "version": "1.25.1", "purl": "pkg:pypi/yarl@1.25.1"}
   ]
 }
