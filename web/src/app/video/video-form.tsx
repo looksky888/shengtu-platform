@@ -48,7 +48,7 @@ export function VideoForm({ controller }: { controller: VideoCreationController 
   const { inputMode, setInputMode } = controller;
 
   return (
-    <aside className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-border/80 bg-surface shadow-2xs xl:h-full">
+    <aside className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-border/80 bg-surface shadow-2xs lg:h-full">
       <header className="flex shrink-0 items-center justify-between gap-2 border-b border-border/65 px-4 py-3">
         <div className="flex items-center gap-2">
           <span className="flex size-6 items-center justify-center rounded-md border border-border/75 bg-surface-muted text-foreground">

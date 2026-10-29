@@ -6,7 +6,11 @@ const VIDEO_TASK_KEY_PREFIX = "shengtu_last_video_task_id";
 const VIDEO_RECENT_TAKES_KEY_PREFIX = "shengtu_recent_video_takes";
 
 export const LEGACY_VIDEO_TASK_KEY = VIDEO_TASK_KEY_PREFIX;
+
+
 export const MAX_RECENT_VIDEO_TAKES = 6;
+export const VIDEO_RECENT_TAKES_UPDATED_EVENT = "shengtu:video-takes-updated";
+
 
 export type RecentVideoTake = {
   taskId: string;
@@ -147,8 +151,10 @@ export function writeRecentVideoTakes(storageKey: string, takes: RecentVideoTake
     const trimmed = takes.slice(0, MAX_RECENT_VIDEO_TAKES);
     if (trimmed.length === 0) {
       window.localStorage.removeItem(storageKey);
+      window.dispatchEvent(new CustomEvent(VIDEO_RECENT_TAKES_UPDATED_EVENT));
     } else {
       window.localStorage.setItem(storageKey, JSON.stringify(trimmed));
+      window.dispatchEvent(new CustomEvent(VIDEO_RECENT_TAKES_UPDATED_EVENT));
     }
   } catch {
     // Ignore quota or private-mode errors so in-memory takes continue working.

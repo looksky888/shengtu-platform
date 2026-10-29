@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { icloudApi, type ICloudMailbox } from "@/lib/icloud-api";
+import { isImeComposing } from "@/lib/keyboard";
 
 import { DeleteMailboxDialog } from "./delete-mailbox-dialog";
 import { SectionCard, SectionLoadError } from "./icloud-cards";
@@ -83,7 +84,11 @@ export function ICloudMailboxesPanel({
             placeholder="搜索邮箱地址或标记…"
             value={mailboxSearch}
             onChange={(event) => setMailboxSearch(event.target.value)}
-            onKeyDown={(event) => event.key === "Enter" && searchMailboxes()}
+            onKeyDown={(event) => {
+              if (!isImeComposing(event) && event.key === "Enter") {
+                void searchMailboxes();
+              }
+            }}
           />
           <Button size="sm" variant="outline" disabled={mailboxLoading} onClick={() => void searchMailboxes()}>
             {mailboxLoading ? <LoaderCircle className="size-3.5 animate-spin" /> : null}

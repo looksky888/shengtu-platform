@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/popover";
 import { SubNav } from "@/components/ui/sub-nav";
 import type { SettingsConfig } from "@/lib/settings-types";
+import { useUnsavedRouteGuard } from "@/lib/use-unsaved-route-guard";
 import { cn } from "@/lib/utils";
 
 import { SettingsHeader } from "./components/settings-header";
@@ -175,7 +176,6 @@ function SettingsTabsInner({
 }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = parseSettingsTab(searchParams.get("tab"));
-  const [visitedTabs, setVisitedTabs] = useState<SettingsTabKey[]>([activeTab]);
   const [pendingTab, setPendingTab] = useState<SettingsTabKey | null>(null);
   const [isDiscarding, setIsDiscarding] = useState(false);
   const [isSavingExternal, setIsSavingExternal] = useState(false);
@@ -256,6 +256,14 @@ function SettingsTabsInner({
     savedConfigSnapshot,
   ]);
 
+  const mountedTabs = useMemo(() => {
+    const next = new Set<SettingsTabKey>([activeTab]);
+    for (const tab of dirtyTabSet) {
+      next.add(tab);
+    }
+    return Array.from(next);
+  }, [activeTab, dirtyTabSet]);
+
   const dirtyModules = useMemo(() => {
     const labels: string[] = [];
     const seen = new Set<string>();
@@ -293,24 +301,13 @@ function SettingsTabsInner({
     savedConfigSnapshot,
   ]);
 
+  const hasUnsavedChanges = dirtyModules.length > 0 && canManageSystem;
+
   useEffect(() => {
     lastTabByDomainRef.current[getSettingsDomainForTab(activeTab)] = activeTab;
   }, [activeTab]);
 
   useEffect(() => {
-    if (!dirtyModules.length) return;
-    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-      event.returnValue = "";
-    };
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [dirtyModules.length]);
-
-  useEffect(() => {
-    setVisitedTabs((current) =>
-      current.includes(activeTab) ? current : [...current, activeTab]
-    );
     void loadTabData(activeTab);
   }, [activeTab, loadTabData]);
 
@@ -328,13 +325,13 @@ function SettingsTabsInner({
   const selectTab = useCallback(
     (tab: SettingsTabKey) => {
       if (tab === activeTab) return;
-      if (dirtyModules.length > 0 && canManageSystem) {
+      if (hasUnsavedChanges) {
         setPendingTab(tab);
         return;
       }
       commitTab(tab);
     },
-    [activeTab, canManageSystem, commitTab, dirtyModules.length]
+    [activeTab, commitTab, hasUnsavedChanges]
   );
 
   const activeDomainId = getSettingsDomainForTab(activeTab);
@@ -353,7 +350,7 @@ function SettingsTabsInner({
     [activeDomainId, selectTab]
   );
 
-  const reloadDirtyModules = async () => {
+  const reloadDirtyModules = useCallback(async () => {
     const results: boolean[] = [];
     if (isConfigDirty) results.push(await loadConfig({ silent: true }));
     if (isRegisterDirty) results.push(await loadRegister({ silent: true }));
@@ -363,9 +360,9 @@ function SettingsTabsInner({
       }
     }
     return !results.some((result) => !result);
-  };
+  }, [dirtyExternalEntries, isConfigDirty, isRegisterDirty, loadConfig, loadRegister]);
 
-  const handleSaveAllDirty = async (): Promise<boolean> => {
+  const handleSaveAllDirty = useCallback(async (): Promise<boolean> => {
     for (const entry of externalEntries) {
       if (!entry.validate) continue;
       if (entry.isDirty || (isConfigDirty && dirtyTabSet.has(entry.tab))) {
@@ -396,7 +393,27 @@ function SettingsTabsInner({
       }
     }
     return true;
-  };
+  }, [
+    dirtyExternalEntries,
+    dirtyTabSet,
+    externalEntries,
+    isConfigDirty,
+    isRegisterDirty,
+    saveConfig,
+    saveRegister,
+  ]);
+
+  const routeGuard = useUnsavedRouteGuard({
+    when: hasUnsavedChanges,
+    onSave: handleSaveAllDirty,
+    onDiscard: async () => {
+      const ok = await reloadDirtyModules();
+      if (!ok) {
+        toast.error("重新读取服务器配置失败，已保留当前修改");
+      }
+      return ok;
+    },
+  });
 
   const discardAndSwitch = async () => {
     if (!pendingTab) return;
@@ -482,7 +499,12 @@ function SettingsTabsInner({
   const isSavingAny = isSavingConfig || isSavingRegister || isSavingExternal;
 
   return (
-    <div className="flex w-full min-w-0 flex-col gap-5 pb-20">
+    <div
+      className={cn(
+        "flex w-full min-w-0 flex-col gap-5",
+        hasUnsavedChanges ? "pb-28" : "pb-12"
+      )}
+    >
       <SettingsDataController />
       <SettingsHeader
         dirtyModules={dirtyModules}
@@ -617,7 +639,7 @@ function SettingsTabsInner({
       </div>
 
       <div className="min-w-0">
-        {visitedTabs.map((tab) => {
+        {mountedTabs.map((tab) => {
           const active = tab === activeTab;
           return (
             <div
@@ -638,7 +660,7 @@ function SettingsTabsInner({
       </div>
 
       {/* Sticky Bottom Unsaved Changes Bar */}
-      {dirtyModules.length > 0 && canManageSystem ? (
+      {hasUnsavedChanges ? (
         <div className="fixed inset-x-0 bottom-4 z-40 mx-auto flex w-[min(42rem,calc(100vw-1.5rem))] items-center justify-between gap-3 rounded-xl border border-status-warning/35 bg-surface/95 px-4 py-3 shadow-xl backdrop-blur-xl">
           <div className="flex min-w-0 items-center gap-2.5 text-xs font-medium text-foreground sm:text-sm">
             <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-status-warning-soft text-status-warning">
@@ -700,6 +722,26 @@ function SettingsTabsInner({
         pending={isSavingAny}
         onClose={() => setPendingTab(null)}
         onConfirm={() => void saveAndSwitch()}
+      />
+
+      <ConfirmDialog
+        open={routeGuard.isOpen}
+        tone="warning"
+        title="离开系统设置前是否保存修改？"
+        description={`「${dirtyModules.join("、")}」有尚未保存的配置更改。离开页面后未保存内容将会丢失。`}
+        cancelLabel="继续编辑"
+        secondaryAction={{
+          label: "放弃修改并离开",
+          variant: "destructive",
+          pending: routeGuard.isDiscarding,
+          pendingLabel: "正在放弃…",
+          onClick: () => void routeGuard.confirmDiscardAndLeave(),
+        }}
+        confirmLabel="保存并离开"
+        pendingLabel="正在保存…"
+        pending={routeGuard.isSaving || isSavingAny}
+        onClose={routeGuard.cancelLeave}
+        onConfirm={() => void routeGuard.confirmSaveAndLeave()}
       />
     </div>
   );

@@ -23,7 +23,7 @@ export function AppShell() {
           isPublicRoute
             ? "flex-col"
             : isConsoleRoute
-              ? "items-start gap-3.5 px-3 py-3 sm:px-4 lg:px-5"
+              ? "flex-col gap-3 px-3 py-3 sm:px-4 lg:flex-row lg:items-start lg:gap-3.5 lg:px-5"
               : isStudioRoute
                 ? "flex-col px-2.5 py-2 sm:px-3.5 lg:px-4"
                 : "flex-col px-3 py-3 sm:px-4 lg:px-5"
@@ -32,7 +32,7 @@ export function AppShell() {
         <AdminConsoleSidebar />
         <div
           className={cn(
-            "flex min-w-0 flex-1 flex-col",
+            "flex w-full min-w-0 flex-1 flex-col",
             isStageFramed &&
               "studio-stage-frame rounded-2xl p-4 sm:p-5 lg:p-6"
           )}

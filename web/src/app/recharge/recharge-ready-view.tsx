@@ -8,6 +8,7 @@ import {
   RechargeHeaderActions,
 } from "@/app/recharge/recharge-panels";
 import { RechargeOrderStatus } from "@/app/recharge/recharge-order-status";
+import { RechargeRecentOrdersPanel } from "@/app/recharge/recharge-recent-orders";
 import { StorageEntitlementPanel } from "@/app/recharge/storage-entitlement-panel";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
@@ -41,6 +42,8 @@ export function RechargeReadyView({
   selectedChannelID,
   storageEntitlement,
   creditBalance,
+  recentOrders = [],
+  loadingRecentOrders = false,
   isAdmin = false,
   custom,
   order,
@@ -54,6 +57,8 @@ export function RechargeReadyView({
   onCancel,
   onReset,
   onRefresh,
+  onReloadRecentOrders,
+  onResumeOrder,
 }: {
   products: RechargeProduct[];
   channels: PaymentChannel[];
@@ -65,6 +70,8 @@ export function RechargeReadyView({
     expires_at?: string;
   } | null;
   creditBalance: number | null;
+  recentOrders?: PaymentOrder[];
+  loadingRecentOrders?: boolean;
   isAdmin?: boolean;
   custom: number;
   order: PaymentOrder | null;
@@ -78,6 +85,8 @@ export function RechargeReadyView({
   onCancel: () => void;
   onReset: () => void;
   onRefresh: () => void;
+  onReloadRecentOrders?: () => void;
+  onResumeOrder?: (order: PaymentOrder) => void;
 }) {
   return (
     <section className="flex min-w-0 flex-col gap-4">
@@ -195,6 +204,15 @@ export function RechargeReadyView({
           onRefresh={onRefresh}
         />
       )}
+      {onReloadRecentOrders && onResumeOrder ? (
+        <RechargeRecentOrdersPanel
+          orders={recentOrders}
+          activeOrderId={order?.id}
+          loading={loadingRecentOrders}
+          onReload={onReloadRecentOrders}
+          onResumeOrder={onResumeOrder}
+        />
+      ) : null}
     </section>
   );
 }

@@ -52,7 +52,7 @@ export const appRoutes: AppRouteConfig[] = [
   { path: "/settings", element: lazyPage(SettingsPage), requiredPath: "/settings" },
   { path: "/image", element: lazyPage(ImagePage), requiredPath: "/image" },
   { path: "/video", element: lazyPage(VideoPage), requiredPath: "/video" },
-  { path: "/video-library", element: lazyPage(VideoLibraryPage), requiredPath: "/video" },
+  { path: "/video-library", element: lazyPage(VideoLibraryPage), requiredPath: "/video-library" },
   { path: "*", element: <HomePage /> },
 ];
 

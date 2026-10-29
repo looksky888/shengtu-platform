@@ -1,5 +1,5 @@
 import { ArrowUpRight, LoaderCircle, Ticket, WalletCards } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -19,9 +19,11 @@ import {
   createPaymentOrder,
   fetchPaymentChannels,
   fetchPaymentSettings,
+  fetchRecentPaymentOrders,
   fetchRechargeProducts,
   fetchStorageEntitlement,
   type PaymentChannel,
+  type PaymentOrder,
   type PaymentSettings,
   type RechargeProduct,
 } from "@/lib/user-admin-api";
@@ -37,6 +39,8 @@ export function RechargeContent({
   const [channels, setChannels] = useState<PaymentChannel[]>([]);
   const [settings, setSettings] = useState<PaymentSettings | null>(null);
   const [creditBalance, setCreditBalance] = useState<number | null>(null);
+  const [recentOrders, setRecentOrders] = useState<PaymentOrder[]>([]);
+  const [loadingRecentOrders, setLoadingRecentOrders] = useState(false);
   const [selectedChannelID, setSelectedChannelID] = useState("");
   const [custom, setCustom] = useState(100);
   const payment = useRechargeOrder(sessionKey);
@@ -49,6 +53,18 @@ export function RechargeContent({
     Awaited<ReturnType<typeof fetchStorageEntitlement>>["item"] | null
   >(null);
 
+  const loadRecentOrders = useCallback(async () => {
+    setLoadingRecentOrders(true);
+    try {
+      const result = await fetchRecentPaymentOrders(10);
+      setRecentOrders(Array.isArray(result.items) ? result.items : []);
+    } catch {
+      // Keep recharge page usable even if recent history query fails transiently.
+    } finally {
+      setLoadingRecentOrders(false);
+    }
+  }, []);
+
   useEffect(() => {
     let active = true;
     Promise.all([
@@ -57,6 +73,7 @@ export function RechargeContent({
       fetchPaymentSettings(),
       fetchStorageEntitlement(),
       fetchProfileCredits().catch(() => null),
+      fetchRecentPaymentOrders(10).catch(() => null),
     ])
       .then(
         ([
@@ -65,6 +82,7 @@ export function RechargeContent({
           settingsResult,
           storageResult,
           creditsResult,
+          recentOrdersResult,
         ]) => {
           if (!active) return;
           setProducts(
@@ -84,6 +102,9 @@ export function RechargeContent({
           if (creditsResult && typeof creditsResult.balance === "number") {
             setCreditBalance(creditsResult.balance);
           }
+          if (recentOrdersResult && Array.isArray(recentOrdersResult.items)) {
+            setRecentOrders(recentOrdersResult.items);
+          }
           setCustom(settingsResult.item.min_custom_credits);
         },
       )
@@ -102,7 +123,12 @@ export function RechargeContent({
   }, []);
 
   useEffect(() => {
-    if (order?.status !== "succeeded") return;
+    if (!order) return;
+    setRecentOrders((current) => {
+      const rest = current.filter((item) => item.id !== order.id);
+      return [order, ...rest].slice(0, 10);
+    });
+    if (order.status !== "succeeded") return;
     let active = true;
     void Promise.all([
       fetchProfileCredits().catch(() => null),
@@ -119,7 +145,7 @@ export function RechargeContent({
     return () => {
       active = false;
     };
-  }, [order?.id, order?.status]);
+  }, [order]);
 
   const submit = async (product?: RechargeProduct) => {
     if (submitPending.current || order) return;
@@ -224,6 +250,8 @@ export function RechargeContent({
       settings={settings}
       storageEntitlement={storageEntitlement}
       creditBalance={creditBalance}
+      recentOrders={recentOrders}
+      loadingRecentOrders={loadingRecentOrders}
       isAdmin={isAdmin}
       selectedChannelID={selectedChannelID}
       custom={custom}
@@ -237,7 +265,9 @@ export function RechargeContent({
       onSubmit={(product) => void submit(product)}
       onCancel={() => void payment.cancel()}
       onReset={() => payment.replaceOrder(null)}
-      onRefresh={() => void payment.refresh()}
+      onRefresh={() => void payment.refresh({ manual: true })}
+      onReloadRecentOrders={() => void loadRecentOrders()}
+      onResumeOrder={(selected) => payment.replaceOrder(selected)}
     />
   );
 }

@@ -1,21 +1,69 @@
 "use client";
 
+import { useState } from "react";
 import { AlertTriangle, LoaderCircle, Plus, RefreshCw, RotateCcw, Save } from "lucide-react";
 
 import { RBACCreateRoleDialog, RBACDeleteRoleDialog } from "@/app/rbac/rbac-role-dialogs";
 import { RBACRoleEditorCard } from "@/app/rbac/rbac-role-editor-card";
 import { RBACRoleList } from "@/app/rbac/rbac-role-list";
 import { useRBACManagement } from "@/app/rbac/use-rbac-management";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import type { ManagedRole } from "@/lib/api";
 import { useAuthGuard } from "@/lib/use-auth-guard";
+import { useUnsavedRouteGuard } from "@/lib/use-unsaved-route-guard";
 import { cn } from "@/lib/utils";
 
 function RBACContent() {
   const rbac = useRBACManagement();
+  const [pendingRole, setPendingRole] = useState<ManagedRole | null>(null);
+  const hasUnsavedRole = Boolean(rbac.isDirty && rbac.selectedRole);
+
+  const routeGuard = useUnsavedRouteGuard({
+    when: hasUnsavedRole,
+    onSave: rbac.handleSave,
+    onDiscard: () => {
+      if (rbac.selectedRole) {
+        rbac.applySelectedRole(rbac.selectedRole);
+      }
+      return true;
+    },
+  });
+
+  const handleSelectRole = (role: ManagedRole) => {
+    if (role.id === rbac.selectedRoleId) return;
+    if (hasUnsavedRole) {
+      setPendingRole(role);
+      return;
+    }
+    rbac.applySelectedRole(role);
+  };
+
+  const handleSaveAndSwitchRole = async () => {
+    if (!pendingRole) return;
+    const ok = await rbac.handleSave();
+    if (!ok) return;
+    const target = pendingRole;
+    setPendingRole(null);
+    rbac.applySelectedRole(target);
+  };
+
+  const handleDiscardAndSwitchRole = () => {
+    if (!pendingRole) return;
+    const target = pendingRole;
+    setPendingRole(null);
+    rbac.applySelectedRole(target);
+  };
+
   return (
-    <section className="flex flex-col gap-4 pb-4">
+    <section
+      className={cn(
+        "flex flex-col gap-4",
+        hasUnsavedRole ? "pb-24" : "pb-4"
+      )}
+    >
       <PageHeader
         eyebrow="权限与访问控制"
         title="角色权限"
@@ -26,7 +74,7 @@ function RBACContent() {
             </Badge>
           ) : null
         }
-        description="按角色精细化配置前端菜单路由与后端 API 接口授权矩阵，变更保存后即时生效。"
+        description="按角色配置菜单访问与后端接口授权，保存后即时生效。"
         actions={
           <>
             <Button variant="outline" size="sm" onClick={() => void rbac.loadRBAC()} disabled={rbac.isLoading}>
@@ -52,7 +100,7 @@ function RBACContent() {
           searchText={rbac.searchText}
           isLoading={rbac.isLoading}
           onSearchTextChange={rbac.setSearchText}
-          onSelectRole={rbac.applySelectedRole}
+          onSelectRole={handleSelectRole}
           onCreateRole={() => rbac.setIsCreateDialogOpen(true)}
         />
         <RBACRoleEditorCard
@@ -73,8 +121,8 @@ function RBACContent() {
         />
       </div>
 
-      {rbac.isDirty && rbac.selectedRole ? (
-        <div className="sticky bottom-4 z-30 mx-auto flex w-full max-w-3xl flex-wrap items-center justify-between gap-3 rounded-xl border border-status-warning/35 bg-surface/95 px-4 py-3 shadow-lg backdrop-blur-md">
+      {hasUnsavedRole && rbac.selectedRole ? (
+        <div className="fixed inset-x-0 bottom-4 z-40 mx-auto flex w-[min(40rem,calc(100vw-1.5rem))] flex-wrap items-center justify-between gap-3 rounded-xl border border-status-warning/35 bg-surface/95 px-4 py-3 shadow-xl backdrop-blur-xl">
           <div className="flex items-center gap-2.5 text-sm">
             <AlertTriangle className="size-4 shrink-0 text-status-warning" />
             <span className="font-medium text-foreground">
@@ -84,7 +132,7 @@ function RBACContent() {
           <div className="flex items-center gap-2">
             <Button
               type="button"
-              variant="ghost"
+              variant="outline"
               size="sm"
               disabled={rbac.isSaving}
               onClick={() => rbac.applySelectedRole(rbac.selectedRole)}
@@ -104,6 +152,51 @@ function RBACContent() {
           </div>
         </div>
       ) : null}
+
+      <ConfirmDialog
+        open={Boolean(pendingRole)}
+        tone="warning"
+        title="当前角色存在未保存修改"
+        description={
+          pendingRole && rbac.selectedRole
+            ? `即将切换到角色「${pendingRole.name}」，但「${rbac.selectedRole.name}」的权限更改尚未保存。`
+            : ""
+        }
+        cancelLabel="继续编辑"
+        secondaryAction={{
+          label: "放弃并切换",
+          variant: "destructive",
+          onClick: handleDiscardAndSwitchRole,
+        }}
+        confirmLabel="保存并切换"
+        pendingLabel="正在保存…"
+        pending={rbac.isSaving}
+        onClose={() => setPendingRole(null)}
+        onConfirm={() => void handleSaveAndSwitchRole()}
+      />
+
+      <ConfirmDialog
+        open={routeGuard.isOpen}
+        tone="warning"
+        title="离开角色权限页前是否保存修改？"
+        description={
+          rbac.selectedRole
+            ? `角色「${rbac.selectedRole.name}」的权限配置尚未保存，离开页面将丢失未保存更改。`
+            : "当前存在尚未保存的角色权限配置。"
+        }
+        cancelLabel="继续编辑"
+        secondaryAction={{
+          label: "放弃修改并离开",
+          variant: "destructive",
+          pending: routeGuard.isDiscarding,
+          onClick: () => void routeGuard.confirmDiscardAndLeave(),
+        }}
+        confirmLabel="保存并离开"
+        pendingLabel="正在保存…"
+        pending={routeGuard.isSaving || rbac.isSaving}
+        onClose={routeGuard.cancelLeave}
+        onConfirm={() => void routeGuard.confirmSaveAndLeave()}
+      />
 
       <RBACCreateRoleDialog
         open={rbac.isCreateDialogOpen}

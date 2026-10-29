@@ -55,7 +55,7 @@ export function VideoResult({ controller }: { controller: VideoCreationControlle
     : null;
 
   return (
-    <section className="relative flex min-h-[540px] overflow-hidden rounded-2xl border border-zinc-800/90 bg-[#0b0b0d] text-zinc-100 shadow-sm xl:h-full xl:min-h-0">
+    <section id="video-stage-preview" className="relative flex min-h-[540px] overflow-hidden rounded-2xl border border-zinc-800/90 bg-[#0b0b0d] text-zinc-100 shadow-sm lg:h-full lg:min-h-0">
       <div className="video-stage-grain pointer-events-none absolute inset-0 opacity-[0.05]" />
       <div className="relative z-10 flex w-full flex-col p-4 sm:p-5">
         <header className="flex min-h-8 flex-wrap items-center justify-between gap-3 border-b border-zinc-800/80 pb-3">

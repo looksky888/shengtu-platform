@@ -33,6 +33,13 @@ func TestPaymentEndpointsRequireAuthAndDatabase(t *testing.T) {
 	if res.Code != http.StatusServiceUnavailable {
 		t.Fatalf("JSON backend order status=%d body=%s", res.Code, res.Body.String())
 	}
+	req = httptest.NewRequest(http.MethodGet, "/api/payment/orders?limit=5", nil)
+	req.Header.Set("Authorization", adminAuthHeader(t, app))
+	res = httptest.NewRecorder()
+	app.Handler().ServeHTTP(res, req)
+	if res.Code != http.StatusServiceUnavailable {
+		t.Fatalf("JSON backend list orders status=%d body=%s", res.Code, res.Body.String())
+	}
 }
 
 func TestCancelPaymentEndpointRequiresAuthAndDatabase(t *testing.T) {

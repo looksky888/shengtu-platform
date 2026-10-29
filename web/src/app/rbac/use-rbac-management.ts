@@ -84,12 +84,12 @@ export function useRBACManagement() {
     || !sameStringSet(selectedApiPermissions, selectedRole?.api_permissions)
   );
 
-  const handleSave = async () => {
-    if (!selectedRole || isSaving) return;
+  const handleSave = useCallback(async (): Promise<boolean> => {
+    if (!selectedRole || isSaving) return false;
     const nextName = roleName.trim();
     if (!nextName) {
       toast.error("角色名称不能为空");
-      return;
+      return false;
     }
     setIsSaving(true);
     try {
@@ -103,12 +103,14 @@ export function useRBACManagement() {
       setRoles(nextRoles);
       applySelectedRole(nextRoles.find((role) => role.id === data.item.id) || data.item);
       toast.success("角色已保存");
+      return true;
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "保存角色失败");
+      return false;
     } finally {
       setIsSaving(false);
     }
-  };
+  }, [applySelectedRole, isSaving, roleDescription, roleName, selectedApiPermissions, selectedMenuPaths, selectedRole]);
 
   const handleCreate = async () => {
     const nextName = createName.trim();

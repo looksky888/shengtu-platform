@@ -22,8 +22,8 @@ export default function VideoPage() {
   }
 
   return (
-    <section className="flex flex-col xl:h-[calc(100dvh-4.75rem)] xl:min-h-[600px]">
-      <div className="grid min-h-0 flex-1 items-stretch gap-3.5 xl:grid-cols-[400px_minmax(0,1fr)]">
+    <section className="flex flex-col lg:h-[calc(100dvh-4.75rem)] lg:min-h-[600px]">
+      <div className="grid min-h-0 flex-1 items-stretch gap-3.5 lg:grid-cols-[380px_minmax(0,1fr)] xl:grid-cols-[400px_minmax(0,1fr)]">
         <VideoForm controller={controller} />
         <VideoResult controller={controller} />
       </div>

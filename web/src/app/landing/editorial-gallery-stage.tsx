@@ -58,6 +58,12 @@ export function EditorialGalleryStage({
       className="relative mx-auto w-full max-w-[40rem] lg:max-w-none"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
+      onFocusCapture={() => setPaused(true)}
+      onBlurCapture={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+          setPaused(false);
+        }
+      }}
     >
       {/* Outer Architectural Exhibition Sheet */}
       <div className="relative rounded-2xl border border-border/80 bg-surface/65 p-3 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.08)] backdrop-blur-sm sm:p-4 dark:bg-[#111113]/75 dark:shadow-[0_24px_64px_rgba(0,0,0,0.55)]">
@@ -138,7 +144,7 @@ export function EditorialGalleryStage({
                     aria-label={`查看作品 ${item.title}`}
                     onClick={() => setActiveIndex(idx)}
                     className={cn(
-                      "h-4 min-w-4 rounded px-1 font-mono text-[10px] transition-colors",
+                      "inline-flex h-9 min-w-9 items-center justify-center rounded-md px-2 font-mono text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/25",
                       idx === activeIndex
                         ? "bg-foreground text-background font-semibold"
                         : "bg-surface-muted text-muted-foreground hover:text-foreground",
@@ -173,7 +179,7 @@ export function EditorialGalleryStage({
             <button
               type="button"
               onClick={handleCreateWithInspiration}
-              className="group/inspire inline-flex h-7.5 shrink-0 items-center justify-center gap-1 rounded-lg border border-border-strong/75 bg-surface-muted/85 px-2.5 text-[11px] font-semibold tracking-[-0.01em] text-foreground shadow-2xs transition-all duration-150 hover:-translate-y-[1px] hover:border-foreground/40 hover:bg-foreground hover:text-background active:scale-[0.98]"
+              className="group/inspire inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-border-strong/75 bg-surface-muted/85 px-3.5 text-xs font-semibold tracking-[-0.01em] text-foreground shadow-2xs transition-all duration-150 hover:-translate-y-[1px] hover:border-foreground/40 hover:bg-foreground hover:text-background active:scale-[0.98]"
             >
               <span>以此灵感创作</span>
               <ArrowUpRight

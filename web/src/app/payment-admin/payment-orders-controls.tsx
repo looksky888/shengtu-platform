@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, Search, X } from "lucide-react";
 import { paymentOrderStatuses, paymentOrderStatusLabels } from "@/app/payment-admin/payment-order-presentation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { isImeComposing } from "@/lib/keyboard";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export function PaymentOrdersFilters({ keyword, status, hasFilters, onKeywordChange, onStatusChange, onApply, onClear }: {
@@ -24,7 +25,7 @@ export function PaymentOrdersFilters({ keyword, status, hasFilters, onKeywordCha
           placeholder="搜索商户订单号、用户 ID 或第三方交易号"
           value={keyword}
           onChange={(event) => onKeywordChange(event.target.value)}
-          onKeyDown={(event) => { if (event.key === "Enter") onApply(); }}
+          onKeyDown={(event) => { if (!isImeComposing(event) && event.key === "Enter") onApply(); }}
         />
       </div>
       <Select value={status} onValueChange={onStatusChange}>

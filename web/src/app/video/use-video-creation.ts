@@ -452,6 +452,11 @@ export function useVideoCreation(session: StoredAuthSession | null | undefined) 
         return next;
       });
       toast.success("视频任务已提交");
+      if (typeof window !== "undefined" && window.innerWidth < 1024) {
+        window.requestAnimationFrame(() => {
+          document.getElementById("video-stage-preview")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "提交视频任务失败");
     } finally {

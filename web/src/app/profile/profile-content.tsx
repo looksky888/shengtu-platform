@@ -5,7 +5,7 @@ import {
   RefreshCw,
   UserCircle2,
 } from "lucide-react";
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -72,14 +72,45 @@ export function ProfileContent({ session }: { session: StoredAuthSession }) {
   const { loadKey } = apiKey;
   const { loadCredits } = credits;
   const { loadInvite } = invite;
+  const loadedResourcesRef = useRef<{
+    key: boolean;
+    credits: boolean;
+    invite: boolean;
+  }>({ key: false, credits: false, invite: false });
 
-  const loadProfileData = useCallback(async () => {
-    await Promise.allSettled([loadKey(), loadCredits(), loadInvite()]);
-  }, [loadCredits, loadInvite, loadKey]);
+  const loadTabData = useCallback(
+    async (tab: ProfileTab, force = false) => {
+      const tasks: Promise<unknown>[] = [];
+      if (tab === "api") {
+        if (force || !loadedResourcesRef.current.key) {
+          loadedResourcesRef.current.key = true;
+          tasks.push(loadKey());
+        }
+      } else if (tab === "credits") {
+        if (force || !loadedResourcesRef.current.credits) {
+          loadedResourcesRef.current.credits = true;
+          tasks.push(loadCredits());
+        }
+      } else {
+        if (force || !loadedResourcesRef.current.credits) {
+          loadedResourcesRef.current.credits = true;
+          tasks.push(loadCredits());
+        }
+        if (force || !loadedResourcesRef.current.invite) {
+          loadedResourcesRef.current.invite = true;
+          tasks.push(loadInvite());
+        }
+      }
+      if (tasks.length > 0) {
+        await Promise.allSettled(tasks);
+      }
+    },
+    [loadCredits, loadInvite, loadKey],
+  );
 
   useEffect(() => {
-    void loadProfileData();
-  }, [loadProfileData]);
+    void loadTabData(activeTab, false);
+  }, [activeTab, loadTabData]);
 
   const handleTabChange = (next: ProfileTab) => {
     const nextParams = new URLSearchParams(searchParams);
@@ -133,7 +164,7 @@ export function ProfileContent({ session }: { session: StoredAuthSession }) {
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => void loadProfileData()}
+              onClick={() => void loadTabData(activeTab, true)}
               disabled={isRefreshing}
             >
               <RefreshCw

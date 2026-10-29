@@ -41,7 +41,7 @@ export function useRechargeOrder(sessionKey: string) {
     [applyOrder],
   );
 
-  const refresh = useCallback((): Promise<void> => {
+  const refresh = useCallback((options?: { manual?: boolean }): Promise<void> => {
     if (!mounted.current || cancelPending.current || !current.current) return Promise.resolve();
     if (queryRequest.current) return queryRequest.current;
     const item = current.current;
@@ -53,9 +53,22 @@ export function useRechargeOrder(sessionKey: string) {
         if (!stillCurrent()) return;
         applyOrder(result.item);
         setError("");
+        if (options?.manual && result.item.status !== "succeeded") {
+          if (result.item.status === "created" || result.item.status === "pending") {
+            toast.info("尚未检测到付款到账，扫码支付后页面会自动更新");
+          } else {
+            toast.info("订单状态已同步更新");
+          }
+        }
       })
       .catch((reason: unknown) => {
-        if (stillCurrent()) setError(reason instanceof Error ? reason.message : "订单状态查询失败");
+        if (stillCurrent()) {
+          const message = reason instanceof Error ? reason.message : "订单状态查询失败";
+          setError(message);
+          if (options?.manual) {
+            toast.error(message);
+          }
+        }
       })
       .finally(() => {
         if (queryRequest.current === request) queryRequest.current = null;

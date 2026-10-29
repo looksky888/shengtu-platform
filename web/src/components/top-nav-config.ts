@@ -70,7 +70,7 @@ export const navItems: NavItem[] = [
   {
     href: "/video-library",
     label: "视频库",
-    accessPath: "/video",
+    accessPath: "/video-library",
     group: "assets",
     description: "浏览、播放与管理已生成视频资产",
     keywords: ["video", "library", "gallery", "视频库"],

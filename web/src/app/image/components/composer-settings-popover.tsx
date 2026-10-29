@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { RotateCcw, SlidersHorizontal, X } from "lucide-react";
+import { useMemo, useState } from "react";
+import { ChevronDown, RotateCcw, SlidersHorizontal, X } from "lucide-react";
 
 import type { ComposerSettingsPopoverProps } from "@/app/image/components/composer-settings-types";
 import {
@@ -170,6 +170,40 @@ export function ComposerSettingsPopover(props: ComposerSettingsPopoverProps) {
     return num;
   }, [imageOutputCompression]);
 
+  const hasNonDefaultAdvanced =
+    imageSizeMode === "custom" ||
+    (supportsQuality && imageQuality !== DEFAULT_IMAGE_QUALITY) ||
+    imageOutputFormat !== DEFAULT_IMAGE_OUTPUT_FORMAT ||
+    Boolean(imageOutputCompression.trim());
+
+  const [manualAdvancedOpen, setManualAdvancedOpen] = useState<boolean | null>(null);
+  const isAdvancedOpen = manualAdvancedOpen ?? hasNonDefaultAdvanced;
+
+  const advancedSummary = useMemo(() => {
+    const parts: string[] = [];
+    if (imageSizeMode === "custom") {
+      parts.push(`${imageCustomWidth || DEFAULT_IMAGE_CUSTOM_WIDTH}×${imageCustomHeight || DEFAULT_IMAGE_CUSTOM_HEIGHT}`);
+    }
+    if (supportsQuality) {
+      parts.push(imageQuality === "low" ? "Low" : imageQuality === "medium" ? "Medium" : "High");
+    }
+    parts.push(
+      compressionDisabled
+        ? imageOutputFormat.toUpperCase()
+        : `${imageOutputFormat.toUpperCase()} ${resolvedCompressionNumber}%`,
+    );
+    return parts.join(" · ");
+  }, [
+    compressionDisabled,
+    imageCustomHeight,
+    imageCustomWidth,
+    imageOutputFormat,
+    imageQuality,
+    imageSizeMode,
+    resolvedCompressionNumber,
+    supportsQuality,
+  ]);
+
   const countOptions = useMemo(() => {
     const trimmed = String(imageCount || "1").trim();
     if ((COUNT_PILL_OPTIONS as readonly string[]).includes(trimmed)) {
@@ -240,7 +274,7 @@ export function ComposerSettingsPopover(props: ComposerSettingsPopoverProps) {
             <div className="flex items-center gap-1.5">
               <SlidersHorizontal className="size-3.5 text-muted-foreground" />
               <span className="text-xs font-semibold tracking-tight text-foreground">
-                生成参数配置
+                基础画幅与输出
               </span>
             </div>
             <button
@@ -289,302 +323,349 @@ export function ComposerSettingsPopover(props: ComposerSettingsPopoverProps) {
             </div>
           </div>
 
-          {/* 3. 画幅与尺寸 (sizeMode + Ratio Grid / Custom Pixels) */}
+          {/* 3. 基础画幅比例 */}
           <div className="space-y-2">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] font-medium text-muted-foreground">画幅与尺寸</span>
-              <div
-                className="grid grid-cols-3 gap-0.5 rounded-lg bg-surface-muted/95 p-0.5"
-                role="tablist"
-                aria-label="尺寸模式"
-              >
-                {SIZE_MODE_PILLS.map((modeOption) => {
-                  const active = imageSizeMode === modeOption.value;
-                  return (
-                    <button
-                      key={modeOption.value}
-                      type="button"
-                      role="tab"
-                      aria-selected={active}
-                      onClick={() => {
-                        onImageSizeModeChange(modeOption.value);
-                        if (modeOption.value === "ratio" && !imageAspectRatio) {
-                          onImageAspectRatioChange("1:1");
-                        }
-                      }}
-                      className={cn(
-                        "h-6 rounded-md px-2 text-[11px] transition-all",
-                        active
-                          ? "bg-surface font-semibold text-foreground shadow-2xs ring-1 ring-black/[0.05] dark:bg-zinc-800 dark:ring-white/[0.1]"
-                          : "font-medium text-muted-foreground hover:text-foreground",
-                      )}
-                    >
-                      {modeOption.label}
-                    </button>
-                  );
-                })}
-              </div>
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="font-medium text-muted-foreground">画幅比例</span>
+              {imageSizeMode === "custom" ? (
+                <button
+                  type="button"
+                  onClick={() => onImageSizeModeChange("auto")}
+                  className="font-mono text-[10px] font-medium text-foreground underline underline-offset-2"
+                >
+                  自定义像素生效中 · 切回比例
+                </button>
+              ) : (
+                <span className="font-mono text-[10px] text-subtle-foreground">
+                  {imageSizeMode === "auto" ? "自动构图" : "锁定画幅"}
+                </span>
+              )}
             </div>
 
-            {imageSizeMode !== "custom" ? (
-              <div className="space-y-1.5">
-                <div className="grid grid-cols-4 gap-1.5" role="radiogroup" aria-label="画幅比例">
-                  {STUDIO_RATIO_TILES.map((tile) => {
-                    const isAutoTile = tile.value === "";
-                    const active = isAutoTile
-                      ? imageSizeMode === "auto" || (imageSizeMode === "ratio" && imageAspectRatio === "")
-                      : imageSizeMode === "ratio" && imageAspectRatio === tile.value;
-                    const disabled = !isAutoTile && requiresPaidForSelection(tile.value, imageResolution);
+            <div className="grid grid-cols-4 gap-1.5" role="radiogroup" aria-label="画幅比例">
+              {STUDIO_RATIO_TILES.map((tile) => {
+                const isAutoTile = tile.value === "";
+                const active = isAutoTile
+                  ? imageSizeMode === "auto" || (imageSizeMode === "ratio" && imageAspectRatio === "")
+                  : imageSizeMode === "ratio" && imageAspectRatio === tile.value;
+                const disabled = !isAutoTile && requiresPaidForSelection(tile.value, imageResolution);
 
-                    return (
-                      <button
-                        key={tile.label}
-                        type="button"
-                        role="radio"
-                        aria-checked={active}
-                        disabled={disabled}
-                        title={disabled ? "本地号池已禁用需要 Paid 账号的大尺寸" : `选择 ${tile.label} 画幅`}
-                        onClick={() => {
-                          if (isAutoTile) {
-                            onImageSizeModeChange("auto");
-                            onImageAspectRatioChange("");
-                            return;
-                          }
-                          if (imageSizeMode !== "ratio") {
-                            onImageSizeModeChange("ratio");
-                          }
-                          onImageAspectRatioChange(tile.value);
-                        }}
-                        className={cn(
-                          "flex min-h-11 flex-col items-center justify-center gap-1 rounded-xl border px-1.5 py-1.5 transition-all active:scale-[0.98]",
-                          active
-                            ? "border-foreground bg-surface font-semibold text-foreground shadow-xs ring-1 ring-foreground/15 dark:bg-zinc-800/90"
-                            : "border-border/75 bg-surface-muted/55 text-muted-foreground hover:border-border-strong hover:bg-surface-hover hover:text-foreground",
-                          disabled && "cursor-not-allowed opacity-40 hover:bg-surface-muted/55",
-                        )}
-                      >
-                        <span className={cn("rounded-[2px] border border-current", tile.frameClass)} />
-                        <span className="font-mono text-[11px] leading-none tabular-nums">
-                          {tile.label}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {!grokMode && imageSizeMode === "ratio" && (imageAspectRatio === "21:9" || imageAspectRatio === CUSTOM_IMAGE_ASPECT_RATIO) ? (
-                  <div
+                return (
+                  <button
+                    key={tile.label}
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
+                    disabled={disabled}
+                    title={disabled ? "本地号池已禁用需要 Paid 账号的大尺寸" : `选择 ${tile.label} 画幅`}
+                    onClick={() => {
+                      if (isAutoTile) {
+                        onImageSizeModeChange("auto");
+                        onImageAspectRatioChange("");
+                        return;
+                      }
+                      if (imageSizeMode !== "ratio") {
+                        onImageSizeModeChange("ratio");
+                      }
+                      onImageAspectRatioChange(tile.value);
+                    }}
                     className={cn(
-                      "flex items-center justify-between gap-2 rounded-xl border bg-surface-muted/75 px-3 py-1.5",
-                      isCustomRatioInvalid ? "border-rose-400/70" : "border-border/75",
+                      "flex min-h-11 flex-col items-center justify-center gap-1 rounded-xl border px-1.5 py-1.5 transition-all active:scale-[0.98]",
+                      active
+                        ? "border-foreground bg-surface font-semibold text-foreground shadow-xs ring-1 ring-foreground/15 dark:bg-zinc-800/90"
+                        : "border-border/75 bg-surface-muted/55 text-muted-foreground hover:border-border-strong hover:bg-surface-hover hover:text-foreground",
+                      disabled && "cursor-not-allowed opacity-40 hover:bg-surface-muted/55",
                     )}
                   >
-                    <span className="shrink-0 text-[11px] font-medium text-muted-foreground">
-                      {imageAspectRatio === "21:9" ? "当前比例 21:9" : "自定义比例"}
+                    <span className={cn("rounded-[2px] border border-current", tile.frameClass)} />
+                    <span className="font-mono text-[11px] leading-none tabular-nums">
+                      {tile.label}
                     </span>
-                    {imageAspectRatio === CUSTOM_IMAGE_ASPECT_RATIO ? (
-                      <Input
-                        aria-label="自定义图片比例"
-                        value={imageCustomRatio}
-                        onChange={(event) => onImageCustomRatioChange(event.target.value)}
-                        placeholder="如 5:4 / 21:9"
-                        className="h-6 border-0 bg-transparent px-0 text-right font-mono text-xs font-semibold text-foreground shadow-none focus-visible:ring-0"
-                      />
-                    ) : null}
-                  </div>
-                ) : null}
-              </div>
-            ) : (
-              <div className="space-y-1.5">
-                <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 rounded-xl border border-border/75 bg-surface-muted/70 px-3 py-1.5">
-                  <label className="flex items-center justify-between gap-1.5 min-w-0">
-                    <span className="text-[10px] text-muted-foreground">宽</span>
-                    <Input
-                      aria-label="手动输入宽度"
-                      type="number"
-                      inputMode="numeric"
-                      min="256"
-                      step="64"
-                      value={imageCustomWidth}
-                      onChange={(event) => onImageCustomWidthChange(event.target.value)}
-                      className="h-7 min-w-0 border-0 bg-transparent px-0 text-right font-mono text-xs font-semibold text-foreground shadow-none focus-visible:ring-0"
-                    />
-                  </label>
-                  <X className="size-3 shrink-0 text-subtle-foreground" />
-                  <label className="flex items-center justify-between gap-1.5 min-w-0">
-                    <span className="text-[10px] text-muted-foreground">高</span>
-                    <Input
-                      aria-label="手动输入高度"
-                      type="number"
-                      inputMode="numeric"
-                      min="256"
-                      step="64"
-                      value={imageCustomHeight}
-                      onChange={(event) => onImageCustomHeightChange(event.target.value)}
-                      className="h-7 min-w-0 border-0 bg-transparent px-0 text-right font-mono text-xs font-semibold text-foreground shadow-none focus-visible:ring-0"
-                    />
-                  </label>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  {CUSTOM_PIXEL_PRESETS.map((preset) => {
-                    const active = imageCustomWidth === preset.width && imageCustomHeight === preset.height;
-                    return (
-                      <button
-                        key={preset.label}
-                        type="button"
-                        onClick={() => {
-                          onImageCustomWidthChange(preset.width);
-                          onImageCustomHeightChange(preset.height);
-                        }}
-                        className={cn(
-                          "flex-1 rounded-lg border py-1 font-mono text-[10px] tabular-nums transition-colors",
-                          active
-                            ? "border-foreground/70 bg-surface font-semibold text-foreground"
-                            : "border-border/70 bg-surface-muted/50 text-muted-foreground hover:text-foreground",
-                        )}
-                      >
-                        {preset.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* 4. 分辨率档位 & 渲染画质 */}
-          <div className="grid grid-cols-1 gap-2.5">
-            <div className="space-y-1.5">
-              <span className="block text-[11px] font-medium text-muted-foreground">分辨率档位</span>
-              <div
-                className="grid gap-1 rounded-xl bg-surface-muted/95 p-1"
-                style={{ gridTemplateColumns: `repeat(${Math.max(1, resolutionOptions.length)}, minmax(0, 1fr))` }}
-                role="radiogroup"
-                aria-label="分辨率档位"
-              >
-                {resolutionOptions.map((option) => {
-                  const active = imageResolution === option.value;
-                  const disabled =
-                    imageSizeMode === "ratio" &&
-                    requiresPaidForSelection(imageAspectRatio, option.value);
-                  return (
-                    <button
-                      key={option.value}
-                      type="button"
-                      role="radio"
-                      aria-checked={active}
-                      disabled={disabled}
-                      title={disabled ? "本地号池已禁用该分辨率组合" : option.label}
-                      onClick={() => onImageResolutionChange(option.value)}
-                      className={cn(
-                        "h-7 rounded-lg font-mono text-[11px] tabular-nums transition-all",
-                        active
-                          ? "bg-surface font-semibold text-foreground shadow-xs ring-1 ring-black/[0.05] dark:bg-zinc-800 dark:ring-white/[0.1]"
-                          : "font-medium text-muted-foreground hover:text-foreground",
-                        disabled && "cursor-not-allowed opacity-40",
-                      )}
-                    >
-                      {SHORT_RESOLUTION_LABELS[option.value] || option.label}
-                    </button>
-                  );
-                })}
-              </div>
+                  </button>
+                );
+              })}
             </div>
 
-            {supportsQuality ? (
-              <div className="space-y-1.5">
-                <span className="block text-[11px] font-medium text-muted-foreground">渲染画质</span>
-                <div
-                  className="grid gap-1 rounded-xl bg-surface-muted/95 p-1"
-                  style={{ gridTemplateColumns: `repeat(${imageQualityOptions.length}, minmax(0, 1fr))` }}
-                  role="radiogroup"
-                  aria-label="渲染画质"
-                >
-                  {imageQualityOptions.map((option) => {
-                    const active = imageQuality === option.value;
-                    return (
-                      <button
-                        key={option.value}
-                        type="button"
-                        role="radio"
-                        aria-checked={active}
-                        title={option.description}
-                        onClick={() => onImageQualityChange(option.value)}
-                        className={cn(
-                          "h-7 rounded-lg px-1.5 text-[11px] transition-all",
-                          active
-                            ? "bg-surface font-semibold text-foreground shadow-xs ring-1 ring-black/[0.05] dark:bg-zinc-800 dark:ring-white/[0.1]"
-                            : "font-medium text-muted-foreground hover:text-foreground",
-                        )}
-                      >
-                        <span className="truncate">{QUALITY_STUDIO_LABELS[option.value] || option.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
+            {!grokMode && imageSizeMode === "ratio" && (imageAspectRatio === "21:9" || imageAspectRatio === CUSTOM_IMAGE_ASPECT_RATIO) ? (
+              <div
+                className={cn(
+                  "flex items-center justify-between gap-2 rounded-xl border bg-surface-muted/75 px-3 py-1.5",
+                  isCustomRatioInvalid ? "border-rose-400/70" : "border-border/75",
+                )}
+              >
+                <span className="shrink-0 text-[11px] font-medium text-muted-foreground">
+                  {imageAspectRatio === "21:9" ? "当前比例 21:9" : "自定义比例"}
+                </span>
+                {imageAspectRatio === CUSTOM_IMAGE_ASPECT_RATIO ? (
+                  <Input
+                    aria-label="自定义图片比例"
+                    value={imageCustomRatio}
+                    onChange={(event) => onImageCustomRatioChange(event.target.value)}
+                    placeholder="如 5:4 / 21:9"
+                    className="h-6 border-0 bg-transparent px-0 text-right font-mono text-xs font-semibold text-foreground shadow-none focus-visible:ring-0"
+                  />
+                ) : null}
               </div>
             ) : null}
           </div>
 
-          {/* 5. 输出格式 & 压缩滑杆 */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-[11px]">
-              <span className="font-medium text-muted-foreground">输出格式</span>
-              <span className="font-mono text-[10px] text-subtle-foreground">
-                {compressionDisabled ? "无损透明通道" : `有损压缩 · ${resolvedCompressionNumber}%`}
-              </span>
-            </div>
+          {/* 4. 分辨率档位 */}
+          <div className="space-y-1.5">
+            <span className="block text-[11px] font-medium text-muted-foreground">分辨率档位</span>
             <div
-              className="grid grid-cols-3 gap-1 rounded-xl bg-surface-muted/95 p-1"
+              className="grid gap-1 rounded-xl bg-surface-muted/95 p-1"
+              style={{ gridTemplateColumns: `repeat(${Math.max(1, resolutionOptions.length)}, minmax(0, 1fr))` }}
               role="radiogroup"
-              aria-label="输出格式"
+              aria-label="分辨率档位"
             >
-              {IMAGE_OUTPUT_FORMAT_OPTIONS.map((option) => {
-                const active = imageOutputFormat === option.value;
+              {resolutionOptions.map((option) => {
+                const active = imageResolution === option.value;
+                const disabled =
+                  imageSizeMode === "ratio" &&
+                  requiresPaidForSelection(imageAspectRatio, option.value);
                 return (
                   <button
                     key={option.value}
                     type="button"
                     role="radio"
                     aria-checked={active}
-                    onClick={() => {
-                      const nextFormat = option.value as ImageOutputFormat;
-                      onImageOutputFormatChange(nextFormat);
-                      if (nextFormat === "png") {
-                        onImageOutputCompressionChange("");
-                      } else if (!imageOutputCompression.trim()) {
-                        onImageOutputCompressionChange("85");
-                      }
-                    }}
+                    disabled={disabled}
+                    title={disabled ? "本地号池已禁用该分辨率组合" : option.label}
+                    onClick={() => onImageResolutionChange(option.value)}
                     className={cn(
-                      "h-7 rounded-lg font-mono text-xs transition-all",
+                      "h-7 rounded-lg font-mono text-[11px] tabular-nums transition-all",
                       active
                         ? "bg-surface font-semibold text-foreground shadow-xs ring-1 ring-black/[0.05] dark:bg-zinc-800 dark:ring-white/[0.1]"
                         : "font-medium text-muted-foreground hover:text-foreground",
+                      disabled && "cursor-not-allowed opacity-40",
                     )}
                   >
-                    {option.value.toUpperCase()}
+                    {SHORT_RESOLUTION_LABELS[option.value] || option.label}
                   </button>
                 );
               })}
             </div>
+          </div>
 
-            {!compressionDisabled ? (
-              <div className="flex items-center gap-3 rounded-xl bg-surface-muted/65 px-3 py-2">
-                <span className="shrink-0 text-[11px] text-muted-foreground">画质压缩</span>
-                <input
-                  type="range"
-                  aria-label="图片压缩质量"
-                  min={10}
-                  max={100}
-                  step={1}
-                  value={resolvedCompressionNumber}
-                  onChange={(event) => onImageOutputCompressionChange(event.target.value)}
-                  className="h-1.5 flex-1 cursor-pointer appearance-none rounded-full bg-foreground/15 accent-foreground"
+          {/* 5. 可折叠「高级输出」 */}
+          <div className="rounded-xl border border-border/70 bg-surface-subtle/55">
+            <button
+              type="button"
+              aria-expanded={isAdvancedOpen}
+              onClick={() => setManualAdvancedOpen(!isAdvancedOpen)}
+              className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-[11px] transition-colors hover:bg-surface-hover/60"
+            >
+              <span className="flex items-center gap-1.5 font-medium text-foreground/90">
+                <span>高级输出</span>
+                {hasNonDefaultAdvanced ? (
+                  <span className="size-1.5 rounded-full bg-foreground" aria-hidden="true" />
+                ) : null}
+              </span>
+              <span className="flex items-center gap-1.5 font-mono text-[10px] text-muted-foreground">
+                <span>{advancedSummary}</span>
+                <ChevronDown
+                  className={cn(
+                    "size-3.5 transition-transform duration-150",
+                    isAdvancedOpen && "rotate-180",
+                  )}
                 />
-                <span className="w-9 shrink-0 text-right font-mono text-[11px] font-semibold text-foreground tabular-nums">
-                  {resolvedCompressionNumber}%
-                </span>
+              </span>
+            </button>
+
+            {isAdvancedOpen ? (
+              <div className="space-y-3 border-t border-border/60 px-3 pt-2.5 pb-3">
+                {/* 尺寸模式与自定义像素 */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[11px] font-medium text-muted-foreground">尺寸模式</span>
+                    <div
+                      className="grid grid-cols-3 gap-0.5 rounded-lg bg-surface-muted/95 p-0.5"
+                      role="tablist"
+                      aria-label="尺寸模式"
+                    >
+                      {SIZE_MODE_PILLS.map((modeOption) => {
+                        const active = imageSizeMode === modeOption.value;
+                        return (
+                          <button
+                            key={modeOption.value}
+                            type="button"
+                            role="tab"
+                            aria-selected={active}
+                            onClick={() => {
+                              onImageSizeModeChange(modeOption.value);
+                              if (modeOption.value === "ratio" && !imageAspectRatio) {
+                                onImageAspectRatioChange("1:1");
+                              }
+                            }}
+                            className={cn(
+                              "h-6 rounded-md px-2 text-[11px] transition-all",
+                              active
+                                ? "bg-surface font-semibold text-foreground shadow-2xs ring-1 ring-black/[0.05] dark:bg-zinc-800 dark:ring-white/[0.1]"
+                                : "font-medium text-muted-foreground hover:text-foreground",
+                            )}
+                          >
+                            {modeOption.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {imageSizeMode === "custom" ? (
+                    <div className="space-y-1.5">
+                      <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 rounded-xl border border-border/75 bg-surface px-3 py-1.5">
+                        <label className="flex min-w-0 items-center justify-between gap-1.5">
+                          <span className="text-[10px] text-muted-foreground">宽</span>
+                          <Input
+                            aria-label="手动输入宽度"
+                            type="number"
+                            inputMode="numeric"
+                            min="256"
+                            step="64"
+                            value={imageCustomWidth}
+                            onChange={(event) => onImageCustomWidthChange(event.target.value)}
+                            className="h-7 min-w-0 border-0 bg-transparent px-0 text-right font-mono text-xs font-semibold text-foreground shadow-none focus-visible:ring-0"
+                          />
+                        </label>
+                        <X className="size-3 shrink-0 text-subtle-foreground" />
+                        <label className="flex min-w-0 items-center justify-between gap-1.5">
+                          <span className="text-[10px] text-muted-foreground">高</span>
+                          <Input
+                            aria-label="手动输入高度"
+                            type="number"
+                            inputMode="numeric"
+                            min="256"
+                            step="64"
+                            value={imageCustomHeight}
+                            onChange={(event) => onImageCustomHeightChange(event.target.value)}
+                            className="h-7 min-w-0 border-0 bg-transparent px-0 text-right font-mono text-xs font-semibold text-foreground shadow-none focus-visible:ring-0"
+                          />
+                        </label>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        {CUSTOM_PIXEL_PRESETS.map((preset) => {
+                          const active = imageCustomWidth === preset.width && imageCustomHeight === preset.height;
+                          return (
+                            <button
+                              key={preset.label}
+                              type="button"
+                              onClick={() => {
+                                onImageCustomWidthChange(preset.width);
+                                onImageCustomHeightChange(preset.height);
+                              }}
+                              className={cn(
+                                "flex-1 rounded-lg border py-1 font-mono text-[10px] tabular-nums transition-colors",
+                                active
+                                  ? "border-foreground/70 bg-surface font-semibold text-foreground"
+                                  : "border-border/70 bg-surface-muted/50 text-muted-foreground hover:text-foreground",
+                              )}
+                            >
+                              {preset.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+
+                {/* 渲染画质 */}
+                {supportsQuality ? (
+                  <div className="space-y-1.5">
+                    <span className="block text-[11px] font-medium text-muted-foreground">渲染画质</span>
+                    <div
+                      className="grid gap-1 rounded-xl bg-surface-muted/95 p-1"
+                      style={{ gridTemplateColumns: `repeat(${imageQualityOptions.length}, minmax(0, 1fr))` }}
+                      role="radiogroup"
+                      aria-label="渲染画质"
+                    >
+                      {imageQualityOptions.map((option) => {
+                        const active = imageQuality === option.value;
+                        return (
+                          <button
+                            key={option.value}
+                            type="button"
+                            role="radio"
+                            aria-checked={active}
+                            title={option.description}
+                            onClick={() => onImageQualityChange(option.value)}
+                            className={cn(
+                              "h-7 rounded-lg px-1.5 text-[11px] transition-all",
+                              active
+                                ? "bg-surface font-semibold text-foreground shadow-xs ring-1 ring-black/[0.05] dark:bg-zinc-800 dark:ring-white/[0.1]"
+                                : "font-medium text-muted-foreground hover:text-foreground",
+                            )}
+                          >
+                            <span className="truncate">{QUALITY_STUDIO_LABELS[option.value] || option.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null}
+
+                {/* 输出格式 & 压缩滑杆 */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="font-medium text-muted-foreground">输出格式</span>
+                    <span className="font-mono text-[10px] text-subtle-foreground">
+                      {compressionDisabled ? "无损透明通道" : `有损压缩 · ${resolvedCompressionNumber}%`}
+                    </span>
+                  </div>
+                  <div
+                    className="grid grid-cols-3 gap-1 rounded-xl bg-surface-muted/95 p-1"
+                    role="radiogroup"
+                    aria-label="输出格式"
+                  >
+                    {IMAGE_OUTPUT_FORMAT_OPTIONS.map((option) => {
+                      const active = imageOutputFormat === option.value;
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          role="radio"
+                          aria-checked={active}
+                          onClick={() => {
+                            const nextFormat = option.value as ImageOutputFormat;
+                            onImageOutputFormatChange(nextFormat);
+                            if (nextFormat === "png") {
+                              onImageOutputCompressionChange("");
+                            } else if (!imageOutputCompression.trim()) {
+                              onImageOutputCompressionChange("85");
+                            }
+                          }}
+                          className={cn(
+                            "h-7 rounded-lg font-mono text-xs transition-all",
+                            active
+                              ? "bg-surface font-semibold text-foreground shadow-xs ring-1 ring-black/[0.05] dark:bg-zinc-800 dark:ring-white/[0.1]"
+                              : "font-medium text-muted-foreground hover:text-foreground",
+                          )}
+                        >
+                          {option.value.toUpperCase()}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {!compressionDisabled ? (
+                    <div className="flex items-center gap-3 rounded-xl bg-surface-muted/65 px-3 py-2">
+                      <span className="shrink-0 text-[11px] text-muted-foreground">画质压缩</span>
+                      <input
+                        type="range"
+                        aria-label="图片压缩质量"
+                        min={10}
+                        max={100}
+                        step={1}
+                        value={resolvedCompressionNumber}
+                        onChange={(event) => onImageOutputCompressionChange(event.target.value)}
+                        className="h-1.5 flex-1 cursor-pointer appearance-none rounded-full bg-foreground/15 accent-foreground"
+                      />
+                      <span className="w-9 shrink-0 text-right font-mono text-[11px] font-semibold text-foreground tabular-nums">
+                        {resolvedCompressionNumber}%
+                      </span>
+                    </div>
+                  ) : null}
+                </div>
               </div>
             ) : null}
           </div>

@@ -47,31 +47,44 @@ export function LoginAgreements({ state }: { state: LoginPageState }) {
         )}
       </div>
 
-      {/* Row 2: Compact single-line terms agreement */}
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-        <Checkbox
-          id="login-agree-terms"
-          aria-label="同意服务条款"
-          checked={state.agreedToTerms}
-          onCheckedChange={(value) => state.setAgreedToTerms(value === true)}
-          disabled={state.isSubmitting}
-          required
-          aria-required="true"
-        />
-        <label
-          htmlFor="login-agree-terms"
-          className="cursor-pointer select-none transition-colors hover:text-foreground"
-        >
-          我已阅读并同意
-        </label>
-        <button
-          type="button"
-          className="-ml-1 font-medium text-foreground underline decoration-border-strong underline-offset-3 transition hover:decoration-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20"
-          onClick={() => state.setTermsOpen(true)}
-        >
-          {TERMS_SHORT_LABEL}
-        </button>
-      </div>
+      {/* Row 2: Explicit checkbox for new-user registration; passive notice for existing-user login */}
+      {state.isRegisterMode ? (
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+          <Checkbox
+            id="login-agree-terms"
+            aria-label="同意服务条款"
+            checked={state.agreedToTerms}
+            onCheckedChange={(value) => state.setAgreedToTerms(value === true)}
+            disabled={state.isSubmitting}
+            required
+            aria-required="true"
+          />
+          <label
+            htmlFor="login-agree-terms"
+            className="cursor-pointer select-none transition-colors hover:text-foreground"
+          >
+            我已阅读并同意
+          </label>
+          <button
+            type="button"
+            className="-ml-1 font-medium text-foreground underline decoration-border-strong underline-offset-3 transition hover:decoration-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20"
+            onClick={() => state.setTermsOpen(true)}
+          >
+            {TERMS_SHORT_LABEL}
+          </button>
+        </div>
+      ) : (
+        <p className="flex flex-wrap items-center gap-x-1 gap-y-1 text-[11px] leading-relaxed text-muted-foreground">
+          <span>登录即代表您已阅读并同意</span>
+          <button
+            type="button"
+            className="font-medium text-foreground/90 underline decoration-border-strong underline-offset-3 transition hover:text-foreground hover:decoration-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20"
+            onClick={() => state.setTermsOpen(true)}
+          >
+            {TERMS_SHORT_LABEL}
+          </button>
+        </p>
+      )}
     </div>
   );
 }

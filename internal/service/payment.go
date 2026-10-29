@@ -323,6 +323,41 @@ func (s *PaymentService) loadRuntimeCredentials(versionID string) (storage.Payme
 	return version, paymentRuntimeCredentials{Provider: provider, AppID: version.AppID, MerchantID: version.MerchantID, MerchantCertSerial: version.MerchantCertSerial, MerchantPrivateKeyPEM: privateKey, APIv3Key: apiKey, WechatPayPublicKeyID: version.WechatPayPublicKeyID, WechatPayPublicKeyPEM: publicKey, AlipayPrivateKeyPEM: alipayPrivateKey, AlipayPublicKeyPEM: alipayPublicKey, AlipayGateway: version.AlipayGateway, AlipaySellerID: version.AlipaySellerID}, nil
 }
 
+func (s *PaymentService) ListUserOrders(userID string, limit int) ([]PaymentOrderPublic, error) {
+	if !s.Available() {
+		return nil, errors.New("在线支付需要数据库存储后端")
+	}
+	userID = strings.TrimSpace(userID)
+	if userID == "" {
+		return []PaymentOrderPublic{}, nil
+	}
+	queryBackend, ok := s.backend.(interface {
+		QueryPaymentOrders(storage.PaymentOrderFilter) ([]storage.PaymentOrderRecord, int, error)
+	})
+	if !ok {
+		return []PaymentOrderPublic{}, nil
+	}
+	if limit <= 0 {
+		limit = 10
+	}
+	if limit > 30 {
+		limit = 30
+	}
+	items, _, err := queryBackend.QueryPaymentOrders(storage.PaymentOrderFilter{
+		Page:     1,
+		PageSize: limit,
+		UserID:   userID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]PaymentOrderPublic, 0, len(items))
+	for _, item := range items {
+		out = append(out, publicPaymentOrder(item))
+	}
+	return out, nil
+}
+
 func publicPaymentOrder(item storage.PaymentOrderRecord) PaymentOrderPublic {
 	credits := item.CreditsSnapshot
 	if item.ProductTypeSnapshot == "cloud_storage" {

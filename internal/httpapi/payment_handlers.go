@@ -93,6 +93,20 @@ func (a *App) handlePaymentOrders(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	parts := splitPath(r.URL.Path)
+	if len(parts) == 3 && parts[0] == "api" && parts[1] == "payment" && parts[2] == "orders" && r.Method == http.MethodGet {
+		if a.paymentOrders == nil || !a.paymentOrders.Available() {
+			util.WriteError(w, http.StatusServiceUnavailable, "在线支付需要数据库存储后端")
+			return
+		}
+		limit := util.ToInt(r.URL.Query().Get("limit"), 10)
+		items, err := a.paymentOrders.ListUserOrders(identityScope(identity), limit)
+		if err != nil {
+			util.WriteError(w, http.StatusInternalServerError, "读取充值记录失败")
+			return
+		}
+		util.WriteJSON(w, http.StatusOK, itemsResponse[service.PaymentOrderPublic]{Items: items})
+		return
+	}
 	if len(parts) == 5 && parts[0] == "api" && parts[1] == "payment" && parts[2] == "orders" && parts[4] == "cancel" {
 		if r.Method != http.MethodPost {
 			w.WriteHeader(http.StatusMethodNotAllowed)

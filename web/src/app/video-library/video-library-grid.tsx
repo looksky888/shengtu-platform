@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import {
   AlertCircle,
@@ -115,9 +115,28 @@ function VideoAssetCard({
   canDeleteVideos: boolean;
   canUpdateVisibility: boolean;
 }) {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [activated, setActivated] = useState(false);
   const deleting = controller.deletingTaskID === asset.id;
   const updatingVisibility = controller.visibilityMutatingID === asset.id;
   const selected = Boolean(controller.selectedIDs[asset.id]);
+
+  const handlePreviewStart = () => {
+    setActivated(true);
+    const element = videoRef.current;
+    if (!element) return;
+    if (element.preload === "none") {
+      element.preload = "metadata";
+    }
+    void element.play().catch(() => undefined);
+  };
+
+  const handlePreviewStop = () => {
+    const element = videoRef.current;
+    if (!element) return;
+    element.pause();
+  };
+
   return (
     <article
       className={cn(
@@ -125,7 +144,11 @@ function VideoAssetCard({
         selected && "ring-2 ring-foreground ring-offset-2 ring-offset-background",
       )}
     >
-      <div className="group relative aspect-video w-full bg-black text-white">
+      <div
+        className="group relative aspect-video w-full bg-zinc-950 text-white"
+        onMouseEnter={handlePreviewStart}
+        onMouseLeave={handlePreviewStop}
+      >
         <Checkbox
           checked={selected}
           onCheckedChange={() => controller.toggleSelected(asset.id)}
@@ -133,10 +156,33 @@ function VideoAssetCard({
           className="absolute left-3 top-3 z-10 border-white bg-black/45 data-[state=checked]:border-foreground data-[state=checked]:bg-foreground data-[state=checked]:text-background"
           aria-label={selected ? "取消选择视频" : "选择视频"}
         />
-        <button type="button" className="absolute inset-0 block w-full" onClick={() => controller.selectAsset(asset)} aria-label={`播放视频 ${asset.task_id}`}>
-          <video preload="metadata" src={asset.url} muted className="size-full object-cover" />
-          <span className="absolute inset-0 grid place-items-center bg-black/15 transition group-hover:bg-black/25">
-            <span className="grid size-11 place-items-center rounded-full bg-white/92 text-zinc-900 shadow-lg">
+        <button
+          type="button"
+          className="absolute inset-0 block w-full"
+          onFocus={handlePreviewStart}
+          onBlur={handlePreviewStop}
+          onClick={() => controller.selectAsset(asset)}
+          aria-label={`播放视频 ${asset.task_id}`}
+        >
+          {!activated ? (
+            <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1.5 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_70%)] text-zinc-500">
+              <Film className="size-6 opacity-50" />
+              <span className="font-mono text-[10px] tracking-wider uppercase opacity-75">
+                {asset.resolution_name || "MP4"} · {asset.seconds || "—"}S
+              </span>
+            </div>
+          ) : null}
+          <video
+            ref={videoRef}
+            preload="none"
+            playsInline
+            loop
+            src={activated ? asset.url : undefined}
+            muted
+            className="relative z-[1] size-full object-cover"
+          />
+          <span className="absolute inset-0 z-[2] grid place-items-center bg-black/15 transition group-hover:bg-black/25">
+            <span className="grid size-11 place-items-center rounded-full bg-white/92 text-zinc-900 shadow-lg transition-transform duration-150 group-hover:scale-105">
               <Play className="ml-0.5 size-5" />
             </span>
           </span>

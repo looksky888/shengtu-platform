@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
 import { AlertCircle, ArrowRight, LoaderCircle, Mail, RefreshCw, ShieldCheck } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
@@ -19,10 +18,25 @@ import { useICloudPage } from "./use-icloud-page";
 
 type ICloudTab = "mailboxes" | "sessions";
 
+function parseICloudTab(raw: string | null): ICloudTab {
+  return raw === "sessions" ? "sessions" : "mailboxes";
+}
+
 export default function ICloudPage() {
   const { isCheckingAuth, session } = useAuthGuard(undefined, "/icloud");
   const controller = useICloudPage(Boolean(session));
-  const [activeTab, setActiveTab] = useState<ICloudTab>("mailboxes");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = parseICloudTab(searchParams.get("tab"));
+
+  const handleTabChange = (nextTab: ICloudTab) => {
+    const nextParams = new URLSearchParams(searchParams);
+    if (nextTab === "mailboxes") {
+      nextParams.delete("tab");
+    } else {
+      nextParams.set("tab", nextTab);
+    }
+    setSearchParams(nextParams, { replace: true });
+  };
 
   if (isCheckingAuth || !session) {
     return (
@@ -72,7 +86,7 @@ export default function ICloudPage() {
             </div>
           ) : undefined
         }
-        description="登录 Apple 账号并配置 IMAP 取码通道后即可批量生成隐藏邮件地址，供本地注册流水线（icloud_local）自动领用；凭证仅用于当次请求，不写入前端本地存储。"
+        description="集中管理隐藏邮件地址库存、IMAP 自动取码与多 Apple 会话批量生成。"
         actions={
           <div className="flex flex-wrap items-center gap-2">
             {selectedAccountIds.length > 0 ? (
@@ -131,7 +145,7 @@ export default function ICloudPage() {
         <SubNav
           items={tabs}
           value={activeTab}
-          onValueChange={setActiveTab}
+          onValueChange={handleTabChange}
           variant="pill"
           ariaLabel="iCloud 隐私邮箱栏目切换"
           layoutId="icloud-subnav"
@@ -144,7 +158,7 @@ export default function ICloudPage() {
       </div>
 
       {activeTab === "mailboxes" ? (
-        <ICloudMailboxesPanel controller={controller} onSwitchToSessions={() => setActiveTab("sessions")} />
+        <ICloudMailboxesPanel controller={controller} onSwitchToSessions={() => handleTabChange("sessions")} />
       ) : (
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(22rem,.9fr)]">
           <ICloudSessionsPanel controller={controller} />

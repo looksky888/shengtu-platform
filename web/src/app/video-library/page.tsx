@@ -1,7 +1,9 @@
 "use client";
 
-import { CheckSquare, Filter, Globe2, LoaderCircle, Lock, Plus, RefreshCw, RotateCcw, Search, Square, Trash2, X } from "lucide-react";
+import { useState } from "react";
+import { CheckSquare, Download, Filter, Globe2, LoaderCircle, Lock, Plus, RefreshCw, RotateCcw, Search, Square, Trash2, X } from "lucide-react";
 import { Link } from "react-router-dom";
+import { toast } from "sonner";
 
 import { VideoLibraryGrid } from "@/app/video-library/video-library-grid";
 import { VideoLibraryTabs } from "@/app/video-library/video-library-tabs";
@@ -14,12 +16,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuthGuard } from "@/lib/use-auth-guard";
+import { videoDownloadURL } from "@/lib/video-task-api";
 import { hasAPIPermission } from "@/store/auth";
 
 export default function VideoLibraryPage() {
-  const { isCheckingAuth, session } = useAuthGuard(undefined, "/video");
+  const { isCheckingAuth, session } = useAuthGuard(undefined, "/video-library");
   const isAdmin = session?.role === "admin";
   const controller = useVideoLibrary(Boolean(session), isAdmin ? "all" : "mine");
+  const [batchDownloading, setBatchDownloading] = useState(false);
 
   if (isCheckingAuth || !session) {
     return (
@@ -43,6 +47,29 @@ export default function VideoLibraryPage() {
   const clearFilters = () => {
     controller.setSearchKeyword("");
     controller.setVisibilityFilter("all");
+  };
+
+  const handleBatchDownload = async () => {
+    if (batchDownloading || controller.selectedAssets.length === 0) return;
+    setBatchDownloading(true);
+    try {
+      for (let index = 0; index < controller.selectedAssets.length; index += 1) {
+        const asset = controller.selectedAssets[index];
+        const anchor = document.createElement("a");
+        anchor.href = videoDownloadURL(asset);
+        anchor.download = `video-${asset.task_id || asset.id}.mp4`;
+        anchor.rel = "noopener";
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        if (index + 1 < controller.selectedAssets.length) {
+          await new Promise((resolve) => window.setTimeout(resolve, 260));
+        }
+      }
+      toast.success(`已触发 ${controller.selectedAssets.length} 个视频下载`);
+    } finally {
+      setBatchDownloading(false);
+    }
   };
 
   return (
@@ -142,6 +169,16 @@ export default function VideoLibraryPage() {
                 <span className="rounded-md bg-surface-muted px-2 py-1 text-xs font-medium text-foreground tabular-nums">
                   已选 {controller.selectedAssets.length}
                 </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void handleBatchDownload()}
+                  disabled={batchDownloading}
+                >
+                  {batchDownloading ? <LoaderCircle className="size-3.5 animate-spin" /> : <Download className="size-3.5" />}
+                  批量下载
+                </Button>
                 {controller.scope === "mine" && canUpdateVisibility ? (
                   <Button type="button" variant="outline" size="sm" onClick={() => void controller.setSelectedVisibility("public")} disabled={Boolean(controller.visibilityMutatingID)}>
                     <Globe2 className="size-3.5" />公开

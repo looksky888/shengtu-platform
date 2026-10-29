@@ -141,10 +141,10 @@ export function ComposerToolbar(props: ComposerToolbarProps) {
       <div className="flex shrink-0 items-center gap-2.5">
         {props.composerMode === "image" && props.estimatedCreditCost > 0 ? (
           <span
-            className="hidden items-center px-1 text-xs text-muted-foreground tabular-nums sm:inline-flex"
+            className="inline-flex items-center px-1 text-[11px] text-muted-foreground tabular-nums sm:text-xs"
             title={props.estimatedCreditCostDetail}
           >
-            预计消耗 {props.estimatedCreditCost} 积分
+            <span className="hidden sm:inline">预计消耗&nbsp;</span>{props.estimatedCreditCost} 积分
           </span>
         ) : null}
         <button

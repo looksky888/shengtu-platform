@@ -24,6 +24,9 @@ const API_PERMISSION_SUBTREE_ROOTS: ReadonlyArray<{ method: string; path: string
 export function canAccessPath(session: StoredAuthSession | null | undefined, path: string) {
   if (!session) return false;
   if (path === "/profile" || session.role === "admin") return true;
+  if (path === "/video-library") {
+    return Array.isArray(session.menuPaths) && (session.menuPaths.includes("/video-library") || session.menuPaths.includes("/video"));
+  }
   return Array.isArray(session.menuPaths) && session.menuPaths.includes(path);
 }
 

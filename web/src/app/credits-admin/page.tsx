@@ -1,6 +1,6 @@
 "use client";
 
-import { Coins, CreditCard, LoaderCircle } from "lucide-react";
+import { Coins, CreditCard, LoaderCircle, ReceiptText } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 
 import { AdjustCreditsDialog } from "@/app/credits-admin/adjust-credits-dialog";
@@ -16,10 +16,11 @@ import { useCreditsAdmin } from "@/app/credits-admin/use-credits-admin";
 import { SubNav, type SubNavItem } from "@/components/ui/sub-nav";
 import { useAuthGuard } from "@/lib/use-auth-guard";
 
-type CreditsAdminTab = "cards" | "ledger";
+type CreditsAdminTab = "cards" | "ledger" | "users";
 
 function parseCreditsAdminTab(raw: string | null): CreditsAdminTab {
-  if (raw === "ledger" || raw === "users") return "ledger";
+  if (raw === "ledger") return "ledger";
+  if (raw === "users") return "users";
   return "cards";
 }
 
@@ -47,11 +48,24 @@ function CreditsAdminContent({ session }: { session: NonNullable<ReturnType<type
     },
     {
       value: "ledger",
-      label: "积分流水与用户余额",
-      icon: Coins,
+      label: "全站积分流水",
+      icon: ReceiptText,
       badge: state.ledgerTotal,
     },
+    {
+      value: "users",
+      label: "用户余额与调账",
+      icon: Coins,
+      badge: state.accountCount,
+    },
   ];
+
+  const tabDescription =
+    activeTab === "cards"
+      ? "集中管理积分兑换卡密生成、状态筛选与批量复制"
+      : activeTab === "ledger"
+        ? "按来源或用户检索全平台积分收支与自动退款记录"
+        : "查看各账户实时算力积分余额并执行人工增减调账";
 
   return (
     <section className="flex flex-col gap-5">
@@ -66,18 +80,15 @@ function CreditsAdminContent({ session }: { session: NonNullable<ReturnType<type
           layoutId="credits-admin-subnav"
         />
         <span className="text-xs text-muted-foreground">
-          {activeTab === "cards"
-            ? "集中管理积分兑换卡密生成、状态筛选与批量复制"
-            : "查看全平台积分变动流水并直接调整指定用户积分余额"}
+          {tabDescription}
         </span>
       </div>
       {activeTab === "cards" ? (
         <CreditCardsSection state={state} />
+      ) : activeTab === "ledger" ? (
+        <CreditLedgerSection state={state} />
       ) : (
-        <div className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
-          <CreditLedgerSection state={state} />
-          <CreditUsersSection state={state} />
-        </div>
+        <CreditUsersSection state={state} />
       )}
       <GenerateCreditCardsDialog state={state} />
       <GeneratedCreditCardsDialog state={state} />

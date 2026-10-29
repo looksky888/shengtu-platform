@@ -18,6 +18,7 @@ import { Link } from "react-router-dom";
 
 import { StudioStatsPopover } from "@/app/image/components/studio-stats-popover";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { isImeComposing } from "@/lib/keyboard";
 import { cn } from "@/lib/utils";
 import {
   getImageConversationStats,
@@ -226,6 +227,9 @@ export function ImageSidebar({
                         value={editingTitle}
                         onChange={(event) => setEditingTitle(event.target.value)}
                         onKeyDown={(event) => {
+                          if (isImeComposing(event)) {
+                            return;
+                          }
                           if (event.key === "Enter") {
                             event.preventDefault();
                             void commitRename(conversation);

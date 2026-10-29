@@ -14,7 +14,7 @@ export function UserUsageSparkline({ points }: { points?: ManagedUserUsage["usag
   if (safePoints.length === 0) {
     return (
       <div
-        className="flex h-16 w-[230px] items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 text-xs text-muted-foreground"
+        className="flex h-11 w-[132px] items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 text-[11px] text-muted-foreground"
         aria-label="调用曲线暂无数据"
       >
         暂无调用
@@ -22,11 +22,11 @@ export function UserUsageSparkline({ points }: { points?: ManagedUserUsage["usag
     );
   }
 
-  const width = 220;
-  const height = 64;
-  const paddingX = 8;
-  const paddingTop = 8;
-  const paddingBottom = 12;
+  const width = 132;
+  const height = 44;
+  const paddingX = 6;
+  const paddingTop = 6;
+  const paddingBottom = 8;
   const baselineY = height - paddingBottom;
   const plotWidth = width - paddingX * 2;
   const plotHeight = height - paddingTop - paddingBottom;
@@ -45,30 +45,30 @@ export function UserUsageSparkline({ points }: { points?: ManagedUserUsage["usag
   const firstPoint = chartPoints[0];
   const lastPoint = chartPoints[chartPoints.length - 1];
   const linePath = chartPoints.length === 1
-    ? `M ${firstPoint.x - 12} ${firstPoint.y} L ${firstPoint.x + 12} ${firstPoint.y}`
+    ? `M ${firstPoint.x - 10} ${firstPoint.y} L ${firstPoint.x + 10} ${firstPoint.y}`
     : chartPoints.map(({ x, y }, index) => `${index === 0 ? "M" : "L"} ${x} ${y}`).join(" ");
   const areaPath = chartPoints.length === 1
-    ? `M ${firstPoint.x - 12} ${baselineY} L ${firstPoint.x - 12} ${firstPoint.y} L ${firstPoint.x + 12} ${firstPoint.y} L ${firstPoint.x + 12} ${baselineY} Z`
+    ? `M ${firstPoint.x - 10} ${baselineY} L ${firstPoint.x - 10} ${firstPoint.y} L ${firstPoint.x + 10} ${firstPoint.y} L ${firstPoint.x + 10} ${baselineY} Z`
     : `${linePath} L ${lastPoint.x} ${baselineY} L ${firstPoint.x} ${baselineY} Z`;
   const peakPoint = safePoints.reduce((peak, point) => (point.calls > peak.calls ? point : peak), safePoints[0]);
   const latestPoint = lastPoint.point;
   const label = `近 ${safePoints.length} 日调用曲线，今日 ${latestPoint.calls} 次，峰值 ${peakPoint.calls} 次`;
 
   return (
-    <div className="w-[230px] space-y-1.5" aria-label={label}>
-      <div className="h-16 overflow-hidden rounded-lg border border-border/70 bg-background">
+    <div className="w-[132px] shrink-0 space-y-1" aria-label={label}>
+      <div className="h-11 overflow-hidden rounded-lg border border-border/70 bg-background">
         <svg viewBox={`0 0 ${width} ${height}`} role="img" className="h-full w-full">
           <title>{label}</title>
           <line x1={paddingX} x2={width - paddingX} y1={paddingTop} y2={paddingTop} className="stroke-border/70" strokeDasharray="3 5" />
           <line x1={paddingX} x2={width - paddingX} y1={baselineY} y2={baselineY} className="stroke-border/70" />
           <path d={areaPath} className="fill-foreground opacity-[0.06] dark:opacity-[0.12]" />
-          <path d={linePath} fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" className="text-foreground" />
+          <path d={linePath} fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75" className="text-foreground" />
           {chartPoints.map(({ point, x, y }, index) => <UsagePointCircle key={point.date} point={point} x={x} y={y} isLatest={index === chartPoints.length - 1} />)}
         </svg>
       </div>
-      <div className="flex items-center justify-between gap-2 text-[11px] leading-4 text-muted-foreground tabular-nums">
-        <span>{formatUsageDate(safePoints[0].date)}-{formatUsageDate(latestPoint.date)}</span>
-        <span>峰值 {formatCompactNumber(peakPoint.calls)}</span>
+      <div className="flex items-center justify-between gap-1 text-[10px] leading-3.5 text-muted-foreground tabular-nums">
+        <span className="truncate">{formatUsageDate(safePoints[0].date)}-{formatUsageDate(latestPoint.date)}</span>
+        <span className="shrink-0">峰 {formatCompactNumber(peakPoint.calls)}</span>
       </div>
     </div>
   );
@@ -83,9 +83,9 @@ function UsagePointCircle({ point, x, y, isLatest }: { point: NormalizedUsagePoi
     <circle
       cx={x}
       cy={y}
-      r={isLatest ? 3.2 : 2.2}
+      r={isLatest ? 2.8 : 1.9}
       className={isLatest ? "fill-foreground" : "fill-background stroke-foreground"}
-      strokeWidth={isLatest ? 0 : 1.5}
+      strokeWidth={isLatest ? 0 : 1.35}
     >
       <title>{`${point.date} 调用 ${point.calls} 次，成功 ${point.success} 次，失败 ${point.failure} 次，额度 ${point.quotaUsed}`}</title>
     </circle>

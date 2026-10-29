@@ -23,3 +23,8 @@ export async function createPaymentOrder(productId: string, idempotencyKey: stri
 export async function createCustomCreditsOrder(credits: number, idempotencyKey: string, channelId?: string) { return httpRequest<{ item: PaymentOrder }>("/api/payment/orders", { method: "POST", headers: { "Idempotency-Key": idempotencyKey }, body: { custom_credits: credits, ...(channelId ? { channel_id: channelId } : {}) } }); }
 export async function queryPaymentOrder(orderId: string) { return httpRequest<{ item: PaymentOrder }>(`/api/payment/orders/${encodeURIComponent(orderId)}`); }
 export async function cancelPaymentOrder(orderId: string) { return httpRequest<{ item: PaymentOrder }>(`/api/payment/orders/${encodeURIComponent(orderId)}/cancel`, { method: "POST", body: {} }); }
+export async function fetchRecentPaymentOrders(limit = 10) {
+  const result = await httpRequest<{ items: PaymentOrder[] }>(`/api/payment/orders?limit=${Math.max(1, Math.min(30, limit))}`);
+  assertItemsResponse<PaymentOrder>(result, "充值记录");
+  return result;
+}

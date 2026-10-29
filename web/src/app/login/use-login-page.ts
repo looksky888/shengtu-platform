@@ -73,7 +73,7 @@ export function useLoginPage() {
   const setRegisterMode = (next: boolean) => {
     mode.setRegisterMode(next);
     setShowPassword(false);
-    setAgreedToTermsState(false);
+
     setErrorMessage(null);
   };
 
@@ -96,7 +96,7 @@ export function useLoginPage() {
       return reportValidationError("请输入用户名或邮箱");
     }
     if (!password) return reportValidationError("请输入密码");
-    if (!agreedToTerms) return reportValidationError("请先阅读并勾选同意《用户服务协议与免责声明》");
+    if (mode.isRegisterMode && !agreedToTerms) return reportValidationError("请先阅读并勾选同意《用户服务协议与免责声明》");
     if (mode.isRegisterMode && mode.registrationEnabled === false) return reportValidationError("当前未开放注册");
 
     setErrorMessage(null);
