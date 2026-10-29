@@ -1,10 +1,9 @@
 "use client";
 
 import { useState, type KeyboardEvent } from "react";
-import { ChevronLeft, ChevronRight, Lock, Plus, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -15,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DEFAULT_IMAGE_MODEL } from "@/lib/api-models";
+import { isImeComposing } from "@/lib/keyboard";
 import { cn } from "@/lib/utils";
 
 import { useSettingsStore } from "../store";
@@ -24,6 +24,14 @@ import {
   SettingsUnitInput,
   settingsInputClassName,
 } from "./settings-ui";
+
+export const DEFAULT_IMAGE_MODEL_OPTIONS = [
+  { value: "gpt-image-2.5-flare", label: "gpt-image-2.5-flare（默认推荐）" },
+  { value: "gpt-image-2.5-sunburst", label: "gpt-image-2.5-sunburst" },
+  { value: "gpt-image-2.5", label: "gpt-image-2.5" },
+  { value: "gpt-image-2", label: "gpt-image-2" },
+  { value: "auto", label: "auto（自动调度）" },
+] as const;
 
 export const INTERNAL_MODEL_OPTIONS = [
   "auto",
@@ -42,6 +50,18 @@ export function ImageAccountPoolSettings() {
   const config = useSettingsStore((state) => state.config);
   const setImageProxyField = useSettingsStore(
     (state) => state.setImageProxyField
+  );
+  const setGPTImage2CreditCost = useSettingsStore(
+    (state) => state.setGPTImage2CreditCost
+  );
+  const setGPTImage25CreditCost = useSettingsStore(
+    (state) => state.setGPTImage25CreditCost
+  );
+  const setGPTImage25FlareCreditCost = useSettingsStore(
+    (state) => state.setGPTImage25FlareCreditCost
+  );
+  const setGPTImage25SunburstCreditCost = useSettingsStore(
+    (state) => state.setGPTImage25SunburstCreditCost
   );
   const setImageCreditCost1080p = useSettingsStore(
     (state) => state.setImageCreditCost1080p
@@ -68,6 +88,7 @@ export function ImageAccountPoolSettings() {
     return null;
   }
 
+  const defaultModel = String(config.image_default_model || DEFAULT_IMAGE_MODEL);
   const primarySlug = String(config.image_internal_model_slug || "gpt-5-3");
   const fallbackEnabled = config.image_fallback_model_enabled !== false;
   const fallbackModels = Array.isArray(config.image_fallback_model_slugs)
@@ -138,6 +159,7 @@ export function ImageAccountPoolSettings() {
   };
 
   const handleCustomKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (isImeComposing(event)) return;
     if (event.key === "Enter") {
       event.preventDefault();
       addCustomSlug();
@@ -150,27 +172,42 @@ export function ImageAccountPoolSettings() {
       <SettingsSection
         layout="split"
         title="GPT 号池底层模型路由"
-        description="指定本地账号池发起生图会话的首选底层模型，以及失败后的自动降级轮询链路。"
+        description="指定默认生图模型、本地账号池发起生图会话的首选底层模型，以及失败后的自动降级轮询链路。"
       >
         <div className="grid gap-3.5 sm:grid-cols-2">
           <div className="space-y-1.5">
-            <div className="flex items-center justify-between gap-1.5">
-              <span className="text-xs font-medium text-foreground sm:text-[13px]">
-                全站默认生图模型
-              </span>
-              <Badge
-                variant="outline"
-                className="h-4.5 gap-1 px-1.5 text-[10px] font-normal text-muted-foreground"
+            <label
+              htmlFor="image-default-model"
+              className="block text-xs font-medium text-foreground sm:text-[13px]"
+            >
+              全站默认生图模型
+            </label>
+            <Select
+              value={defaultModel}
+              onValueChange={(value) =>
+                setImageProxyField({ image_default_model: value })
+              }
+            >
+              <SelectTrigger
+                id="image-default-model"
+                className={cn("w-full font-mono text-xs", settingsInputClassName)}
               >
-                <Lock className="size-2.5" />
-                服务端锁定
-              </Badge>
-            </div>
-            <div className="flex h-9 items-center rounded-lg border border-border/75 bg-surface-muted/65 px-3 font-mono text-xs text-muted-foreground">
-              {String(config.image_default_model || DEFAULT_IMAGE_MODEL)}
-            </div>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {DEFAULT_IMAGE_MODEL_OPTIONS.map((item) => (
+                  <SelectItem
+                    key={item.value}
+                    value={item.value}
+                    className="font-mono text-xs"
+                  >
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <p className="text-[11px] leading-4.5 text-muted-foreground">
-              API 未传 model 或传 auto 时默认使用该标识；创作台可按需切换具体模型。
+              API 未传 model 时默认使用该标识；创作台可按需切换具体子模型。
             </p>
           </div>
 
@@ -215,7 +252,7 @@ export function ImageAccountPoolSettings() {
               </SelectContent>
             </Select>
             <p className="text-[11px] leading-4.5 text-muted-foreground">
-              本地 GPT 号池执行 GPT Images 2.5 任务时优先调度的内部会话模型。
+              本地 GPT 号池执行生图会话时优先调度的内部会话模型。
             </p>
           </div>
         </div>
@@ -359,62 +396,121 @@ export function ImageAccountPoolSettings() {
       <SettingsSection
         layout="split"
         title="本地号池积分计费标准"
-        description="统一管理本地 GPT 号池、Grok 生图与 Grok 视频生成的默认扣费单价；第三方中转渠道按各自模型配置独立计费。"
+        description="显式配置各内置 GPT 子模型、Grok 生图与视频单价；创作台预估与服务端实际扣费 1:1 同步。"
       >
-        <div className="space-y-3.5">
-          <div className="grid gap-3 sm:grid-cols-3">
-            <SettingsUnitInput
-              id="pricing-gpt-1080p"
-              label="GPT 标准画质 (1K)"
-              unit="积分/张"
-              min={1}
-              value={config.image_credit_cost_1080p ?? 1}
-              onChange={setImageCreditCost1080p}
-            />
-            <SettingsUnitInput
-              id="pricing-gpt-2k"
-              label="GPT 高清画质 (2K)"
-              unit="积分/张"
-              min={1}
-              value={config.image_credit_cost_2k ?? 2}
-              onChange={setImageCreditCost2k}
-            />
-            <SettingsUnitInput
-              id="pricing-gpt-4k"
-              label="GPT 超清画质 (4K)"
-              unit="积分/张"
-              min={1}
-              value={config.image_credit_cost_4k ?? 3}
-              onChange={setImageCreditCost4k}
-            />
+        <div className="space-y-4">
+          <div className="space-y-2 rounded-xl border border-border/70 bg-surface-subtle/35 p-3">
+            <div className="flex flex-wrap items-center justify-between gap-1">
+              <span className="text-xs font-semibold text-foreground">
+                GPT 内置子模型独立单价（按所选模型直接计费）
+              </span>
+              <span className="text-[11px] text-muted-foreground">
+                优先于下方通用画质档位生效
+              </span>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <SettingsUnitInput
+                id="pricing-gpt-image-2"
+                label="GPT Image 2"
+                unit="积分/张"
+                min={1}
+                description="gpt-image-2"
+                value={config.gpt_image_2_credit_cost ?? config.image_credit_cost_1080p ?? 1}
+                onChange={setGPTImage2CreditCost}
+              />
+              <SettingsUnitInput
+                id="pricing-gpt-image-2-5"
+                label="GPT Image 2.5"
+                unit="积分/张"
+                min={1}
+                description="gpt-image-2.5"
+                value={config.gpt_image_2_5_credit_cost ?? config.image_credit_cost_2k ?? 2}
+                onChange={setGPTImage25CreditCost}
+              />
+              <SettingsUnitInput
+                id="pricing-gpt-image-2-5-flare"
+                label="GPT 2.5 Flare"
+                unit="积分/张"
+                min={1}
+                description="gpt-image-2.5-flare"
+                value={config.gpt_image_2_5_flare_credit_cost ?? config.image_credit_cost_4k ?? 3}
+                onChange={setGPTImage25FlareCreditCost}
+              />
+              <SettingsUnitInput
+                id="pricing-gpt-image-2-5-sunburst"
+                label="GPT 2.5 Sunburst"
+                unit="积分/张"
+                min={1}
+                description="gpt-image-2.5-sunburst"
+                value={config.gpt_image_2_5_sunburst_credit_cost ?? config.image_credit_cost_4k ?? 3}
+                onChange={setGPTImage25SunburstCreditCost}
+              />
+            </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-3">
-            <SettingsUnitInput
-              id="pricing-grok-1k"
-              label="Grok 标准生图 (1K)"
-              unit="积分/张"
-              min={1}
-              value={config.grok_image_credit_cost_1k ?? 1}
-              onChange={setGrokImageCreditCost1k}
-            />
-            <SettingsUnitInput
-              id="pricing-grok-2k"
-              label="Grok 高清生图 (2K)"
-              unit="积分/张"
-              min={1}
-              value={config.grok_image_credit_cost_2k ?? 2}
-              onChange={setGrokImageCreditCost2k}
-            />
-            <SettingsUnitInput
-              id="pricing-grok-video-sec"
-              label="Grok 视频每秒计费"
-              unit="积分/秒"
-              min={1}
-              description="grok-imagine-video 按实际生成时长计费"
-              value={config.video_credit_cost_per_second ?? 1}
-              onChange={setVideoCreditCostPerSecond}
-            />
+          <div className="space-y-2">
+            <div className="text-xs font-medium text-muted-foreground">
+              通用分辨率兜底档位（未绑定独立单价的其他/自定义模型使用）
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <SettingsUnitInput
+                id="pricing-gpt-1080p"
+                label="标准画质兜底 (1K)"
+                unit="积分/张"
+                min={1}
+                value={config.image_credit_cost_1080p ?? 1}
+                onChange={setImageCreditCost1080p}
+              />
+              <SettingsUnitInput
+                id="pricing-gpt-2k"
+                label="高清画质兜底 (2K)"
+                unit="积分/张"
+                min={1}
+                value={config.image_credit_cost_2k ?? 2}
+                onChange={setImageCreditCost2k}
+              />
+              <SettingsUnitInput
+                id="pricing-gpt-4k"
+                label="超清画质兜底 (4K)"
+                unit="积分/张"
+                min={1}
+                value={config.image_credit_cost_4k ?? 3}
+                onChange={setImageCreditCost4k}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2 border-t border-border/60 pt-3">
+            <div className="text-xs font-medium text-muted-foreground">
+              Grok 生图与视频计费标准
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <SettingsUnitInput
+                id="pricing-grok-1k"
+                label="Grok 标准生图 (1K)"
+                unit="积分/张"
+                min={1}
+                value={config.grok_image_credit_cost_1k ?? 1}
+                onChange={setGrokImageCreditCost1k}
+              />
+              <SettingsUnitInput
+                id="pricing-grok-2k"
+                label="Grok 高清生图 (2K)"
+                unit="积分/张"
+                min={1}
+                value={config.grok_image_credit_cost_2k ?? 2}
+                onChange={setGrokImageCreditCost2k}
+              />
+              <SettingsUnitInput
+                id="pricing-grok-video-sec"
+                label="Grok 视频每秒计费"
+                unit="积分/秒"
+                min={1}
+                description="grok-imagine-video 按实际生成时长计费"
+                value={config.video_credit_cost_per_second ?? 1}
+                onChange={setVideoCreditCostPerSecond}
+              />
+            </div>
           </div>
         </div>
       </SettingsSection>

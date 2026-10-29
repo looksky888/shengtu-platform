@@ -68,12 +68,79 @@ func (s *CreditService) load() (creditState, bool) {
 		}
 	}
 
-	fileEntries, ledgerOK, fromTable := s.loadLedgerEntries()
+	if s.ledgerStore != nil {
+		tableCount, err := s.ledgerStore.CountCreditLedger()
+		if err != nil {
+			return emptyCreditState(), false
+		}
+		if tableCount > 0 {
+			if len(state.Ledger) > 0 {
+				if err := s.ledgerStore.AppendCreditLedger(entriesToLedgerRows(state.Ledger)); err != nil {
+					return emptyCreditState(), false
+				}
+			}
+			latestRows, err := s.ledgerStore.LatestCreditLedgerByUser()
+			if err != nil {
+				return emptyCreditState(), false
+			}
+			reconcileCreditBalancesFromEntries(&state, ledgerRowsToEntries(latestRows))
+			redeemRows, err := s.ledgerStore.LoadCreditLedgerByReason(CreditReasonCardRedeem)
+			if err != nil {
+				return emptyCreditState(), false
+			}
+			reconcileRedeemedCardsFromEntries(&state, ledgerRowsToEntries(redeemRows))
+			recentRows, err := s.ledgerStore.LoadRecentCreditLedger(maxInMemoryCreditLedgerEntries)
+			if err != nil {
+				return emptyCreditState(), false
+			}
+			state.Ledger = ledgerRowsToEntries(recentRows)
+			s.ledgerTableBacked = true
+			s.ledgerPersisted = len(state.Ledger)
+			return state, true
+		}
+
+		fileEntries, ledgerOK := s.loadLedgerFile()
+		if !ledgerOK {
+			return emptyCreditState(), false
+		}
+		mergeAndSortCreditLedger(&state, fileEntries)
+		if len(state.Ledger) > 0 {
+			if err := s.ledgerStore.ReplaceCreditLedger(entriesToLedgerRows(state.Ledger)); err != nil {
+				return emptyCreditState(), false
+			}
+			_ = s.clearLegacyLedgerDocument()
+		}
+		reconcileCreditBalancesFromLedger(&state)
+		reconcileRedeemedCardsFromEntries(&state, state.Ledger)
+		if len(state.Ledger) > maxInMemoryCreditLedgerEntries {
+			trimmed := make([]CreditLedgerEntry, maxInMemoryCreditLedgerEntries)
+			copy(trimmed, state.Ledger[len(state.Ledger)-maxInMemoryCreditLedgerEntries:])
+			state.Ledger = trimmed
+		}
+		s.ledgerTableBacked = true
+		s.ledgerPersisted = len(state.Ledger)
+		return state, true
+	}
+
+	fileEntries, ledgerOK := s.loadLedgerFile()
 	if !ledgerOK {
 		return emptyCreditState(), false
 	}
+	mergeAndSortCreditLedger(&state, fileEntries)
+	reconcileCreditBalancesFromLedger(&state)
+	reconcileRedeemedCardsFromEntries(&state, state.Ledger)
+	s.ledgerTableBacked = false
 	if len(fileEntries) > 0 {
-		byID := map[string]CreditLedgerEntry{}
+		s.ledgerPersisted = len(state.Ledger)
+	} else {
+		s.ledgerPersisted = 0
+	}
+	return state, true
+}
+
+func mergeAndSortCreditLedger(state *creditState, fileEntries []CreditLedgerEntry) {
+	if len(fileEntries) > 0 {
+		byID := make(map[string]CreditLedgerEntry, len(fileEntries)+len(state.Ledger))
 		for _, entry := range fileEntries {
 			byID[entry.ID] = entry
 		}
@@ -93,17 +160,12 @@ func (s *CreditService) load() (creditState, bool) {
 		}
 		return state.Ledger[i].ID < state.Ledger[j].ID
 	})
-	if s.ledgerStore != nil && !fromTable && len(state.Ledger) > 0 {
-		if err := s.ledgerStore.ReplaceCreditLedger(entriesToLedgerRows(state.Ledger)); err != nil {
-			return emptyCreditState(), false
-		}
-		_ = s.clearLegacyLedgerDocument()
-		fromTable = true
-	}
-	reconcileCreditBalancesFromLedger(&state)
+}
+
+func reconcileRedeemedCardsFromEntries(state *creditState, entries []CreditLedgerEntry) {
 	// A crash can persist the redeem ledger before the card/core document.
 	// Replaying the ledger makes the card terminal state durable on next start.
-	for _, entry := range state.Ledger {
+	for _, entry := range entries {
 		if entry.Reason != CreditReasonCardRedeem {
 			continue
 		}
@@ -114,22 +176,17 @@ func (s *CreditService) load() (creditState, bool) {
 			state.Cards[entry.RefID] = card
 		}
 	}
-	if len(fileEntries) > 0 || fromTable {
-		s.ledgerPersisted = len(state.Ledger)
-	} else {
-		s.ledgerPersisted = 0
-	}
-	return state, true
 }
 
 // saveLocked persists ledger first, then core balances. If the core write fails,
-// it rewrites the durable ledger to the pre-append prefix.
+// it rolls back only the newly appended rows (table backend) or rewrites the prefix (legacy file backend).
 func (s *CreditService) saveLocked(state creditState) error {
 	if !s.storeReady {
 		return fmt.Errorf("积分数据未成功加载，已拒绝写入以防清空存储")
 	}
 	previousPersisted := s.ledgerPersisted
-	if err := s.persistLedgerAppend(state); err != nil {
+	appendedIDs, err := s.persistLedgerAppend(state)
+	if err != nil {
 		s.ledgerPersisted = previousPersisted
 		return err
 	}
@@ -138,6 +195,14 @@ func (s *CreditService) saveLocked(state creditState) error {
 		Accounts: state.Accounts, Cards: state.Cards, Invites: state.Invites, LedgerMigrated: true,
 	}
 	if err := saveStoredJSON(s.store, creditsDocumentName, path, core); err != nil {
+		if s.ledgerTableBacked && s.ledgerStore != nil {
+			if rollbackErr := s.ledgerStore.DeleteCreditLedgerByIDs(appendedIDs); rollbackErr != nil {
+				s.ledgerPersisted = len(state.Ledger)
+				return fmt.Errorf("保存积分余额失败且回滚流水失败: %v (rollback: %w)", err, rollbackErr)
+			}
+			s.ledgerPersisted = previousPersisted
+			return err
+		}
 		var rollback []CreditLedgerEntry
 		if previousPersisted > 0 && previousPersisted <= len(state.Ledger) {
 			rollback = state.Ledger[:previousPersisted]

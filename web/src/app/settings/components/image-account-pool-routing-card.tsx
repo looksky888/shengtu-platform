@@ -15,11 +15,15 @@ import {
   SettingsEmptyState,
 } from "./settings-ui";
 
-// 生图默认模型由服务端锁定为 gpt-image-2.5-flare，不在本卡片内提交覆盖。
 const ROUTING_AND_PRICING_KEYS: readonly (keyof SettingsConfig)[] = [
+  "image_default_model",
   "image_internal_model_slug",
   "image_fallback_model_enabled",
   "image_fallback_model_slugs",
+  "gpt_image_2_credit_cost",
+  "gpt_image_2_5_credit_cost",
+  "gpt_image_2_5_flare_credit_cost",
+  "gpt_image_2_5_sunburst_credit_cost",
   "image_credit_cost_1080p",
   "image_credit_cost_2k",
   "image_credit_cost_4k",
@@ -58,7 +62,7 @@ export function ImageAccountPoolRoutingCard() {
     <SettingsCard
       icon={Route}
       title="本地号池路由与积分计费"
-      description="管理本地账号池底层模型降级链路，以及内置 GPT / Grok 图文与视频生成的积分定价"
+      description="管理本地账号池默认生图模型、底层降级链路，以及各 GPT 子模型、Grok 与视频的独立积分定价"
       tone="slate"
       footer={
         config ? (

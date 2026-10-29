@@ -18,7 +18,10 @@ export type CreationPricing = Pick<
   | "grok_image_credit_cost_1k"
   | "grok_image_credit_cost_2k"
   | "video_credit_cost_per_second"
->;
+> & {
+  image_provider?: "account_pool" | "proxy_api";
+  image_default_model?: string;
+};
 
 export async function fetchCreationPricing(options: { signal?: AbortSignal } = {}) {
   return httpRequest<CreationPricing>("/api/creation-pricing", { signal: options.signal });

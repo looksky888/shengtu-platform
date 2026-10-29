@@ -18,7 +18,20 @@ from turnstile_result import validate_turnstile_token
 
 SCRIPTS = Path(__file__).parent
 ALLOWED_HOSTS = {"chatgpt.com", "sentinel.openai.com", "cdn.oaistatic.com"}
-MAX_SESSIONS = 32
+
+
+def _env_positive_int(name: str, default: int) -> int:
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return default
+    try:
+        parsed = int(raw)
+        return parsed if parsed > 0 else default
+    except ValueError:
+        return default
+
+
+MAX_SESSIONS = _env_positive_int("SENTINEL_SOLVER_MAX_SESSIONS", 6)
 SESSION_TTL_SECONDS = 1800
 PROOF_TTL_SECONDS = 120
 
@@ -74,6 +87,10 @@ class BrowserSolver:
         self.browser = None
         self.sessions: dict[str, BrowserSession] = {}
         self.context_index: dict[str, str] = {}
+        self.opening_locks: dict[str, asyncio.Lock] = {}
+        self.opening_waiters: dict[str, int] = {}
+        self.opening_in_flight: set[str] = set()
+        self.max_sessions = _env_positive_int("SENTINEL_SOLVER_MAX_SESSIONS", MAX_SESSIONS)
         self.default_timezone = os.environ.get("SENTINEL_SOLVER_TIMEZONE", "").strip()
         self.default_proxy = os.environ.get("SENTINEL_SOLVER_PROXY", "").strip()
         if not self.default_timezone:
@@ -186,25 +203,72 @@ class BrowserSolver:
         self._proxy_options(proxy_url)
         key = self._session_key(proxy_url, timezone)
         stale: list[BrowserSession] = []
+        existing: BrowserSession | None = None
+        key_lock: asyncio.Lock | None = None
         async with self.pool_lock:
             now = time.monotonic()
-            for candidate_key, session in list(self.sessions.items()):
-                if now - session.last_used_at > SESSION_TTL_SECONDS:
+            for candidate_key, candidate in list(self.sessions.items()):
+                if now - candidate.last_used_at > SESSION_TTL_SECONDS:
                     dropped = self._drop_session_locked(candidate_key)
                     if dropped is not None:
                         stale.append(dropped)
-            existing = self.sessions.get(key)
-            if existing is not None and not existing.page.is_closed():
-                existing.last_used_at = now
-                return existing
-            if len(self.sessions) >= MAX_SESSIONS:
-                raise RuntimeError("browser context capacity exhausted")
-            session = await self._open_session(key, proxy_url, timezone)
-            self.sessions[key] = session
-            self.context_index[session.epoch] = key
+            current = self.sessions.get(key)
+            if current is not None and not current.page.is_closed():
+                current.last_used_at = now
+                existing = current
+            else:
+                if current is not None:
+                    dropped = self._drop_session_locked(key)
+                    if dropped is not None:
+                        stale.append(dropped)
+                key_lock = self.opening_locks.setdefault(key, asyncio.Lock())
+                self.opening_waiters[key] = self.opening_waiters.get(key, 0) + 1
         for item in stale:
             await item.context.close()
-        return session
+        if existing is not None:
+            return existing
+        assert key_lock is not None
+        try:
+            async with key_lock:
+                closed_prev: BrowserSession | None = None
+                async with self.pool_lock:
+                    current = self.sessions.get(key)
+                    if current is not None and not current.page.is_closed():
+                        current.last_used_at = time.monotonic()
+                        return current
+                    if current is not None:
+                        closed_prev = self._drop_session_locked(key)
+                    if len(self.sessions) + len(self.opening_in_flight) >= self.max_sessions:
+                        raise RuntimeError("browser context capacity exhausted")
+                    self.opening_in_flight.add(key)
+                if closed_prev is not None:
+                    await closed_prev.context.close()
+                try:
+                    session = await self._open_session(key, proxy_url, timezone)
+                except Exception:
+                    async with self.pool_lock:
+                        self.opening_in_flight.discard(key)
+                    raise
+                abort_close = False
+                async with self.pool_lock:
+                    self.opening_in_flight.discard(key)
+                    if not self.ready():
+                        abort_close = True
+                    else:
+                        self.sessions[key] = session
+                        self.context_index[session.epoch] = key
+                if abort_close:
+                    await session.context.close()
+                    raise RuntimeError("browser solver stopped")
+                return session
+        finally:
+            async with self.pool_lock:
+                remaining = self.opening_waiters.get(key, 1) - 1
+                if remaining <= 0:
+                    self.opening_waiters.pop(key, None)
+                    self.opening_locks.pop(key, None)
+                else:
+                    self.opening_waiters[key] = remaining
 
     async def new_context(self, proxy_url: str = "", timezone: str = "") -> dict:
         session = await self._get_or_create_session(proxy_url, timezone)

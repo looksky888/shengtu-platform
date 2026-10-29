@@ -1,42 +1,45 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import webConfig from "@/constants/common-env";
-import { cancelPaymentOnLeave } from "@/lib/payment-order-leave";
+
+import {
+  loadActiveRechargeOrder,
+  syncActiveRechargeOrderStorage,
+} from "@/app/recharge/recharge-order-storage";
 import { cancelPaymentOrder, queryPaymentOrder, type PaymentOrder } from "@/lib/user-payment-api";
 
 export function useRechargeOrder(sessionKey: string) {
-  const [order, setOrder] = useState<PaymentOrder | null>(null);
+  const [order, setOrder] = useState<PaymentOrder | null>(() => loadActiveRechargeOrder(sessionKey));
   const [error, setError] = useState("");
   const [querying, setQuerying] = useState(false);
   const [cancelling, setCancelling] = useState(false);
-  const current = useRef<PaymentOrder | null>(null);
+  const current = useRef<PaymentOrder | null>(order);
   const mounted = useRef(false);
   const revision = useRef(0);
   const queryRequest = useRef<Promise<void> | null>(null);
   const cancelPending = useRef(false);
-  const leaveSent = useRef(false);
   const notified = useRef("");
 
-  const cancelOnLeave = useCallback((item: PaymentOrder | null) => {
-    if (!item || !["created", "pending"].includes(item.status) || leaveSent.current || cancelPending.current) return;
-    leaveSent.current = true;
-    void cancelPaymentOnLeave(webConfig.apiUrl, sessionKey, item.id).catch((reason: unknown) => {
-      leaveSent.current = false;
-      toast.error(reason instanceof Error ? reason.message : "离开页面时关单未确认");
-    });
-  }, [sessionKey]);
+  const applyOrder = useCallback(
+    (item: PaymentOrder | null) => {
+      current.current = item;
+      syncActiveRechargeOrderStorage(sessionKey, item);
+      if (mounted.current) {
+        setOrder(item);
+      }
+    },
+    [sessionKey],
+  );
 
-  const replaceOrder = useCallback((item: PaymentOrder | null) => {
-    revision.current += 1;
-    current.current = item;
-    leaveSent.current = false;
-    if (!mounted.current) {
-      cancelOnLeave(item);
-      return;
-    }
-    setOrder(item);
-    setError("");
-  }, [cancelOnLeave]);
+  const replaceOrder = useCallback(
+    (item: PaymentOrder | null) => {
+      revision.current += 1;
+      applyOrder(item);
+      if (mounted.current) {
+        setError("");
+      }
+    },
+    [applyOrder],
+  );
 
   const refresh = useCallback((): Promise<void> => {
     if (!mounted.current || cancelPending.current || !current.current) return Promise.resolve();
@@ -45,20 +48,22 @@ export function useRechargeOrder(sessionKey: string) {
     const version = revision.current;
     const stillCurrent = () => mounted.current && revision.current === version;
     setQuerying(true);
-    const request = queryPaymentOrder(item.id).then((result) => {
-      if (!stillCurrent()) return;
-      current.current = result.item;
-      setOrder(result.item);
-      setError("");
-    }).catch((reason: unknown) => {
-      if (stillCurrent()) setError(reason instanceof Error ? reason.message : "订单状态查询失败");
-    }).finally(() => {
-      if (queryRequest.current === request) queryRequest.current = null;
-      if (mounted.current) setQuerying(false);
-    });
+    const request = queryPaymentOrder(item.id)
+      .then((result) => {
+        if (!stillCurrent()) return;
+        applyOrder(result.item);
+        setError("");
+      })
+      .catch((reason: unknown) => {
+        if (stillCurrent()) setError(reason instanceof Error ? reason.message : "订单状态查询失败");
+      })
+      .finally(() => {
+        if (queryRequest.current === request) queryRequest.current = null;
+        if (mounted.current) setQuerying(false);
+      });
     queryRequest.current = request;
     return request;
-  }, []);
+  }, [applyOrder]);
 
   const cancel = useCallback(async () => {
     const item = current.current;
@@ -69,8 +74,7 @@ export function useRechargeOrder(sessionKey: string) {
     try {
       const result = await cancelPaymentOrder(item.id);
       if (!mounted.current || revision.current !== version) return;
-      current.current = result.item;
-      setOrder(result.item);
+      applyOrder(result.item);
       setError("");
       if (result.item.status === "closed" || result.item.status === "failed") {
         toast.success("支付订单已结束，可以重新选择套餐");
@@ -87,35 +91,54 @@ export function useRechargeOrder(sessionKey: string) {
       cancelPending.current = false;
       if (mounted.current) {
         setCancelling(false);
-        // Let a superseded query finish before loading the authoritative state.
         await queryRequest.current;
-        if (revision.current === version) await refresh();
+        if (revision.current === version && current.current && ["created", "pending", "closing"].includes(current.current.status)) {
+          await refresh();
+        }
       }
     }
-  }, [refresh]);
+  }, [applyOrder, refresh]);
+
+  useEffect(() => {
+    const restored = loadActiveRechargeOrder(sessionKey);
+    if (restored && (!current.current || current.current.id !== restored.id)) {
+      current.current = restored;
+      setOrder(restored);
+      setError("");
+    }
+  }, [sessionKey]);
 
   useEffect(() => {
     mounted.current = true;
-    const onLeave = () => {
-      revision.current += 1;
-      cancelOnLeave(current.current);
+    if (current.current && ["created", "pending", "closing"].includes(current.current.status)) {
+      void refresh();
+    }
+    const onShow = () => {
+      if (document.visibilityState === "hidden") return;
+      if (current.current && ["created", "pending", "closing"].includes(current.current.status)) {
+        void refresh();
+      }
     };
-    const onShow = () => { leaveSent.current = false; void refresh(); };
-    window.addEventListener("pagehide", onLeave);
     window.addEventListener("pageshow", onShow);
+    window.addEventListener("focus", onShow);
+    document.addEventListener("visibilitychange", onShow);
     return () => {
       mounted.current = false;
-      onLeave();
-      window.removeEventListener("pagehide", onLeave);
       window.removeEventListener("pageshow", onShow);
+      window.removeEventListener("focus", onShow);
+      document.removeEventListener("visibilitychange", onShow);
     };
-  }, [cancelOnLeave, refresh]);
+  }, [refresh]);
 
   const pollingID = order?.id;
   const pollingStatus = order?.status;
   useEffect(() => {
     if (!pollingID || !pollingStatus || !["created", "pending", "closing"].includes(pollingStatus)) return;
-    const timer = window.setInterval(() => { void refresh(); }, 4000);
+    const timer = window.setInterval(() => {
+      if (document.visibilityState !== "hidden") {
+        void refresh();
+      }
+    }, 4000);
     return () => window.clearInterval(timer);
   }, [pollingID, pollingStatus, refresh]);
 

@@ -110,11 +110,18 @@ func ledgerRowsToEntries(rows []storage.CreditLedgerRow) []CreditLedgerEntry {
 }
 
 func reconcileCreditBalancesFromLedger(state *creditState) {
-	if state == nil || len(state.Ledger) == 0 {
+	if state == nil {
+		return
+	}
+	reconcileCreditBalancesFromEntries(state, state.Ledger)
+}
+
+func reconcileCreditBalancesFromEntries(state *creditState, entries []CreditLedgerEntry) {
+	if state == nil || len(entries) == 0 {
 		return
 	}
 	lastByUser := map[string]CreditLedgerEntry{}
-	for _, entry := range state.Ledger {
+	for _, entry := range entries {
 		if entry.UserID != "" {
 			lastByUser[entry.UserID] = entry
 		}
@@ -167,18 +174,39 @@ func (s *CreditService) ledgerFilePath() string {
 	return filepath.Join(s.dataDir, "credits", "ledger.jsonl")
 }
 
-func (s *CreditService) persistLedgerAppend(state creditState) error {
+func (s *CreditService) persistLedgerAppend(state creditState) ([]string, error) {
+	if s.ledgerTableBacked && s.ledgerStore != nil {
+		start := s.ledgerPersisted
+		if start < 0 || start > len(state.Ledger) {
+			start = 0
+		}
+		delta := state.Ledger[start:]
+		if len(delta) == 0 {
+			return nil, nil
+		}
+		appendedIDs := make([]string, 0, len(delta))
+		for _, entry := range delta {
+			if entry.ID != "" {
+				appendedIDs = append(appendedIDs, entry.ID)
+			}
+		}
+		if err := s.ledgerStore.AppendCreditLedger(entriesToLedgerRows(delta)); err != nil {
+			return nil, err
+		}
+		s.ledgerPersisted = len(state.Ledger)
+		return appendedIDs, nil
+	}
 	if s.ledgerPersisted <= 0 || s.ledgerPersisted > len(state.Ledger) {
-		return s.rewriteLedgerFile(state.Ledger)
+		return nil, s.rewriteLedgerFile(state.Ledger)
 	}
 	if s.ledgerPersisted == len(state.Ledger) {
-		return nil
+		return nil, nil
 	}
 	if err := s.appendLedgerEntries(state.Ledger[s.ledgerPersisted:]); err != nil {
-		return err
+		return nil, err
 	}
 	s.ledgerPersisted = len(state.Ledger)
-	return nil
+	return nil, nil
 }
 
 func (s *CreditService) rewriteLedgerFile(entries []CreditLedgerEntry) error {

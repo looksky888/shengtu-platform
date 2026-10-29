@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useLocation } from "react-router-dom";
 
 import { fetchVisibleAnnouncements, type Announcement, type AnnouncementTarget } from "@/lib/api";
 
@@ -8,11 +9,46 @@ import { AnnouncementDialog } from "./announcement-dialog";
 import { AnnouncementPopover } from "./announcement-popover";
 import { muteStorageKey, todayKey } from "./announcement-utils";
 
-export function AnnouncementNotifications({ target, className }: { target: AnnouncementTarget; className?: string }) {
+const announcementsCache = new Map<AnnouncementTarget, { items: Announcement[]; fetchedAt: number }>();
+const announcementsInFlight = new Map<AnnouncementTarget, Promise<Announcement[]>>();
+const ANNOUNCEMENTS_CACHE_TTL_MS = 15_000;
+
+function loadSharedAnnouncements(target: AnnouncementTarget): Promise<Announcement[]> {
+  const cached = announcementsCache.get(target);
+  if (cached && Date.now() - cached.fetchedAt < ANNOUNCEMENTS_CACHE_TTL_MS) {
+    return Promise.resolve(cached.items);
+  }
+  const existing = announcementsInFlight.get(target);
+  if (existing) return existing;
+  const req = fetchVisibleAnnouncements(target)
+    .then((data) => {
+      const items = Array.isArray(data.items) ? data.items : [];
+      announcementsCache.set(target, { items, fetchedAt: Date.now() });
+      return items;
+    })
+    .finally(() => {
+      if (announcementsInFlight.get(target) === req) {
+        announcementsInFlight.delete(target);
+      }
+    });
+  announcementsInFlight.set(target, req);
+  return req;
+}
+
+export function AnnouncementNotifications({
+  target,
+  className,
+  autoOpen = true,
+}: {
+  target: AnnouncementTarget;
+  className?: string;
+  autoOpen?: boolean;
+}) {
+  const location = useLocation();
+  const pathname = location.pathname;
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [activeAnnouncementId, setActiveAnnouncementId] = useState("");
   const [autoQueue, setAutoQueue] = useState<string[]>([]);
-  const pathname = typeof window === "undefined" ? "" : window.location.pathname;
 
   const activeAnnouncement = useMemo(
     () => announcements.find((item) => item.id === activeAnnouncementId) ?? null,
@@ -22,21 +58,20 @@ export function AnnouncementNotifications({ target, className }: { target: Annou
 
   useEffect(() => {
     let active = true;
-    const loadAnnouncements = async () => {
-      try {
-        const data = await fetchVisibleAnnouncements(target);
-        if (active) setAnnouncements(Array.isArray(data.items) ? data.items : []);
-      } catch {
+    loadSharedAnnouncements(target)
+      .then((items) => {
+        if (active) setAnnouncements(items);
+      })
+      .catch(() => {
         if (active) setAnnouncements([]);
-      }
-    };
-    void loadAnnouncements();
+      });
     return () => {
       active = false;
     };
   }, [target]);
 
   useEffect(() => {
+    if (!autoOpen) return;
     const shouldAutoOpen = target === "login" || (target === "image" && pathname.startsWith("/image"));
     if (!shouldAutoOpen || announcements.length === 0) return;
     const today = todayKey();
@@ -49,7 +84,7 @@ export function AnnouncementNotifications({ target, className }: { target: Annou
     });
     setAutoQueue(queue);
     setActiveAnnouncementId(queue[0] || "");
-  }, [announcements, pathname, target]);
+  }, [announcements, autoOpen, pathname, target]);
 
   const openAnnouncement = (announcementId: string) => {
     setAutoQueue([]);

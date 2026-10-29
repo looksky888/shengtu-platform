@@ -3,43 +3,33 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { useMotionValue, useReducedMotion, useSpring } from "motion/react";
 
-import { fetchStudioImageTaskTodayStats } from "@/lib/api";
 import { getTaskQueueItems, useImageConversationsForQueue } from "@/components/image-task-queue-utils";
 import { getPageVisibilitySnapshot } from "@/lib/page-visibility";
-import { usePageVisible } from "@/lib/use-page-visible";
 
 import {
   clampFabPosition,
   defaultFabPosition,
-  emptyStudioStatsView,
   formatBallCount,
   formatPercent,
   isElevatedFailRate,
   loadFabPosition,
-  mapLedgerStats,
   saveFabPosition,
   snapFabToEdge,
   type FabPosition,
-  type StudioStatsView,
 } from "./studio-stats-fab-utils";
+import { fetchSharedStudioStats, useSharedStudioTelemetry } from "./studio-stats-store";
 
 const BALL = 64;
 const PANEL_W = 340;
-const POLL_OPEN_MS = 5000;
-const POLL_CLOSED_MS = 60000;
 const TERMINAL_REFRESH_DEBOUNCE_MS = 900;
 
 export function useStudioStatsFab() {
   const reduceMotion = useReducedMotion();
-  const pageVisible = usePageVisible();
   const conversations = useImageConversationsForQueue();
   const [open, setOpen] = useState(false);
+  const { stats, onlineAccounts, loading, error, refreshTelemetry } = useSharedStudioTelemetry(open);
   const [pos, setPos] = useState<FabPosition>(() => defaultFabPosition(BALL, 24));
   const [ready, setReady] = useState(false);
-  const [stats, setStats] = useState<StudioStatsView>(() => emptyStudioStatsView());
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [refreshToken, setRefreshToken] = useState(0);
   const [bump, setBump] = useState(0);
   const [panelHeight, setPanelHeight] = useState(0);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -50,8 +40,6 @@ export function useStudioStatsFab() {
   const terminalRefreshFollowUpRef = useRef<number | null>(null);
   const prevSuccessRef = useRef<number | null>(null);
   const mountedRef = useRef(true);
-  const statsAbortRef = useRef<AbortController | null>(null);
-  const statsRequestSeq = useRef(0);
 
   const x = useMotionValue(pos.x);
   const y = useMotionValue(pos.y);
@@ -62,6 +50,13 @@ export function useStudioStatsFab() {
   const hasData = stats.successImages + stats.failedImages > 0;
   const elevatedFail = isElevatedFailRate(stats.successImages, stats.failedImages);
   const ballCountText = formatBallCount(stats.successImages);
+
+  useEffect(() => {
+    if (prevSuccessRef.current !== null && stats.successImages > prevSuccessRef.current) {
+      setBump((n) => n + 1);
+    }
+    prevSuccessRef.current = stats.successImages;
+  }, [stats.successImages]);
 
   const clearTerminalRefreshTimers = useCallback(() => {
     if (terminalRefreshTimerRef.current != null) {
@@ -74,43 +69,17 @@ export function useStudioStatsFab() {
     }
   }, []);
 
-  const loadStats = useCallback(async (silent = false) => {
-    statsAbortRef.current?.abort();
-    const controller = new AbortController();
-    statsAbortRef.current = controller;
-    const seq = ++statsRequestSeq.current;
-    if (!silent) setLoading(true);
-    try {
-      const next = mapLedgerStats(await fetchStudioImageTaskTodayStats({ signal: controller.signal }));
-      if (!mountedRef.current || seq !== statsRequestSeq.current) return;
-      if (prevSuccessRef.current !== null && next.successImages > prevSuccessRef.current) {
-        setBump((n) => n + 1);
-      }
-      prevSuccessRef.current = next.successImages;
-      setStats(next);
-      setError(null);
-    } catch (err) {
-      if (!mountedRef.current || controller.signal.aborted || seq !== statsRequestSeq.current) return;
-      // Keep last error visible on silent refresh so poll failures aren't invisible.
-      setError(err instanceof Error ? err.message : "加载生图统计失败");
-    } finally {
-      if (mountedRef.current && seq === statsRequestSeq.current) setLoading(false);
-    }
-  }, []);
-
   const scheduleTerminalRefresh = useCallback(() => {
     clearTerminalRefreshTimers();
-    // Ledger is written when the server finishes the task; small delay then poll.
     terminalRefreshTimerRef.current = window.setTimeout(() => {
       if (!mountedRef.current || !getPageVisibilitySnapshot()) return;
-      void loadStats(true);
-      // Second tick covers ledger write lag / multi-image batches (cleaned on unmount).
+      void fetchSharedStudioStats({ silent: true, force: true });
       terminalRefreshFollowUpRef.current = window.setTimeout(() => {
         if (!mountedRef.current || !getPageVisibilitySnapshot()) return;
-        void loadStats(true);
+        void fetchSharedStudioStats({ silent: true, force: true });
       }, 1800);
     }, TERMINAL_REFRESH_DEBOUNCE_MS);
-  }, [clearTerminalRefreshTimers, loadStats]);
+  }, [clearTerminalRefreshTimers]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -122,20 +91,10 @@ export function useStudioStatsFab() {
     setReady(true);
     return () => {
       mountedRef.current = false;
-      statsAbortRef.current?.abort();
       clearTerminalRefreshTimers();
     };
   }, [clearTerminalRefreshTimers, x, y]);
 
-  useEffect(() => {
-    if (pageVisible) void loadStats();
-  }, [loadStats, pageVisible, refreshToken]);
-
-  useEffect(() => {
-    if (!pageVisible) statsAbortRef.current?.abort();
-  }, [pageVisible]);
-
-  // When any local turn leaves busy state, refresh ledger-backed stats promptly.
   useEffect(() => {
     const busy = new Set(
       getTaskQueueItems(conversations).map((item) => `${item.conversationId}:${item.turn.id}`),
@@ -170,22 +129,6 @@ export function useStudioStatsFab() {
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
-  useEffect(() => {
-    if (!pageVisible) return;
-    const interval = open ? POLL_OPEN_MS : POLL_CLOSED_MS;
-    const timer = window.setInterval(() => {
-      void loadStats(true);
-    }, interval);
-    return () => window.clearInterval(timer);
-  }, [loadStats, open, pageVisible]);
-
-  useEffect(() => {
-    if (!open || !getPageVisibilitySnapshot()) return;
-    void loadStats(true);
-  }, [loadStats, open]);
-
-  // 面板高度必须在布局阶段量测后进入 state：render 期读 DOM 会拿到过期尺寸，
-  // 使首次打开时的定位按兜底高度计算。
   useLayoutEffect(() => {
     const panel = panelRef.current;
     if (!open || !panel) {
@@ -230,8 +173,6 @@ export function useStudioStatsFab() {
       width: pw,
       transformOrigin: `${Math.min(100, Math.max(0, ox))}% ${Math.min(100, Math.max(0, oy))}%`,
     };
-    // panelHeight is re-measured on every open (layout effect + ResizeObserver), so it
-    // covers reopening without reading the DOM during render.
   }, [panelHeight, pos.x, pos.y]);
 
   const onPointerDown = (event: ReactPointerEvent<HTMLButtonElement>) => {
@@ -280,6 +221,12 @@ export function useStudioStatsFab() {
     commitPos(defaultFabPosition(BALL, 24), false);
   };
 
+  const setRefreshToken = useCallback(
+    (_updater?: number | ((value: number) => number)) => {
+      refreshTelemetry(false);
+    },
+    [refreshTelemetry],
+  );
 
   return {
     ready,
@@ -287,6 +234,7 @@ export function useStudioStatsFab() {
     setOpen,
     reduceMotion,
     stats,
+    onlineAccounts,
     loading,
     error,
     elevatedFail,

@@ -199,8 +199,22 @@ type CreditLedgerFilter struct {
 // JSON document backends do not implement this; CreditService keeps the document/jsonl path.
 type CreditLedgerBackend interface {
 	LoadCreditLedger() ([]CreditLedgerRow, error)
+	// LoadRecentCreditLedger returns up to limit newest rows ordered ascending (created_at ASC, id ASC).
+	LoadRecentCreditLedger(limit int) ([]CreditLedgerRow, error)
+	// LatestCreditLedgerByUser returns the latest row(s) per user_id ordered ascending for startup reconciliation.
+	LatestCreditLedgerByUser() ([]CreditLedgerRow, error)
+	// LoadCreditLedgerByReason returns all rows matching reason ordered ascending.
+	LoadCreditLedgerByReason(reason string) ([]CreditLedgerRow, error)
+	// LoadCreditLedgerByUser returns all rows matching userID ordered ascending.
+	LoadCreditLedgerByUser(userID string) ([]CreditLedgerRow, error)
+	// FindCreditLedgerByRef looks up an exact (user_id, reason, ref_id) ledger row using the composite index.
+	FindCreditLedgerByRef(userID, reason, refID string) (CreditLedgerRow, bool, error)
+	// HasCreditLedgerRefPrefix reports whether any row for (user_id, reason) has ref_id starting with refPrefix.
+	HasCreditLedgerRefPrefix(userID, reason, refPrefix string) (bool, error)
 	// AppendCreditLedger inserts rows; existing primary keys are ignored (idempotent).
 	AppendCreditLedger(rows []CreditLedgerRow) error
+	// DeleteCreditLedgerByIDs removes specific uncommitted ledger row IDs during core-state rollback.
+	DeleteCreditLedgerByIDs(ids []string) error
 	// ReplaceCreditLedger rewrites the full table (migration / rollback).
 	ReplaceCreditLedger(rows []CreditLedgerRow) error
 	// QueryCreditLedger filters, sorts (created_at desc, id desc), and pages.

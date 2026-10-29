@@ -4,7 +4,6 @@ import {
   GROK_IMAGE_RESOLUTION_OPTIONS,
   GPT_IMAGE_RESOLUTION_OPTIONS,
   IMAGE_QUALITY_OPTIONS,
-  IMAGE_RESOLUTION_OPTIONS,
   buildImageSize,
   type ImageAspectRatio,
   type ImageResolution,
@@ -19,7 +18,7 @@ import {
   normalizeRequestedImageCount,
 } from "@/app/image/lib/image-turn-utils";
 import { supportsImageQuality, type ImageModel } from "@/lib/api";
-import { isGrokImageModel } from "@/lib/api-models";
+import { isGPTImageModel, isGrokImageModel } from "@/lib/api-models";
 
 export type ImageModelOption = {
   id: string;
@@ -97,8 +96,12 @@ export function useImageComposerDerived(params: UseImageComposerDerivedParams) {
       const mapped = mapGrokImageSize(imageSize || "1:1");
       return `${selectedImageOption?.channelAlias ? `${selectedImageOption.channelAlias} · ` : ""}${displayLabel} · ${mapped} 画幅 × ${parsedCount} 张，预计 ${estimatedCreditCost.total} 积分。`;
     }
+    if (!selectedImageOption?.channelModelId && isGPTImageModel(imageModel)) {
+      const modelLabel = selectedImageOption?.label || imageModel;
+      return `${modelLabel}（${estimatedCreditCost.perImage} 积分/张）× ${parsedCount} 张，预计消耗 ${estimatedCreditCost.total} 积分。`;
+    }
     return `${selectedImageOption?.channelAlias ? `${selectedImageOption.channelAlias} · ` : ""}${displayLabel} × ${parsedCount} 张，预计消耗 ${estimatedCreditCost.total} 积分。`;
-  }, [estimatedCreditCost.total, imageModel, imageResolution, imageSize, parsedCount, selectedImageOption]);
+  }, [estimatedCreditCost.perImage, estimatedCreditCost.total, imageModel, imageResolution, imageSize, parsedCount, selectedImageOption]);
   const currentImageSizeSelection = useMemo(
     () =>
       serializeImageSizeSelection({

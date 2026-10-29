@@ -1,6 +1,8 @@
 package service
 
 import (
+	"errors"
+	"fmt"
 	"path/filepath"
 	"testing"
 
@@ -186,5 +188,121 @@ func TestCreditServiceSQLiteCoreWriteFailureRollsBackLedger(t *testing.T) {
 	after, _ := backend.CountCreditLedger()
 	if before != 1 || after != 2 {
 		t.Fatalf("counts before=%d after=%d want 1→2", before, after)
+	}
+}
+
+type failingCoreDocBackend struct {
+	*storage.DatabaseBackend
+	failStateSave bool
+}
+
+func (b *failingCoreDocBackend) SaveJSONDocument(name string, value any) error {
+	if b.failStateSave && name == creditsDocumentName {
+		return errors.New("simulated core state write failure")
+	}
+	return b.DatabaseBackend.SaveJSONDocument(name, value)
+}
+
+func TestCreditServiceBoundedInMemoryWindowPreservesHistoricalIdempotencyAndRollback(t *testing.T) {
+	root := t.TempDir()
+	dbPath := filepath.Join(root, "chatgpt2api.db")
+	rawDB, err := storage.NewDatabaseBackend("sqlite:///" + filepath.ToSlash(dbPath))
+	if err != nil {
+		t.Fatalf("NewDatabaseBackend() error = %v", err)
+	}
+	t.Cleanup(func() { _ = rawDB.Close() })
+
+	wrapped := &failingCoreDocBackend{DatabaseBackend: rawDB}
+	svc := NewCreditService(root, wrapped)
+	if !svc.StoreReady() {
+		t.Fatal("StoreReady() = false")
+	}
+
+	if _, _, err := svc.Add("user-bounded", 10000, CreditReasonSignup, "seed-signup"); err != nil {
+		t.Fatalf("Add(seed) error = %v", err)
+	}
+	// Historical DeductOnce row #1 and historical retry-exhausted row #2 (both will be evicted from RAM).
+	if _, _, charged, err := svc.DeductOnce("user-bounded", 2, CreditReasonImageGeneration, "evicted-task-1"); err != nil || !charged {
+		t.Fatalf("DeductOnce(evicted-task-1) charged=%v err=%v", charged, err)
+	}
+	if _, _, charged, err := svc.DeductOnce("user-bounded", 2, CreditReasonImageGeneration, "evicted-retry-task"); err != nil || !charged {
+		t.Fatalf("DeductOnce(evicted-retry-task) charged=%v err=%v", charged, err)
+	}
+	if _, _, awarded, err := svc.AddOnce("user-bounded", 2, CreditReasonImageRefund, "evicted-retry-task"); err != nil || !awarded {
+		t.Fatalf("AddOnce(evicted-retry-task refund) awarded=%v err=%v", awarded, err)
+	}
+	if _, _, charged, err := svc.DeductOnce("user-bounded", 2, CreditReasonImageGeneration, "evicted-retry-task:retry:legacy-random"); err != nil || !charged {
+		t.Fatalf("DeductOnce(legacy retry) charged=%v err=%v", charged, err)
+	}
+
+	// Bulk-seed > trimInMemoryCreditLedgerThreshold rows directly in credit_ledger + sync core balance,
+	// then append past threshold to exercise runtime trimming as well as cold reload.
+	bulkRows := make([]storage.CreditLedgerRow, 0, 2600)
+	balance := 9996
+	for i := 0; i < 2556; i++ {
+		balance--
+		bulkRows = append(bulkRows, storage.CreditLedgerRow{
+			ID:           fmt.Sprintf("bulk-%04d", i),
+			UserID:       "user-bounded",
+			Delta:        -1,
+			BalanceAfter: balance,
+			Reason:       CreditReasonImageGeneration,
+			RefID:        fmt.Sprintf("bulk-ref-%04d", i),
+			CreatedAt:    fmt.Sprintf("2099-01-01T00:%02d:%02d.%03d+08:00", (i/60)%60, i%60, i),
+		})
+	}
+	if err := rawDB.AppendCreditLedger(bulkRows); err != nil {
+		t.Fatalf("AppendCreditLedger(bulk) error = %v", err)
+	}
+
+	reloaded := NewCreditService(root, wrapped)
+	if !reloaded.StoreReady() {
+		t.Fatal("reloaded StoreReady() = false")
+	}
+	if len(reloaded.state.Ledger) != maxInMemoryCreditLedgerEntries {
+		t.Fatalf("reloaded in-memory ledger len = %d, want %d", len(reloaded.state.Ledger), maxInMemoryCreditLedgerEntries)
+	}
+	account, err := reloaded.Account("user-bounded")
+	if err != nil || account.Balance != balance {
+		t.Fatalf("reconciled balance = %d, want %d (err=%v)", account.Balance, balance, err)
+	}
+
+	// Evicted historical DeductOnce & DeductRetryOnce must still hit SQLite index and never double-charge.
+	if _, _, charged, err := reloaded.DeductOnce("user-bounded", 2, CreditReasonImageGeneration, "evicted-task-1"); err != nil || charged {
+		t.Fatalf("evicted DeductOnce re-charged: charged=%v err=%v", charged, err)
+	}
+	if _, _, retried, err := reloaded.DeductRetryOnce("user-bounded", 2, CreditReasonImageGeneration, CreditReasonImageRefund, "evicted-retry-task"); err != nil || retried {
+		t.Fatalf("evicted DeductRetryOnce allowed second retry: retried=%v err=%v", retried, err)
+	}
+
+	// Push runtime writes past trimInMemoryCreditLedgerThreshold (2048 -> 2561 -> trimmed back to 2048).
+	for i := 0; i < (trimInMemoryCreditLedgerThreshold-maxInMemoryCreditLedgerEntries)+1; i++ {
+		if _, _, err := reloaded.Deduct("user-bounded", 1, CreditReasonImageGeneration, fmt.Sprintf("live-ref-%04d", i)); err != nil {
+			t.Fatalf("live Deduct(%d) error = %v", i, err)
+		}
+	}
+	if len(reloaded.state.Ledger) != maxInMemoryCreditLedgerEntries {
+		t.Fatalf("trimmed in-memory ledger len = %d, want %d", len(reloaded.state.Ledger), maxInMemoryCreditLedgerEntries)
+	}
+
+	// Simulate core state.json write failure: ONLY the uncommitted row must be deleted, preserving all prior table rows!
+	countBeforeFail, err := rawDB.CountCreditLedger()
+	if err != nil {
+		t.Fatalf("CountCreditLedger() error = %v", err)
+	}
+	wrapped.failStateSave = true
+	if _, _, err := reloaded.Deduct("user-bounded", 1, CreditReasonImageGeneration, "should-rollback"); err == nil {
+		t.Fatal("expected Deduct to fail when SaveJSONDocument fails")
+	}
+	wrapped.failStateSave = false
+	countAfterFail, err := rawDB.CountCreditLedger()
+	if err != nil {
+		t.Fatalf("CountCreditLedger() after rollback error = %v", err)
+	}
+	if countAfterFail != countBeforeFail {
+		t.Fatalf("rollback wiped or leaked table rows: before=%d after=%d", countBeforeFail, countAfterFail)
+	}
+	if fullHistory := reloaded.Ledger("user-bounded"); len(fullHistory) != countBeforeFail {
+		t.Fatalf("Ledger(user-bounded) len = %d, want full SQLite count %d", len(fullHistory), countBeforeFail)
 	}
 }

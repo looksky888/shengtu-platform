@@ -6,6 +6,166 @@ import (
 	"strings"
 )
 
+func (b *DatabaseBackend) LoadRecentCreditLedger(limit int) ([]CreditLedgerRow, error) {
+	if limit <= 0 {
+		return []CreditLedgerRow{}, nil
+	}
+	query := `SELECT id, user_id, delta, balance_after, reason, ref_id, created_at
+		FROM (
+			SELECT id, user_id, delta, balance_after, reason, ref_id, created_at
+			FROM credit_ledger
+			ORDER BY created_at DESC, id DESC
+			LIMIT ` + b.placeholder(1) + `
+		) AS recent_ledger
+		ORDER BY created_at ASC, id ASC`
+	rows, err := b.db.Query(query, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanCreditLedgerRows(rows)
+}
+
+func (b *DatabaseBackend) LatestCreditLedgerByUser() ([]CreditLedgerRow, error) {
+	rows, err := b.db.Query(
+		`SELECT l.id, l.user_id, l.delta, l.balance_after, l.reason, l.ref_id, l.created_at
+		 FROM credit_ledger l
+		 INNER JOIN (
+			SELECT user_id, MAX(created_at) AS max_created
+			FROM credit_ledger
+			GROUP BY user_id
+		 ) latest ON l.user_id = latest.user_id AND l.created_at = latest.max_created
+		 ORDER BY l.created_at ASC, l.id ASC`,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanCreditLedgerRows(rows)
+}
+
+func (b *DatabaseBackend) LoadCreditLedgerByReason(reason string) ([]CreditLedgerRow, error) {
+	reason = strings.TrimSpace(reason)
+	if reason == "" {
+		return []CreditLedgerRow{}, nil
+	}
+	query := `SELECT id, user_id, delta, balance_after, reason, ref_id, created_at
+		FROM credit_ledger
+		WHERE reason = ` + b.placeholder(1) + `
+		ORDER BY created_at ASC, id ASC`
+	rows, err := b.db.Query(query, reason)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanCreditLedgerRows(rows)
+}
+
+func (b *DatabaseBackend) LoadCreditLedgerByUser(userID string) ([]CreditLedgerRow, error) {
+	userID = strings.TrimSpace(userID)
+	if userID == "" {
+		return []CreditLedgerRow{}, nil
+	}
+	query := `SELECT id, user_id, delta, balance_after, reason, ref_id, created_at
+		FROM credit_ledger
+		WHERE user_id = ` + b.placeholder(1) + `
+		ORDER BY created_at ASC, id ASC`
+	rows, err := b.db.Query(query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanCreditLedgerRows(rows)
+}
+
+func (b *DatabaseBackend) FindCreditLedgerByRef(userID, reason, refID string) (CreditLedgerRow, bool, error) {
+	userID = strings.TrimSpace(userID)
+	reason = strings.TrimSpace(reason)
+	refID = strings.TrimSpace(refID)
+	if userID == "" || reason == "" || refID == "" {
+		return CreditLedgerRow{}, false, nil
+	}
+	query := `SELECT id, user_id, delta, balance_after, reason, ref_id, created_at
+		FROM credit_ledger
+		WHERE user_id = ` + b.placeholder(1) + ` AND reason = ` + b.placeholder(2) + ` AND ref_id = ` + b.placeholder(3) + `
+		ORDER BY created_at DESC, id DESC
+		LIMIT 1`
+	var row CreditLedgerRow
+	err := b.db.QueryRow(query, userID, reason, refID).Scan(
+		&row.ID, &row.UserID, &row.Delta, &row.BalanceAfter, &row.Reason, &row.RefID, &row.CreatedAt,
+	)
+	if err == sql.ErrNoRows {
+		return CreditLedgerRow{}, false, nil
+	}
+	if err != nil {
+		return CreditLedgerRow{}, false, err
+	}
+	return normalizeCreditLedgerRow(row), true, nil
+}
+
+func (b *DatabaseBackend) HasCreditLedgerRefPrefix(userID, reason, refPrefix string) (bool, error) {
+	userID = strings.TrimSpace(userID)
+	reason = strings.TrimSpace(reason)
+	refPrefix = strings.TrimSpace(refPrefix)
+	if userID == "" || reason == "" || refPrefix == "" {
+		return false, nil
+	}
+	pattern := escapeLikePattern(refPrefix) + "%"
+	query := `SELECT 1 FROM credit_ledger
+		WHERE user_id = ` + b.placeholder(1) + ` AND reason = ` + b.placeholder(2) + ` AND ref_id LIKE ` + b.placeholder(3) + likeEscapeClause + `
+		LIMIT 1`
+	var marker int
+	err := b.db.QueryRow(query, userID, reason, pattern).Scan(&marker)
+	if err == sql.ErrNoRows {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func (b *DatabaseBackend) DeleteCreditLedgerByIDs(ids []string) error {
+	cleaned := make([]string, 0, len(ids))
+	seen := make(map[string]struct{}, len(ids))
+	for _, raw := range ids {
+		id := strings.TrimSpace(raw)
+		if id == "" {
+			continue
+		}
+		if _, dup := seen[id]; dup {
+			continue
+		}
+		seen[id] = struct{}{}
+		cleaned = append(cleaned, id)
+	}
+	if len(cleaned) == 0 {
+		return nil
+	}
+	const batchSize = 500
+	tx, err := b.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	for start := 0; start < len(cleaned); start += batchSize {
+		end := start + batchSize
+		if end > len(cleaned) {
+			end = len(cleaned)
+		}
+		chunk := cleaned[start:end]
+		args := make([]any, len(chunk))
+		for i, id := range chunk {
+			args[i] = id
+		}
+		stmt := `DELETE FROM credit_ledger WHERE id IN (` + b.boundPlaceholders(1, len(chunk)) + `)`
+		if _, err := tx.Exec(stmt, args...); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
 func (b *DatabaseBackend) LoadCreditLedger() ([]CreditLedgerRow, error) {
 	rows, err := b.db.Query(
 		`SELECT id, user_id, delta, balance_after, reason, ref_id, created_at

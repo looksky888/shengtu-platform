@@ -36,7 +36,11 @@ func (s *CreditService) CompletePaymentRecharge(input PaymentRechargeCreditInput
 	if s.paymentStore == nil {
 		return CreditAccount{}, CreditLedgerEntry{}, false, errors.New("在线支付需要数据库存储后端")
 	}
-	if prior, ok := s.findLedgerByRefLocked(input.UserID, CreditReasonPaymentRecharge, input.OrderID); ok {
+	prior, ok, err := s.findLedgerByRefLocked(input.UserID, CreditReasonPaymentRecharge, input.OrderID)
+	if err != nil {
+		return CreditAccount{}, CreditLedgerEntry{}, false, err
+	}
+	if ok {
 		return s.state.Accounts[input.UserID], prior, false, nil
 	}
 
@@ -72,6 +76,7 @@ func (s *CreditService) CompletePaymentRecharge(input PaymentRechargeCreditInput
 		s.ledgerRefIndex = map[string]int{}
 	}
 	s.ledgerRefIndex[ledgerRefKey(entry.UserID, entry.Reason, entry.RefID)] = len(next.Ledger) - 1
+	s.trimInMemoryLedgerLocked()
 	return account, entry, true, nil
 }
 

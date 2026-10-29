@@ -23,9 +23,11 @@ const (
 	CreditCardStatusActive          = "active"
 	CreditCardStatusUsed            = "used"
 	CreditCardStatusDisabled        = "disabled"
-	DefaultSignupCreditAmount       = 10
-	DefaultDailyCheckinCreditAmount = 1
-	DefaultInviteCreditAmount       = 10
+	DefaultSignupCreditAmount         = 10
+	DefaultDailyCheckinCreditAmount   = 1
+	DefaultInviteCreditAmount         = 10
+	maxInMemoryCreditLedgerEntries    = 2048
+	trimInMemoryCreditLedgerThreshold = 2560
 )
 
 var (
@@ -82,6 +84,9 @@ type CreditService struct {
 	// ledgerPersisted is the number of in-memory ledger rows already flushed to durable storage.
 	// New rows are append-only so we do not rewrite the full ledger on every charge.
 	ledgerPersisted int
+	// ledgerTableBacked is true when durable ledger history lives in ledgerStore (credit_ledger table),
+	// allowing state.Ledger to hold only a bounded recent window while historical lookups use SQL.
+	ledgerTableBacked bool
 	// ledgerRefIndex maps user|reason|ref_id -> ledger index for O(1) DeductOnce/AddOnce.
 	ledgerRefIndex map[string]int
 }
@@ -120,15 +125,46 @@ func (s *CreditService) rebuildLedgerRefIndexLocked() {
 	}
 }
 
-func (s *CreditService) findLedgerByRefLocked(userID, reason, refID string) (CreditLedgerEntry, bool) {
+func (s *CreditService) trimInMemoryLedgerLocked() {
+	if !s.ledgerTableBacked || len(s.state.Ledger) <= trimInMemoryCreditLedgerThreshold {
+		return
+	}
+	if s.ledgerPersisted < len(s.state.Ledger) {
+		return
+	}
+	trimmed := make([]CreditLedgerEntry, maxInMemoryCreditLedgerEntries)
+	copy(trimmed, s.state.Ledger[len(s.state.Ledger)-maxInMemoryCreditLedgerEntries:])
+	s.state.Ledger = trimmed
+	s.ledgerPersisted = len(trimmed)
+	s.rebuildLedgerRefIndexLocked()
+}
+
+func (s *CreditService) findLedgerByRefLocked(userID, reason, refID string) (CreditLedgerEntry, bool, error) {
 	if s.ledgerRefIndex == nil {
 		s.rebuildLedgerRefIndexLocked()
 	}
-	idx, ok := s.ledgerRefIndex[ledgerRefKey(userID, reason, refID)]
-	if !ok || idx < 0 || idx >= len(s.state.Ledger) {
-		return CreditLedgerEntry{}, false
+	if idx, ok := s.ledgerRefIndex[ledgerRefKey(userID, reason, refID)]; ok && idx >= 0 && idx < len(s.state.Ledger) {
+		return s.state.Ledger[idx], true, nil
 	}
-	return s.state.Ledger[idx], true
+	if s.ledgerTableBacked && s.ledgerStore != nil {
+		row, found, err := s.ledgerStore.FindCreditLedgerByRef(userID, reason, refID)
+		if err != nil {
+			return CreditLedgerEntry{}, false, err
+		}
+		if !found {
+			return CreditLedgerEntry{}, false, nil
+		}
+		return CreditLedgerEntry{
+			ID:           row.ID,
+			UserID:       row.UserID,
+			Delta:        row.Delta,
+			BalanceAfter: row.BalanceAfter,
+			Reason:       row.Reason,
+			RefID:        row.RefID,
+			CreatedAt:    row.CreatedAt,
+		}, true, nil
+	}
+	return CreditLedgerEntry{}, false, nil
 }
 
 // StoreReady reports whether credit state was loaded successfully from storage.

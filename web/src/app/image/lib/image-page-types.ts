@@ -38,8 +38,22 @@ export type ImageCreditCosts = {
   "1080p": number;
   "2k": number;
   "4k": number;
+  gptImage2: number;
+  gptImage25: number;
+  gptImage25Flare: number;
+  gptImage25Sunburst: number;
   grok1k: number;
   grok2k: number;
 };
 
-export const DEFAULT_IMAGE_CREDIT_COSTS: ImageCreditCosts = { "1080p": 1, "2k": 2, "4k": 3, grok1k: 1, grok2k: 2 };
+export const DEFAULT_IMAGE_CREDIT_COSTS: ImageCreditCosts = {
+  "1080p": 1,
+  "2k": 2,
+  "4k": 3,
+  gptImage2: 1,
+  gptImage25: 2,
+  gptImage25Flare: 3,
+  gptImage25Sunburst: 3,
+  grok1k: 1,
+  grok2k: 2,
+};

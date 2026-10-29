@@ -149,6 +149,7 @@ func (s *CreditService) RedeemCard(userID, key string) (CreditAccount, CreditLed
 		}
 		s.ledgerRefIndex[ledgerRefKey(userID, entry.Reason, entry.RefID)] = len(s.state.Ledger) - 1
 	}
+	s.trimInMemoryLedgerLocked()
 	return account, entry, nextCard, nil
 }
 

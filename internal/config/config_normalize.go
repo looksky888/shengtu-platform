@@ -143,10 +143,12 @@ func normalizeImageDefaultModel(value any) string {
 	if util.IsGrokImageModel(model) {
 		return util.ImageModelGPT25Flare
 	}
-	if model == util.ImageModelGPT || model == util.ImageModelGPT25Flare || model == util.ImageModelGPT25Sunburst || model == util.ImageModelAuto {
+	switch model {
+	case util.ImageModelGPT, util.ImageModelGPT25, util.ImageModelGPT25Flare, util.ImageModelGPT25Sunburst, util.ImageModelAuto:
+		return model
+	default:
 		return util.ImageModelGPT25Flare
 	}
-	return util.ImageModelGPT25Flare
 }
 
 func normalizeImageInternalModelSlug(value any) string {

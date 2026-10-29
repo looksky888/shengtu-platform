@@ -1,12 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { Activity, CheckCircle2, ChevronUp, LoaderCircle, RefreshCw, Server, XCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { httpRequest } from "@/lib/request";
-import { usePageVisible } from "@/lib/use-page-visible";
 import { cn } from "@/lib/utils";
 
 import { formatCount } from "./studio-stats-fab-utils";
@@ -24,44 +21,7 @@ export function StudioStatsPopover({
   side = variant === "sidebar-footer" ? "top" : "bottom",
 }: StudioStatsPopoverProps) {
   const fab = useStudioStatsFab();
-  const pageVisible = usePageVisible();
-  const [onlineAccounts, setOnlineAccounts] = useState<number | null>(null);
-  const { open, setOpen, stats, loading, error, elevatedFail, hasData, rateText, setRefreshToken } = fab;
-
-  useEffect(() => {
-    if (!pageVisible) return;
-    let disposed = false;
-    const abortController = new AbortController();
-
-    const loadOnlinePool = async () => {
-      try {
-        const health = await httpRequest<{ account_pool?: { available?: number; free_slots?: number } }>("/health", {
-          method: "GET",
-          headers: { "Cache-Control": "no-cache" },
-          signal: abortController.signal,
-        });
-        if (disposed || !health?.account_pool) return;
-        const pool = health.account_pool;
-        const count = typeof pool.available === "number" ? pool.available : pool.free_slots;
-        if (typeof count === "number" && Number.isFinite(count)) {
-          setOnlineAccounts(Math.max(0, Math.floor(count)));
-        }
-      } catch {
-        // Keep previous online account snapshot if health check transiently fails.
-      }
-    };
-
-    void loadOnlinePool();
-    const timer = window.setInterval(() => {
-      void loadOnlinePool();
-    }, 60000);
-
-    return () => {
-      disposed = true;
-      abortController.abort();
-      window.clearInterval(timer);
-    };
-  }, [pageVisible, open]);
+  const { open, setOpen, stats, onlineAccounts, loading, error, elevatedFail, hasData, rateText, setRefreshToken } = fab;
 
   const todayCountLabel = loading && !hasData ? "…" : formatCount(stats.successImages);
   const onlineLabel = onlineAccounts !== null ? String(onlineAccounts) : "—";

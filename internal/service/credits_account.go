@@ -140,7 +140,11 @@ func (s *CreditService) AddOnce(userID string, amount int, reason, refID string)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if entry, ok := s.findLedgerByRefLocked(userID, reason, refID); ok {
+	entry, ok, err := s.findLedgerByRefLocked(userID, reason, refID)
+	if err != nil {
+		return CreditAccount{}, CreditLedgerEntry{}, false, err
+	}
+	if ok {
 		account, exists := s.state.Accounts[entry.UserID]
 		if !exists {
 			account = CreditAccount{UserID: entry.UserID}
@@ -179,7 +183,11 @@ func (s *CreditService) DeductOnce(userID string, amount int, reason, refID stri
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if entry, ok := s.findLedgerByRefLocked(userID, reason, refID); ok {
+	entry, ok, err := s.findLedgerByRefLocked(userID, reason, refID)
+	if err != nil {
+		return CreditAccount{}, CreditLedgerEntry{}, false, err
+	}
+	if ok {
 		account, exists := s.state.Accounts[entry.UserID]
 		if !exists {
 			account = CreditAccount{UserID: entry.UserID}
@@ -197,8 +205,31 @@ func (s *CreditService) Ledger(userID string) []CreditLedgerEntry {
 	}
 
 	s.mu.Lock()
-	defer s.mu.Unlock()
+	tableBacked := s.ledgerTableBacked && s.ledgerStore != nil
+	ledgerStore := s.ledgerStore
+	if !tableBacked {
+		entries := make([]CreditLedgerEntry, 0)
+		for _, entry := range s.state.Ledger {
+			if entry.UserID == userID {
+				entries = append(entries, entry)
+			}
+		}
+		s.mu.Unlock()
+		return entries
+	}
+	s.mu.Unlock()
 
+	rows, err := ledgerStore.LoadCreditLedgerByUser(userID)
+	if err == nil {
+		entries := ledgerRowsToEntries(rows)
+		if entries == nil {
+			return []CreditLedgerEntry{}
+		}
+		return entries
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	entries := make([]CreditLedgerEntry, 0)
 	for _, entry := range s.state.Ledger {
 		if entry.UserID == userID {
@@ -210,8 +241,28 @@ func (s *CreditService) Ledger(userID string) []CreditLedgerEntry {
 
 func (s *CreditService) AllLedger() []CreditLedgerEntry {
 	s.mu.Lock()
-	defer s.mu.Unlock()
+	tableBacked := s.ledgerTableBacked && s.ledgerStore != nil
+	ledgerStore := s.ledgerStore
+	if !tableBacked {
+		entries := append([]CreditLedgerEntry(nil), s.state.Ledger...)
+		s.mu.Unlock()
+		sort.SliceStable(entries, func(i, j int) bool { return entries[i].CreatedAt > entries[j].CreatedAt })
+		return entries
+	}
+	s.mu.Unlock()
+
+	if rows, err := ledgerStore.LoadCreditLedger(); err == nil {
+		entries := ledgerRowsToEntries(rows)
+		sort.SliceStable(entries, func(i, j int) bool { return entries[i].CreatedAt > entries[j].CreatedAt })
+		if entries == nil {
+			return []CreditLedgerEntry{}
+		}
+		return entries
+	}
+
+	s.mu.Lock()
 	entries := append([]CreditLedgerEntry(nil), s.state.Ledger...)
+	s.mu.Unlock()
 	sort.SliceStable(entries, func(i, j int) bool { return entries[i].CreatedAt > entries[j].CreatedAt })
 	return entries
 }
@@ -226,8 +277,8 @@ func (s *CreditService) HasLedgerEntry(userID, reason, refID string) bool {
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	_, ok := s.findLedgerByRefLocked(userID, reason, refID)
-	return ok
+	_, ok, err := s.findLedgerByRefLocked(userID, reason, refID)
+	return err == nil && ok
 }
 
 // RefundChargeByRef refunds a prior negative ledger row (e.g. image_generation) for the same
@@ -249,7 +300,11 @@ func (s *CreditService) ReconcileCreationCharge(userID, chargeReason, refID stri
 	}
 
 	s.mu.Lock()
-	entry, ok := s.findLedgerByRefLocked(userID, chargeReason, refID)
+	entry, ok, err := s.findLedgerByRefLocked(userID, chargeReason, refID)
+	if err != nil {
+		s.mu.Unlock()
+		return false, err
+	}
 	if !ok || entry.Delta >= 0 {
 		s.mu.Unlock()
 		return false, nil
@@ -279,7 +334,13 @@ func (s *CreditService) ReconcileCreationCharge(userID, chargeReason, refID stri
 		amount = unit * (billedCount - successCount)
 		refundRefID = fmt.Sprintf("%s:partial:%d_of_%d", refID, successCount, billedCount)
 	}
-	if _, refunded := s.findLedgerByRefLocked(userID, refundReason, refundRefID); refunded {
+	refundedEntry, refunded, err := s.findLedgerByRefLocked(userID, refundReason, refundRefID)
+	_ = refundedEntry
+	if err != nil {
+		s.mu.Unlock()
+		return false, err
+	}
+	if refunded {
 		s.mu.Unlock()
 		return false, nil
 	}
@@ -351,6 +412,7 @@ func (s *CreditService) changeBalanceLocked(userID string, delta int, reason, re
 		}
 		s.ledgerRefIndex[ledgerRefKey(userID, reason, entry.RefID)] = len(s.state.Ledger) - 1
 	}
+	s.trimInMemoryLedgerLocked()
 	return account, entry, nil
 }
 

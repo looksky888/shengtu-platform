@@ -6,6 +6,7 @@ import {
 
 import {
   normalizeImageAccountSchedule,
+  normalizeImageDefaultModel,
   normalizeImageFallbackModelSlugs,
   normalizeImageInternalModelSlug,
   normalizeImageProxyMaxRetries,
@@ -22,11 +23,11 @@ export function buildSettingsPayload(config: SettingsConfig): SettingsConfig {
     ...config,
     refresh_account_interval_minute: Math.max(
       1,
-      Number(config.refresh_account_interval_minute) || 1
+      Number(config.refresh_account_interval_minute) || 5
     ),
     image_concurrent_limit: Math.max(
       1,
-      Number(config.image_concurrent_limit) || 4
+      Number(config.image_concurrent_limit) || 3
     ),
     image_worker_count: Math.min(
       100,
@@ -53,8 +54,9 @@ export function buildSettingsPayload(config: SettingsConfig): SettingsConfig {
     ),
     image_task_timeout_seconds: Math.min(
       3600,
-      Math.max(30, Number(config.image_task_timeout_seconds) || 300)
+      Math.max(30, Number(config.image_task_timeout_seconds) || 600)
     ),
+    image_default_model: normalizeImageDefaultModel(config.image_default_model),
     image_internal_model_slug: normalizeImageInternalModelSlug(
       config.image_internal_model_slug
     ),
@@ -75,7 +77,7 @@ export function buildSettingsPayload(config: SettingsConfig): SettingsConfig {
       : [],
     image_proxy_timeout_seconds: Math.min(
       3600,
-      Math.max(30, Number(config.image_proxy_timeout_seconds) || 300)
+      Math.max(30, Number(config.image_proxy_timeout_seconds) || 600)
     ),
     image_proxy_max_retries: normalizeImageProxyMaxRetries(
       config.image_proxy_max_retries

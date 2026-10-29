@@ -361,7 +361,7 @@ export function NavSearchMenu({
     : -1;
 
   useEffect(() => {
-    if (compact) return;
+    // Only one NavSearchMenu mounts at a time via TopNav viewport gating.
     const handleShortcut = (event: KeyboardEvent) => {
       if (
         (event.ctrlKey || event.metaKey) &&
@@ -373,7 +373,7 @@ export function NavSearchMenu({
     };
     window.addEventListener("keydown", handleShortcut);
     return () => window.removeEventListener("keydown", handleShortcut);
-  }, [compact]);
+  }, []);
 
   useEffect(() => {
     if (!open) {

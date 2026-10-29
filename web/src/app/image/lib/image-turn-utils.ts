@@ -1,29 +1,17 @@
 import { CUSTOM_IMAGE_ASPECT_RATIO, parseImageRatio, type ImageAspectRatio, type ImageResolution, type ImageSizeMode } from "@/app/image/image-options";
-import { isGrokImageModel, supportsImageQuality, type ImageModel, type ImageOutputFormat, type ImageQuality } from "@/lib/api";
+import { supportsImageQuality, type ImageModel, type ImageOutputFormat, type ImageQuality } from "@/lib/api";
 import type { ImageConversationMode, ImageTurn, StoredReferenceImage } from "@/store/image-conversations";
 
 import { usesResponseImageTaskModel } from "./creation-task-route";
+import { estimatedCreditsPerImage, estimatedCreditsPerImageForModel } from "./image-credit-estimation";
 import { DEFAULT_IMAGE_CREDIT_COSTS, MISSING_RECOVERABLE_TASK_ID_ERROR, type ComposerMode, type ImageCreditCosts } from "./image-page-types";
 
 export { usesResponseImageTaskModel, resolveCreationTaskRoute } from "./creation-task-route";
+export { estimatedCreditsPerImage, estimatedCreditsPerImageForModel };
 export type { CreationTaskRouteKind } from "./creation-task-route";
 
 export function normalizeRequestedImageCount(value: string | number) {
   return Math.max(1, Math.min(10, Number(value) || 1));
-}
-
-export function estimatedCreditsPerImage(resolution: ImageResolution, costs: ImageCreditCosts = DEFAULT_IMAGE_CREDIT_COSTS) {
-  switch (resolution) {
-    case "2k":
-      return costs["2k"];
-    case "4k":
-      return costs["4k"];
-    case "auto":
-    case "1k":
-    case "1080p":
-    default:
-      return costs["1080p"];
-  }
 }
 
 /**
@@ -85,18 +73,6 @@ export function estimatedCreditsForGrokSize(size: string, costs: ImageCreditCost
   return costs["1080p"];
 }
 
-export function estimatedCreditsPerImageForModel(
-  model: string,
-  resolution: ImageResolution,
-  size: string,
-  costs: ImageCreditCosts = DEFAULT_IMAGE_CREDIT_COSTS,
-) {
-  if (isGrokImageModel(model)) {
-    return resolution === "2k" ? costs.grok2k : costs.grok1k;
-  }
-  return estimatedCreditsPerImage(resolution, costs);
-}
-
 export function isInvalidCustomRatioSelection(sizeMode: ImageSizeMode, aspectRatio: ImageAspectRatio, customRatio: string) {
   return sizeMode === "ratio" && aspectRatio === CUSTOM_IMAGE_ASPECT_RATIO && !parseImageRatio(customRatio);
 }
@@ -138,8 +114,6 @@ export function formatCreationTaskErrorMessage(message: string) {
 
   const normalized = trimmed.toLowerCase();
   const safetyRequestId = trimmed.match(/request id\s+([a-z0-9-]+)/i)?.[1];
-  // OpenAI: "We're so sorry, but the prompt may violate our content policies..."
-  // Note: "content policies" does not contain the substring "content policy".
   const isSafetySystemReject =
     normalized.includes("request was rejected by the safety system") ||
     normalized.includes("safety system") ||

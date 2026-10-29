@@ -69,6 +69,57 @@ def test_proxy_configuration_preserves_authentication_and_session():
     assert BrowserSolver._session_key("http://proxy-a:8080", "UTC") != BrowserSolver._session_key("http://proxy-b:8080", "UTC")
 
 
+def test_slow_session_open_does_not_block_cached_session_or_exceed_capacity(monkeypatch):
+    monkeypatch.setenv("SENTINEL_SOLVER_TIMEZONE", "UTC")
+    monkeypatch.setenv("SENTINEL_SOLVER_MAX_SESSIONS", "2")
+
+    class DummyPage:
+        def is_closed(self):
+            return False
+
+    class DummyContext:
+        async def close(self):
+            return None
+
+    async def run():
+        solver = BrowserSolver()
+        solver.browser = type("DummyBrowser", (), {"is_connected": lambda self: True})()
+        open_started = asyncio.Event()
+        allow_finish = asyncio.Event()
+
+        async def fake_open(key: str, proxy_url: str, timezone: str):
+            if timezone == "Asia/Tokyo":
+                open_started.set()
+                await allow_finish.wait()
+            from browser import BrowserSession
+            ts = __import__("time").monotonic()
+            return BrowserSession(key, proxy_url, timezone, DummyContext(), DummyPage(), f"epoch-{timezone}", ts, ts)
+
+        monkeypatch.setattr(solver, "_open_session", fake_open)
+
+        utc_session = await solver._get_or_create_session("", "UTC")
+        slow_task_1 = asyncio.create_task(solver._get_or_create_session("", "Asia/Tokyo"))
+        slow_task_2 = asyncio.create_task(solver._get_or_create_session("", "Asia/Tokyo"))
+        await open_started.wait()
+
+        # Cached UTC session must resolve immediately even while Asia/Tokyo is mid-navigation!
+        cached = await asyncio.wait_for(solver._get_or_create_session("", "UTC"), timeout=0.2)
+        assert cached.epoch == utc_session.epoch
+
+        # Third distinct session must fail capacity (1 open + 1 opening == max_sessions 2).
+        with pytest.raises(RuntimeError, match="capacity exhausted"):
+            await solver._get_or_create_session("", "America/New_York")
+
+        allow_finish.set()
+        s1, s2 = await asyncio.gather(slow_task_1, slow_task_2)
+        assert s1.epoch == s2.epoch == "epoch-Asia/Tokyo"
+        assert solver.opening_locks == {}
+        assert solver.opening_waiters == {}
+        assert solver.opening_in_flight == set()
+
+    asyncio.run(run())
+
+
 def test_page_turnstile_module_is_preferred(monkeypatch):
     monkeypatch.setenv("SENTINEL_SOLVER_TIMEZONE", "UTC")
 

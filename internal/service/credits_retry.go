@@ -17,13 +17,23 @@ func (s *CreditService) DeductRetryOnce(userID string, amount int, reason, refun
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	charge, charged := s.findLedgerByRefLocked(userID, reason, baseRef)
-	refund, refunded := s.findLedgerByRefLocked(userID, refundReason, baseRef)
+	charge, charged, err := s.findLedgerByRefLocked(userID, reason, baseRef)
+	if err != nil {
+		return CreditAccount{}, CreditLedgerEntry{}, false, err
+	}
+	refund, refunded, err := s.findLedgerByRefLocked(userID, refundReason, baseRef)
+	if err != nil {
+		return CreditAccount{}, CreditLedgerEntry{}, false, err
+	}
 	if !charged || charge.Delta >= 0 || !refunded || refund.Delta != -charge.Delta {
 		return CreditAccount{}, CreditLedgerEntry{}, false, nil
 	}
 	retryRef := baseRef + ":retry:1"
-	if _, exists := s.findLedgerByRefLocked(userID, reason, retryRef); exists {
+	_, exists, err := s.findLedgerByRefLocked(userID, reason, retryRef)
+	if err != nil {
+		return CreditAccount{}, CreditLedgerEntry{}, false, err
+	}
+	if exists {
 		return CreditAccount{}, CreditLedgerEntry{}, false, nil
 	}
 	// Existing deployments used random retry suffixes; those are real charges
@@ -31,6 +41,15 @@ func (s *CreditService) DeductRetryOnce(userID string, amount int, reason, refun
 	prefix := ledgerRefKey(userID, reason, baseRef+":retry:")
 	for key := range s.ledgerRefIndex {
 		if strings.HasPrefix(key, prefix) {
+			return CreditAccount{}, CreditLedgerEntry{}, false, nil
+		}
+	}
+	if s.ledgerTableBacked && s.ledgerStore != nil {
+		hasPrefix, err := s.ledgerStore.HasCreditLedgerRefPrefix(userID, reason, baseRef+":retry:")
+		if err != nil {
+			return CreditAccount{}, CreditLedgerEntry{}, false, err
+		}
+		if hasPrefix {
 			return CreditAccount{}, CreditLedgerEntry{}, false, nil
 		}
 	}

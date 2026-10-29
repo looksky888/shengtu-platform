@@ -103,6 +103,16 @@ func TestStoreNormalizesImageModelRoutingSettings(t *testing.T) {
 	}
 	assertConfigValue(t, got, "image_default_model", "gpt-image-2.5-flare")
 	assertConfigValue(t, got, "image_internal_model_slug", "gpt-5-3")
+
+	for _, allowed := range []string{"gpt-image-2", "gpt-image-2.5", "gpt-image-2.5-sunburst", "auto"} {
+		updated, err := store.Update(map[string]any{"image_default_model": allowed})
+		if err != nil {
+			t.Fatalf("Update(image_default_model=%s) error = %v", allowed, err)
+		}
+		if store.ImageDefaultModel() != allowed || updated["image_default_model"] != allowed {
+			t.Fatalf("image_default_model = %q / %#v, want %q", store.ImageDefaultModel(), updated["image_default_model"], allowed)
+		}
+	}
 }
 
 func TestImageProviderSourceDefault(t *testing.T) {

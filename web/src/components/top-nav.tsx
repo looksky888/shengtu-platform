@@ -43,11 +43,34 @@ import {
 } from "./top-nav-controls";
 import { NavSearchMenu } from "./top-nav-search";
 
+function useIsDesktopNavViewport() {
+  const [isDesktop, setIsDesktop] = useState(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+      return true;
+    }
+    return window.matchMedia("(min-width: 1024px)").matches;
+  });
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+      return;
+    }
+    const mql = window.matchMedia("(min-width: 1024px)");
+    const handleChange = (event: MediaQueryListEvent) => setIsDesktop(event.matches);
+    setIsDesktop(mql.matches);
+    mql.addEventListener("change", handleChange);
+    return () => mql.removeEventListener("change", handleChange);
+  }, []);
+
+  return isDesktop;
+}
+
 export function TopNav() {
   const location = useLocation();
   const navigate = useNavigate();
   const pathname = location.pathname.replace(/\/+$/, "") || "/";
   const appMeta = useAppMeta();
+  const isDesktopNav = useIsDesktopNavViewport();
   const brandTitle =
     (appMeta.app_title || DEFAULT_APP_TITLE).trim() || DEFAULT_APP_TITLE;
   const [session, setSession] = useState<
@@ -63,7 +86,6 @@ export function TopNav() {
   useEffect(() => {
     let active = true;
     const load = async () => {
-      // Public surfaces: brand Hero + login form — no session chrome needed.
       if (pathname === "/" || pathname === "/login") {
         if (active) setSession(null);
         return;
@@ -158,7 +180,7 @@ export function TopNav() {
   );
   const roleLabel =
     session.role === "admin" ? "管理员" : session.roleName || "普通用户";
-  const canAccessImageTasks = canAccessPath(session, "/image");
+  const canAccessImageTasks = canAccessPath(session, "/image") || canAccessPath(session, "/video");
   const canAccessRecharge =
     rechargeEnabled && canAccessPath(session, "/recharge");
   const canAccessSettings = canAccessPath(session, "/settings");
@@ -175,30 +197,32 @@ export function TopNav() {
             canAccessSettings={canAccessSettings}
             onToggle={() => setNavCollapsed((collapsed) => !collapsed)}
           />
-          <div className="ml-auto flex shrink-0 items-center gap-0.5 lg:hidden">
-            <NavSearchMenu
-              items={visibleNavItems}
-              pathname={pathname}
-              theme={theme}
-              onToggleTheme={() => handleThemeToggle()}
-              onLogout={handleLogout}
-              compact
-            />
-            <TopNavActions
-              canAccessImageTasks={canAccessImageTasks}
-              canAccessRecharge={canAccessRecharge}
-              creditBalance={creditBalance}
-              theme={theme}
-              session={session}
-              roleLabel={roleLabel}
-              pathname={pathname}
-              search={location.search}
-              onThemeToggle={handleThemeToggle}
-              onLogout={handleLogout}
-              compact
-              className="flex shrink-0 items-center gap-0.5"
-            />
-          </div>
+          {!isDesktopNav ? (
+            <div className="ml-auto flex shrink-0 items-center gap-0.5 lg:hidden">
+              <NavSearchMenu
+                items={visibleNavItems}
+                pathname={pathname}
+                theme={theme}
+                onToggleTheme={() => handleThemeToggle()}
+                onLogout={handleLogout}
+                compact
+              />
+              <TopNavActions
+                canAccessImageTasks={canAccessImageTasks}
+                canAccessRecharge={canAccessRecharge}
+                creditBalance={creditBalance}
+                theme={theme}
+                session={session}
+                roleLabel={roleLabel}
+                pathname={pathname}
+                search={location.search}
+                onThemeToggle={handleThemeToggle}
+                onLogout={handleLogout}
+                compact
+                className="flex shrink-0 items-center gap-0.5"
+              />
+            </div>
+          ) : null}
         </div>
         <nav
           id={PRIMARY_NAV_ID}
@@ -219,28 +243,30 @@ export function TopNav() {
             <MoreNavMenu items={overflowNavItems} pathname={pathname} />
           </div>
         </nav>
-        <div className="hidden items-center justify-end gap-1 lg:flex">
-          <NavSearchMenu
-            items={visibleNavItems}
-            pathname={pathname}
-            theme={theme}
-            onToggleTheme={() => handleThemeToggle()}
-            onLogout={handleLogout}
-          />
-          <TopNavActions
-            canAccessImageTasks={canAccessImageTasks}
-            canAccessRecharge={canAccessRecharge}
-            creditBalance={creditBalance}
-            theme={theme}
-            session={session}
-            roleLabel={roleLabel}
-            pathname={pathname}
-            search={location.search}
-            onThemeToggle={handleThemeToggle}
-            onLogout={handleLogout}
-            className="flex items-center justify-end gap-1"
-          />
-        </div>
+        {isDesktopNav ? (
+          <div className="hidden items-center justify-end gap-1 lg:flex">
+            <NavSearchMenu
+              items={visibleNavItems}
+              pathname={pathname}
+              theme={theme}
+              onToggleTheme={() => handleThemeToggle()}
+              onLogout={handleLogout}
+            />
+            <TopNavActions
+              canAccessImageTasks={canAccessImageTasks}
+              canAccessRecharge={canAccessRecharge}
+              creditBalance={creditBalance}
+              theme={theme}
+              session={session}
+              roleLabel={roleLabel}
+              pathname={pathname}
+              search={location.search}
+              onThemeToggle={handleThemeToggle}
+              onLogout={handleLogout}
+              className="flex items-center justify-end gap-1"
+            />
+          </div>
+        ) : null}
       </div>
     </header>
   );

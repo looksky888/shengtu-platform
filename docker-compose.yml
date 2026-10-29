@@ -41,7 +41,7 @@ services:
     ports:
       - "127.0.0.1:${FLARESOLVERR_PORT:-8191}:8191"
     init: true
-    mem_limit: ${FLARESOLVERR_MEMORY_LIMIT:-512m}
+    mem_limit: ${FLARESOLVERR_MEMORY_LIMIT:-384m}
     cpus: ${FLARESOLVERR_CPU_LIMIT:-1.0}
     pids_limit: ${FLARESOLVERR_PIDS_LIMIT:-256}
     logging:
@@ -109,7 +109,7 @@ services:
     volumes:
       - ./data/grok-runtime:/data
     init: true
-    mem_limit: ${GROK_RUNTIME_MEMORY_LIMIT:-2g}
+    mem_limit: ${GROK_RUNTIME_MEMORY_LIMIT:-768m}
     cpus: ${GROK_RUNTIME_CPU_LIMIT:-2.0}
     pids_limit: ${GROK_RUNTIME_PIDS_LIMIT:-512}
     logging:
@@ -165,9 +165,10 @@ services:
       GROK_RUNTIME_BASE_URL: ${GROK_RUNTIME_BASE_URL:-http://grok-runtime:8091}
       INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?set a strong random INTERNAL_SERVICE_TOKEN}
       CHATGPT2API_INTERNAL_LISTEN_ADDR: ":8092"
+      GOMEMLIMIT: ${APP_GOMEMLIMIT:-1250MiB}
       TZ: ${TZ:-Asia/Shanghai}
     init: true
-    mem_limit: ${APP_MEMORY_LIMIT:-2g}
+    mem_limit: ${APP_MEMORY_LIMIT:-1536m}
     cpus: ${APP_CPU_LIMIT:-2.0}
     pids_limit: ${APP_PIDS_LIMIT:-512}
     logging:

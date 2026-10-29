@@ -12,6 +12,18 @@ export function normalizeImageAccountSchedule(value: unknown): "least_loaded" | 
   return "least_loaded";
 }
 
+export function normalizeImageDefaultModel(value: unknown): string {
+  const raw = String(value || "").trim();
+  const allowed = new Set([
+    "gpt-image-2",
+    "gpt-image-2.5",
+    "gpt-image-2.5-flare",
+    "gpt-image-2.5-sunburst",
+    "auto",
+  ]);
+  return allowed.has(raw) ? raw : "gpt-image-2.5-flare";
+}
+
 export function normalizeRegisterClearanceConfig(value: unknown) {
   const raw = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
   return {
@@ -56,6 +68,7 @@ export function normalizeRegisterConfig(config: RegisterConfig): RegisterConfig 
     grok,
   };
 }
+
 export function normalizeConfig(config: SettingsConfig): SettingsConfig {
   const loginImageTransform = normalizeLoginPageImageTransform({
     zoom: Number(config.login_page_image_zoom),
@@ -65,14 +78,15 @@ export function normalizeConfig(config: SettingsConfig): SettingsConfig {
   return {
     ...config,
     refresh_account_interval_minute: Number(config.refresh_account_interval_minute || 5),
-    image_concurrent_limit: Number(config.image_concurrent_limit || 4),
+    image_concurrent_limit: Number(config.image_concurrent_limit || 3),
     image_worker_count: Math.min(100, Math.max(1, Number(config.image_worker_count) || 8)),
     image_queue_capacity: Math.min(2000, Math.max(1, Number(config.image_queue_capacity) || 256)),
     video_worker_count: Math.min(32, Math.max(1, Number(config.video_worker_count) || 2)),
     video_queue_capacity: Math.min(1000, Math.max(1, Number(config.video_queue_capacity) || 64)),
     image_account_concurrency: Math.min(10, Math.max(1, Number(config.image_account_concurrency) || 1)),
     image_account_schedule: normalizeImageAccountSchedule(config.image_account_schedule),
-    image_task_timeout_seconds: Number(config.image_task_timeout_seconds || 300),
+    image_task_timeout_seconds: Math.min(3600, Math.max(30, Number(config.image_task_timeout_seconds) || 600)),
+    image_default_model: normalizeImageDefaultModel(config.image_default_model),
     image_internal_model_slug: normalizeImageInternalModelSlug(config.image_internal_model_slug),
     image_fallback_model_enabled: config.image_fallback_model_enabled !== false,
     image_fallback_model_slugs: normalizeImageFallbackModelSlugs(config.image_fallback_model_slugs),
@@ -83,7 +97,7 @@ export function normalizeConfig(config: SettingsConfig): SettingsConfig {
     image_proxy_api_key_masked: typeof config.image_proxy_api_key_masked === "string" ? config.image_proxy_api_key_masked : "",
     image_proxy_model: typeof config.image_proxy_model === "string" ? config.image_proxy_model : "gpt-image-2.5-flare",
     image_proxy_models: Array.isArray(config.image_proxy_models) ? config.image_proxy_models.map(String).filter(Boolean) : [],
-    image_proxy_timeout_seconds: Math.min(3600, Math.max(30, Number(config.image_proxy_timeout_seconds) || 300)),
+    image_proxy_timeout_seconds: Math.min(3600, Math.max(30, Number(config.image_proxy_timeout_seconds) || 600)),
     image_proxy_max_retries: normalizeImageProxyMaxRetries(config.image_proxy_max_retries),
     image_proxy_download_urls: config.image_proxy_download_urls !== false,
     image_credit_cost_4k: Math.max(1, Number(config.image_credit_cost_4k) || 3),
