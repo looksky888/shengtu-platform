@@ -21,6 +21,10 @@ import {
 } from "./announcements-utils";
 import { isSettingsRasterImage } from "./settings-raster-image";
 
+function safeAnnouncementList(items: Announcement[] | null | undefined): Announcement[] {
+  return Array.isArray(items) ? items : [];
+}
+
 export function useAnnouncementsCard() {
   const didLoadRef = useRef(false);
   const [items, setItems] = useState<Announcement[]>([]);
@@ -43,7 +47,7 @@ export function useAnnouncementsCard() {
     if (!silent) setIsLoading(true);
     try {
       const data = await fetchAdminAnnouncements();
-      setItems(data.items);
+      setItems(safeAnnouncementList(data?.items));
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "加载公告失败");
     } finally {
@@ -139,7 +143,7 @@ export function useAnnouncementsCard() {
       const data = editingItem
         ? await updateAnnouncement(editingItem.id, payload)
         : await createAnnouncement(payload);
-      setItems(data.items);
+      setItems(safeAnnouncementList(data?.items));
       setDialogOpen(false);
       setEditingItem(null);
       setForm(emptyAnnouncementForm);
@@ -157,7 +161,7 @@ export function useAnnouncementsCard() {
       const data = await updateAnnouncement(item.id, {
         enabled: !item.enabled,
       });
-      setItems(data.items);
+      setItems(safeAnnouncementList(data?.items));
       toast.success(item.enabled ? "公告已停用" : "公告已启用");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "更新公告失败");
@@ -172,7 +176,7 @@ export function useAnnouncementsCard() {
     setItemPending(item.id, true);
     try {
       const data = await deleteAnnouncement(item.id);
-      setItems(data.items);
+      setItems(safeAnnouncementList(data?.items));
       setDeletingItem(null);
       toast.success("公告已删除");
     } catch (error) {
@@ -188,7 +192,7 @@ export function useAnnouncementsCard() {
       if (statusFilter === "enabled" && !item.enabled) return false;
       if (statusFilter === "disabled" && item.enabled) return false;
       if (!normalizedQuery) return true;
-      return `${item.title} ${item.content}`
+      return `${item.title ?? ""} ${item.content ?? ""}`
         .toLowerCase()
         .includes(normalizedQuery);
     });

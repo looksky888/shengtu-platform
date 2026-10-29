@@ -1,9 +1,10 @@
 "use client";
 
-import { Suspense, type ReactNode } from "react";
+import { memo, Suspense, type ReactNode } from "react";
 import { FileClock, ListChecks, LoaderCircle, ShieldAlert } from "lucide-react";
 import { Link } from "react-router-dom";
 
+import { SectionErrorBoundary } from "@/components/section-error-boundary";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 
@@ -253,7 +254,7 @@ function SystemUpdateTab({ canManageSystem }: { canManageSystem: boolean }) {
   );
 }
 
-export function SettingsTabContent({
+export const SettingsTabContent = memo(function SettingsTabContent({
   active,
   canManageSystem,
   tab,
@@ -295,5 +296,9 @@ export function SettingsTabContent({
       content = <SystemUpdateTab canManageSystem={canManageSystem} />;
       break;
   }
-  return <Suspense fallback={<TabLoading />}>{content}</Suspense>;
-}
+  return (
+    <SectionErrorBoundary resetKey={tab} title="设置分组模块加载失败">
+      <Suspense fallback={<TabLoading />}>{content}</Suspense>
+    </SectionErrorBoundary>
+  );
+});

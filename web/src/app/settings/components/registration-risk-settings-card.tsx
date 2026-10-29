@@ -32,6 +32,20 @@ type NumberKey = Exclude<
   "enabled" | "disposable_domains" | "proxy_cidrs"
 >;
 
+function safeRiskList(items: string[] | null | undefined): string[] {
+  return Array.isArray(items) ? items : [];
+}
+
+function normalizeRiskSettings(
+  value: RegistrationRiskSettings,
+): RegistrationRiskSettings {
+  return {
+    ...value,
+    disposable_domains: safeRiskList(value.disposable_domains),
+    proxy_cidrs: safeRiskList(value.proxy_cidrs),
+  };
+}
+
 function riskSnapshot(
   settings: RegistrationRiskSettings,
   domainsText: string,
@@ -81,7 +95,11 @@ export function RegistrationRiskSettingsCard({
     async (silent = false) => {
       if (!silent) setLoading(true);
       try {
-        const { settings: value } = await fetchRegistrationRiskSettings();
+        const data = await fetchRegistrationRiskSettings();
+        if (!data?.settings) {
+          throw new Error("未返回有效的注册风控配置");
+        }
+        const value = normalizeRiskSettings(data.settings);
         setSettings(value);
         setBaseline(value);
         setDomains(value.disposable_domains.join("\n"));
@@ -118,8 +136,8 @@ export function RegistrationRiskSettingsCard({
       riskSnapshot(settings, domains, cidrs, false) !==
       riskSnapshot(
         baseline,
-        baseline.disposable_domains.join("\n"),
-        baseline.proxy_cidrs.join("\n"),
+        safeRiskList(baseline.disposable_domains).join("\n"),
+        safeRiskList(baseline.proxy_cidrs).join("\n"),
         false
       )
     );
@@ -131,8 +149,8 @@ export function RegistrationRiskSettingsCard({
       riskSnapshot(settings, domains, cidrs, true) !==
       riskSnapshot(
         baseline,
-        baseline.disposable_domains.join("\n"),
-        baseline.proxy_cidrs.join("\n"),
+        safeRiskList(baseline.disposable_domains).join("\n"),
+        safeRiskList(baseline.proxy_cidrs).join("\n"),
         true
       )
     );
@@ -148,11 +166,15 @@ export function RegistrationRiskSettingsCard({
         proxy_cidrs: splitSettingsLines(cidrs),
       };
       const data = await updateRegistrationRiskSettings(payload);
-      setSettings(data.settings);
-      setBaseline(data.settings);
-      setDomains(data.settings.disposable_domains.join("\n"));
-      setCIDRs(data.settings.proxy_cidrs.join("\n"));
-      onStatusChange?.(Boolean(data.settings.enabled));
+      if (!data?.settings) {
+        throw new Error("未返回保存后的注册风控配置");
+      }
+      const nextValue = normalizeRiskSettings(data.settings);
+      setSettings(nextValue);
+      setBaseline(nextValue);
+      setDomains(nextValue.disposable_domains.join("\n"));
+      setCIDRs(nextValue.proxy_cidrs.join("\n"));
+      onStatusChange?.(Boolean(nextValue.enabled));
       toast.success("注册风控策略已保存");
       return true;
     } catch (error) {
@@ -166,8 +188,8 @@ export function RegistrationRiskSettingsCard({
   const handleDiscard = useCallback(() => {
     if (!baseline) return true;
     setSettings(baseline);
-    setDomains(baseline.disposable_domains.join("\n"));
-    setCIDRs(baseline.proxy_cidrs.join("\n"));
+    setDomains(safeRiskList(baseline.disposable_domains).join("\n"));
+    setCIDRs(safeRiskList(baseline.proxy_cidrs).join("\n"));
     return true;
   }, [baseline]);
 

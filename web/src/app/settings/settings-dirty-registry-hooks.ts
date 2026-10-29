@@ -2,18 +2,45 @@
 
 import * as React from "react";
 
+import type { ExternalDirtyEntry } from "./settings-dirty-registry";
 import {
-  DirtyRegistryContext,
-  type ExternalDirtyEntry,
-} from "./settings-dirty-registry";
+  DirtyRegistryStoreContext,
+  type SettingsDirtyRegistryStore,
+} from "./settings-dirty-registry-store";
+import type { SettingsTabKey } from "./settings-tab-types";
+
+const EMPTY_ENTRIES: Record<string, ExternalDirtyEntry> = {};
+const noopSubscribe = () => () => {};
+const getEmptyEntries = () => EMPTY_ENTRIES;
 
 export function useSettingsDirtyRegistry() {
-  return React.useContext(DirtyRegistryContext);
+  const store = React.useContext(
+    DirtyRegistryStoreContext,
+  ) as SettingsDirtyRegistryStore<SettingsTabKey> | null;
+  const entries = React.useSyncExternalStore(
+    store ? store.subscribe : noopSubscribe,
+    store ? store.getSnapshot : getEmptyEntries,
+    store ? store.getSnapshot : getEmptyEntries,
+  );
+
+  return React.useMemo(
+    () =>
+      store
+        ? {
+            entries,
+            upsertEntry: store.upsertEntry,
+            removeEntry: store.removeEntry,
+          }
+        : null,
+    [entries, store],
+  );
 }
 
 /** Register a settings card's local dirty state and/or validator into the global SettingsTabs bar. */
 export function useRegisterSettingsDirty(entry: ExternalDirtyEntry) {
-  const ctx = React.useContext(DirtyRegistryContext);
+  const store = React.useContext(
+    DirtyRegistryStoreContext,
+  ) as SettingsDirtyRegistryStore<SettingsTabKey> | null;
   const latestRef = React.useRef(entry);
   latestRef.current = entry;
 
@@ -35,8 +62,8 @@ export function useRegisterSettingsDirty(entry: ExternalDirtyEntry) {
   const hasDiscard = Boolean(entry.discard);
 
   React.useEffect(() => {
-    if (!ctx) return;
-    ctx.upsertEntry({
+    if (!store) return;
+    store.upsertEntry({
       id: entry.id,
       tab: entry.tab,
       label: entry.label,
@@ -46,7 +73,7 @@ export function useRegisterSettingsDirty(entry: ExternalDirtyEntry) {
       discard: hasDiscard ? stableDiscard : undefined,
     });
   }, [
-    ctx,
+    store,
     entry.id,
     entry.tab,
     entry.label,
@@ -60,8 +87,8 @@ export function useRegisterSettingsDirty(entry: ExternalDirtyEntry) {
   ]);
 
   React.useEffect(() => {
-    if (!ctx) return;
+    if (!store) return;
     const id = entry.id;
-    return () => ctx.removeEntry(id);
-  }, [ctx, entry.id]);
+    return () => store.removeEntry(id);
+  }, [store, entry.id]);
 }

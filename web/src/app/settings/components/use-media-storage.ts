@@ -59,10 +59,10 @@ export function useMediaStorage(config: SettingsConfig | null) {
       try {
         const data = await fetchMediaStorageOverview({ signal });
         if (signal?.aborted) return;
-        setHealth(data.health);
-        setMigration(data.migration);
-        setCleanup(data.cleanup);
-        setActiveProvider(data.active_provider);
+        setHealth(data?.health ?? null);
+        setMigration(data?.migration ?? idleMigration);
+        setCleanup(data?.cleanup ?? idleCleanup);
+        setActiveProvider(data?.active_provider === "r2" ? "r2" : "local");
       } catch (error) {
         if (!signal?.aborted) {
           toast.error(
@@ -113,15 +113,17 @@ export function useMediaStorage(config: SettingsConfig | null) {
             signal: controller.signal,
           });
           if (disposed || controller.signal.aborted) return;
-          setMigration(data.migration);
-          keepPolling = data.migration.state === "running";
+          const nextMigration = data?.migration ?? idleMigration;
+          setMigration(nextMigration);
+          keepPolling = nextMigration.state === "running";
         } else {
           const data = await fetchMediaLocalCleanupStatus({
             signal: controller.signal,
           });
           if (disposed || controller.signal.aborted) return;
-          setCleanup(data.cleanup);
-          keepPolling = data.cleanup.state === "running";
+          const nextCleanup = data?.cleanup ?? idleCleanup;
+          setCleanup(nextCleanup);
+          keepPolling = nextCleanup.state === "running";
         }
       } catch (error) {
         if (!disposed && !controller.signal.aborted) {
@@ -174,11 +176,11 @@ export function useMediaStorage(config: SettingsConfig | null) {
         secret_access_key: secretAccessKey || undefined,
         bucket,
       });
-      setHealth(data.health);
-      if (data.health.status === "ok") {
+      setHealth(data?.health ?? null);
+      if (data?.health?.status === "ok") {
         toast.success("Cloudflare R2 连接正常");
       } else {
-        toast.error(data.health.error || "Cloudflare R2 连接失败");
+        toast.error(data?.health?.error || "Cloudflare R2 连接失败");
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "R2 连接测试失败");
@@ -192,9 +194,10 @@ export function useMediaStorage(config: SettingsConfig | null) {
     try {
       if (beforeStart && !(await beforeStart())) return;
       const data = await triggerMediaMigration();
-      setMigration(data.migration);
+      const nextMigration = data?.migration ?? idleMigration;
+      setMigration(nextMigration);
       toast.success(
-        data.migration.state === "running"
+        nextMigration.state === "running"
           ? "存量媒体迁移已启动"
           : "迁移任务已在运行中"
       );
@@ -212,7 +215,7 @@ export function useMediaStorage(config: SettingsConfig | null) {
         mode,
         mode === "delete" ? cleanup.confirmation_token || "" : ""
       );
-      setCleanup(data.cleanup);
+      setCleanup(data?.cleanup ?? idleCleanup);
       toast.success(
         mode === "verify"
           ? "R2 对象完整性校验已开始"

@@ -49,8 +49,9 @@ export function RegistrationRiskBlocksCard({
       if (!silent) setLoading(true);
       try {
         const data = await fetchRegistrationRiskBlocks();
-        setItems(data.items);
-        onCountChange?.(data.items.length);
+        const nextItems = Array.isArray(data?.items) ? data.items : [];
+        setItems(nextItems);
+        onCountChange?.(nextItems.length);
       } catch (error) {
         if (!silent) {
           toast.error(
@@ -72,11 +73,11 @@ export function RegistrationRiskBlocksCard({
     const keyword = query.trim().toLowerCase();
     if (!keyword) return items;
     return items.filter((item) => {
-      const kindText = (kindLabels[item.kind] || item.kind).toLowerCase();
+      const kindText = (kindLabels[item.kind] || item.kind || "").toLowerCase();
       return (
-        item.key.toLowerCase().includes(keyword) ||
-        item.reason.toLowerCase().includes(keyword) ||
-        item.code.toLowerCase().includes(keyword) ||
+        String(item.key ?? "").toLowerCase().includes(keyword) ||
+        String(item.reason ?? "").toLowerCase().includes(keyword) ||
+        String(item.code ?? "").toLowerCase().includes(keyword) ||
         kindText.includes(keyword)
       );
     });

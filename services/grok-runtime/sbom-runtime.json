@@ -6,7 +6,7 @@
     "component": {
       "type": "application",
       "name": "shengtu-grok-runtime",
-      "version": "5.0.4-20261029-image-edit-billing"
+      "version": "5.0.5-20261029-settings-nav-fix"
     },
     "source": "requirements.lock"
   },

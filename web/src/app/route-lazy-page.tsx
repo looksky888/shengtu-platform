@@ -1,5 +1,8 @@
 import { Suspense, type ComponentType } from "react";
 import { LoaderCircle } from "lucide-react";
+import { useLocation } from "react-router-dom";
+
+import { SectionErrorBoundary } from "@/components/section-error-boundary";
 
 function RouteLoading() {
   return (
@@ -27,9 +30,12 @@ function RouteLoading() {
 }
 
 export function LazyPage({ Page }: { Page: ComponentType }) {
+  const location = useLocation();
   return (
-    <Suspense fallback={<RouteLoading />}>
-      <Page />
-    </Suspense>
+    <SectionErrorBoundary resetKey={location.pathname} title="当前页面加载失败">
+      <Suspense fallback={<RouteLoading />}>
+        <Page />
+      </Suspense>
+    </SectionErrorBoundary>
   );
 }
