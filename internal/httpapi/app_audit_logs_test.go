@@ -184,3 +184,38 @@ func TestLogGovernanceEndpointCleansOldLogs(t *testing.T) {
 		t.Fatalf("cleanup result = %#v, want deleted 1 remaining 2", cleanup)
 	}
 }
+
+func TestRoutinePollingGETSkipsAuditLogWhileErrorsAreLogged(t *testing.T) {
+	app := newTestApp(t)
+	defer app.Close()
+
+	authHeader := adminAuthHeader(t, app)
+	for _, path := range []string{"/api/creation-tasks", "/api/image-task-stats/today", "/api/creation-pricing"} {
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		req.Header.Set("Authorization", authHeader)
+		res := httptest.NewRecorder()
+		app.Handler().ServeHTTP(res, req)
+		if res.Code != http.StatusOK {
+			t.Fatalf("%s status = %d body = %s", path, res.Code, res.Body.String())
+		}
+	}
+
+	logs := app.logs.Search(service.LogQuery{Limit: 20})
+	for _, path := range []string{"/api/creation-tasks", "/api/image-task-stats/today", "/api/creation-pricing"} {
+		if item := findLogByDetail(logs, "path", path); item != nil {
+			t.Fatalf("expected 200 OK polling GET %s to skip audit log, got %#v", path, item)
+		}
+	}
+
+	// Unauthorized polling still records a warning audit entry.
+	req := httptest.NewRequest(http.MethodGet, "/api/creation-tasks", nil)
+	res := httptest.NewRecorder()
+	app.Handler().ServeHTTP(res, req)
+	if res.Code != http.StatusUnauthorized {
+		t.Fatalf("unauthenticated creation-tasks status = %d, want 401", res.Code)
+	}
+	logs = app.logs.Search(service.LogQuery{Limit: 20})
+	if item := findLogByDetail(logs, "path", "/api/creation-tasks"); item == nil {
+		t.Fatalf("expected 401 polling error on /api/creation-tasks to be recorded in audit logs")
+	}
+}

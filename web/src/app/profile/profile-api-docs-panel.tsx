@@ -1,21 +1,19 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   BookOpen,
   Code2,
   Copy,
   KeyRound,
+  LoaderCircle,
   ShieldAlert,
   Sparkles,
   Terminal,
 } from "lucide-react";
 
-import {
-  buildEndpoints,
-  CODE_LANGS,
-  DOC_CATEGORIES,
-  type CodeLang,
-  type DocCategory,
-  type EndpointDoc,
+import type {
+  CodeLang,
+  DocCategory,
+  EndpointDoc,
 } from "@/app/profile/profile-api-docs-catalog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -26,9 +24,24 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { SubNav } from "@/components/ui/sub-nav";
+import { SubNav, type SubNavItem } from "@/components/ui/sub-nav";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
+
+type ApiDocsCatalogModule = typeof import("@/app/profile/profile-api-docs-catalog");
+
+const FALLBACK_DOC_CATEGORIES: readonly SubNavItem<DocCategory>[] = [
+  { value: "all", label: "全部接口" },
+  { value: "image", label: "图片生成" },
+  { value: "video", label: "异步视频" },
+  { value: "chat", label: "对话与模型" },
+];
+
+const FALLBACK_CODE_LANGS: readonly SubNavItem<CodeLang>[] = [
+  { value: "curl", label: "cURL" },
+  { value: "python", label: "Python" },
+  { value: "javascript", label: "JS / TS" },
+];
 
 export function ProfileApiDocsPanel({
   activePlaintextKey,
@@ -40,6 +53,17 @@ export function ProfileApiDocsPanel({
   const [category, setCategory] = useState<DocCategory>("all");
   const [lang, setLang] = useState<CodeLang>("curl");
   const [injectRealKey, setInjectRealKey] = useState(true);
+  const [catalogModule, setCatalogModule] = useState<ApiDocsCatalogModule | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    void import("@/app/profile/profile-api-docs-catalog").then((mod) => {
+      if (active) setCatalogModule(mod);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const origin =
     typeof window !== "undefined" && window.location.origin
@@ -52,8 +76,8 @@ export function ProfileApiDocsPanel({
       : "sk-YOUR_API_KEY";
 
   const endpoints = useMemo(
-    () => buildEndpoints(origin, effectiveKey),
-    [origin, effectiveKey]
+    () => (catalogModule ? catalogModule.buildEndpoints(origin, effectiveKey) : []),
+    [catalogModule, origin, effectiveKey]
   );
 
   const filteredEndpoints = useMemo(
@@ -63,6 +87,9 @@ export function ProfileApiDocsPanel({
         : endpoints.filter((item) => item.category === category),
     [category, endpoints]
   );
+
+  const docCategories = catalogModule?.DOC_CATEGORIES ?? FALLBACK_DOC_CATEGORIES;
+  const codeLangs = catalogModule?.CODE_LANGS ?? FALLBACK_CODE_LANGS;
 
   return (
     <Card id="profile-api-docs">
@@ -104,14 +131,14 @@ export function ProfileApiDocsPanel({
 
         <div className="mt-4 flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
           <SubNav
-            items={DOC_CATEGORIES}
+            items={docCategories}
             value={category}
             onValueChange={setCategory}
             variant="pill"
             layoutId="api-docs-category-nav"
           />
           <SubNav
-            items={CODE_LANGS}
+            items={codeLangs}
             value={lang}
             onValueChange={setLang}
             variant="pill"
@@ -166,17 +193,25 @@ export function ProfileApiDocsPanel({
         </div>
 
         {/* 接口列表 */}
-        <div className="space-y-5">
-          {filteredEndpoints.map((ep) => (
-            <EndpointDocCard
-              key={ep.id}
-              endpoint={ep}
-              lang={lang}
-              onLangChange={setLang}
-              onCopy={onCopy}
-            />
-          ))}
-        </div>
+        {!catalogModule ? (
+          <div className="flex min-h-32 items-center justify-center gap-2 text-xs text-muted-foreground">
+            <LoaderCircle className="size-4 animate-spin" />
+            <span>正在加载接口代码示例…</span>
+          </div>
+        ) : (
+          <div className="space-y-5">
+            {filteredEndpoints.map((ep) => (
+              <EndpointDocCard
+                key={ep.id}
+                endpoint={ep}
+                codeLangs={codeLangs}
+                lang={lang}
+                onLangChange={setLang}
+                onCopy={onCopy}
+              />
+            ))}
+          </div>
+        )}
 
         {/* 状态码与错误处理规范 */}
         <div className="rounded-lg border border-border/60 bg-muted/20 p-4">
@@ -261,11 +296,13 @@ function ClientConfigCard({
 
 function EndpointDocCard({
   endpoint,
+  codeLangs,
   lang,
   onLangChange,
   onCopy,
 }: {
   endpoint: EndpointDoc;
+  codeLangs: readonly SubNavItem<CodeLang>[];
   lang: CodeLang;
   onLangChange: (next: CodeLang) => void;
   onCopy: (value: string, label?: string) => void;
@@ -359,7 +396,7 @@ function EndpointDocCard({
                 <Terminal className="size-3.5 text-zinc-400" />
                 <span className="font-medium text-zinc-300">请求代码示例</span>
                 <div className="ml-2 flex items-center gap-1">
-                  {CODE_LANGS.map((item) => (
+                  {codeLangs.map((item) => (
                     <button
                       key={item.value}
                       type="button"

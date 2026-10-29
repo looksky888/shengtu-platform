@@ -2,6 +2,7 @@ package storage
 
 import (
 	"database/sql"
+	"errors"
 	"net/url"
 	"strings"
 	"time"
@@ -15,6 +16,7 @@ type DatabaseBackend struct {
 	driver      string
 	dsn         string
 	db          *sql.DB
+	readDB      *sql.DB
 }
 
 func NewDatabaseBackend(databaseURL string) (*DatabaseBackend, error) {
@@ -41,15 +43,43 @@ func NewDatabaseBackend(databaseURL string) (*DatabaseBackend, error) {
 		_ = db.Close()
 		return nil, err
 	}
+	if driver == "sqlite" && !isSQLiteMemoryDSN(dsn) {
+		readDB, readErr := sql.Open(driver, sqliteReadOnlyPragmaDSN(dsn))
+		if readErr != nil {
+			_ = db.Close()
+			return nil, readErr
+		}
+		readDB.SetConnMaxLifetime(time.Hour)
+		readDB.SetMaxOpenConns(4)
+		readDB.SetMaxIdleConns(2)
+		backend.readDB = readDB
+	}
 	return backend, nil
 }
 
-// Close releases the underlying database connection pool.
+// reader returns the dedicated read-only pool on file-backed SQLite (WAL allows
+// concurrent readers alongside the single serialized writer) and falls back to
+// db on in-memory SQLite or remote SQL drivers.
+func (b *DatabaseBackend) reader() *sql.DB {
+	if b != nil && b.readDB != nil {
+		return b.readDB
+	}
+	return b.db
+}
+
+// Close releases the underlying database connection pools.
 func (b *DatabaseBackend) Close() error {
-	if b == nil || b.db == nil {
+	if b == nil {
 		return nil
 	}
-	return b.db.Close()
+	var readErr, writeErr error
+	if b.readDB != nil {
+		readErr = b.readDB.Close()
+	}
+	if b.db != nil {
+		writeErr = b.db.Close()
+	}
+	return errors.Join(readErr, writeErr)
 }
 
 func (b *DatabaseBackend) configurePool() {
@@ -63,7 +93,12 @@ func (b *DatabaseBackend) configurePool() {
 	b.db.SetMaxIdleConns(5)
 }
 
-// sqlitePragmas are connection-scoped settings every pooled connection needs.
+func isSQLiteMemoryDSN(dsn string) bool {
+	trimmed := strings.ToLower(strings.TrimSpace(dsn))
+	return trimmed == "" || trimmed == ":memory:" || strings.Contains(trimmed, "mode=memory")
+}
+
+// sqlitePragmas are connection-scoped settings every pooled writer connection needs.
 // journal_mode is durable in the database file, but it is applied here too so a
 // freshly created file is switched to WAL before any other statement runs.
 var sqlitePragmas = []string{
@@ -74,11 +109,26 @@ var sqlitePragmas = []string{
 	"temp_store(MEMORY)",
 }
 
+var sqliteReadOnlyPragmas = []string{
+	"busy_timeout(5000)",
+	"foreign_keys(ON)",
+	"query_only(ON)",
+	"temp_store(MEMORY)",
+}
+
 // sqlitePragmaDSN appends the connection PRAGMAs as DSN query parameters, which
 // modernc.org/sqlite replays on every connection it opens.
 func sqlitePragmaDSN(dsn string) string {
-	params := make([]string, 0, len(sqlitePragmas))
-	for _, pragma := range sqlitePragmas {
+	return appendSQLitePragmas(dsn, sqlitePragmas)
+}
+
+func sqliteReadOnlyPragmaDSN(dsn string) string {
+	return appendSQLitePragmas(dsn, sqliteReadOnlyPragmas)
+}
+
+func appendSQLitePragmas(dsn string, pragmas []string) string {
+	params := make([]string, 0, len(pragmas))
+	for _, pragma := range pragmas {
 		params = append(params, "_pragma="+url.QueryEscape(pragma))
 	}
 	separator := "?"

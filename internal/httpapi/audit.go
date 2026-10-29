@@ -103,8 +103,29 @@ func (a *App) logHTTPRequest(r *http.Request, status int, duration time.Duration
 	}
 }
 
+func skipRoutinePollingAuditLog(r *http.Request, status int) bool {
+	if r == nil || r.URL == nil || r.Method != http.MethodGet {
+		return false
+	}
+	if status < http.StatusOK || status >= http.StatusBadRequest {
+		return false
+	}
+	path := r.URL.Path
+	switch path {
+	case "/api/creation-tasks",
+		"/api/image-task-stats/today",
+		"/api/payment/orders",
+		"/api/announcements/active",
+		"/api/app-meta",
+		"/api/creation-pricing",
+		"/api/system/update/status":
+		return true
+	}
+	return strings.HasPrefix(path, "/api/creation-tasks/") || strings.HasPrefix(path, "/api/payment/orders/")
+}
+
 func (a *App) writeAuditLog(r *http.Request, recorder *auditResponseWriter, status int, duration time.Duration, requestArgs any) {
-	if a.logs == nil {
+	if a.logs == nil || skipRoutinePollingAuditLog(r, status) {
 		return
 	}
 	detail := map[string]any{

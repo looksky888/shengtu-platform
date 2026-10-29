@@ -18,7 +18,7 @@ func (b *DatabaseBackend) LoadRecentCreditLedger(limit int) ([]CreditLedgerRow, 
 			LIMIT ` + b.placeholder(1) + `
 		) AS recent_ledger
 		ORDER BY created_at ASC, id ASC`
-	rows, err := b.db.Query(query, limit)
+	rows, err := b.reader().Query(query, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -27,7 +27,7 @@ func (b *DatabaseBackend) LoadRecentCreditLedger(limit int) ([]CreditLedgerRow, 
 }
 
 func (b *DatabaseBackend) LatestCreditLedgerByUser() ([]CreditLedgerRow, error) {
-	rows, err := b.db.Query(
+	rows, err := b.reader().Query(
 		`SELECT l.id, l.user_id, l.delta, l.balance_after, l.reason, l.ref_id, l.created_at
 		 FROM credit_ledger l
 		 INNER JOIN (
@@ -53,7 +53,7 @@ func (b *DatabaseBackend) LoadCreditLedgerByReason(reason string) ([]CreditLedge
 		FROM credit_ledger
 		WHERE reason = ` + b.placeholder(1) + `
 		ORDER BY created_at ASC, id ASC`
-	rows, err := b.db.Query(query, reason)
+	rows, err := b.reader().Query(query, reason)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +70,7 @@ func (b *DatabaseBackend) LoadCreditLedgerByUser(userID string) ([]CreditLedgerR
 		FROM credit_ledger
 		WHERE user_id = ` + b.placeholder(1) + `
 		ORDER BY created_at ASC, id ASC`
-	rows, err := b.db.Query(query, userID)
+	rows, err := b.reader().Query(query, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +91,7 @@ func (b *DatabaseBackend) FindCreditLedgerByRef(userID, reason, refID string) (C
 		ORDER BY created_at DESC, id DESC
 		LIMIT 1`
 	var row CreditLedgerRow
-	err := b.db.QueryRow(query, userID, reason, refID).Scan(
+	err := b.reader().QueryRow(query, userID, reason, refID).Scan(
 		&row.ID, &row.UserID, &row.Delta, &row.BalanceAfter, &row.Reason, &row.RefID, &row.CreatedAt,
 	)
 	if err == sql.ErrNoRows {
@@ -115,7 +115,7 @@ func (b *DatabaseBackend) HasCreditLedgerRefPrefix(userID, reason, refPrefix str
 		WHERE user_id = ` + b.placeholder(1) + ` AND reason = ` + b.placeholder(2) + ` AND ref_id LIKE ` + b.placeholder(3) + likeEscapeClause + `
 		LIMIT 1`
 	var marker int
-	err := b.db.QueryRow(query, userID, reason, pattern).Scan(&marker)
+	err := b.reader().QueryRow(query, userID, reason, pattern).Scan(&marker)
 	if err == sql.ErrNoRows {
 		return false, nil
 	}
@@ -167,7 +167,7 @@ func (b *DatabaseBackend) DeleteCreditLedgerByIDs(ids []string) error {
 }
 
 func (b *DatabaseBackend) LoadCreditLedger() ([]CreditLedgerRow, error) {
-	rows, err := b.db.Query(
+	rows, err := b.reader().Query(
 		`SELECT id, user_id, delta, balance_after, reason, ref_id, created_at
 		 FROM credit_ledger
 		 ORDER BY created_at ASC, id ASC`,
@@ -246,7 +246,7 @@ func (b *DatabaseBackend) ReplaceCreditLedger(entries []CreditLedgerRow) error {
 
 func (b *DatabaseBackend) CountCreditLedger() (int, error) {
 	var n int
-	err := b.db.QueryRow(`SELECT COUNT(*) FROM credit_ledger`).Scan(&n)
+	err := b.reader().QueryRow(`SELECT COUNT(*) FROM credit_ledger`).Scan(&n)
 	return n, err
 }
 
@@ -263,7 +263,7 @@ func (b *DatabaseBackend) QueryCreditLedger(filter CreditLedgerFilter) ([]Credit
 	where, args := b.buildCreditLedgerWhere(filter)
 	countSQL := `SELECT COUNT(*) FROM credit_ledger` + where
 	var total int
-	if err := b.db.QueryRow(countSQL, args...).Scan(&total); err != nil {
+	if err := b.reader().QueryRow(countSQL, args...).Scan(&total); err != nil {
 		return nil, 0, err
 	}
 
@@ -273,7 +273,7 @@ func (b *DatabaseBackend) QueryCreditLedger(filter CreditLedgerFilter) ([]Credit
 		` ORDER BY created_at DESC, id DESC LIMIT ` + b.placeholder(len(args)+1) +
 		` OFFSET ` + b.placeholder(len(args)+2)
 	listArgs := append(append([]any{}, args...), pageSize, offset)
-	rows, err := b.db.Query(listSQL, listArgs...)
+	rows, err := b.reader().Query(listSQL, listArgs...)
 	if err != nil {
 		return nil, 0, err
 	}

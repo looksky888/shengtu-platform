@@ -41,7 +41,7 @@ func newDatabaseLogRecord(item map[string]any) (databaseLogRecord, error) {
 
 func (b *DatabaseBackend) LoadUserUsageAggregate() ([]UserUsageAggregateRow, bool, error) {
 	var marker string
-	err := b.db.QueryRow(
+	err := b.reader().QueryRow(
 		"SELECT value FROM user_usage_aggregate_meta WHERE name = "+b.placeholder(1),
 		userUsageAggregateInitialized,
 	).Scan(&marker)
@@ -54,7 +54,7 @@ func (b *DatabaseBackend) LoadUserUsageAggregate() ([]UserUsageAggregateRow, boo
 	if marker != "1" {
 		return nil, false, nil
 	}
-	rows, err := b.db.Query(`SELECT user_id, day, calls, success, failure, quota_used
+	rows, err := b.reader().Query(`SELECT user_id, day, calls, success, failure, quota_used
 		FROM user_usage_aggregate ORDER BY user_id, day`)
 	if err != nil {
 		return nil, false, err

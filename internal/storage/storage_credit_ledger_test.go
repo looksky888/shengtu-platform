@@ -11,7 +11,7 @@ func TestCreditLedgerAppendQueryAndReplace(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewDatabaseBackend() error = %v", err)
 	}
-	defer backend.db.Close()
+	defer backend.Close()
 
 	rows := []CreditLedgerRow{
 		{ID: "e1", UserID: "u1", Delta: 10, BalanceAfter: 10, Reason: "signup", RefID: "r1", CreatedAt: "2026-07-01T10:00:00+08:00"},

@@ -79,3 +79,40 @@ func TestSQLiteBackendKeepsTheBareFilePathAsDSN(t *testing.T) {
 		t.Fatalf("DatabaseSnapshotSourceFiles() = %v, want the database file first", files)
 	}
 }
+
+func TestSQLiteBackendSeparatesReadOnlyPoolFromSingleWriter(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "rw-split.db")
+	backend, err := NewDatabaseBackend("sqlite:///" + filepath.ToSlash(dbPath))
+	if err != nil {
+		t.Fatalf("NewDatabaseBackend() error = %v", err)
+	}
+	defer backend.Close()
+
+	if backend.readDB == nil || backend.reader() == backend.db {
+		t.Fatalf("expected dedicated SQLite readDB pool to be initialized")
+	}
+
+	var queryOnly int
+	if err := backend.reader().QueryRow(`PRAGMA query_only`).Scan(&queryOnly); err != nil {
+		t.Fatalf("PRAGMA query_only: %v", err)
+	}
+	if queryOnly != 1 {
+		t.Fatalf("readDB PRAGMA query_only = %d, want 1", queryOnly)
+	}
+
+	if err := backend.SaveJSONDocument("probe.json", map[string]any{"ok": true}); err != nil {
+		t.Fatalf("SaveJSONDocument() error = %v", err)
+	}
+	doc, err := backend.LoadJSONDocument("probe.json")
+	if err != nil {
+		t.Fatalf("LoadJSONDocument() via readDB error = %v", err)
+	}
+	m, _ := doc.(map[string]any)
+	if m["ok"] != true {
+		t.Fatalf("LoadJSONDocument() = %#v, want ok=true", doc)
+	}
+
+	if _, err := backend.reader().Exec(`DELETE FROM json_documents WHERE name = 'probe.json'`); err == nil {
+		t.Fatalf("expected write statement on query_only readDB pool to be rejected")
+	}
+}

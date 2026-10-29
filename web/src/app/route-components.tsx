@@ -1,5 +1,7 @@
 import { lazyWithRetry } from "@/lib/lazy-with-retry";
 
+export const HomePage = lazyWithRetry(() => import("@/app/page"));
+export const LoginPage = lazyWithRetry(() => import("@/app/login/page"));
 export const AccountsPage = lazyWithRetry(() => import("@/app/accounts/page"));
 export const CreditsAdminPage = lazyWithRetry(() => import("@/app/credits-admin/page"));
 export const ICloudPage = lazyWithRetry(() => import("@/app/icloud/page"));

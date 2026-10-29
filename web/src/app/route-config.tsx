@@ -1,14 +1,14 @@
 import type { ComponentType, ReactNode } from "react";
 
-import HomePage from "@/app/page";
-import LoginPage from "@/app/login/page";
 import {
   AccountsPage,
   CreditsAdminPage,
+  HomePage,
   ICloudPage,
   ImageManagerPage,
   ImagePage,
   ImageTaskLogsPage,
+  LoginPage,
   LogsPage,
   ProfilePage,
   PaymentAdminPage,
@@ -34,8 +34,8 @@ function lazyPage(Page: ComponentType) {
 }
 
 export const appRoutes: AppRouteConfig[] = [
-  { path: "/", element: <HomePage /> },
-  { path: "/login", element: <LoginPage /> },
+  { path: "/", element: lazyPage(HomePage) },
+  { path: "/login", element: lazyPage(LoginPage) },
   { path: "/accounts", element: lazyPage(AccountsPage), requiredPath: "/accounts" },
   { path: "/icloud", element: lazyPage(ICloudPage), requiredPath: "/icloud" },
   { path: "/register", element: lazyPage(RegisterPage), requiredPath: "/register" },
@@ -53,6 +53,5 @@ export const appRoutes: AppRouteConfig[] = [
   { path: "/image", element: lazyPage(ImagePage), requiredPath: "/image" },
   { path: "/video", element: lazyPage(VideoPage), requiredPath: "/video" },
   { path: "/video-library", element: lazyPage(VideoLibraryPage), requiredPath: "/video-library" },
-  { path: "*", element: <HomePage /> },
+  { path: "*", element: lazyPage(HomePage) },
 ];
-

@@ -9,6 +9,36 @@ const releaseVersion = readFileSync(path.resolve(webRoot, "../VERSION.txt"), "ut
 const appVersion = process.env.VITE_APP_VERSION || releaseVersion || process.env.npm_package_version || "0.0.0-dev";
 const distDir = path.resolve(webRoot, process.env.WEB_DIST_DIR || "../internal/web/dist");
 
+function resolveManualChunk(id: string): string | undefined {
+  const normalized = id.replace(/\\/g, "/");
+  if (!normalized.includes("/node_modules/")) {
+    return undefined;
+  }
+  if (
+    normalized.includes("/node_modules/react/") ||
+    normalized.includes("/node_modules/react-dom/") ||
+    normalized.includes("/node_modules/react-router") ||
+    normalized.includes("/node_modules/scheduler/")
+  ) {
+    return "vendor-react";
+  }
+  if (
+    normalized.includes("/node_modules/motion/") ||
+    normalized.includes("/node_modules/framer-motion/") ||
+    normalized.includes("/node_modules/motion-dom/") ||
+    normalized.includes("/node_modules/motion-utils/")
+  ) {
+    return "vendor-motion";
+  }
+  if (normalized.includes("/node_modules/@radix-ui/")) {
+    return "vendor-radix";
+  }
+  if (normalized.includes("/node_modules/lucide-react/")) {
+    return "vendor-icons";
+  }
+  return undefined;
+}
+
 export default defineConfig({
   plugins: [react()],
   define: {
@@ -25,5 +55,10 @@ export default defineConfig({
   build: {
     outDir: distDir,
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks: resolveManualChunk,
+      },
+    },
   },
 });

@@ -53,7 +53,7 @@ func TestDatabaseBackendDeleteAccountDoesNotWipeUnrelatedRows(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewDatabaseBackend() error = %v", err)
 	}
-	defer backend.db.Close()
+	defer backend.Close()
 
 	if err := backend.SaveAccounts([]map[string]any{
 		{"access_token": "token-a", "quota": 1},
@@ -79,7 +79,7 @@ func TestDatabaseBackendUpsertDoesNotWipeUnrelatedRows(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewDatabaseBackend() error = %v", err)
 	}
-	defer backend.db.Close()
+	defer backend.Close()
 
 	if err := backend.SaveAccounts([]map[string]any{
 		{"access_token": "token-a", "quota": 1},
@@ -127,7 +127,7 @@ func TestDatabaseBackendBatchUpsertRollsBackOnLaterMarshalFailure(t *testing.T) 
 	if err != nil {
 		t.Fatalf("NewDatabaseBackend() error = %v", err)
 	}
-	defer backend.db.Close()
+	defer backend.Close()
 
 	err = backend.UpsertAccountsBatch([]AccountMutation{
 		{AccessToken: "token-a", Data: map[string]any{"access_token": "token-a", "quota": 1}},
@@ -151,7 +151,7 @@ func TestDatabaseBackendBatchDeleteRollsBackOnLaterDeleteFailure(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewDatabaseBackend() error = %v", err)
 	}
-	defer backend.db.Close()
+	defer backend.Close()
 	if err := backend.SaveAccounts([]map[string]any{
 		{"access_token": "token-a", "quota": 1},
 		{"access_token": "token-b", "quota": 2},
@@ -182,7 +182,7 @@ func TestDatabaseBackendStoresDocumentsAndLogs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewDatabaseBackend() error = %v", err)
 	}
-	defer backend.db.Close()
+	defer backend.Close()
 
 	if err := backend.SaveAccounts([]map[string]any{{"access_token": "token-1", "type": "Plus"}}); err != nil {
 		t.Fatalf("SaveAccounts() error = %v", err)
@@ -246,7 +246,7 @@ func TestDatabaseBackendHealthFailsWhenCountQueryFails(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewDatabaseBackend() error = %v", err)
 	}
-	defer backend.db.Close()
+	defer backend.Close()
 	if _, err := backend.db.Exec("DROP TABLE logs"); err != nil {
 		t.Fatal(err)
 	}
@@ -266,7 +266,7 @@ func TestDatabaseBackendQueryLogsEmptyReturnsJSONArray(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewDatabaseBackend() error = %v", err)
 	}
-	defer backend.db.Close()
+	defer backend.Close()
 
 	logs, err := backend.QueryLogs("2026-04-30", "2026-04-30", 10)
 	if err != nil {
@@ -290,7 +290,7 @@ func TestDatabaseBackendDeletesLogsBeforeDay(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewDatabaseBackend() error = %v", err)
 	}
-	defer backend.db.Close()
+	defer backend.Close()
 
 	for _, item := range []map[string]any{
 		{"time": "2026-04-28 10:00:00", "type": "event", "summary": "old"},
@@ -360,7 +360,7 @@ func TestNewBackendFromEnvDefaultsToSQLiteProjectDatabase(t *testing.T) {
 	if !ok {
 		t.Fatalf("NewBackendFromEnv() returned %T, want *DatabaseBackend", backend)
 	}
-	defer database.db.Close()
+	defer database.Close()
 	if database.driver != "sqlite" {
 		t.Fatalf("driver = %q, want sqlite", database.driver)
 	}
@@ -376,7 +376,7 @@ func TestDocumentNameValidation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewDatabaseBackend() error = %v", err)
 	}
-	defer backend.db.Close()
+	defer backend.Close()
 
 	for _, name := range []string{"../x.json", "/x.json", "a/../x.json", "C:/x.json"} {
 		t.Run(name, func(t *testing.T) {

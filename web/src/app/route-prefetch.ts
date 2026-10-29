@@ -1,6 +1,8 @@
 type RouteLoader = () => Promise<unknown>;
 
 const routeLoaders: Record<string, RouteLoader> = {
+  "/": () => import("@/app/page"),
+  "/login": () => import("@/app/login/page"),
   "/accounts": () => import("@/app/accounts/page"),
   "/icloud": () => import("@/app/icloud/page"),
   "/register": () => import("@/app/register/page"),

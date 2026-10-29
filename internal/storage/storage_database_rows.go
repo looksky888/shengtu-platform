@@ -25,7 +25,7 @@ func (b *DatabaseBackend) SaveAuthKeys(keys []map[string]any) error {
 }
 
 func (b *DatabaseBackend) loadRows(table string) ([]map[string]any, error) {
-	rows, err := b.db.Query("SELECT data FROM " + table)
+	rows, err := b.reader().Query("SELECT data FROM " + table)
 	if err != nil {
 		return nil, err
 	}
@@ -236,7 +236,7 @@ func (b *DatabaseBackend) deleteRowsNotIn(tx *sql.Tx, table, keyColumn string, k
 
 func (b *DatabaseBackend) count(ctx context.Context, table string) (int, error) {
 	var count int
-	if err := b.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM "+table).Scan(&count); err != nil {
+	if err := b.reader().QueryRowContext(ctx, "SELECT COUNT(*) FROM "+table).Scan(&count); err != nil {
 		return 0, fmt.Errorf("count %s: %w", table, err)
 	}
 	return count, nil

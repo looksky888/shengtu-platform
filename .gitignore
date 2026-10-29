@@ -14,6 +14,7 @@ internal/web/dist/
 __pycache__/
 *.py[cod]
 .pytest_cache/
+*pytest-cache*/
 cache/
 services/grok-runtime/v/
 services/grok-runtime/upstream/services/checkout_protocol/logs/*.log

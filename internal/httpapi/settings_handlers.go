@@ -87,25 +87,39 @@ func (a *App) handleSettings(w http.ResponseWriter, r *http.Request) {
 
 var upstreamClearanceEnvMu sync.Mutex
 
-// hotApplyUpstreamClearanceEnv mirrors saved settings into process env for clearance helpers.
+// hotApplyUpstreamClearanceEnv mirrors saved settings into process env for clearance helpers
+// when settings are mutated or an explicit clearance probe/warm-up runs.
 func hotApplyUpstreamClearanceEnv(cfg *config.Store) {
 	if cfg == nil {
 		return
 	}
 	upstreamClearanceEnvMu.Lock()
 	defer upstreamClearanceEnvMu.Unlock()
-	_ = os.Setenv("CHATGPT2API_PROXY", cfg.Proxy())
-	_ = os.Setenv("CHATGPT2API_FLARESOLVERR_URL", cfg.FlareSolverrURL())
+
+	enabledVal := "false"
 	if cfg.UpstreamClearanceEnabled() {
-		_ = os.Setenv("CHATGPT2API_UPSTREAM_CLEARANCE_ENABLED", "true")
-	} else {
-		_ = os.Setenv("CHATGPT2API_UPSTREAM_CLEARANCE_ENABLED", "false")
+		enabledVal = "true"
 	}
-	_ = os.Setenv("CHATGPT2API_UPSTREAM_CLEARANCE_MODE", cfg.UpstreamClearanceMode())
-	_ = os.Setenv("CHATGPT2API_UPSTREAM_CLEARANCE_TIMEOUT_SEC", strconv.Itoa(cfg.UpstreamClearanceTimeoutSec()))
-	_ = os.Setenv("CHATGPT2API_UPSTREAM_CLEARANCE_REFRESH_INTERVAL", strconv.Itoa(cfg.UpstreamClearanceRefreshInterval()))
-	_ = os.Setenv("CHATGPT2API_IMAGE_CHALLENGE_COOLDOWN_SECONDS", strconv.Itoa(cfg.ImageChallengeCooldownSeconds()))
-	service.InvalidateUpstreamClearance()
+	desired := [][2]string{
+		{"CHATGPT2API_PROXY", cfg.Proxy()},
+		{"CHATGPT2API_FLARESOLVERR_URL", cfg.FlareSolverrURL()},
+		{"CHATGPT2API_UPSTREAM_CLEARANCE_ENABLED", enabledVal},
+		{"CHATGPT2API_UPSTREAM_CLEARANCE_MODE", cfg.UpstreamClearanceMode()},
+		{"CHATGPT2API_UPSTREAM_CLEARANCE_TIMEOUT_SEC", strconv.Itoa(cfg.UpstreamClearanceTimeoutSec())},
+		{"CHATGPT2API_UPSTREAM_CLEARANCE_REFRESH_INTERVAL", strconv.Itoa(cfg.UpstreamClearanceRefreshInterval())},
+		{"CHATGPT2API_IMAGE_CHALLENGE_COOLDOWN_SECONDS", strconv.Itoa(cfg.ImageChallengeCooldownSeconds())},
+	}
+
+	changed := false
+	for _, pair := range desired {
+		if os.Getenv(pair[0]) != pair[1] {
+			_ = os.Setenv(pair[0], pair[1])
+			changed = true
+		}
+	}
+	if changed {
+		service.InvalidateUpstreamClearance()
+	}
 }
 
 func (a *App) handleProxyClearanceTest(w http.ResponseWriter, r *http.Request) {
@@ -259,21 +273,39 @@ func (a *App) handleProxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.URL.Path == "/api/proxy/runtime" {
-		// Unified proxy + clearance runtime status (config + live cache).
-		hotApplyUpstreamClearanceEnv(a.config)
+		// Read-only runtime status: never mutate os.Environ() or invalidate cached clearance on GET.
 		hasProxy := strings.TrimSpace(a.config.Proxy()) != ""
+		enabled := a.config.UpstreamClearanceEnabled()
+		mode := strings.TrimSpace(strings.ToLower(a.config.UpstreamClearanceMode()))
+		if mode == "" {
+			if enabled {
+				mode = "flaresolverr"
+			} else {
+				mode = "none"
+			}
+		}
+		status := service.UpstreamClearanceStatus()
+		status.Enabled = enabled
+		status.EgressMode = map[bool]string{true: "single_proxy", false: "direct"}[hasProxy]
+		status.HasProxy = hasProxy
+		status.ProxySource = map[bool]string{true: "config", false: "none"}[hasProxy]
+		status.ClearanceEnabled = enabled && mode != "none"
+		status.ClearanceMode = mode
+		status.FlareSolverrURL = strings.TrimRight(strings.TrimSpace(a.config.FlareSolverrURL()), "/")
+		status.RefreshIntervalSec = a.config.UpstreamClearanceRefreshInterval()
+
 		util.WriteJSON(w, http.StatusOK, proxyRuntimeResponse{
 			Runtime: proxyRuntimeSettings{
-				Enabled:    hasProxy || a.config.UpstreamClearanceEnabled(),
+				Enabled:    hasProxy || enabled,
 				EgressMode: map[bool]string{true: "single_proxy", false: "direct"}[hasProxy],
 				ProxyURL:   a.config.Proxy(),
 				Clearance: proxyClearanceSettings{
-					Enabled: a.config.UpstreamClearanceEnabled(), Mode: a.config.UpstreamClearanceMode(),
+					Enabled: enabled, Mode: a.config.UpstreamClearanceMode(),
 					FlareSolverrURL: a.config.FlareSolverrURL(), TimeoutSec: a.config.UpstreamClearanceTimeoutSec(),
 					RefreshInterval: a.config.UpstreamClearanceRefreshInterval(), WarmUpOnStart: a.config.UpstreamClearanceWarmUpOnStart(),
 				},
 			},
-			Status: service.UpstreamClearanceStatus(),
+			Status: status,
 		})
 		return
 	}
@@ -306,6 +338,7 @@ func (a *App) handleProxy(w http.ResponseWriter, r *http.Request) {
 			util.WriteError(w, http.StatusBadRequest, err.Error())
 			return
 		}
+		hotApplyUpstreamClearanceEnv(a.config)
 		util.WriteJSON(w, http.StatusOK, proxyResponse[service.ProxySettingsPublic]{Proxy: service.ProxySettingsPublic{URL: util.Clean(updated["proxy"])}})
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)

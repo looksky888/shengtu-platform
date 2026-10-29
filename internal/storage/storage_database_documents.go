@@ -15,7 +15,7 @@ func (b *DatabaseBackend) LoadJSONDocument(name string) (any, error) {
 		return nil, err
 	}
 	var text string
-	err = b.db.QueryRow("SELECT data FROM json_documents WHERE name = "+b.placeholder(1), rel).Scan(&text)
+	err = b.reader().QueryRow("SELECT data FROM json_documents WHERE name = "+b.placeholder(1), rel).Scan(&text)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -73,7 +73,7 @@ func (b *DatabaseBackend) AppendLog(item map[string]any) error {
 }
 
 func (b *DatabaseBackend) LogSummary() (LogSummary, error) {
-	row := b.db.QueryRow("SELECT COUNT(*), COALESCE(MIN(created_at), ''), COALESCE(MAX(created_at), '') FROM logs")
+	row := b.reader().QueryRow("SELECT COUNT(*), COALESCE(MIN(created_at), ''), COALESCE(MAX(created_at), '') FROM logs")
 	var summary LogSummary
 	if err := row.Scan(&summary.Total, &summary.OldestTime, &summary.LatestTime); err != nil {
 		return LogSummary{}, err
@@ -101,7 +101,7 @@ func (b *DatabaseBackend) QueryLogs(startDate, endDate string, limit int) ([]map
 		args = append(args, limit)
 		query += " LIMIT " + b.placeholder(len(args))
 	}
-	rows, err := b.db.Query(query, args...)
+	rows, err := b.reader().Query(query, args...)
 	if err != nil {
 		return nil, err
 	}

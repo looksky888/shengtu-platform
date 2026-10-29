@@ -1,6 +1,6 @@
 {
     "name": "chatgpt2api-web",
-    "version": "5.0.5",
+    "version": "5.1.0",
     "private": true,
     "type": "module",
     "scripts": {
