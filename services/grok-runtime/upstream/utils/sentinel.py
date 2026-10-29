@@ -198,7 +198,6 @@ def build_sentinel_token(
             "sec-ch-ua-platform": '"Windows"',
         },
         timeout=20,
-        verify=False,
     )
 
     try:
@@ -285,7 +284,6 @@ def build_sentinel_with_so_token(
             "sec-ch-ua-platform": '"Windows"',
         },
         timeout=20,
-        verify=False,
     )
 
     try:

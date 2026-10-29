@@ -1,9 +1,12 @@
 package storage
 
 import (
+	"bufio"
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,13 +17,19 @@ type JSONBackend struct {
 	dataDir      string
 	filePath     string
 	authKeysPath string
+	initErr      error
 	mu           sync.Mutex
 }
 
 func NewJSONBackend(filePath, authKeysPath string) *JSONBackend {
-	_ = os.MkdirAll(filepath.Dir(filePath), 0o755)
-	_ = os.MkdirAll(filepath.Dir(authKeysPath), 0o755)
-	return &JSONBackend{dataDir: filepath.Dir(filePath), filePath: filePath, authKeysPath: authKeysPath}
+	var initErr error
+	if err := os.MkdirAll(filepath.Dir(filePath), 0o755); err != nil {
+		initErr = fmt.Errorf("创建 JSON 数据目录: %w", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(authKeysPath), 0o755); err != nil && initErr == nil {
+		initErr = fmt.Errorf("创建认证密钥目录: %w", err)
+	}
+	return &JSONBackend{dataDir: filepath.Dir(filePath), filePath: filePath, authKeysPath: authKeysPath, initErr: initErr}
 }
 
 func (b *JSONBackend) LoadAccounts() ([]map[string]any, error) {
@@ -150,6 +159,9 @@ func (b *JSONBackend) DeleteAccount(accessToken string) error {
 func (b *JSONBackend) HealthCheck() BackendHealth {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	if b.initErr != nil {
+		return BackendHealth{Status: "unhealthy", Backend: "json", Error: b.initErr.Error(), FilePath: b.filePath, AuthKeysFilePath: b.authKeysPath}
+	}
 	if _, err := os.Stat(b.filePath); err != nil && !os.IsNotExist(err) {
 		return BackendHealth{Status: "unhealthy", Backend: "json", Error: err.Error()}
 	}
@@ -252,27 +264,28 @@ func (b *JSONBackend) QueryLogs(startDate, endDate string, limit int) ([]map[str
 	if err != nil {
 		return nil, err
 	}
-	data, err := os.ReadFile(full)
+	file, err := os.Open(full)
 	if errors.Is(err, os.ErrNotExist) {
 		return []map[string]any{}, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
-	if len(lines) == 1 && strings.TrimSpace(lines[0]) == "" {
-		return []map[string]any{}, nil
-	}
+	defer file.Close()
 	out := make([]map[string]any, 0)
-	for i := len(lines) - 1; i >= 0; i-- {
+	err = scanLinesReverse(file, func(line []byte) bool {
 		if limit > 0 && len(out) >= limit {
-			break
+			return true
 		}
-		item, ok := decodeLogLine(lines[i])
+		item, ok := decodeLogLine(string(line))
 		if !ok || !matchLogFilter(item, startDate, endDate) {
-			continue
+			return false
 		}
 		out = append(out, item)
+		return limit > 0 && len(out) >= limit
+	})
+	if err != nil {
+		return nil, err
 	}
 	return out, nil
 }
@@ -288,41 +301,135 @@ func (b *JSONBackend) DeleteLogsBefore(day string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	data, err := os.ReadFile(full)
+	input, err := os.Open(full)
 	if errors.Is(err, os.ErrNotExist) {
 		return 0, nil
 	}
 	if err != nil {
 		return 0, err
 	}
-	lines := strings.Split(strings.TrimRight(string(data), "\r\n"), "\n")
-	kept := make([]string, 0, len(lines))
+	defer input.Close()
+	temp, err := os.CreateTemp(filepath.Dir(full), ".logs-rewrite-*.tmp")
+	if err != nil {
+		return 0, err
+	}
+	tempName := temp.Name()
+	cleanup := true
+	defer func() {
+		if cleanup {
+			_ = os.Remove(tempName)
+		}
+	}()
+	writer := bufio.NewWriterSize(temp, 64<<10)
+	reader := bufio.NewReaderSize(input, 64<<10)
 	removed := 0
-	for _, line := range lines {
-		if strings.TrimSpace(line) == "" {
+	for {
+		line, readErr := reader.ReadBytes('\n')
+		if len(line) == 0 && errors.Is(readErr, io.EOF) {
+			break
+		}
+		if len(bytes.TrimSpace(line)) == 0 {
+			if errors.Is(readErr, io.EOF) {
+				break
+			}
 			continue
 		}
-		item, ok := decodeLogLine(line)
+		item, ok := decodeLogLine(string(bytes.TrimRight(line, "\r\n")))
 		if ok {
 			itemDay := logDay(strings.TrimSpace(fmt.Sprint(item["time"])))
 			if itemDay != "" && itemDay < day {
 				removed++
+				if errors.Is(readErr, io.EOF) {
+					break
+				}
 				continue
 			}
 		}
-		kept = append(kept, line)
+		if _, err := writer.Write(line); err != nil {
+			return 0, err
+		}
+		if errors.Is(readErr, io.EOF) {
+			break
+		}
+		if readErr != nil {
+			return 0, readErr
+		}
+	}
+	if err := writer.Flush(); err != nil {
+		return 0, err
+	}
+	if err := temp.Sync(); err != nil {
+		return 0, err
+	}
+	if err := temp.Close(); err != nil {
+		return 0, err
 	}
 	if removed == 0 {
 		return 0, nil
 	}
-	next := []byte{}
-	if len(kept) > 0 {
-		next = []byte(strings.Join(kept, "\n") + "\n")
-	}
-	if err := AtomicWriteFile(full, next, 0o644); err != nil {
+	kept, err := os.Open(tempName)
+	if err != nil {
 		return 0, err
 	}
+	info, err := kept.Stat()
+	if err != nil {
+		_ = kept.Close()
+		return 0, err
+	}
+	_, copyErr := AtomicWriteFromReader(full, kept, info.Size(), 0o644)
+	closeErr := kept.Close()
+	if copyErr != nil {
+		return 0, copyErr
+	}
+	if closeErr != nil {
+		return 0, closeErr
+	}
+	cleanup = false
+	_ = os.Remove(tempName)
 	return removed, nil
+}
+
+func scanLinesReverse(file *os.File, visit func([]byte) bool) error {
+	if file == nil || visit == nil {
+		return nil
+	}
+	info, err := file.Stat()
+	if err != nil {
+		return err
+	}
+	const chunkSize int64 = 64 << 10
+	var carry []byte
+	position := info.Size()
+	for position > 0 {
+		start := position - chunkSize
+		if start < 0 {
+			start = 0
+		}
+		chunk := make([]byte, position-start)
+		if _, err := file.ReadAt(chunk, start); err != nil && !errors.Is(err, io.EOF) {
+			return err
+		}
+		data := append(chunk, carry...)
+		lines := bytes.Split(data, []byte{'\n'})
+		carry = append(carry[:0], lines[0]...)
+		for i := len(lines) - 1; i >= 1; i-- {
+			line := bytes.TrimSuffix(lines[i], []byte{'\r'})
+			if len(bytes.TrimSpace(line)) == 0 {
+				continue
+			}
+			if visit(line) {
+				return nil
+			}
+		}
+		position = start
+	}
+	if len(bytes.TrimSpace(carry)) > 0 {
+		line := bytes.TrimSuffix(carry, []byte{'\r'})
+		if len(bytes.TrimSpace(line)) > 0 {
+			visit(line)
+		}
+	}
+	return nil
 }
 
 func (b *JSONBackend) documentPath(name string) (string, error) {

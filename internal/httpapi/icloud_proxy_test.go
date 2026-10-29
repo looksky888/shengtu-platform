@@ -5,8 +5,10 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"chatgpt2api/internal/service"
 )
@@ -249,5 +251,56 @@ func TestICloudBridgeStatusRejectsUpstreamAuthFailure(t *testing.T) {
 	if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), `"reachable":false`) ||
 		!strings.Contains(recorder.Body.String(), `"status_code":401`) {
 		t.Fatalf("response = %d %s", recorder.Code, recorder.Body.String())
+	}
+}
+
+func TestICloudProxyInteractiveLoginTimeoutReturnsJSON(t *testing.T) {
+	oldTimeout := iCloudProxyLoginTimeout
+	iCloudProxyLoginTimeout = 10 * time.Millisecond
+	defer func() { iCloudProxyLoginTimeout = oldTimeout }()
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(100 * time.Millisecond)
+	}))
+	defer upstream.Close()
+
+	t.Setenv("CHATGPT2API_FEATURE_ICLOUD", "true")
+	t.Setenv("ICLOUD_PRIVACY_MAIL_BASE_URL", upstream.URL)
+	t.Setenv("INTERNAL_SERVICE_TOKEN", strings.Repeat("t", 32))
+	app := newTestApp(t)
+	request := httptest.NewRequest(http.MethodPost, "/api/icloud/icloud/protocol-login/2fa", strings.NewReader(`{"pending_id":"p","code":"123456"}`))
+	request.Header.Set("Authorization", adminAuthHeader(t, app))
+	recorder := httptest.NewRecorder()
+	app.Handler().ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusGatewayTimeout {
+		t.Fatalf("response = %d %s, want 504", recorder.Code, recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), "iCloud 登录提交超时") {
+		t.Fatalf("timeout response = %s", recorder.Body.String())
+	}
+}
+
+func TestICloudProxySetsExplicitContentLength(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"success":true}`)
+	}))
+	defer upstream.Close()
+
+	t.Setenv("CHATGPT2API_FEATURE_ICLOUD", "true")
+	t.Setenv("ICLOUD_PRIVACY_MAIL_BASE_URL", upstream.URL)
+	t.Setenv("INTERNAL_SERVICE_TOKEN", strings.Repeat("l", 32))
+	app := newTestApp(t)
+	request := httptest.NewRequest(http.MethodGet, "/api/icloud/status", nil)
+	request.Header.Set("Authorization", adminAuthHeader(t, app))
+	recorder := httptest.NewRecorder()
+	app.Handler().ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("response = %d %s", recorder.Code, recorder.Body.String())
+	}
+	if got, want := recorder.Header().Get("Content-Length"), strconv.Itoa(recorder.Body.Len()); got != want {
+		t.Fatalf("Content-Length = %q, want %q", got, want)
 	}
 }

@@ -87,7 +87,7 @@ func (a *App) refundImageCredits(charge *imageCreditCharge) {
 		return
 	}
 	refundReason := firstNonEmpty(charge.RefundReason, service.CreditReasonImageRefund)
-	if _, _, _, err := a.credits.AddOnce(charge.UserID, charge.Amount, refundReason, charge.RefID); err != nil && a.logger != nil {
+	if err := a.applyCreationCreditRefund(charge.UserID, charge.Amount, refundReason, charge.RefID); err != nil && a.logger != nil {
 		a.logger.Warning("image credit refund failed", "user_id", charge.UserID, "ref_id", charge.RefID, "amount", charge.Amount, "error", err.Error())
 	}
 }
@@ -124,9 +124,19 @@ func (a *App) refundImageCreditsForSuccess(charge *imageCreditCharge, successCou
 	}
 	// Distinct ref so full-refund AddOnce(ref) and partial refunds do not collide.
 	refID := fmt.Sprintf("%s:partial:%d_of_%d", charge.RefID, successCount, n)
-	if _, _, _, err := a.credits.AddOnce(charge.UserID, refund, service.CreditReasonImageRefund, refID); err != nil && a.logger != nil {
+	if err := a.applyCreationCreditRefund(charge.UserID, refund, service.CreditReasonImageRefund, refID); err != nil && a.logger != nil {
 		a.logger.Warning("image credit partial refund failed", "user_id", charge.UserID, "ref_id", refID, "amount", refund, "success_count", successCount, "n", n, "error", err.Error())
 	}
+}
+
+func (a *App) applyCreationCreditRefund(userID string, amount int, reason, refID string) error {
+	if a.creditRefunds != nil {
+		return a.creditRefunds.Refund(service.CreditRefundIntent{
+			UserID: userID, Amount: amount, Reason: reason, RefID: refID,
+		})
+	}
+	_, _, _, err := a.credits.AddOnce(userID, amount, reason, refID)
+	return err
 }
 
 func (a *App) writeCreditBillingError(w http.ResponseWriter, err error) {

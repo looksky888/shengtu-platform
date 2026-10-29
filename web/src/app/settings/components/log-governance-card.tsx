@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import type { SettingsConfig } from "@/lib/settings-types";
 
 import { extractSavedConfigSection, isConfigKeysDirty } from "../settings-dirty";
-import { useRegisterSettingsDirty } from "../settings-dirty-registry";
+import { useRegisterSettingsDirty } from "../settings-dirty-registry-hooks";
 import { useSettingsStore } from "../store";
 import { LogCleanupDialog } from "./log-cleanup-dialog";
 import {

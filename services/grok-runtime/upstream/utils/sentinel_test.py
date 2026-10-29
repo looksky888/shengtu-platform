@@ -35,6 +35,8 @@ class SentinelTokenTest(unittest.TestCase):
         self.assertEqual(so_token, "")
         self.assertEqual(oai_sc, "0server-cookie")
         self.assertEqual(json.loads(sentinel_value)["t"], "turnstile-token")
+        request_kwargs = session.post.call_args.kwargs
+        self.assertNotIn("verify", request_kwargs)
 
     def test_missing_session_observer_token_does_not_reuse_turnstile_token(self) -> None:
         response = MagicMock()

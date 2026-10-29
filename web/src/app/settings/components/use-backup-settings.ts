@@ -13,7 +13,7 @@ import {
 } from "@/lib/api";
 import { usePageVisible } from "@/lib/use-page-visible";
 
-import { useRegisterSettingsDirty } from "../settings-dirty-registry";
+import { useRegisterSettingsDirty } from "../settings-dirty-registry-hooks";
 import { SETTINGS_TAB_REFRESH_EVENT } from "../settings-tabs";
 
 export type BackupFormState = {

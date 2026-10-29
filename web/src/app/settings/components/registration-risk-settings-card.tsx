@@ -15,7 +15,7 @@ import {
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
-import { useRegisterSettingsDirty } from "../settings-dirty-registry";
+import { useRegisterSettingsDirty } from "../settings-dirty-registry-hooks";
 import { splitSettingsLines } from "../settings-form-normalizers";
 import {
   SettingsCard,

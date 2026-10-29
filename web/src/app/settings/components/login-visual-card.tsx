@@ -12,7 +12,7 @@ import {
 import { toast } from "sonner";
 
 import { isConfigKeysDirty } from "@/app/settings/settings-dirty";
-import { useRegisterSettingsDirty } from "@/app/settings/settings-dirty-registry";
+import { useRegisterSettingsDirty } from "@/app/settings/settings-dirty-registry-hooks";
 import { useSettingsStore } from "@/app/settings/store";
 import { LoginPageImageStage } from "@/components/login-page-image-stage";
 import { Badge } from "@/components/ui/badge";

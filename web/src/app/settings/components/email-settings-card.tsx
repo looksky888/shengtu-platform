@@ -22,7 +22,7 @@ import {
   type EmailSettings,
 } from "@/lib/api";
 
-import { useRegisterSettingsDirty } from "../settings-dirty-registry";
+import { useRegisterSettingsDirty } from "../settings-dirty-registry-hooks";
 import { normalizeEmailSettingsForm } from "../settings-form-normalizers";
 import {
   SettingsCard,

@@ -1,6 +1,9 @@
 package httpapi
 
 import (
+	"bytes"
+	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -47,5 +50,22 @@ func TestCancelPaymentEndpointRequiresAuthAndDatabase(t *testing.T) {
 		if res.Code != want {
 			t.Fatalf("cancel status=%d want=%d", res.Code, want)
 		}
+	}
+}
+
+func TestWechatPaymentNotifyLimitsRequestBody(t *testing.T) {
+	body := append([]byte(`{"payload":"`), bytes.Repeat([]byte("a"), int(maxPaymentNotifyBodyBytes)+1024)...)
+	body = append(body, []byte(`"}`)...)
+	req := httptest.NewRequest(http.MethodPost, "/api/payment/wechat/notify/channel/version", bytes.NewReader(body))
+	res := httptest.NewRecorder()
+	limitPaymentNotifyBody(res, req)
+
+	got, err := io.ReadAll(req.Body)
+	var maxBytesErr *http.MaxBytesError
+	if !errors.As(err, &maxBytesErr) {
+		t.Fatalf("ReadAll() error=%v, want *http.MaxBytesError", err)
+	}
+	if int64(len(got)) != maxPaymentNotifyBodyBytes {
+		t.Fatalf("read bytes=%d want=%d", len(got), maxPaymentNotifyBodyBytes)
 	}
 }

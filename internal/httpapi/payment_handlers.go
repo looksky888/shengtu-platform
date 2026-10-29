@@ -10,6 +10,8 @@ import (
 	"chatgpt2api/internal/util"
 )
 
+const maxPaymentNotifyBodyBytes int64 = 64 << 10
+
 type createPaymentOrderRequest struct {
 	ProductID     string `json:"product_id"`
 	CustomCredits int    `json:"custom_credits"`
@@ -199,6 +201,7 @@ func (a *App) handleWechatPaymentNotify(w http.ResponseWriter, r *http.Request) 
 		writeWechatNotifyFailure(w)
 		return
 	}
+	limitPaymentNotifyBody(w, r)
 	if _, err := a.paymentOrders.HandleWechatNotify(r.Context(), r, parts[4], parts[5]); err != nil {
 		if a.logger != nil {
 			a.logger.Warning("wechat payment notification failed", "error", err.Error())
@@ -227,7 +230,7 @@ func (a *App) handleAlipayPaymentNotify(w http.ResponseWriter, r *http.Request) 
 		writeAlipayNotifyResult(w, false)
 		return
 	}
-	r.Body = http.MaxBytesReader(w, r.Body, 64<<10)
+	limitPaymentNotifyBody(w, r)
 	if _, err := a.paymentOrders.HandleAlipayNotify(r.Context(), r, parts[4], parts[5]); err != nil {
 		if a.logger != nil {
 			a.logger.Warning("alipay payment notification failed", "error", err.Error())
@@ -236,6 +239,10 @@ func (a *App) handleAlipayPaymentNotify(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	writeAlipayNotifyResult(w, true)
+}
+
+func limitPaymentNotifyBody(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxPaymentNotifyBodyBytes)
 }
 
 func writeAlipayNotifyResult(w http.ResponseWriter, success bool) {

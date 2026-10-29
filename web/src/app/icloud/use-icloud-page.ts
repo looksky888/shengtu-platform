@@ -5,11 +5,16 @@ import {
   icloudApi,
   type ICloudMailbox,
   type ICloudMessage,
-  type ICloudPendingLogin,
 } from "@/lib/icloud-api";
 import { useICloudAccountSelection } from "./use-icloud-account-selection";
 import { useICloudPageData } from "./use-icloud-page-data";
 import { useICloudSessionCheck } from "./use-icloud-session-check";
+import {
+  iCloudPendingLoginKey,
+  removeICloudPendingLogin,
+  upsertICloudPendingLogin,
+  type ICloudPendingLoginEntry,
+} from "./icloud-pending-login";
 
 export function useICloudPage(enabled: boolean) {
   const [busy, setBusy] = useState(false);
@@ -18,7 +23,7 @@ export function useICloudPage(enabled: boolean) {
   const [appleId, setAppleId] = useState("");
   const [password, setPassword] = useState("");
   const [twoFactorMethod, setTwoFactorMethod] = useState("trusted_device");
-  const [pending, setPending] = useState<ICloudPendingLogin | null>(null);
+  const [pendingByKey, setPendingByKey] = useState<Record<string, ICloudPendingLoginEntry>>({});
   const [code2fa, setCode2fa] = useState("");
   const [imapAccountId, setImapAccountId] = useState("");
   const [imapEmail, setImapEmail] = useState("");
@@ -48,22 +53,30 @@ export function useICloudPage(enabled: boolean) {
     sessionsError: loadErrors.sessions,
   });
 
+  const pendingKey = iCloudPendingLoginKey(channel, appleId);
+  const pending = pendingByKey[pendingKey] || null;
+
   async function startLogin() {
     if (!appleId || !password) return toast.error("请填写 Apple ID 与密码");
+    const loginChannel = channel;
+    const loginAppleId = appleId.trim().toLowerCase();
     setBusy(true);
     try {
-      const result = await icloudApi.startLogin(channel, {
-        apple_id: appleId,
+      const result = await icloudApi.startLogin(loginChannel, {
+        apple_id: loginAppleId,
         password,
         two_factor_method: twoFactorMethod,
       });
       if (result.needs_2fa || result.pending_id) {
-        setPending(result);
+        setPendingByKey((current) => upsertICloudPendingLogin(current, {
+          ...result,
+          channel: loginChannel,
+          apple_id: loginAppleId,
+        }));
         toast.message(result.message || "请输入 2FA 验证码");
       } else {
         toast.success("登录成功");
         setPassword("");
-        setPending(null);
         await refreshAll();
       }
     } catch (error) {
@@ -75,15 +88,21 @@ export function useICloudPage(enabled: boolean) {
 
   async function submit2fa() {
     if (!pending?.pending_id || code2fa.length < 6) return toast.error("请输入 6 位验证码");
+    const loginChannel = pending.channel;
+    const loginAppleId = pending.apple_id;
     setBusy(true);
     try {
-      const result = await icloudApi.submit2fa(channel, { pending_id: pending.pending_id, code: code2fa });
+      const result = await icloudApi.submit2fa(loginChannel, { pending_id: pending.pending_id, code: code2fa });
       if (result.needs_2fa) {
-        setPending(result);
+        setPendingByKey((current) => upsertICloudPendingLogin(current, {
+          ...result,
+          channel: loginChannel,
+          apple_id: loginAppleId,
+        }));
         toast.message(result.message || "仍需验证");
       } else {
         toast.success("2FA 完成");
-        setPending(null);
+        setPendingByKey((current) => removeICloudPendingLogin(current, loginChannel, loginAppleId));
         setCode2fa("");
         setPassword("");
         await refreshAll();
@@ -251,7 +270,7 @@ export function useICloudPage(enabled: boolean) {
   return {
     ...pageData, busy, selectedAccountIds, notice,
     channel, setChannel, appleId, setAppleId, password, setPassword, twoFactorMethod, setTwoFactorMethod,
-    pending, code2fa, setCode2fa, imapAccountId, setImapAccountId, imapEmail, setImapEmail,
+    pending, pendingCount: Object.keys(pendingByKey).length, code2fa, setCode2fa, imapAccountId, setImapAccountId, imapEmail, setImapEmail,
     imapPassword, setImapPassword, createLabel, setCreateLabel, createNote, setCreateNote,
     createChannel, setCreateChannel, schedChannel, setSchedChannel,
     schedInterval, setSchedInterval, codeById, messagesById, expandedId, codeBusyId, msgBusyId,

@@ -91,18 +91,26 @@ func (s *PaymentService) processPaymentEvent(event storage.PaymentEventRecord, r
 	}
 	now := s.now().UTC().Format(time.RFC3339Nano)
 	if err := validatePaymentResult(result, order, version); err != nil {
-		_ = s.backend.UpdatePaymentEventStatus(event.ProviderEventID, storage.PaymentEventStatusFailed, err.Error(), now)
-		return false, err
+		return false, s.markPaymentEventFailed(event.ProviderEventID, err, now)
 	}
 	credited, err := s.completePaymentResult(order, result, version)
 	if err != nil {
-		_ = s.backend.UpdatePaymentEventStatus(event.ProviderEventID, storage.PaymentEventStatusFailed, err.Error(), now)
-		return false, err
+		return false, s.markPaymentEventFailed(event.ProviderEventID, err, now)
 	}
 	if err := s.backend.UpdatePaymentEventStatus(event.ProviderEventID, storage.PaymentEventStatusProcessed, "", now); err != nil {
 		return credited, err
 	}
 	return credited, nil
+}
+
+func (s *PaymentService) markPaymentEventFailed(eventID string, cause error, now string) error {
+	if cause == nil {
+		cause = errors.New("支付事件处理失败")
+	}
+	if err := s.backend.UpdatePaymentEventStatus(eventID, storage.PaymentEventStatusFailed, cause.Error(), now); err != nil {
+		return errors.Join(cause, fmt.Errorf("写回支付事件失败状态: %w", err))
+	}
+	return cause
 }
 
 func (s *PaymentService) claimPaymentEvent(event storage.PaymentEventRecord) (bool, error) {

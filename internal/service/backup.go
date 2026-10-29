@@ -4,6 +4,7 @@ import (
 	"chatgpt2api/internal/storage"
 	"chatgpt2api/internal/util"
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -101,7 +102,27 @@ func (s *BackupService) runIfDue() {
 		return
 	}
 	s.mu.Unlock()
-	_, _ = s.TriggerTyped()
+	if _, err := s.TriggerTyped(); err != nil {
+		s.recordBackgroundTriggerError(err)
+	}
+}
+
+func (s *BackupService) recordBackgroundTriggerError(err error) {
+	if err == nil {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.state.Status = BackupStatusFailed
+	s.state.Phase = "trigger_failed"
+	s.state.FinishedAt = util.NowISO()
+	s.state.UpdatedAt = s.state.FinishedAt
+	s.state.LastError = err.Error()
+	if saveErr := s.saveLocked(); saveErr != nil {
+		// The original trigger error remains the useful state; the next run will
+		// retry and surface any persistence failure through the normal state load.
+		s.state.LastError = errors.Join(err, fmt.Errorf("保存备份触发错误: %w", saveErr)).Error()
+	}
 }
 
 func cfgStateLastSuccess(state BackupState) string {

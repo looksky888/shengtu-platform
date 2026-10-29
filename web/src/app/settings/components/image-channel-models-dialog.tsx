@@ -38,9 +38,9 @@ import { resetPublicModelChannelCache } from "@/lib/use-public-model-channel";
 import { cn } from "@/lib/utils";
 
 import {
-  CAPABILITY_LABELS,
   ImageChannelModelForm,
 } from "./image-channel-model-form";
+import { CAPABILITY_LABELS } from "./image-channel-model-labels";
 import { SettingsEmptyState } from "./settings-ui";
 
 function modelPrice(model: ImageChannelModel) {

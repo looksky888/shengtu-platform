@@ -23,7 +23,7 @@ import type { SettingsConfig } from "@/lib/settings-types";
 import { cn } from "@/lib/utils";
 
 import { extractSavedConfigSection, isConfigKeysDirty } from "../settings-dirty";
-import { useRegisterSettingsDirty } from "../settings-dirty-registry";
+import { useRegisterSettingsDirty } from "../settings-dirty-registry-hooks";
 import { useSettingsStore } from "../store";
 import {
   SettingsCard,

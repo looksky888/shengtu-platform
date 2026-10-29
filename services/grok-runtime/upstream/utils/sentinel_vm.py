@@ -95,7 +95,6 @@ def _ensure_sdk(session: Any, *, timeout_seconds: int) -> Path:
                 "sec-fetch-site": "same-origin",
             },
             timeout=timeout_seconds,
-            verify=False,
         )
         if getattr(bootstrap, "status_code", 0) == 200:
             source = str(getattr(bootstrap, "text", "") or "")
@@ -123,7 +122,6 @@ def _ensure_sdk(session: Any, *, timeout_seconds: int) -> Path:
             "sec-fetch-site": "same-origin",
         },
         timeout=timeout_seconds,
-        verify=False,
     )
     if getattr(response, "status_code", 0) != 200:
         raise RuntimeError(f"sentinel_sdk_http_{getattr(response, 'status_code', 'unknown')}")
@@ -200,7 +198,6 @@ def _fetch_challenge(
             "user-agent": user_agent,
         },
         timeout=timeout_seconds,
-        verify=False,
     )
     if getattr(response, "status_code", 0) != 200:
         raise RuntimeError(f"sentinel_req_http_{getattr(response, 'status_code', 'unknown')}")

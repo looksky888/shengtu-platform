@@ -33,6 +33,7 @@ export function ICloudLoginPanels({
     twoFactorMethod,
     setTwoFactorMethod,
     pending,
+    pendingCount,
     code2fa,
     setCode2fa,
     startLogin,
@@ -62,6 +63,11 @@ export function ICloudLoginPanels({
   return (
     <>
       <SectionCard title="添加 Apple 登录态" tone="accent">
+        {pendingCount > 1 ? (
+          <p className="rounded-lg border border-status-warning/25 bg-status-warning-soft px-3 py-2 text-xs text-status-warning">
+            当前有 {pendingCount} 个账号等待验证码；切换 Apple ID 后可继续对应账号的 2FA。
+          </p>
+        ) : null}
         <div className="block text-xs">
           <span className="mb-1 block font-medium text-muted-foreground">
             登录通道

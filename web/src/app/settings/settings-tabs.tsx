@@ -43,8 +43,8 @@ import {
 } from "./settings-dirty";
 import {
   SettingsDirtyRegistryProvider,
-  useSettingsDirtyRegistry,
 } from "./settings-dirty-registry";
+import { useSettingsDirtyRegistry } from "./settings-dirty-registry-hooks";
 import { SettingsTabContent } from "./settings-tab-content";
 import {
   getSettingsDomainForTab,

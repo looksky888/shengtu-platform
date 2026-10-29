@@ -40,6 +40,18 @@ func (a *App) startCreationBillingReconciliation(ctx context.Context, interval t
 func (a *App) reconcileCreationBilling() {
 	candidates := a.tasks.FailedBillingCandidates()
 	health := creationBillingHealth{LastRunAt: util.NowChina().Format("2006-01-02 15:04:05"), Scanned: len(candidates)}
+	if a.creditRefunds != nil {
+		summary, err := a.creditRefunds.RetryPending()
+		health.Scanned += summary.Scanned
+		health.Refunded += summary.Refunded
+		health.Failed += summary.Failed
+		if err != nil {
+			health.LastError = err.Error()
+			if a.logger != nil {
+				a.logger.Warning("pending credit refund reconciliation failed", "scanned", summary.Scanned, "refunded", summary.Refunded, "failed", summary.Failed, "error", err.Error())
+			}
+		}
+	}
 	for _, candidate := range candidates {
 		refunded, err := a.credits.ReconcileCreationCharge(candidate.OwnerID, candidate.ChargeReason, candidate.RefID, candidate.BilledCount, candidate.SuccessCount)
 		if err != nil {

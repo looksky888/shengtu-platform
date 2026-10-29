@@ -14,7 +14,7 @@ import {
 import type { SettingsConfig } from "@/lib/settings-types";
 
 import { isConfigKeysDirty } from "../settings-dirty";
-import { useRegisterSettingsDirty } from "../settings-dirty-registry";
+import { useRegisterSettingsDirty } from "../settings-dirty-registry-hooks";
 import { normalizeImageAccountSchedule } from "../settings-normalizers";
 import { useSettingsStore } from "../store";
 import {

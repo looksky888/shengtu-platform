@@ -2,13 +2,22 @@ package httpapi
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
 	"chatgpt2api/internal/util"
 )
+
+// Cloudflare's edge request window is shorter than the sidecar's historical
+// 120s proxy timeout. Keep interactive Apple login requests below that window
+// so a slow upstream becomes a JSON 504 instead of an incomplete origin
+// response at the edge.
+var iCloudProxyLoginTimeout = 90 * time.Second
 
 // handleICloudProxy reverse-proxies admin iCloud Privacy Mail APIs to the Go sidecar.
 // Enabled when CHATGPT2API_FEATURE_ICLOUD=true.
@@ -84,7 +93,13 @@ func (a *App) handleICloudProxy(w http.ResponseWriter, r *http.Request) {
 		util.WriteError(w, http.StatusBadRequest, "读取请求体失败或请求体过大")
 		return
 	}
-	req, err := http.NewRequestWithContext(r.Context(), r.Method, target.String(), strings.NewReader(string(body)))
+	proxyContext := r.Context()
+	var cancel context.CancelFunc
+	if isICloudInteractiveLoginPath(rest, r.Method) {
+		proxyContext, cancel = context.WithTimeout(proxyContext, iCloudProxyLoginTimeout)
+		defer cancel()
+	}
+	req, err := http.NewRequestWithContext(proxyContext, r.Method, target.String(), bytes.NewReader(body))
 	if err != nil {
 		util.WriteError(w, http.StatusBadGateway, err.Error())
 		return
@@ -111,6 +126,10 @@ func (a *App) handleICloudProxy(w http.ResponseWriter, r *http.Request) {
 	client := &http.Client{Timeout: 120 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			util.WriteError(w, http.StatusGatewayTimeout, "iCloud 登录提交超时，上游未在边缘请求窗口内返回；请稍后重试")
+			return
+		}
 		util.WriteError(w, http.StatusServiceUnavailable, "iCloud Privacy Mail 模块不可用: "+err.Error())
 		return
 	}
@@ -136,8 +155,23 @@ func (a *App) handleICloudProxy(w http.ResponseWriter, r *http.Request) {
 			bodyBytes = []byte(`{"error":"icloud_upstream_auth","message":"iCloud 模块鉴权失败（非主站登录失效），请检查邮箱 API Key / sidecar 配置"}`)
 		}
 	}
+	// Make the body boundary explicit. This prevents an intermediary from
+	// observing a half-written chunked response when the sidecar closes after a
+	// transient upstream read failure.
+	w.Header().Set("Content-Length", strconv.Itoa(len(bodyBytes)))
 	w.WriteHeader(status)
 	_, _ = w.Write(bodyBytes)
+}
+
+func isICloudInteractiveLoginPath(path string, method string) bool {
+	if method != http.MethodPost {
+		return false
+	}
+	path = strings.Trim(path, "/")
+	path = strings.TrimPrefix(path, "icloud/")
+	return strings.HasPrefix(path, "protocol-login/") ||
+		strings.HasPrefix(path, "apple-account/login/") ||
+		strings.HasPrefix(path, "imap-login/")
 }
 
 func (a *App) writeICloudBridgeStatus(w http.ResponseWriter, r *http.Request, base string) {

@@ -43,35 +43,36 @@ const (
 )
 
 type App struct {
-	config        *config.Store
-	auth          *service.AuthService
-	accounts      *service.AccountService
-	logs          *service.LogService
-	logger        *service.Logger
-	proxy         *service.ProxyService
-	engine        *protocol.Engine
-	images        *service.ImageService
-	media         *service.MediaLibrary
-	mediaAdmin    *service.MediaLibrary
-	mediaKey      string
-	mediaMu       sync.Mutex
-	billingMu     sync.RWMutex
-	billingHealth creationBillingHealth
-	videos        *service.VideoAssetService
-	videoRefs     *service.VideoReferenceAssetService
-	tasks         *service.ImageTaskService
-	proxyStats    *imageProxyHealth
-	apiLimiter    *apiKeyLimiter
-	announce      *service.AnnouncementService
-	backup        *service.BackupService
-	prompts       *service.PromptFavoriteService
-	cpa           *service.CPAConfig
-	cpaImport     *service.CPAImportService
-	register      *service.RegisterService
-	credits       *service.CreditService
-	imageChannels *service.ImageChannelService
-	regQuota      *service.RegistrationQuotaService
-	email         *service.RegistrationEmailService
+	config            *config.Store
+	auth              *service.AuthService
+	accounts          *service.AccountService
+	logs              *service.LogService
+	logger            *service.Logger
+	proxy             *service.ProxyService
+	engine            *protocol.Engine
+	images            *service.ImageService
+	media             *service.MediaLibrary
+	mediaAdmin        *service.MediaLibrary
+	mediaKey          string
+	mediaMu           sync.Mutex
+	billingMu         sync.RWMutex
+	billingHealth     creationBillingHealth
+	videos            *service.VideoAssetService
+	videoRefs         *service.VideoReferenceAssetService
+	tasks             *service.ImageTaskService
+	proxyStats        *imageProxyHealth
+	apiLimiter        *apiKeyLimiter
+	announce          *service.AnnouncementService
+	backup            *service.BackupService
+	prompts           *service.PromptFavoriteService
+	cpa               *service.CPAConfig
+	cpaImport         *service.CPAImportService
+	register          *service.RegisterService
+	credits           *service.CreditService
+	creditRefunds     *service.CreditRefundQueue
+	imageChannels     *service.ImageChannelService
+	regQuota          *service.RegistrationQuotaService
+	email             *service.RegistrationEmailService
 	paymentAdmin      *service.PaymentAdminService
 	paymentOrders     *service.PaymentService
 	updateMu          sync.RWMutex
@@ -184,6 +185,14 @@ func NewApp() (*App, error) {
 	images := service.NewImageService(cfg, storageBackend)
 	images.BindMediaLibrary(media)
 	hostUpdater, hostUpdaterReason := updaterclient.NewFromEnv()
+	credits := service.NewCreditService(cfg.DataDir, storageBackend)
+	creditRefunds, err := service.NewCreditRefundQueue(cfg.DataDir, credits)
+	if err != nil {
+		cancel()
+		_ = logger.Close()
+		_ = closeStorage()
+		return nil, fmt.Errorf("初始化积分退款队列: %w", err)
+	}
 	app := &App{
 		config: cfg, auth: auth, accounts: accounts, logs: logs, logger: logger, proxy: proxy, engine: engine,
 		images:            images,
@@ -196,7 +205,8 @@ func NewApp() (*App, error) {
 		backup:            service.NewBackupService(cfg.RootDir, cfg.DataDir, storageBackend),
 		prompts:           service.NewPromptFavoriteService(cfg.DataDir, storageBackend),
 		cpa:               service.NewCPAConfig(cfg.DataDir, storageBackend),
-		credits:           service.NewCreditService(cfg.DataDir, storageBackend),
+		credits:           credits,
+		creditRefunds:     creditRefunds,
 		imageChannels:     imageChannels,
 		regQuota:          regQuota,
 		email:             email,

@@ -6,9 +6,43 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 )
+
+func TestAppleAuthPendingStoreKeepsConcurrentAccounts(t *testing.T) {
+	store := newAppleAuthPendingStore()
+	const count = 2
+	ids := make(chan string, count)
+	var wg sync.WaitGroup
+	for _, appleID := range []string{"first@icloud.com", "second@icloud.com"} {
+		wg.Add(1)
+		go func(appleID string) {
+			defer wg.Done()
+			pending, err := store.put(&appleAuthSession{AppleID: appleID})
+			if err != nil {
+				t.Errorf("put(%q) error = %v", appleID, err)
+				return
+			}
+			ids <- pending.ID
+		}(appleID)
+	}
+	wg.Wait()
+	close(ids)
+
+	seen := 0
+	for id := range ids {
+		pending, ok := store.get(id)
+		if !ok || pending.Session == nil {
+			t.Fatalf("pending %q was not retained", id)
+		}
+		seen++
+	}
+	if seen != count {
+		t.Fatalf("retained pending entries = %d, want %d", seen, count)
+	}
+}
 
 func TestAppleAuthRetriesTransientHTTPStatus(t *testing.T) {
 	var attempts atomic.Int32
