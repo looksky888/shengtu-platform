@@ -3,6 +3,7 @@ package app
 import (
 	"bytes"
 	"encoding/json"
+	"net/http"
 	"strings"
 )
 
@@ -59,7 +60,7 @@ func appleHostForAccountCountry(country string) string {
 }
 
 func parseAppleDomainRedirect(status int, data []byte) (appleDomainRedirectError, bool) {
-	if status < 300 || status >= 400 {
+	if (status < 300 || status >= 400) && status != http.StatusMisdirectedRequest && status != http.StatusConflict {
 		return appleDomainRedirectError{}, false
 	}
 	var payload struct {

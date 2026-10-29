@@ -74,17 +74,7 @@ func (s *FileStore) load() error {
 		s.state.NextID = 1
 	}
 	s.rememberPersistedLocked()
-	changed := s.migrateLegacyICloudSessionToAdminLocked()
-	if s.migrateLegacyICloudSessionAccountIDsLocked() {
-		changed = true
-	}
-	if s.migrateLegacyMailboxAccountIDsLocked() {
-		changed = true
-	}
-	if s.migrateLegacyMailboxClaimsLocked() {
-		changed = true
-	}
-	if changed {
+	if s.migrateStateLocked() {
 		return s.saveLocked()
 	}
 	return nil
@@ -116,7 +106,7 @@ func (s *FileStore) SaveCreateSettingsForOwner(ownerID string, settings CreateSe
 	settings = normalizeCreateSettings(ownerID, settings)
 	settings.UpdatedAt = time.Now()
 	for i := range s.state.CreateSettings {
-		if constantTimeEqual(ownerID, s.state.CreateSettings[i].OwnerID) {
+		if sameOwnerID(ownerID, s.state.CreateSettings[i].OwnerID) {
 			s.state.CreateSettings[i] = settings
 			return settings, s.saveLocked()
 		}

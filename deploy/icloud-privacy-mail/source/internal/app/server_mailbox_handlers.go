@@ -125,7 +125,7 @@ func (s *Server) handleSyncMailbox(w http.ResponseWriter, r *http.Request) {
 	}
 	count, err := s.syncMailbox(r.Context(), mailbox, after, strings.TrimSpace(r.URL.Query().Get("keyword")))
 	if err != nil {
-		writeError(w, http.StatusBadGateway, err)
+		writeError(w, uiUpstreamErrorStatus(err), err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"success": true, "synced": count})
@@ -164,7 +164,7 @@ func (s *Server) handleCleanRemoteMailbox(w http.ResponseWriter, r *http.Request
 		remoteIDs := icloudRemoteIDsFromMessages(s.store.MessagesForMailbox(mailbox.ID))
 		moved, err := client.MoveRemoteMessagesToTrash(r.Context(), session, remoteIDs)
 		if err != nil {
-			writeError(w, http.StatusBadGateway, err)
+			writeError(w, uiUpstreamErrorStatus(err), err)
 			return
 		}
 		result.MovedToTrash += moved.MovedToTrash
@@ -173,7 +173,7 @@ func (s *Server) handleCleanRemoteMailbox(w http.ResponseWriter, r *http.Request
 	if payload.EmptyTrash {
 		destroyed, err := client.EmptyTrash(r.Context(), session)
 		if err != nil {
-			writeError(w, http.StatusBadGateway, err)
+			writeError(w, uiUpstreamErrorStatus(err), err)
 			return
 		}
 		result.Destroyed = destroyed

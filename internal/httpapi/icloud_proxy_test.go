@@ -273,11 +273,53 @@ func TestICloudProxyInteractiveLoginTimeoutReturnsJSON(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	app.Handler().ServeHTTP(recorder, request)
 
-	if recorder.Code != http.StatusGatewayTimeout {
-		t.Fatalf("response = %d %s, want 504", recorder.Code, recorder.Body.String())
+	if recorder.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("response = %d %s, want 422", recorder.Code, recorder.Body.String())
+	}
+	if got := recorder.Header().Get("X-ICloud-Upstream-Status"); got != strconv.Itoa(http.StatusGatewayTimeout) {
+		t.Fatalf("X-ICloud-Upstream-Status = %q, want 504", got)
 	}
 	if !strings.Contains(recorder.Body.String(), "iCloud 登录提交超时") {
 		t.Fatalf("timeout response = %s", recorder.Body.String())
+	}
+}
+
+func TestICloudProxyNormalizesUpstreamGatewayStatusesForCloudflare(t *testing.T) {
+	internalToken := strings.Repeat("k", 32)
+	for _, upstreamStatus := range []int{
+		http.StatusUnauthorized,
+		http.StatusForbidden,
+		http.StatusBadGateway,
+		http.StatusServiceUnavailable,
+		http.StatusGatewayTimeout,
+	} {
+		t.Run(strconv.Itoa(upstreamStatus), func(t *testing.T) {
+			upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json; charset=utf-8")
+				w.WriteHeader(upstreamStatus)
+				_, _ = io.WriteString(w, `{"success":false,"code":"imap_login_failed","message":"iCloud IMAP 认证失败"}`)
+			}))
+			defer upstream.Close()
+
+			t.Setenv("CHATGPT2API_FEATURE_ICLOUD", "true")
+			t.Setenv("ICLOUD_PRIVACY_MAIL_BASE_URL", upstream.URL)
+			t.Setenv("INTERNAL_SERVICE_TOKEN", internalToken)
+			app := newTestApp(t)
+			request := httptest.NewRequest(http.MethodPost, "/api/icloud/icloud/imap-login/save", strings.NewReader(`{"email":"a@icloud.com","app_password":"xxxx"}`))
+			request.Header.Set("Authorization", adminAuthHeader(t, app))
+			recorder := httptest.NewRecorder()
+			app.Handler().ServeHTTP(recorder, request)
+
+			if recorder.Code != http.StatusUnprocessableEntity {
+				t.Fatalf("response = %d %s, want 422", recorder.Code, recorder.Body.String())
+			}
+			if got := recorder.Header().Get("X-ICloud-Upstream-Status"); got != strconv.Itoa(upstreamStatus) {
+				t.Fatalf("X-ICloud-Upstream-Status = %q, want %d", got, upstreamStatus)
+			}
+			if !strings.Contains(recorder.Body.String(), "iCloud IMAP 认证失败") {
+				t.Fatalf("body = %s, want preserved Chinese upstream JSON", recorder.Body.String())
+			}
+		})
 	}
 }
 

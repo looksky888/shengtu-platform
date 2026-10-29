@@ -15,41 +15,69 @@ func (s *FileStore) SaveICloudSessionForOwner(ownerID string, session ICloudSess
 
 	ownerID = strings.TrimSpace(ownerID)
 	session.OwnerID = ownerID
-	if strings.TrimSpace(session.AccountID) == "" && shouldCreateICloudAccount(session) {
-		session.AccountID = s.ensureICloudAccountLocked(ownerID, session)
+	if ownerID == "" && s.state.ICloudSession != nil {
+		s.absorbGlobalLegacyICloudSessionLocked()
 	}
 	if session.SavedAt.IsZero() {
 		session.SavedAt = time.Now()
 	}
-	if ownerID != "" {
-		if strings.TrimSpace(session.AccountID) == "" {
-			session.AccountID = s.ensureICloudAccountLocked(ownerID, session)
-		} else {
-			s.touchICloudAccountLocked(ownerID, session.AccountID, session)
-		}
-		for i, existing := range s.state.ICloudSessions {
-			if constantTimeEqual(ownerID, existing.OwnerID) && sameICloudSessionIdentity(existing, session) {
-				merged := mergeICloudSession(existing, session)
-				s.state.ICloudSessions[i] = merged
-				if strings.TrimSpace(merged.AccountID) != "" {
-					s.touchICloudAccountLocked(ownerID, merged.AccountID, merged)
-				}
-				s.pruneDuplicateIMAPOnlySessionsLocked(ownerID, merged, i)
-				return s.saveLocked()
+	if strings.TrimSpace(session.AccountID) == "" {
+		session.AccountID = s.ensureICloudAccountLocked(ownerID, session)
+	} else {
+		s.touchICloudAccountLocked(ownerID, session.AccountID, session)
+	}
+	for i, existing := range s.state.ICloudSessions {
+		if sameOwnerID(ownerID, existing.OwnerID) && sameICloudSessionIdentity(existing, session) {
+			merged := mergeICloudSession(existing, session)
+			s.state.ICloudSessions[i] = merged
+			if strings.TrimSpace(merged.AccountID) != "" {
+				s.touchICloudAccountLocked(ownerID, merged.AccountID, merged)
 			}
+			idx := s.adoptMatchingIMAPOnlySessionLocked(ownerID, i)
+			if idx >= 0 && idx < len(s.state.ICloudSessions) {
+				s.pruneDuplicateIMAPOnlySessionsLocked(ownerID, s.state.ICloudSessions[idx], idx)
+			}
+			if ownerID == "" {
+				s.migrateLegacyMailboxAccountIDsLocked()
+			}
+			return s.saveLocked()
 		}
-		s.state.ICloudSessions = append(s.state.ICloudSessions, session)
-		s.pruneDuplicateIMAPOnlySessionsLocked(ownerID, session, len(s.state.ICloudSessions)-1)
-		return s.saveLocked()
 	}
-	if s.state.ICloudSession != nil && sameICloudSessionIdentity(*s.state.ICloudSession, session) {
-		session = mergeICloudSession(*s.state.ICloudSession, session)
+	s.state.ICloudSessions = append(s.state.ICloudSessions, session)
+	idx := len(s.state.ICloudSessions) - 1
+	idx = s.adoptMatchingIMAPOnlySessionLocked(ownerID, idx)
+	if idx >= 0 && idx < len(s.state.ICloudSessions) {
+		s.pruneDuplicateIMAPOnlySessionsLocked(ownerID, s.state.ICloudSessions[idx], idx)
 	}
-	s.state.ICloudSession = &session
-	if strings.TrimSpace(session.AccountID) != "" {
+	if ownerID == "" {
 		s.migrateLegacyMailboxAccountIDsLocked()
 	}
 	return s.saveLocked()
+}
+
+func (s *FileStore) absorbGlobalLegacyICloudSessionLocked() {
+	if s.state.ICloudSession == nil {
+		return
+	}
+	legacy := cloneICloudSession(*s.state.ICloudSession)
+	legacy.OwnerID = ""
+	s.state.ICloudSession = nil
+	if strings.TrimSpace(legacy.AccountID) == "" {
+		legacy.AccountID = s.ensureICloudAccountLocked("", legacy)
+	} else {
+		s.touchICloudAccountLocked("", legacy.AccountID, legacy)
+	}
+	for i, existing := range s.state.ICloudSessions {
+		if sameOwnerID("", existing.OwnerID) && sameICloudSessionIdentity(existing, legacy) {
+			merged := mergeICloudSession(legacy, existing)
+			s.state.ICloudSessions[i] = merged
+			if strings.TrimSpace(merged.AccountID) != "" {
+				s.touchICloudAccountLocked("", merged.AccountID, merged)
+			}
+			return
+		}
+	}
+	s.state.ICloudSessions = append([]ICloudSession{legacy}, s.state.ICloudSessions...)
 }
 
 func (s *FileStore) ICloudSession() (ICloudSession, bool) {
@@ -72,7 +100,7 @@ func (s *FileStore) ICloudSessionsForOwner(ownerID string) []ICloudSession {
 	if ownerID != "" {
 		out := make([]ICloudSession, 0, 2)
 		for _, session := range s.state.ICloudSessions {
-			if constantTimeEqual(ownerID, session.OwnerID) {
+			if sameOwnerID(ownerID, session.OwnerID) {
 				out = append(out, cloneICloudSession(session))
 			}
 		}
@@ -83,7 +111,7 @@ func (s *FileStore) ICloudSessionsForOwner(ownerID string) []ICloudSession {
 		out = append(out, cloneICloudSession(*s.state.ICloudSession))
 	}
 	for _, session := range s.state.ICloudSessions {
-		if strings.TrimSpace(session.OwnerID) == "" {
+		if sameOwnerID("", session.OwnerID) {
 			out = append(out, cloneICloudSession(session))
 		}
 	}

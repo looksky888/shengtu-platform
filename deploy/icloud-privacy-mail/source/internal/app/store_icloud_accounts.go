@@ -6,16 +6,30 @@ import (
 	"time"
 )
 
+func sameOwnerID(a, b string) bool {
+	return strings.TrimSpace(a) == strings.TrimSpace(b)
+}
+
 func (s *FileStore) nextIDLocked(prefix string) string {
 	id := fmt.Sprintf("%s_%06d", prefix, s.state.NextID)
 	s.state.NextID++
 	return id
 }
 
+func (s *FileStore) mailboxCountByAccountIDLocked() map[string]int {
+	counts := make(map[string]int, len(s.state.Accounts))
+	for _, mailbox := range s.state.Mailboxes {
+		if accountID := strings.TrimSpace(mailbox.AccountID); accountID != "" {
+			counts[accountID]++
+		}
+	}
+	return counts
+}
+
 func (s *FileStore) ensureICloudAccountLocked(ownerID string, session ICloudSession) string {
 	ownerID = strings.TrimSpace(ownerID)
 	for _, existing := range s.state.ICloudSessions {
-		if constantTimeEqual(ownerID, existing.OwnerID) && sameICloudSessionIdentity(existing, session) && strings.TrimSpace(existing.AccountID) != "" {
+		if sameOwnerID(ownerID, existing.OwnerID) && sameICloudSessionIdentity(existing, session) && strings.TrimSpace(existing.AccountID) != "" {
 			s.touchICloudAccountLocked(ownerID, existing.AccountID, session)
 			return existing.AccountID
 		}
@@ -23,11 +37,22 @@ func (s *FileStore) ensureICloudAccountLocked(ownerID string, session ICloudSess
 
 	appleID := strings.TrimSpace(session.AppleID)
 	if appleID != "" {
+		mailboxCounts := s.mailboxCountByAccountIDLocked()
+		bestIndex := -1
+		bestMailboxes := -1
 		for i, account := range s.state.Accounts {
-			if constantTimeEqual(ownerID, account.OwnerID) && strings.EqualFold(strings.TrimSpace(account.AppleID), appleID) {
-				s.updateICloudAccountFromSessionLocked(i, session)
-				return account.ID
+			if !sameOwnerID(ownerID, account.OwnerID) || !strings.EqualFold(strings.TrimSpace(account.AppleID), appleID) {
+				continue
 			}
+			count := mailboxCounts[strings.TrimSpace(account.ID)]
+			if bestIndex < 0 || count > bestMailboxes || count == bestMailboxes && i > bestIndex {
+				bestIndex = i
+				bestMailboxes = count
+			}
+		}
+		if bestIndex >= 0 {
+			s.updateICloudAccountFromSessionLocked(bestIndex, session)
+			return s.state.Accounts[bestIndex].ID
 		}
 	}
 
@@ -60,7 +85,7 @@ func (s *FileStore) touchICloudAccountLocked(ownerID, accountID string, session 
 		return
 	}
 	for i, account := range s.state.Accounts {
-		if account.ID == accountID && constantTimeEqual(ownerID, account.OwnerID) {
+		if account.ID == accountID && sameOwnerID(ownerID, account.OwnerID) {
 			s.updateICloudAccountFromSessionLocked(i, session)
 			return
 		}
@@ -96,6 +121,71 @@ func sameICloudSessionIdentity(a, b ICloudSession) bool {
 	return false
 }
 
+func (s *FileStore) adoptMatchingIMAPOnlySessionLocked(ownerID string, targetIndex int) int {
+	ownerID = strings.TrimSpace(ownerID)
+	if targetIndex < 0 || targetIndex >= len(s.state.ICloudSessions) {
+		return targetIndex
+	}
+	target := s.state.ICloudSessions[targetIndex]
+	if !hasCreateLoginState(target) || sessionIMAPEmail(target) != "" {
+		return targetIndex
+	}
+	targetLocal := emailLocalPart(target.AppleID)
+	if targetLocal == "" {
+		return targetIndex
+	}
+
+	findUniqueCandidate := func(allowSecondaryPrefix bool) int {
+		matchIndex := -1
+		for i, session := range s.state.ICloudSessions {
+			if i == targetIndex || !sameOwnerID(ownerID, session.OwnerID) || hasCreateLoginState(session) {
+				continue
+			}
+			imapEmail := sessionIMAPEmail(session)
+			if imapEmail == "" {
+				continue
+			}
+			if !emailLocalPartsMatch(targetLocal, emailLocalPart(imapEmail), allowSecondaryPrefix) {
+				continue
+			}
+			if matchIndex >= 0 {
+				return -1
+			}
+			matchIndex = i
+		}
+		return matchIndex
+	}
+
+	matchIndex := findUniqueCandidate(false)
+	if matchIndex < 0 {
+		matchIndex = findUniqueCandidate(true)
+	}
+	if matchIndex < 0 {
+		return targetIndex
+	}
+
+	candidate := s.state.ICloudSessions[matchIndex]
+	target.LoginStates = mergeLoginStates(target.LoginStates, candidate.LoginStates)
+	s.state.ICloudSessions[targetIndex] = target
+	if strings.TrimSpace(target.AccountID) != "" {
+		s.touchICloudAccountLocked(ownerID, target.AccountID, target)
+	}
+
+	removedAccountIDs := map[string]struct{}{}
+	if candidateAccountID := strings.TrimSpace(candidate.AccountID); candidateAccountID != "" && candidateAccountID != strings.TrimSpace(target.AccountID) {
+		removedAccountIDs[candidateAccountID] = struct{}{}
+	}
+	s.state.ICloudSessions = append(s.state.ICloudSessions[:matchIndex], s.state.ICloudSessions[matchIndex+1:]...)
+	if matchIndex < targetIndex {
+		targetIndex--
+	}
+	if len(removedAccountIDs) > 0 {
+		s.removeAccountIDsFromCreateSettingsLocked(ownerID, removedAccountIDs)
+		s.pruneRemovedIMAPOnlyAccountsLocked(ownerID, removedAccountIDs)
+	}
+	return targetIndex
+}
+
 func (s *FileStore) pruneDuplicateIMAPOnlySessionsLocked(ownerID string, target ICloudSession, targetIndex int) {
 	ownerID = strings.TrimSpace(ownerID)
 	targetIMAPEmail := sessionIMAPEmail(target)
@@ -106,7 +196,7 @@ func (s *FileStore) pruneDuplicateIMAPOnlySessionsLocked(ownerID string, target 
 	removedAccountIDs := map[string]struct{}{}
 	next := s.state.ICloudSessions[:0]
 	for i, session := range s.state.ICloudSessions {
-		if i == targetIndex || !constantTimeEqual(ownerID, session.OwnerID) {
+		if i == targetIndex || !sameOwnerID(ownerID, session.OwnerID) {
 			next = append(next, session)
 			continue
 		}
@@ -118,7 +208,7 @@ func (s *FileStore) pruneDuplicateIMAPOnlySessionsLocked(ownerID string, target 
 		sameIMAPEmail := targetIMAPEmail != "" && strings.EqualFold(imapEmail, targetIMAPEmail)
 		sameLocalPart := targetLocal != "" && strings.EqualFold(emailLocalPart(imapEmail), targetLocal)
 		if sameIMAPEmail || sameLocalPart {
-			if accountID := strings.TrimSpace(session.AccountID); accountID != "" {
+			if accountID := strings.TrimSpace(session.AccountID); accountID != "" && accountID != strings.TrimSpace(target.AccountID) {
 				removedAccountIDs[accountID] = struct{}{}
 			}
 			continue
@@ -134,7 +224,7 @@ func (s *FileStore) pruneDuplicateIMAPOnlySessionsLocked(ownerID string, target 
 
 func (s *FileStore) removeAccountIDsFromCreateSettingsLocked(ownerID string, accountIDs map[string]struct{}) {
 	for i, settings := range s.state.CreateSettings {
-		if !constantTimeEqual(ownerID, settings.OwnerID) {
+		if !sameOwnerID(ownerID, settings.OwnerID) {
 			continue
 		}
 		next := settings.AccountIDs[:0]
@@ -152,14 +242,14 @@ func (s *FileStore) removeAccountIDsFromCreateSettingsLocked(ownerID string, acc
 func (s *FileStore) pruneRemovedIMAPOnlyAccountsLocked(ownerID string, accountIDs map[string]struct{}) {
 	referenced := map[string]struct{}{}
 	for _, session := range s.state.ICloudSessions {
-		if constantTimeEqual(ownerID, session.OwnerID) {
+		if sameOwnerID(ownerID, session.OwnerID) {
 			if accountID := strings.TrimSpace(session.AccountID); accountID != "" {
 				referenced[accountID] = struct{}{}
 			}
 		}
 	}
 	for _, mailbox := range s.state.Mailboxes {
-		if constantTimeEqual(ownerID, mailbox.OwnerID) {
+		if sameOwnerID(ownerID, mailbox.OwnerID) {
 			if accountID := strings.TrimSpace(mailbox.AccountID); accountID != "" {
 				referenced[accountID] = struct{}{}
 			}
@@ -168,7 +258,7 @@ func (s *FileStore) pruneRemovedIMAPOnlyAccountsLocked(ownerID string, accountID
 	next := s.state.Accounts[:0]
 	for _, account := range s.state.Accounts {
 		accountID := strings.TrimSpace(account.ID)
-		if constantTimeEqual(ownerID, account.OwnerID) {
+		if sameOwnerID(ownerID, account.OwnerID) {
 			if _, wasRemovedSessionAccount := accountIDs[accountID]; wasRemovedSessionAccount {
 				if _, stillReferenced := referenced[accountID]; !stillReferenced {
 					continue
@@ -209,14 +299,17 @@ func sessionIMAPEmail(session ICloudSession) string {
 }
 
 func iCloudStatusFromSession(session ICloudSession) string {
-	if len(session.Cookies) == 0 {
-		return ICloudStatusNeedLogin
+	if len(session.Cookies) > 0 {
+		if !session.IsICloudPlus {
+			return ICloudStatusNoICloudPlus
+		}
+		if !session.CanCreateHME {
+			return ICloudStatusFailed
+		}
+		return ICloudStatusActive
 	}
-	if !session.IsICloudPlus {
-		return ICloudStatusNoICloudPlus
+	if appleAccountManageReady(session) || appleAccountLoginSaved(session) || iCloudIMAPLoginSaved(session) {
+		return ICloudStatusActive
 	}
-	if !session.CanCreateHME {
-		return ICloudStatusFailed
-	}
-	return ICloudStatusActive
+	return ICloudStatusNeedLogin
 }

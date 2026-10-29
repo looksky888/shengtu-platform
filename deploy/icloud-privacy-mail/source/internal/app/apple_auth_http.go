@@ -104,7 +104,7 @@ func (c *AppleAuthClient) do(ctx context.Context, session *appleAuthSession, met
 				true,
 			)
 		}
-		return resp.StatusCode, nil, errCode(code, fmt.Sprintf("Apple 协议 HTTP %d（%s）: %s", resp.StatusCode, path, trimForError(data)), true)
+		return resp.StatusCode, nil, errCode(code, fmt.Sprintf("Apple 协议 HTTP %d（%s）: %s", resp.StatusCode, path, appleDebugBody(data)), true)
 	}
 	if out != nil && len(bytes.TrimSpace(data)) > 0 {
 		if err := json.Unmarshal(data, out); err != nil {

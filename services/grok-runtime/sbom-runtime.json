@@ -6,7 +6,7 @@
     "component": {
       "type": "application",
       "name": "shengtu-grok-runtime",
-      "version": "5.0.2-20261029-ordered-audit-fixes"
+      "version": "5.0.3-20261029-icloud-multi-account"
     },
     "source": "requirements.lock"
   },

@@ -8,7 +8,7 @@ import (
 func createSettingsForOwnerLocked(state State, ownerID string) CreateSettings {
 	ownerID = strings.TrimSpace(ownerID)
 	for _, settings := range state.CreateSettings {
-		if constantTimeEqual(ownerID, settings.OwnerID) {
+		if sameOwnerID(ownerID, settings.OwnerID) {
 			return normalizeCreateSettings(ownerID, settings)
 		}
 	}

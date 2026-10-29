@@ -51,6 +51,199 @@ func (s *FileStore) migrateLegacyICloudSessionAccountIDsLocked() bool {
 	return changed
 }
 
+// migrateGlobalLegacyICloudSessionLocked moves the single-slot legacy session into
+// the multi-account ICloudSessions slice when running in sidecar/global mode (0 local users).
+func (s *FileStore) migrateGlobalLegacyICloudSessionLocked() bool {
+	if s.state.ICloudSession == nil || len(s.state.Users) > 0 {
+		return false
+	}
+	s.absorbGlobalLegacyICloudSessionLocked()
+	return true
+}
+
+// dedupeDuplicateAccountsLocked consolidates duplicate Account rows sharing the same
+// (ownerID, lower(appleID)) onto the canonical account with the most mailboxes / active session,
+// re-pointing mailboxes, sessions, and create settings without losing any data.
+func (s *FileStore) dedupeDuplicateAccountsLocked() bool {
+	changed := false
+	mailboxCounts := s.mailboxCountByAccountIDLocked()
+	sessionRefs := make(map[string]bool, len(s.state.ICloudSessions)+1)
+	if s.state.ICloudSession != nil {
+		if id := strings.TrimSpace(s.state.ICloudSession.AccountID); id != "" {
+			sessionRefs[id] = true
+		}
+	}
+	for _, session := range s.state.ICloudSessions {
+		if id := strings.TrimSpace(session.AccountID); id != "" {
+			sessionRefs[id] = true
+		}
+	}
+
+	groups := make(map[string][]int)
+	order := make([]string, 0, len(s.state.Accounts))
+	for i, account := range s.state.Accounts {
+		appleID := strings.ToLower(strings.TrimSpace(account.AppleID))
+		if appleID == "" {
+			continue
+		}
+		key := strings.TrimSpace(account.OwnerID) + "\x00" + appleID
+		if _, exists := groups[key]; !exists {
+			order = append(order, key)
+		}
+		groups[key] = append(groups[key], i)
+	}
+
+	remap := make(map[string]string)
+	removed := make(map[string]struct{})
+	for _, key := range order {
+		indices := groups[key]
+		if len(indices) <= 1 {
+			continue
+		}
+		bestIdx := indices[0]
+		for _, idx := range indices[1:] {
+			bestID := strings.TrimSpace(s.state.Accounts[bestIdx].ID)
+			candID := strings.TrimSpace(s.state.Accounts[idx].ID)
+			bestCount := mailboxCounts[bestID]
+			candCount := mailboxCounts[candID]
+			if candCount > bestCount {
+				bestIdx = idx
+				continue
+			}
+			if candCount < bestCount {
+				continue
+			}
+			bestRef := sessionRefs[bestID]
+			candRef := sessionRefs[candID]
+			if candRef && !bestRef {
+				bestIdx = idx
+				continue
+			}
+			if !candRef && bestRef {
+				continue
+			}
+			if idx > bestIdx {
+				bestIdx = idx
+			}
+		}
+		canonical := &s.state.Accounts[bestIdx]
+		canonicalID := strings.TrimSpace(canonical.ID)
+		for _, idx := range indices {
+			if idx == bestIdx {
+				continue
+			}
+			dup := s.state.Accounts[idx]
+			dupID := strings.TrimSpace(dup.ID)
+			if dupID == "" || dupID == canonicalID {
+				continue
+			}
+			remap[dupID] = canonicalID
+			removed[dupID] = struct{}{}
+			if strings.TrimSpace(canonical.Note) == "" && strings.TrimSpace(dup.Note) != "" {
+				canonical.Note = dup.Note
+			}
+		}
+	}
+
+	if len(remap) > 0 {
+		changed = true
+		now := time.Now()
+		for i := range s.state.Mailboxes {
+			if target, ok := remap[strings.TrimSpace(s.state.Mailboxes[i].AccountID)]; ok {
+				s.state.Mailboxes[i].AccountID = target
+				if s.state.Mailboxes[i].UpdatedAt.IsZero() {
+					s.state.Mailboxes[i].UpdatedAt = now
+				}
+			}
+		}
+		if s.state.ICloudSession != nil {
+			if target, ok := remap[strings.TrimSpace(s.state.ICloudSession.AccountID)]; ok {
+				s.state.ICloudSession.AccountID = target
+			}
+		}
+		for i := range s.state.ICloudSessions {
+			if target, ok := remap[strings.TrimSpace(s.state.ICloudSessions[i].AccountID)]; ok {
+				s.state.ICloudSessions[i].AccountID = target
+			}
+		}
+		for i := range s.state.CreateSettings {
+			updated := false
+			for j, accountID := range s.state.CreateSettings[i].AccountIDs {
+				if target, ok := remap[strings.TrimSpace(accountID)]; ok {
+					s.state.CreateSettings[i].AccountIDs[j] = target
+					updated = true
+				}
+			}
+			if updated {
+				s.state.CreateSettings[i].AccountIDs = normalizeAccountIDSelection("", s.state.CreateSettings[i].AccountIDs)
+				s.state.CreateSettings[i].UpdatedAt = now
+			}
+		}
+		nextAccounts := make([]Account, 0, len(s.state.Accounts)-len(removed))
+		for _, account := range s.state.Accounts {
+			if _, drop := removed[strings.TrimSpace(account.ID)]; drop {
+				continue
+			}
+			nextAccounts = append(nextAccounts, account)
+		}
+		s.state.Accounts = nextAccounts
+	}
+
+	if len(s.state.ICloudSessions) > 1 {
+		mergedSessions := make([]ICloudSession, 0, len(s.state.ICloudSessions))
+		for _, session := range s.state.ICloudSessions {
+			mergedIntoExisting := false
+			for i, existing := range mergedSessions {
+				if sameOwnerID(existing.OwnerID, session.OwnerID) && sameICloudSessionIdentity(existing, session) {
+					mergedSessions[i] = mergeICloudSession(existing, session)
+					mergedIntoExisting = true
+					changed = true
+					break
+				}
+			}
+			if !mergedIntoExisting {
+				mergedSessions = append(mergedSessions, session)
+			}
+		}
+		s.state.ICloudSessions = mergedSessions
+	}
+
+	for _, session := range s.state.ICloudSessions {
+		accountID := strings.TrimSpace(session.AccountID)
+		if accountID == "" {
+			continue
+		}
+		for i := range s.state.Accounts {
+			if s.state.Accounts[i].ID == accountID && sameOwnerID(session.OwnerID, s.state.Accounts[i].OwnerID) {
+				wantStatus := iCloudStatusFromSession(session)
+				if s.state.Accounts[i].ICloudStatus != wantStatus {
+					s.state.Accounts[i].ICloudStatus = wantStatus
+					changed = true
+				}
+				break
+			}
+		}
+	}
+
+	if len(s.state.CreateSettings) > 1 {
+		seenOwners := make(map[string]int, len(s.state.CreateSettings))
+		deduped := make([]CreateSettings, 0, len(s.state.CreateSettings))
+		for _, settings := range s.state.CreateSettings {
+			ownerKey := strings.TrimSpace(settings.OwnerID)
+			if prevIdx, exists := seenOwners[ownerKey]; exists {
+				deduped[prevIdx] = normalizeCreateSettings(ownerKey, settings)
+				changed = true
+				continue
+			}
+			seenOwners[ownerKey] = len(deduped)
+			deduped = append(deduped, settings)
+		}
+		s.state.CreateSettings = deduped
+	}
+
+	return changed
+}
+
 func (s *FileStore) migrateLegacyICloudSessionToAdminLocked() bool {
 	if s.state.ICloudSession == nil {
 		return false
@@ -64,7 +257,7 @@ func (s *FileStore) migrateLegacyICloudSessionToAdminLocked() bool {
 	legacyAccountID := strings.TrimSpace(legacy.AccountID)
 	targetIndex := -1
 	for i, session := range s.state.ICloudSessions {
-		if constantTimeEqual(adminID, session.OwnerID) && sameICloudSessionIdentity(session, legacy) {
+		if sameOwnerID(adminID, session.OwnerID) && sameICloudSessionIdentity(session, legacy) {
 			targetIndex = i
 			break
 		}
@@ -148,7 +341,7 @@ func (s *FileStore) reassignAccountOwnerLocked(accountID, ownerID string) bool {
 func (s *FileStore) migrateLegacyCreateSettingsLocked(ownerID, legacyAccountID, targetAccountID string) {
 	hasOwnerSettings := false
 	for _, settings := range s.state.CreateSettings {
-		if constantTimeEqual(ownerID, settings.OwnerID) {
+		if sameOwnerID(ownerID, settings.OwnerID) {
 			hasOwnerSettings = true
 			break
 		}
@@ -205,7 +398,7 @@ func shouldCreateICloudAccount(session ICloudSession) bool {
 		return true
 	}
 	for _, state := range session.LoginStates {
-		if state.Kind == LoginStateAppleAccount || state.Kind == LoginStateICloudWeb {
+		if state.Kind == LoginStateAppleAccount || state.Kind == LoginStateICloudWeb || state.Kind == LoginStateICloudIMAP {
 			return true
 		}
 	}

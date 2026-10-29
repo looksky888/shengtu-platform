@@ -15,10 +15,15 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	session, ok := s.store.ICloudSession()
-	icloudActive := ok && session.IsICloudPlus && session.CanCreateHME && len(session.Cookies) > 0
+	sessionReady := func(item ICloudSession) bool {
+		return appleAccountManageReady(item) ||
+			(item.IsICloudPlus && item.CanCreateHME && len(item.Cookies) > 0) ||
+			iCloudIMAPLoginSaved(item)
+	}
+	icloudActive := ok && sessionReady(session)
 	if !icloudActive {
 		for _, scopedSession := range s.store.Snapshot().ICloudSessions {
-			if scopedSession.IsICloudPlus && scopedSession.CanCreateHME && len(scopedSession.Cookies) > 0 {
+			if sessionReady(scopedSession) {
 				icloudActive = true
 				break
 			}

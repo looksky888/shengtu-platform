@@ -35,7 +35,7 @@ func (s *Server) handleCreateICloudMailbox(w http.ResponseWriter, r *http.Reques
 	if err != nil {
 		s.logICloudCreateError(ownerID, err)
 		if len(mailboxes) == 0 && len(failures) == 0 {
-			writeError(w, http.StatusBadGateway, err)
+			writeError(w, uiUpstreamErrorStatus(err), err)
 			return
 		}
 	}

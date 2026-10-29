@@ -15,6 +15,9 @@ func CheckICloudIMAPLogin(ctx context.Context, email, appPassword string) error 
 	if email == "" {
 		return errCode("imap_email_missing", "请输入 iCloud 邮箱账号", false)
 	}
+	if typoErr := detectICloudEmailDomainTypo(email); typoErr != nil {
+		return typoErr
+	}
 	if strings.TrimSpace(appPassword) == "" {
 		return errCode("imap_app_password_missing", "请输入 App 专用密码", false)
 	}

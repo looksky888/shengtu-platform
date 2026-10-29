@@ -63,6 +63,9 @@ export function ICloudLoginPanels({
   return (
     <>
       <SectionCard title="添加 Apple 登录态" tone="accent">
+        <p className="text-xs leading-5 text-muted-foreground">
+          支持同时保存多个 Apple ID 在线创建隐私邮箱；新登录的账号会并存展示在左侧列表中，勾选多个即可并发或定时轮询创建。
+        </p>
         {pendingCount > 1 ? (
           <p className="rounded-lg border border-status-warning/25 bg-status-warning-soft px-3 py-2 text-xs text-status-warning">
             当前有 {pendingCount} 个账号等待验证码；切换 Apple ID 后可继续对应账号的 2FA。
@@ -151,6 +154,9 @@ export function ICloudLoginPanels({
       </SectionCard>
 
       <SectionCard title="取码登录（IMAP）">
+        <p className="text-xs leading-5 text-muted-foreground">
+          支持多个 Apple 账号同时在线取码：请为每个账号分别选择对应 Apple ID（或自动匹配），填入主 iCloud 邮箱（后缀为 @icloud.com）与 16 位 App 专用密码。
+        </p>
         {sessions.length > 0 ? (
           <Select
             value={imapAccountId || AUTO_IMAP_ACCOUNT}

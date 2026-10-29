@@ -101,7 +101,7 @@ func (a *App) handleICloudProxy(w http.ResponseWriter, r *http.Request) {
 	}
 	req, err := http.NewRequestWithContext(proxyContext, r.Method, target.String(), bytes.NewReader(body))
 	if err != nil {
-		util.WriteError(w, http.StatusBadGateway, err.Error())
+		writeICloudProxyError(w, publicMailboxCode, http.StatusBadGateway, err.Error())
 		return
 	}
 	if ct := r.Header.Get("Content-Type"); ct != "" {
@@ -127,10 +127,10 @@ func (a *App) handleICloudProxy(w http.ResponseWriter, r *http.Request) {
 	resp, err := client.Do(req)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
-			util.WriteError(w, http.StatusGatewayTimeout, "iCloud 登录提交超时，上游未在边缘请求窗口内返回；请稍后重试")
+			writeICloudProxyError(w, publicMailboxCode, http.StatusGatewayTimeout, "iCloud 登录提交超时，上游未在边缘请求窗口内返回；请稍后重试")
 			return
 		}
-		util.WriteError(w, http.StatusServiceUnavailable, "iCloud Privacy Mail 模块不可用: "+err.Error())
+		writeICloudProxyError(w, publicMailboxCode, http.StatusServiceUnavailable, "iCloud Privacy Mail 模块不可用: "+err.Error())
 		return
 	}
 	defer resp.Body.Close()
@@ -140,19 +140,23 @@ func (a *App) handleICloudProxy(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	w.Header().Set("X-ICloud-Privacy-Mail-Proxy", "1")
-	// Never forward 401/403 from the sidecar — the frontend treats those as
-	// main-app session expiry and redirects to /login. Map to 502 with body.
 	status := resp.StatusCode
 	bodyBytes, readErr := util.ReadAllLimited(resp.Body, 32<<20)
 	if readErr != nil {
-		util.WriteError(w, http.StatusBadGateway, "iCloud Privacy Mail 响应读取失败: "+readErr.Error())
+		writeICloudProxyError(w, publicMailboxCode, http.StatusBadGateway, "iCloud Privacy Mail 响应读取失败: "+readErr.Error())
 		return
 	}
-	if !publicMailboxCode && (status == http.StatusUnauthorized || status == http.StatusForbidden) {
-		status = http.StatusBadGateway
-		w.Header().Set("Content-Type", "application/json; charset=utf-8")
-		if len(bytes.TrimSpace(bodyBytes)) == 0 {
-			bodyBytes = []byte(`{"error":"icloud_upstream_auth","message":"iCloud 模块鉴权失败（非主站登录失效），请检查邮箱 API Key / sidecar 配置"}`)
+	// Never forward 401/403 (triggers frontend main-app logout) or 502/503/504
+	// (Cloudflare Edge intercepts 502/503/504 for Accept: application/json and
+	// replaces our JSON error message with its generic English bad-gateway JSON).
+	if !publicMailboxCode {
+		if mapped, changed := normalizeICloudAdminProxyStatus(status); changed {
+			w.Header().Set("X-ICloud-Upstream-Status", strconv.Itoa(status))
+			if (status == http.StatusUnauthorized || status == http.StatusForbidden) && len(bytes.TrimSpace(bodyBytes)) == 0 {
+				w.Header().Set("Content-Type", "application/json; charset=utf-8")
+				bodyBytes = []byte(`{"error":"icloud_upstream_auth","message":"iCloud 模块鉴权失败（非主站登录失效），请检查邮箱 API Key / sidecar 配置"}`)
+			}
+			status = mapped
 		}
 	}
 	// Make the body boundary explicit. This prevents an intermediary from
@@ -161,6 +165,31 @@ func (a *App) handleICloudProxy(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Length", strconv.Itoa(len(bodyBytes)))
 	w.WriteHeader(status)
 	_, _ = w.Write(bodyBytes)
+}
+
+func normalizeICloudAdminProxyStatus(status int) (int, bool) {
+	switch status {
+	case http.StatusUnauthorized,
+		http.StatusForbidden,
+		http.StatusBadGateway,
+		http.StatusServiceUnavailable,
+		http.StatusGatewayTimeout:
+		return http.StatusUnprocessableEntity, true
+	default:
+		return status, false
+	}
+}
+
+func writeICloudProxyError(w http.ResponseWriter, publicMailboxCode bool, upstreamStatus int, message string) {
+	status := upstreamStatus
+	if !publicMailboxCode {
+		if mapped, changed := normalizeICloudAdminProxyStatus(upstreamStatus); changed {
+			w.Header().Set("X-ICloud-Upstream-Status", strconv.Itoa(upstreamStatus))
+			status = mapped
+		}
+	}
+	w.Header().Set("X-ICloud-Privacy-Mail-Proxy", "1")
+	util.WriteError(w, status, message)
 }
 
 func isICloudInteractiveLoginPath(path string, method string) bool {

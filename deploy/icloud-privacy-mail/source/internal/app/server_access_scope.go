@@ -154,10 +154,20 @@ func (s *Server) sessionsForOwnerAccounts(ownerID string, accountIDs []string) [
 }
 
 func (s *Server) sessionForMailbox(ownerID, accountID string) (ICloudSession, bool) {
-	if session, ok := s.sessionForOwnerAccount(ownerID, accountID); ok {
-		return session, true
+	accountID = strings.TrimSpace(accountID)
+	if accountID != "" {
+		if session, ok := s.sessionForOwnerAccount(ownerID, accountID); ok {
+			return session, true
+		}
 	}
 	sessions := s.sessionsForOwner(ownerID, "")
+	if accountID != "" {
+		if account, ok := s.store.FindAccountByID(accountID); ok {
+			if matched, ok := uniqueSessionMatchingAccountAppleID(sessions, account.AppleID); ok {
+				return matched, true
+			}
+		}
+	}
 	if len(sessions) == 1 {
 		return sessions[0], true
 	}
@@ -165,25 +175,8 @@ func (s *Server) sessionForMailbox(ownerID, accountID string) (ICloudSession, bo
 }
 
 func (s *Server) imapSessionForMailbox(ownerID string, mailbox Mailbox) (ICloudSession, LoginState, bool) {
-	if session, ok := s.sessionForOwnerAccount(ownerID, mailbox.AccountID); ok {
-		if state, ok := iCloudIMAPLoginState(session); ok {
-			return session, state, true
-		}
-	}
-	type match struct {
-		session ICloudSession
-		state   LoginState
-	}
-	var found []match
-	for _, session := range s.sessionsForOwner(ownerID, "") {
-		if state, ok := iCloudIMAPLoginState(session); ok {
-			found = append(found, match{session: session, state: state})
-		}
-	}
-	if len(found) == 1 {
-		return found[0].session, found[0].state, true
-	}
-	return ICloudSession{}, LoginState{}, false
+	resolver := s.imapSessionResolverForOwner(ownerID)
+	return resolver.sessionForMailbox(mailbox)
 }
 
 func (s *Server) imapStateForMailbox(ownerID string, mailbox Mailbox) (LoginState, bool) {
@@ -217,6 +210,26 @@ func (s *Server) imapSessionResolverForOwner(ownerID string) imapSessionResolver
 		}
 		matches = append(matches, match)
 	}
+	if len(matches) > 0 && s.store != nil {
+		accounts := s.store.MailboxListSnapshotForOwner(ownerID).Accounts
+		if len(accounts) == 0 && strings.TrimSpace(ownerID) != "" {
+			if user, ok := s.store.UserByID(strings.TrimSpace(ownerID)); ok && user.IsAdmin {
+				accounts = s.store.MailboxListSnapshotForOwner("").Accounts
+			}
+		}
+		for _, account := range accounts {
+			accountID := strings.TrimSpace(account.ID)
+			if accountID == "" {
+				continue
+			}
+			if _, exists := resolver.byAccount[accountID]; exists {
+				continue
+			}
+			if match, ok := uniqueIMAPMatchForAppleID(matches, account.AppleID); ok {
+				resolver.byAccount[accountID] = match
+			}
+		}
+	}
 	if len(matches) == 1 {
 		resolver.single = matches[0]
 		resolver.hasSingle = true
@@ -232,6 +245,77 @@ func (r imapSessionResolver) sessionForMailbox(mailbox Mailbox) (ICloudSession, 
 		return r.single.session, r.single.state, true
 	}
 	return ICloudSession{}, LoginState{}, false
+}
+
+func uniqueSessionMatchingAccountAppleID(sessions []ICloudSession, appleID string) (ICloudSession, bool) {
+	appleID = strings.TrimSpace(appleID)
+	if appleID == "" {
+		return ICloudSession{}, false
+	}
+	var matched ICloudSession
+	found := false
+	for _, session := range sessions {
+		if !strings.EqualFold(strings.TrimSpace(session.AppleID), appleID) {
+			continue
+		}
+		if found && !sameICloudSessionPublicIdentity(matched, session) {
+			return ICloudSession{}, false
+		}
+		matched = session
+		found = true
+	}
+	return matched, found
+}
+
+func uniqueIMAPMatchForAppleID(matches []imapSessionMatch, appleID string) (imapSessionMatch, bool) {
+	appleID = strings.TrimSpace(appleID)
+	if appleID == "" {
+		return imapSessionMatch{}, false
+	}
+	var exact imapSessionMatch
+	exactFound := false
+	for _, item := range matches {
+		if !strings.EqualFold(strings.TrimSpace(item.session.AppleID), appleID) &&
+			!strings.EqualFold(strings.TrimSpace(item.state.IMAPEmail), appleID) {
+			continue
+		}
+		if exactFound && imapStateKey(exact.state) != imapStateKey(item.state) {
+			return imapSessionMatch{}, false
+		}
+		exact = item
+		exactFound = true
+	}
+	if exactFound {
+		return exact, true
+	}
+
+	accountLocal := emailLocalPart(appleID)
+	if accountLocal == "" {
+		return imapSessionMatch{}, false
+	}
+	for _, allowSecondaryPrefix := range []bool{false, true} {
+		var candidate imapSessionMatch
+		found := false
+		ambiguous := false
+		for _, item := range matches {
+			sessionLocal := emailLocalPart(item.session.AppleID)
+			imapLocal := emailLocalPart(item.state.IMAPEmail)
+			if !emailLocalPartsMatch(accountLocal, sessionLocal, allowSecondaryPrefix) &&
+				!emailLocalPartsMatch(accountLocal, imapLocal, allowSecondaryPrefix) {
+				continue
+			}
+			if found && imapStateKey(candidate.state) != imapStateKey(item.state) {
+				ambiguous = true
+				break
+			}
+			candidate = item
+			found = true
+		}
+		if found && !ambiguous {
+			return candidate, true
+		}
+	}
+	return imapSessionMatch{}, false
 }
 
 func imapStateKey(state LoginState) string {

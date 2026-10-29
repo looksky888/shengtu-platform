@@ -59,7 +59,7 @@ func newSQLiteFileStore(path string) (*FileStore, error) {
 		}
 		if found {
 			store.state = legacy
-			store.migrateStateLocked()
+			_ = store.migrateStateLocked()
 		}
 		if err := store.saveSQLiteLocked(); err != nil {
 			_ = db.Close()
@@ -67,6 +67,12 @@ func newSQLiteFileStore(path string) (*FileStore, error) {
 		}
 	} else {
 		store.rememberPersistedLocked()
+		if store.migrateStateLocked() {
+			if err := store.saveSQLiteLocked(); err != nil {
+				_ = db.Close()
+				return nil, err
+			}
+		}
 	}
 	return store, nil
 }
@@ -192,11 +198,24 @@ func readStateJSON(path string) (State, bool, error) {
 	return state, true, nil
 }
 
-func (s *FileStore) migrateStateLocked() {
-	_ = s.migrateLegacyICloudSessionToAdminLocked()
-	_ = s.migrateLegacyICloudSessionAccountIDsLocked()
-	_ = s.migrateLegacyMailboxAccountIDsLocked()
-	_ = s.migrateLegacyMailboxClaimsLocked()
+func (s *FileStore) migrateStateLocked() bool {
+	changed := s.migrateLegacyICloudSessionToAdminLocked()
+	if s.migrateGlobalLegacyICloudSessionLocked() {
+		changed = true
+	}
+	if s.migrateLegacyICloudSessionAccountIDsLocked() {
+		changed = true
+	}
+	if s.dedupeDuplicateAccountsLocked() {
+		changed = true
+	}
+	if s.migrateLegacyMailboxAccountIDsLocked() {
+		changed = true
+	}
+	if s.migrateLegacyMailboxClaimsLocked() {
+		changed = true
+	}
+	return changed
 }
 
 func (s *FileStore) loadSQLiteLocked() (bool, error) {

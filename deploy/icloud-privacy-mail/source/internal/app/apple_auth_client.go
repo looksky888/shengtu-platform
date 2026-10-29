@@ -106,7 +106,10 @@ type appleAccountInfo struct {
 		Status      string `json:"status"`
 		PcsRequired bool   `json:"pcsRequired"`
 	} `json:"webservices"`
-	HsaChallengeRequired bool `json:"hsaChallengeRequired"`
+	HsaChallengeRequired bool   `json:"hsaChallengeRequired"`
+	TermsUpdateNeeded    bool   `json:"termsUpdateNeeded"`
+	IsRepairNeeded       bool   `json:"isRepairNeeded"`
+	DomainToUse          string `json:"domainToUse"`
 }
 
 type appleAuthPending struct {

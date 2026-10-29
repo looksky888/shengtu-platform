@@ -1,17 +1,12 @@
 import axios, { AxiosError, AxiosHeaders, type AxiosRequestConfig } from "axios";
 
 import webConfig from "@/constants/common-env";
+import {type ErrorPayload, resolveRequestErrorDetails} from "@/lib/request-error-message";
 import {redirectAndRejectUnauthorized, shouldRedirectUnauthorized} from "@/lib/request-unauthorized";
 import {clearStoredAuthSession, getStoredSessionToken} from "@/store/auth";
 
 type RequestConfig = AxiosRequestConfig & {
     redirectOnUnauthorized?: boolean;
-};
-
-type ErrorPayload = {
-    detail?: string | { error?: string | { message?: string; code?: string } };
-    error?: string | { message?: string; code?: string };
-    message?: string;
 };
 
 export class RequestError extends Error {
@@ -24,28 +19,6 @@ export class RequestError extends Error {
         this.status = options.status;
         this.code = options.code;
     }
-}
-
-function errorMessageFromValue(value: unknown): string {
-    if (typeof value === "string") {
-        return value;
-    }
-    if (!value || typeof value !== "object") {
-        return "";
-    }
-
-    const item = value as { error?: unknown; message?: unknown };
-    if (typeof item.message === "string") {
-        return item.message;
-    }
-    return errorMessageFromValue(item.error);
-}
-
-function errorCodeFromValue(value: unknown): string {
-    if (!value || typeof value !== "object") return "";
-    const item = value as { code?: unknown; error?: unknown };
-    if (typeof item.code === "string") return item.code;
-    return errorCodeFromValue(item.error);
 }
 
 const request = axios.create({
@@ -80,14 +53,8 @@ request.interceptors.response.use(
         }
 
         const payload = error.response?.data;
-        const message =
-            errorMessageFromValue(payload?.detail) ||
-            errorMessageFromValue(payload?.error) ||
-            payload?.message ||
-            error.message ||
-            `请求失败 (${status || 500})`;
-        const code = errorCodeFromValue(payload?.detail) || errorCodeFromValue(payload?.error);
-        return Promise.reject(new RequestError(message, { status, code: code || undefined }));
+        const {message, code} = resolveRequestErrorDetails(payload, status, error.message);
+        return Promise.reject(new RequestError(message, { status, code }));
     },
 );
 

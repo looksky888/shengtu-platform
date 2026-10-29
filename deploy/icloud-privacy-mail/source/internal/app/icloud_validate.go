@@ -1,6 +1,7 @@
 package app
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -10,6 +11,8 @@ import (
 	"strings"
 	"time"
 )
+
+const iCloudSetupBuildNumber = "2622Build20"
 
 type ICloudSessionValidator struct {
 	httpClient *http.Client
@@ -33,31 +36,51 @@ func NewICloudSessionValidator() *ICloudSessionValidator {
 }
 
 func (c *ICloudSessionValidator) Validate(ctx context.Context, cookies []SessionCookie, defaultHost string) (validateResult, error) {
-	host := strings.TrimSpace(defaultHost)
-	if host == "" {
-		host = "www.icloud.com.cn"
-	}
-	setupHost := "setup.icloud.com.cn"
-	if strings.HasSuffix(host, "icloud.com") && !strings.HasSuffix(host, "icloud.com.cn") {
-		setupHost = "setup.icloud.com"
+	return c.ValidateWithClientID(ctx, cookies, defaultHost, "")
+}
+
+func (c *ICloudSessionValidator) ValidateWithClientID(ctx context.Context, cookies []SessionCookie, defaultHost, clientID string) (validateResult, error) {
+	rawHost := strings.TrimSpace(defaultHost)
+	if rawHost == "" {
+		rawHost = "www.icloud.com.cn"
 	}
 
-	clientID, err := randomUUID()
-	if err != nil {
-		return validateResult{}, err
+	var u url.URL
+	sessionHost := rawHost
+	if strings.HasPrefix(rawHost, "http://") || strings.HasPrefix(rawHost, "https://") {
+		parsed, err := url.Parse(strings.TrimRight(rawHost, "/") + "/validate")
+		if err != nil {
+			return validateResult{}, err
+		}
+		u = *parsed
+		sessionHost = parsed.Hostname()
+	} else {
+		setupHost := "setup.icloud.com.cn"
+		if strings.HasSuffix(rawHost, "icloud.com") && !strings.HasSuffix(rawHost, "icloud.com.cn") {
+			setupHost = "setup.icloud.com"
+		}
+		u = url.URL{
+			Scheme: "https",
+			Host:   setupHost,
+			Path:   "/setup/ws/1/validate",
+		}
+	}
+
+	clientID = strings.TrimSpace(clientID)
+	if clientID == "" {
+		var err error
+		clientID, err = randomUUID()
+		if err != nil {
+			return validateResult{}, err
+		}
 	}
 	requestID, err := randomUUID()
 	if err != nil {
 		return validateResult{}, err
 	}
-	buildNumber := "2622Build20"
+	buildNumber := iCloudSetupBuildNumber
 	masteringNumber := buildNumber
 
-	u := url.URL{
-		Scheme: "https",
-		Host:   setupHost,
-		Path:   "/setup/ws/1/validate",
-	}
 	q := u.Query()
 	q.Set("clientBuildNumber", buildNumber)
 	q.Set("clientMasteringNumber", masteringNumber)
@@ -69,12 +92,16 @@ func (c *ICloudSessionValidator) Validate(ctx context.Context, cookies []Session
 	if err != nil {
 		return validateResult{}, err
 	}
-	session := ICloudSession{Host: host, Cookies: cookies}
+	session := ICloudSession{Host: sessionHost, Cookies: cookies}
 	setICloudFetchHeaders(req, session, "*/*", "text/plain;charset=UTF-8")
 	if cookie := cookieHeader(cookies, u.String()); cookie != "" {
 		req.Header.Set("Cookie", cookie)
 	}
-	resp, err := c.httpClient.Do(req)
+	httpClient := c.httpClient
+	if httpClient == nil {
+		httpClient = &http.Client{Timeout: 15 * time.Second}
+	}
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return validateResult{}, err
 	}
@@ -83,8 +110,19 @@ func (c *ICloudSessionValidator) Validate(ctx context.Context, cookies []Session
 	if err != nil {
 		return validateResult{}, err
 	}
+	if resp.StatusCode == http.StatusMisdirectedRequest && isUninitializedICloudValidateBody(data) {
+		homeHost := "www.icloud.com.cn"
+		if strings.HasSuffix(sessionHost, "icloud.com") && !strings.HasSuffix(sessionHost, "icloud.com.cn") {
+			homeHost = "www.icloud.com"
+		}
+		return validateResult{}, errCode(
+			"icloud_web_setup_required",
+			fmt.Sprintf("该 Apple ID 尚未初始化网页版 iCloud 会话（HTTP 421）：请先在浏览器打开 https://%s 登录一次、同意服务条款并进入「iCloud 邮件」后再试；若只需创建隐私邮箱，直接使用「新接口 · Apple Account」即可", homeHost),
+			false,
+		)
+	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return validateResult{}, errCode("icloud_validate_failed", fmt.Sprintf("iCloud 登录态校验失败，HTTP %d: %s", resp.StatusCode, trimForError(data)), true)
+		return validateResult{}, errCode("icloud_validate_failed", fmt.Sprintf("iCloud 登录态校验失败，HTTP %d: %s", resp.StatusCode, appleDebugBody(data)), true)
 	}
 	var account struct {
 		DSInfo struct {
@@ -121,4 +159,15 @@ func (c *ICloudSessionValidator) Validate(ctx context.Context, cookies []Session
 		IsICloudPlus:       account.DSInfo.IsHideMyEmailSubscriptionActive,
 		CanCreateHME:       account.DSInfo.IsHideMyEmailFeatureAvailable,
 	}, nil
+}
+
+func isUninitializedICloudValidateBody(data []byte) bool {
+	var payload struct {
+		Success     *bool    `json:"success"`
+		TrustTokens []string `json:"trustTokens"`
+	}
+	if err := json.Unmarshal(bytes.TrimSpace(data), &payload); err != nil {
+		return false
+	}
+	return payload.Success != nil && !*payload.Success
 }

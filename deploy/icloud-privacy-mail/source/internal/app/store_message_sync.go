@@ -187,7 +187,7 @@ func (s *FileStore) iCloudIMAPCursorTargetLocked(update iCloudIMAPSyncCursorUpda
 	accountID := strings.TrimSpace(update.AccountID)
 	stateKey := strings.TrimSpace(update.StateKey)
 	findState := func(session *ICloudSession) (*ICloudSession, int) {
-		if session == nil || ownerID != "" && !constantTimeEqual(ownerID, session.OwnerID) || accountID != "" && !constantTimeEqual(accountID, session.AccountID) {
+		if session == nil || !sameOwnerID(ownerID, session.OwnerID) || accountID != "" && !constantTimeEqual(accountID, session.AccountID) {
 			return nil, -1
 		}
 		for i, state := range session.LoginStates {

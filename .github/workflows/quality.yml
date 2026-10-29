@@ -50,6 +50,10 @@ jobs:
       - name: Test Go packages
         run: go test -p=1 ./... -count=1
 
+      - name: Test iCloud sidecar Go packages
+        working-directory: deploy/icloud-privacy-mail/source
+        run: go test -p=1 ./... -count=1
+
       - name: Vet Go packages
         run: go vet -p=1 ./...
 

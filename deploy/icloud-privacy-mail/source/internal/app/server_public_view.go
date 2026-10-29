@@ -88,11 +88,11 @@ func (s *Server) publicUserSummaries(users []User, state State) []publicUserSumm
 		}
 		ensure(ownerID, "").MessageCount++
 	}
-	if state.ICloudSession != nil && len(state.ICloudSession.Cookies) > 0 {
+	if state.ICloudSession != nil && (hasCreateLoginState(*state.ICloudSession) || iCloudIMAPLoginSaved(*state.ICloudSession)) {
 		ensure("", "管理员/全局").ICloudSessionSaved = true
 	}
 	for _, session := range state.ICloudSessions {
-		if len(session.Cookies) > 0 {
+		if hasCreateLoginState(session) || iCloudIMAPLoginSaved(session) {
 			ensure(session.OwnerID, "").ICloudSessionSaved = true
 		}
 	}

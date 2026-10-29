@@ -20,7 +20,7 @@ func (s *Server) handleManagePage(w http.ResponseWriter, _ *http.Request) {
 
 func (s *Server) handleCreateSettings(w http.ResponseWriter, r *http.Request) {
 	ownerID := requestOwnerID(r, s.store)
-	if ownerID == "" {
+	if ownerID == "" && !isInternalICloudRequest(r) && !s.isAdminRequest(r) {
 		writeError(w, http.StatusUnauthorized, errCode("auth_required", "请先登录账号", false))
 		return
 	}
@@ -32,7 +32,7 @@ func (s *Server) handleCreateSettings(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleSaveCreateSettings(w http.ResponseWriter, r *http.Request) {
 	ownerID := requestOwnerID(r, s.store)
-	if ownerID == "" {
+	if ownerID == "" && !isInternalICloudRequest(r) && !s.isAdminRequest(r) {
 		writeError(w, http.StatusUnauthorized, errCode("auth_required", "请先登录账号", false))
 		return
 	}

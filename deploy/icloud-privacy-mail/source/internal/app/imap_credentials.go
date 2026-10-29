@@ -1,6 +1,7 @@
 package app
 
 import (
+	"fmt"
 	"strings"
 )
 
@@ -56,6 +57,49 @@ func appPasswordLoginCandidates(appPassword string) []string {
 	return out
 }
 
+var commonEmailDomainTypos = map[string]string{
+	"icoud.com":     "icloud.com",
+	"iclod.com":     "icloud.com",
+	"icluod.com":    "icloud.com",
+	"iclould.com":   "icloud.com",
+	"icload.com":    "icloud.com",
+	"ilcoud.com":    "icloud.com",
+	"icloud.con":    "icloud.com",
+	"icloud.cmo":    "icloud.com",
+	"icloud.cm":     "icloud.com",
+	"icoud.cn":      "icloud.com",
+	"icloud.cn":     "icloud.com",
+	"icloud.com.cn": "icloud.com",
+	"qq.con":        "qq.com",
+	"qq.cmo":        "qq.com",
+	"163.con":       "163.com",
+	"gmail.con":     "gmail.com",
+}
+
+func detectICloudEmailDomainTypo(email string) error {
+	email = strings.ToLower(strings.TrimSpace(email))
+	if email == "" {
+		return nil
+	}
+	at := strings.LastIndex(email, "@")
+	if at <= 0 || at == len(email)-1 || strings.Contains(email[:at], "@") {
+		return errCode("imap_email_invalid", "邮箱地址格式不正确，请输入完整的 Apple ID 或 @icloud.com 主邮箱地址", false)
+	}
+	local := email[:at]
+	domain := email[at+1:]
+	if suggested, ok := commonEmailDomainTypos[domain]; ok {
+		return errCode(
+			"imap_email_typo",
+			fmt.Sprintf("邮箱域名疑似输入有误：当前为 @%s，建议改为 %s@%s 后重新保存", domain, local, suggested),
+			false,
+		)
+	}
+	if !strings.Contains(domain, ".") {
+		return errCode("imap_email_invalid", "邮箱域名格式不正确，请检查 @ 后面的后缀是否完整（例如 @icloud.com 或 @qq.com）", false)
+	}
+	return nil
+}
+
 // looksLikeHideMyEmailAddress detects randomly generated iCloud privacy addresses that
 // cannot be used as IMAP login usernames (login must be Apple ID / primary iCloud mail).
 func looksLikeHideMyEmailAddress(email string) bool {
@@ -76,14 +120,11 @@ func looksLikeHideMyEmailAddress(email string) bool {
 func imapAuthFailedMessage(email, summary string) string {
 	email = strings.TrimSpace(email)
 	hint := "iCloud IMAP 认证失败（AUTHENTICATIONFAILED）。" +
-		"对照 gptGrok2api-1.0.4：取码登录仅用 LOGIN/PLAIN + App 专用密码，与网页「新/旧接口」检测无关。" +
 		"请逐项核对：" +
-		"1) 账号必须是生成 App 专用密码的那个 Apple ID（你当前为 邮箱类 Apple ID，如 *@qq.com），不要填隐私邮箱；" +
-		"2) 密码必须是 appleid.apple.com 或 appleid.apple.com.cn → 登录与安全 → App 专用密码（16 位小写，可带横杠），" +
-		"绝对不是 iCloud/Apple ID 网页登录密码；" +
-		"3) 该 Apple ID 必须已开启双重认证，否则无法生成有效 App 专用密码；" +
-		"4) 在官网作废旧密码后重新生成一份，粘贴时不要多复制空格/中文标点；" +
-		"5) 若账号在中国区，请到 appleid.apple.com.cn 生成 App 专用密码后再试。"
+		"1) 账号请填写该 Apple ID 的 @icloud.com 主邮箱别名（如 l3579524213@icloud.com）或生成该密码的 Apple ID（如 *@qq.com），不要填隐私邮箱；" +
+		"2) 密码必须是 account.apple.com → 登录与安全 → App 专用密码（16 位小写字母，可带横杠），不是 Apple ID 登录密码；" +
+		"3) 该 Apple ID 需已在 iCloud 中开通「iCloud 邮件」并创建过主 @icloud.com 邮箱地址；" +
+		"4) 若仍失败，请在 Apple 官网作废旧的 App 专用密码后重新生成一份再试。"
 	if email != "" {
 		hint = "账号 " + email + " " + hint
 	}

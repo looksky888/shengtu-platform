@@ -144,7 +144,7 @@ func (s *Server) handleStartICloudProtocolLogin(w http.ResponseWriter, r *http.R
 		payload.TwoFactorMethod,
 	)
 	if err != nil {
-		writeError(w, http.StatusBadGateway, err)
+		writeError(w, uiUpstreamErrorStatus(err), err)
 		return
 	}
 	if result.Needs2FA {
@@ -188,7 +188,7 @@ func (s *Server) handleSubmitICloudProtocol2FA(w http.ResponseWriter, r *http.Re
 	}
 	session, err := NewAppleAuthClient().Submit2FA(r.Context(), pending, payload.Code)
 	if err != nil {
-		writeError(w, http.StatusBadGateway, err)
+		writeError(w, uiUpstreamErrorStatus(err), err)
 		return
 	}
 	s.icloudProtocolLogins.delete(payload.PendingID)
@@ -223,7 +223,7 @@ func (s *Server) handleStartAppleAccountLogin(w http.ResponseWriter, r *http.Req
 		payload.TwoFactorMethod,
 	)
 	if err != nil {
-		writeError(w, http.StatusBadGateway, err)
+		writeError(w, uiUpstreamErrorStatus(err), err)
 		return
 	}
 	if result.Needs2FA {
@@ -268,7 +268,7 @@ func (s *Server) handleSubmitAppleAccount2FA(w http.ResponseWriter, r *http.Requ
 	}
 	session, err := NewAppleAuthClient().SubmitAppleAccountManage2FA(r.Context(), pending, payload.Code, payload.PhoneNumber)
 	if err != nil {
-		writeError(w, http.StatusBadGateway, err)
+		writeError(w, uiUpstreamErrorStatus(err), err)
 		return
 	}
 	s.appleAccountLogins.delete(payload.PendingID)

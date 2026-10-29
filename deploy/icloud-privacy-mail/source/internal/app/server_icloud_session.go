@@ -2,11 +2,23 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 	"time"
 )
+
+func uiUpstreamErrorStatus(err error) int {
+	var coded codedError
+	if errors.As(err, &coded) {
+		switch coded.code {
+		case "imap_email_missing", "imap_app_password_missing", "imap_email_invalid", "imap_email_typo", "invalid_2fa_code":
+			return http.StatusBadRequest
+		}
+	}
+	return http.StatusUnprocessableEntity
+}
 
 func (s *Server) handleICloudSession(w http.ResponseWriter, r *http.Request) {
 	sessions := s.publicSessionsForRequest(r)
@@ -32,7 +44,7 @@ func (s *Server) handleCheckICloudSession(w http.ResponseWriter, r *http.Request
 	ownerID := requestOwnerID(r, s.store)
 	sessions := s.sessionsForOwner(ownerID, payload.AccountID)
 	if len(sessions) == 0 {
-		writeError(w, http.StatusBadRequest, errCode("icloud_session_missing", "未保存 iCloud 登录态，请先保存旧接口登录态", true))
+		writeError(w, http.StatusBadRequest, errCode("icloud_session_missing", "未保存 iCloud 登录态，请先保存登录态", true))
 		return
 	}
 
@@ -65,7 +77,7 @@ func (s *Server) handleCheckICloudSession(w http.ResponseWriter, r *http.Request
 			message += "：" + lastErr.Error()
 		}
 		s.logger.Warn("login state check failed", "err", lastErr)
-		writeError(w, http.StatusBadGateway, errCode("icloud_session_check_failed", message, true))
+		writeError(w, http.StatusUnprocessableEntity, errCode("icloud_session_check_failed", message, true))
 		return
 	}
 	message := "登录态检测正常"
@@ -111,6 +123,10 @@ func (s *Server) handleSaveICloudIMAPLogin(w http.ResponseWriter, r *http.Reques
 		writeError(w, http.StatusBadRequest, errCode("imap_email_missing", "请输入 iCloud 邮箱账号", false))
 		return
 	}
+	if typoErr := detectICloudEmailDomainTypo(email); typoErr != nil {
+		writeError(w, http.StatusBadRequest, typoErr)
+		return
+	}
 	if appPassword == "" {
 		writeError(w, http.StatusBadRequest, errCode("imap_app_password_missing", "请输入 App 专用密码", false))
 		return
@@ -121,7 +137,7 @@ func (s *Server) handleSaveICloudIMAPLogin(w http.ResponseWriter, r *http.Reques
 	}
 
 	if err := s.checkSavedIMAPLogin(r.Context(), email, appPassword); err != nil {
-		writeError(w, http.StatusBadGateway, err)
+		writeError(w, uiUpstreamErrorStatus(err), err)
 		return
 	}
 
@@ -226,7 +242,7 @@ func (s *Server) handleCheckICloudIMAPLogin(w http.ResponseWriter, r *http.Reque
 		if lastErr != nil {
 			message += "：" + lastErr.Error()
 		}
-		writeError(w, http.StatusBadGateway, errCode("imap_session_check_failed", message, true))
+		writeError(w, http.StatusUnprocessableEntity, errCode("imap_session_check_failed", message, true))
 		return
 	}
 	message := "取码登录检测正常"
@@ -315,7 +331,16 @@ func emailLocalPartsMatch(accountLocal, imapLocal string, allowAppleSecondaryPre
 	if !allowAppleSecondaryPrefix {
 		return false
 	}
-	return "q"+accountLocal == imapLocal
+	if "q"+accountLocal == imapLocal {
+		return true
+	}
+	// Apple @icloud.com secondary aliases created for numeric/third-party Apple IDs
+	// commonly prepend a single ASCII letter (e.g. l3579524213@icloud.com for 3579524213@qq.com).
+	if len(accountLocal) >= 5 && len(imapLocal) == len(accountLocal)+1 &&
+		imapLocal[0] >= 'a' && imapLocal[0] <= 'z' && imapLocal[1:] == accountLocal {
+		return true
+	}
+	return false
 }
 
 func (s *Server) sessionForOwnerIMAPEmail(ownerID, email string) (ICloudSession, bool) {

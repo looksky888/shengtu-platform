@@ -4,6 +4,7 @@ import (
 	"context"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -15,12 +16,6 @@ func (s *Server) syncMailboxCodeBatchForOwnerWithLimit(ctx context.Context, owne
 	if len(mailboxes) == 0 {
 		return 0, nil
 	}
-	release, err := s.acquireMailboxSyncSlot(ctx, ownerID)
-	if err != nil {
-		return 0, err
-	}
-	defer release()
-
 	refreshed := make([]Mailbox, 0, len(mailboxes))
 	for _, mailbox := range mailboxes {
 		latest, ok := s.store.FindMailboxByID(mailbox.ID)
@@ -32,10 +27,6 @@ func (s *Server) syncMailboxCodeBatchForOwnerWithLimit(ctx context.Context, owne
 	if len(refreshed) == 0 {
 		return 0, nil
 	}
-	if err := s.waitMailboxSyncInterval(ctx, ownerID); err != nil {
-		return 0, err
-	}
-	defer s.markMailboxSyncFinished(ownerID)
 
 	syncFn := s.syncCodeMailboxBatchWithCursor
 	if syncFn == nil && s.syncCodeMailboxBatch != nil {
@@ -51,6 +42,7 @@ func (s *Server) syncMailboxCodeBatchForOwnerWithLimit(ctx context.Context, owne
 		syncFn = SyncICloudIMAPMessagesWithCursor
 	}
 	type imapGroup struct {
+		key       string
 		session   ICloudSession
 		state     LoginState
 		mailboxes []Mailbox
@@ -61,24 +53,41 @@ func (s *Server) syncMailboxCodeBatchForOwnerWithLimit(ctx context.Context, owne
 	for _, mailbox := range refreshed {
 		session, state, ok := resolver.sessionForMailbox(mailbox)
 		if !ok {
-			return 0, errCode("imap_session_missing", "未保存取码登录，请先保存 iCloud 邮箱账号和 App 专用密码", true)
+			continue
 		}
-		key := firstNonEmpty(strings.TrimSpace(session.AccountID), "__imap__") + "|" + imapStateKey(state)
+		key := imapStateKey(state)
+		if key == "" {
+			key = firstNonEmpty(strings.TrimSpace(session.AccountID), "__imap__")
+		}
 		group := groups[key]
 		if group == nil {
-			group = &imapGroup{session: session, state: state}
+			group = &imapGroup{key: key, session: session, state: state}
 			groups[key] = group
 			order = append(order, key)
 		}
 		group.mailboxes = append(group.mailboxes, mailbox)
 	}
-	now := time.Now()
-	synced := 0
-	for _, key := range order {
-		group := groups[key]
+	if len(order) == 0 {
+		return 0, errCode("imap_session_missing", "未保存取码登录，请先保存 iCloud 邮箱账号和 App 专用密码", true)
+	}
+
+	runGroup := func(group *imapGroup) (int, error) {
+		syncScopeKey := mailboxSyncOwnerKey(ownerID) + "|imap|" + group.key
+		release, err := s.acquireMailboxSyncSlot(ctx, syncScopeKey)
+		if err != nil {
+			return 0, err
+		}
+		defer release()
+
+		if err := s.waitMailboxSyncInterval(ctx, syncScopeKey); err != nil {
+			return 0, err
+		}
+		defer s.markMailboxSyncFinished(syncScopeKey)
+
+		now := time.Now()
 		syncResult, err := syncFn(ctx, group.state, group.mailboxes, after, keyword, maxMessages)
 		if err != nil {
-			return synced, err
+			return 0, err
 		}
 		messagesByMailbox := syncResult.MessagesByMailbox
 		if messagesByMailbox == nil {
@@ -121,14 +130,50 @@ func (s *Server) syncMailboxCodeBatchForOwnerWithLimit(ctx context.Context, owne
 				})
 			}
 		}
-		created, err := s.store.applyMessageSync(updates, &iCloudIMAPSyncCursorUpdate{
-			OwnerID: ownerID, AccountID: group.session.AccountID, StateKey: imapStateKey(group.state),
+		return s.store.applyMessageSync(updates, &iCloudIMAPSyncCursorUpdate{
+			OwnerID: group.session.OwnerID, AccountID: group.session.AccountID, StateKey: imapStateKey(group.state),
 			SyncedAt: now, LastUID: lastAccountUID,
 		})
-		if err != nil {
-			return synced, err
+	}
+
+	if len(order) == 1 {
+		return runGroup(groups[order[0]])
+	}
+
+	type groupOutcome struct {
+		created int
+		err     error
+		key     string
+	}
+	outcomes := make([]groupOutcome, len(order))
+	var wg sync.WaitGroup
+	for i, key := range order {
+		wg.Add(1)
+		go func(i int, group *imapGroup) {
+			defer wg.Done()
+			created, err := runGroup(group)
+			outcomes[i] = groupOutcome{created: created, err: err, key: group.key}
+		}(i, groups[key])
+	}
+	wg.Wait()
+
+	synced := 0
+	failed := 0
+	var firstErr error
+	for _, out := range outcomes {
+		synced += out.created
+		if out.err != nil {
+			failed++
+			if firstErr == nil {
+				firstErr = out.err
+			}
+			if s.logger != nil {
+				s.logger.Warn("multi-account IMAP sync failed for account group", "imap_key", out.key, "err", out.err)
+			}
 		}
-		synced += created
+	}
+	if failed == len(order) && firstErr != nil {
+		return synced, firstErr
 	}
 	return synced, nil
 }
@@ -141,12 +186,6 @@ func (s *Server) syncMailboxBatchForOwnerWithLimit(ctx context.Context, ownerID 
 	if len(mailboxes) == 0 {
 		return nil
 	}
-	release, err := s.acquireMailboxSyncSlot(ctx, ownerID)
-	if err != nil {
-		return err
-	}
-	defer release()
-
 	refreshed := make([]Mailbox, 0, len(mailboxes))
 	for _, mailbox := range mailboxes {
 		latest, ok := s.store.FindMailboxByID(mailbox.ID)
@@ -158,10 +197,6 @@ func (s *Server) syncMailboxBatchForOwnerWithLimit(ctx context.Context, ownerID 
 	if len(refreshed) == 0 {
 		return nil
 	}
-	if err := s.waitMailboxSyncInterval(ctx, ownerID); err != nil {
-		return err
-	}
-	defer s.markMailboxSyncFinished(ownerID)
 	syncFn := s.syncMailboxBatch
 	if syncFn == nil {
 		syncFn = func(ctx context.Context, session ICloudSession, mailboxes []Mailbox, after time.Time, keyword string, maxThreads int) (map[string][]ICloudSyncedMessage, error) {
@@ -169,6 +204,7 @@ func (s *Server) syncMailboxBatchForOwnerWithLimit(ctx context.Context, ownerID 
 		}
 	}
 	type sessionGroup struct {
+		key       string
 		session   ICloudSession
 		mailboxes []Mailbox
 	}
@@ -177,27 +213,47 @@ func (s *Server) syncMailboxBatchForOwnerWithLimit(ctx context.Context, ownerID 
 	for _, mailbox := range refreshed {
 		session, ok := s.sessionForMailbox(ownerID, mailbox.AccountID)
 		if !ok {
-			return errCode("icloud_session_missing", "未保存 iCloud 登录态，请先保存旧接口登录态", true)
+			continue
 		}
 		key := firstNonEmpty(session.AccountID, session.DSID, session.AppleID, "__legacy__")
 		group := groups[key]
 		if group == nil {
-			group = &sessionGroup{session: session}
+			group = &sessionGroup{key: key, session: session}
 			groups[key] = group
 			order = append(order, key)
 		}
 		group.mailboxes = append(group.mailboxes, mailbox)
 	}
-	now := time.Now()
+	if len(order) == 0 {
+		return errCode("icloud_session_missing", "未保存 iCloud 登录态，请先保存旧接口登录态", true)
+	}
 	for _, key := range order {
 		group := groups[key]
+		syncScopeKey := mailboxSyncOwnerKey(ownerID) + "|web|" + group.key
+		release, err := s.acquireMailboxSyncSlot(ctx, syncScopeKey)
+		if err != nil {
+			return err
+		}
+		if err := s.waitMailboxSyncInterval(ctx, syncScopeKey); err != nil {
+			release()
+			return err
+		}
 		maxThreads := mailboxBatchThreadLimit(group.mailboxes)
 		if maxThreadsOverride > 0 {
 			maxThreads = maxThreadsOverride
 		}
+		now := time.Now()
 		messagesByMailbox, err := syncFn(ctx, group.session, group.mailboxes, after, keyword, maxThreads)
+		s.markMailboxSyncFinished(syncScopeKey)
+		release()
 		if err != nil {
-			return err
+			if len(order) == 1 {
+				return err
+			}
+			if s.logger != nil {
+				s.logger.Warn("multi-account web mail sync failed for account group", "account_key", group.key, "err", err)
+			}
+			continue
 		}
 		updates := make([]mailboxMessageSync, 0, len(group.mailboxes))
 		for _, mailbox := range group.mailboxes {
@@ -258,8 +314,8 @@ func icloudRemoteIDsFromMessages(messages []Message) []string {
 	return uniqueStrings(ids)
 }
 
-func (s *Server) acquireMailboxSyncSlot(ctx context.Context, ownerID string) (func(), error) {
-	key := mailboxSyncOwnerKey(ownerID)
+func (s *Server) acquireMailboxSyncSlot(ctx context.Context, scopeKey string) (func(), error) {
+	key := mailboxSyncOwnerKey(scopeKey)
 	s.icloudMailSyncMu.Lock()
 	if s.icloudMailSyncGates == nil {
 		s.icloudMailSyncGates = make(map[string]chan struct{})
@@ -279,12 +335,12 @@ func (s *Server) acquireMailboxSyncSlot(ctx context.Context, ownerID string) (fu
 	}
 }
 
-func (s *Server) waitMailboxSyncInterval(ctx context.Context, ownerID string) error {
+func (s *Server) waitMailboxSyncInterval(ctx context.Context, scopeKey string) error {
 	interval := s.mailboxSyncMinInterval
 	if interval <= 0 {
 		return nil
 	}
-	key := mailboxSyncOwnerKey(ownerID)
+	key := mailboxSyncOwnerKey(scopeKey)
 	s.icloudMailSyncMu.Lock()
 	last := s.icloudMailSyncLast[key]
 	s.icloudMailSyncMu.Unlock()
@@ -305,8 +361,8 @@ func (s *Server) waitMailboxSyncInterval(ctx context.Context, ownerID string) er
 	}
 }
 
-func (s *Server) markMailboxSyncFinished(ownerID string) {
-	key := mailboxSyncOwnerKey(ownerID)
+func (s *Server) markMailboxSyncFinished(scopeKey string) {
+	key := mailboxSyncOwnerKey(scopeKey)
 	s.icloudMailSyncMu.Lock()
 	if s.icloudMailSyncLast == nil {
 		s.icloudMailSyncLast = make(map[string]time.Time)

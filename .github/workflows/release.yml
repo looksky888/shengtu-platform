@@ -105,6 +105,19 @@ jobs:
           provenance: mode=max
           sbom: true
 
+      - name: Build and push immutable iCloud sidecar image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: deploy/icloud-privacy-mail/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ steps.version.outputs.image }}-icloud-privacy-mail:${{ steps.version.outputs.version }}
+            ${{ steps.version.outputs.channel == 'stable' && format('{0}-icloud-privacy-mail:latest', steps.version.outputs.image) || '' }}
+          cache-from: type=gha,scope=shengtu-icloud-amd64
+          cache-to: type=gha,mode=max,scope=shengtu-icloud-amd64
+
       - name: Build release manifest
         env:
           VERSION: ${{ steps.version.outputs.version }}
@@ -119,6 +132,12 @@ jobs:
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -p=1 -trimpath \
             -ldflags="-s -w" \
             -o dist/shengtu-host-updater_linux_amd64 ./cmd/host-updater
+          (
+            cd deploy/icloud-privacy-mail/source
+            CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -p=1 -trimpath \
+              -ldflags="-s -w" \
+              -o ../../../dist/icloud-privacy-mail_linux_amd64 ./cmd/panel
+          )
           updater_sha="$(sha256sum dist/shengtu-host-updater_linux_amd64 | awk '{print $1}')"
           release_metadata="$(go run ./cmd/release-metadata)"
           storage_schema_version="$(jq -er '.storageSchemaVersion' <<<"$release_metadata")"
@@ -157,7 +176,7 @@ jobs:
             }' > dist/update-manifest.json
           (
             cd dist
-            sha256sum update-manifest.json shengtu-host-updater_linux_amd64 > SHA256SUMS
+            sha256sum update-manifest.json shengtu-host-updater_linux_amd64 icloud-privacy-mail_linux_amd64 > SHA256SUMS
           )
 
       - name: Create or update GitHub Release
@@ -172,7 +191,7 @@ jobs:
           else
             release_args+=(--latest)
           fi
-          assets=(dist/update-manifest.json dist/shengtu-host-updater_linux_amd64 dist/SHA256SUMS)
+          assets=(dist/update-manifest.json dist/shengtu-host-updater_linux_amd64 dist/icloud-privacy-mail_linux_amd64 dist/SHA256SUMS)
           if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release upload "$GITHUB_REF_NAME" "${assets[@]}" --clobber --repo "$GITHUB_REPOSITORY"
           else
