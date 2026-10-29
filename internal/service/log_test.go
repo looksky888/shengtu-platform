@@ -1,10 +1,10 @@
 package service
 
 import (
+	"chatgpt2api/internal/util"
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 )
 
 func TestLogServiceUsesUnifiedLogsDirectory(t *testing.T) {
@@ -141,7 +141,7 @@ func TestLogServiceCleansOldLogs(t *testing.T) {
 
 	path := filepath.Join(dir, "logs", "events.jsonl")
 	data := []byte(`{"time":"2000-01-01 00:00:00","type":"event","summary":"旧调用","detail":{"status":"success"}}` + "\n" +
-		`{"time":"` + time.Now().Format("2006-01-02 15:04:05") + `","type":"event","summary":"新日志","detail":{"status":200}}` + "\n")
+		`{"time":"` + util.NowLocal() + `","type":"event","summary":"新日志","detail":{"status":200}}` + "\n")
 	if err := os.WriteFile(path, data, 0o644); err != nil {
 		t.Fatalf("rewrite logs: %v", err)
 	}

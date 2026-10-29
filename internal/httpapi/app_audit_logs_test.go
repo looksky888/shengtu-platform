@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"chatgpt2api/internal/service"
+	"chatgpt2api/internal/util"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -9,7 +10,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 )
 
 func TestModelsCallLogIncludesUserKeyName(t *testing.T) {
@@ -147,7 +147,7 @@ func TestLogGovernanceEndpointCleansOldLogs(t *testing.T) {
 		t.Fatalf("mkdir logs: %v", err)
 	}
 	logData := []byte(`{"time":"2000-01-01 00:00:00","type":"event","summary":"log-entry","detail":{"status":"success"}}` + "\n" +
-		`{"time":"` + time.Now().Format("2006-01-02 15:04:05") + `","type":"event","summary":"log-entry","detail":{"status":200}}` + "\n")
+		`{"time":"` + util.NowLocal() + `","type":"event","summary":"log-entry","detail":{"status":200}}` + "\n")
 	if err := os.WriteFile(filepath.Join(logDir, "events.jsonl"), logData, 0o644); err != nil {
 		t.Fatalf("write log data: %v", err)
 	}
