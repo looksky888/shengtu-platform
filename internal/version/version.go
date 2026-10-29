@@ -13,7 +13,7 @@ import (
 // Keep it in sync with VERSION.txt and the Dockerfile ARG default; the version
 // consistency test fails otherwise, because a stale default made source builds
 // report an older release and treat themselves as out of date.
-var Version = "5.0.3-20261029-icloud-multi-account"
+var Version = "5.0.4-20261029-image-edit-billing"
 
 // Commit, Date, and BuildType are overridden by release builds.
 var (

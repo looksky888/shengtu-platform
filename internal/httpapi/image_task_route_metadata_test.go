@@ -1,8 +1,15 @@
 package httpapi
 
 import (
+	"bytes"
+	"encoding/json"
+	"mime/multipart"
+	"net/http"
+	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
 	"chatgpt2api/internal/service"
 	"chatgpt2api/internal/storage"
@@ -127,5 +134,127 @@ func TestImageTaskRouteMetadataUsesModelRouteForGrok(t *testing.T) {
 	}
 	if metadata["upstream_host"] != "grok.example.test" {
 		t.Fatalf("upstream_host = %#v", metadata["upstream_host"])
+	}
+}
+
+func TestCreationTaskImageEditsMultipartUsesRelayChannelAndCreditCost(t *testing.T) {
+	t.Setenv("CHATGPT2API_GPT_IMAGE_2_5_SUNBURST_CREDIT_COST", "12")
+	app := newTestApp(t)
+	defer app.Close()
+
+	relay, err := app.imageChannels.CreateChannel(service.ImageChannelInput{
+		Name: "Relay 1", Type: service.ImageChannelTypeOpenAICompatible,
+		BaseURL: "https://relay.example.test/v1", APIKey: "relay-key",
+		Enabled: true, MaxConcurrency: 4, TimeoutSeconds: 90, MaxRetries: 0,
+	})
+	if err != nil {
+		t.Fatalf("CreateChannel() error = %v", err)
+	}
+	relayModel, err := app.imageChannels.CreateModel(relay.ID, service.ImageChannelModelInput{
+		DisplayName:   "Relay Sunburst",
+		UpstreamModel: util.ImageModelGPT25Sunburst,
+		Capabilities:  []string{service.ImageCapabilityGenerate, service.ImageCapabilityEdit},
+		Resolutions:   []string{"1k"},
+		Formats:       []string{"png"},
+		CreditCost:    4,
+		CreditCosts:   map[string]int{"1k": 4},
+		Enabled:       true,
+	})
+	if err != nil {
+		t.Fatalf("CreateModel() error = %v", err)
+	}
+
+	user, token, err := app.auth.CreateAPIKey(service.AuthRoleUser, "edit user", service.AuthOwner{})
+	if err != nil {
+		t.Fatalf("CreateAPIKey() error = %v", err)
+	}
+	// Seed exactly 4 credits while legacy env fallback is 12: only channel pricing (4) can succeed in billing.
+	if _, _, err := app.credits.Add(user.ID, 4, "test", "seed"); err != nil {
+		t.Fatalf("credits.Add() error = %v", err)
+	}
+
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	_ = mw.WriteField("client_task_id", "multipart-relay-edit-1")
+	_ = mw.WriteField("prompt", "remove background")
+	_ = mw.WriteField("model", util.ImageModelGPT25Sunburst)
+	_ = mw.WriteField("channel_model_id", relayModel.ID)
+	_ = mw.WriteField("image_resolution", "1k")
+	_ = mw.WriteField("n", "1")
+	part, err := mw.CreateFormFile("image", "input.png")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := part.Write([]byte{0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a}); err != nil {
+		t.Fatal(err)
+	}
+	if err := mw.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/creation-tasks/image-edits", &buf)
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+	res := httptest.NewRecorder()
+	app.Handler().ServeHTTP(res, req)
+	if res.Code != http.StatusOK {
+		t.Fatalf("status = %d body = %s, want 200", res.Code, res.Body.String())
+	}
+
+	var task map[string]any
+	if err := json.Unmarshal(res.Body.Bytes(), &task); err != nil {
+		t.Fatalf("unmarshal task: %v", err)
+	}
+	if task["effective_provider"] != service.ImageTaskProviderProxyAPI {
+		t.Fatalf("effective_provider = %#v, want %q", task["effective_provider"], service.ImageTaskProviderProxyAPI)
+	}
+	if task["effective_channel"] != "image_channel:"+relay.ID {
+		t.Fatalf("effective_channel = %#v, want %q", task["effective_channel"], "image_channel:"+relay.ID)
+	}
+	if task["provider_source"] != "channel_model" {
+		t.Fatalf("provider_source = %#v, want channel_model", task["provider_source"])
+	}
+
+	chargedFour := false
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		for _, entry := range app.credits.Ledger(user.ID) {
+			if entry.Reason == service.CreditReasonImageEdit && entry.Delta == -4 {
+				chargedFour = true
+				break
+			}
+		}
+		if chargedFour {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if !chargedFour {
+		t.Fatalf("expected image_edit ledger charge of -4 (not -12), got ledger = %#v", app.credits.Ledger(user.ID))
+	}
+}
+
+func TestProtocolImageGenerationsIgnoresClientSpoofedCreditCost(t *testing.T) {
+	t.Setenv("CHATGPT2API_IMAGE_CREDIT_COST_1080P", "6")
+	t.Setenv("CHATGPT2API_GPT_IMAGE_2_CREDIT_COST", "6")
+	app := newTestApp(t)
+	defer app.Close()
+
+	user, token, err := app.auth.CreateAPIKey(service.AuthRoleUser, "spoof user", service.AuthOwner{})
+	if err != nil {
+		t.Fatalf("CreateAPIKey() error = %v", err)
+	}
+	// Balance is 3: must be rejected (402) even if client injects image_credit_cost=1.
+	if _, _, err := app.credits.Add(user.ID, 3, "test", "seed"); err != nil {
+		t.Fatalf("credits.Add() error = %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/images/generations", strings.NewReader(`{"prompt":"cat","model":"gpt-image-2","image_credit_cost":1,"client_task_id":"spoof-1"}`))
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	res := httptest.NewRecorder()
+	app.Handler().ServeHTTP(res, req)
+	if res.Code != http.StatusPaymentRequired {
+		t.Fatalf("status = %d body = %s, want 402", res.Code, res.Body.String())
 	}
 }

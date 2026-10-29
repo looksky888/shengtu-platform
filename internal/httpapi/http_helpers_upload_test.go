@@ -81,3 +81,43 @@ func TestReadMultipartImageBodyRejectsKnownOversizedRequest(t *testing.T) {
 		t.Fatalf("err = %v, want request body limit error", err)
 	}
 }
+
+func TestReadMultipartImageBodyPreservesChannelModelAndResolution(t *testing.T) {
+	var buf bytes.Buffer
+	w := multipart.NewWriter(&buf)
+	_ = w.WriteField("client_task_id", "edit-task-1")
+	_ = w.WriteField("prompt", "remove watermark")
+	_ = w.WriteField("model", "gpt-image-2.5-sunburst")
+	_ = w.WriteField("channel_model_id", "model_relay_sunburst")
+	_ = w.WriteField("image_resolution", "2k")
+	_ = w.WriteField("resolution_preset", "2k")
+	part, err := w.CreateFormFile("image", "ref.png")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := part.Write([]byte{0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a}); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest("POST", "/api/creation-tasks/image-edits", &buf)
+	req.Header.Set("Content-Type", w.FormDataContentType())
+	body, images, err := readMultipartImageBody(httptest.NewRecorder(), req)
+	if err != nil {
+		t.Fatalf("readMultipartImageBody() error = %v", err)
+	}
+	if len(images) != 1 {
+		t.Fatalf("len(images) = %d, want 1", len(images))
+	}
+	if body["channel_model_id"] != "model_relay_sunburst" {
+		t.Fatalf("channel_model_id = %#v, want model_relay_sunburst", body["channel_model_id"])
+	}
+	if body["image_resolution"] != "2k" {
+		t.Fatalf("image_resolution = %#v, want 2k", body["image_resolution"])
+	}
+	if body["resolution_preset"] != "2k" {
+		t.Fatalf("resolution_preset = %#v, want 2k", body["resolution_preset"])
+	}
+}

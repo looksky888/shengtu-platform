@@ -2,11 +2,52 @@ package httpapi
 
 import (
 	"net/http"
+	"strings"
 
 	"chatgpt2api/internal/protocol"
 	"chatgpt2api/internal/service"
 	"chatgpt2api/internal/util"
 )
+
+func sanitizeClientImageRouteMetadata(body map[string]any) {
+	for _, key := range []string{
+		"image_credit_cost", "effective_provider", "effective_channel", "provider_source",
+		"effective_model", "upstream_host", "channel_id", "channel_name", "channel_base_url",
+		"channel_api_key", "channel_timeout_seconds", "channel_max_retries",
+		"channel_max_concurrency", "channel_download_urls",
+	} {
+		delete(body, key)
+	}
+}
+
+func applyImageRouteMetadataToBody(body, metadata map[string]any) {
+	if len(metadata) == 0 {
+		return
+	}
+	if preset := service.NormalizeImageResolutionPreset(util.Clean(metadata["image_resolution"])); preset != "" {
+		body["image_resolution"] = preset
+	}
+	if requestedSize := strings.TrimSpace(util.Clean(metadata["requested_size"])); requestedSize != "" {
+		body["requested_size"] = requestedSize
+	}
+	for _, key := range []string{
+		"effective_provider", "effective_channel", "provider_source",
+		"effective_model", "upstream_host", "channel_model_id", "channel_id", "channel_name",
+		"channel_base_url", "channel_api_key",
+	} {
+		if value := strings.TrimSpace(util.Clean(metadata[key])); value != "" {
+			body[key] = value
+		}
+	}
+	for _, key := range []string{"image_credit_cost", "channel_timeout_seconds", "channel_max_retries", "channel_max_concurrency"} {
+		if value := util.ToInt(metadata[key], 0); value > 0 || key == "channel_max_retries" {
+			body[key] = value
+		}
+	}
+	if value, ok := metadata["channel_download_urls"]; ok {
+		body["channel_download_urls"] = util.ToBool(value)
+	}
+}
 
 func (a *App) handleModels(w http.ResponseWriter, r *http.Request) {
 	identity, ok := a.requireIdentity(w, r, "")
@@ -27,6 +68,7 @@ func (a *App) handleImageGenerations(w http.ResponseWriter, r *http.Request) {
 		util.WriteError(w, http.StatusBadRequest, "请求体不是合法 JSON")
 		return
 	}
+	sanitizeClientImageRouteMetadata(body)
 	body["owner_id"] = identityScope(identity)
 	body["owner_name"] = identityDisplayName(identity)
 	body["base_url"] = a.resolveImageBaseURL(r)
@@ -36,10 +78,12 @@ func (a *App) handleImageGenerations(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	model := firstNonEmpty(util.Clean(body["model"]), util.ImageModelAuto)
-	if err := validateImageSizeForProvider(a.resolveImageChannelForTask(body, model), util.Clean(body["size"])); err != nil {
+	metadata, err := a.imageTaskRequestMetadata(body, model, service.ImageCapabilityGenerate)
+	if err != nil {
 		util.WriteError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	applyImageRouteMetadataToBody(body, metadata)
 	charge, err := a.deductImageCredits(identity, body, service.CreditReasonImageGeneration, "/v1/images/generations")
 	if err != nil {
 		a.writeCreditBillingError(w, err)
@@ -82,10 +126,12 @@ func (a *App) handleImageEdits(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	model := firstNonEmpty(util.Clean(body["model"]), util.ImageModelAuto)
-	if err := validateImageSizeForProvider(a.resolveImageChannelForTask(body, model), util.Clean(body["size"])); err != nil {
+	metadata, err := a.imageTaskRequestMetadata(body, model, service.ImageCapabilityEdit)
+	if err != nil {
 		util.WriteError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	applyImageRouteMetadataToBody(body, metadata)
 	charge, err := a.deductImageCredits(identity, body, service.CreditReasonImageEdit, "/v1/images/edits")
 	if err != nil {
 		a.writeCreditBillingError(w, err)
@@ -111,6 +157,7 @@ func (a *App) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		util.WriteError(w, http.StatusBadRequest, "请求体不是合法 JSON")
 		return
 	}
+	sanitizeClientImageRouteMetadata(body)
 	body["owner_id"] = identityScope(identity)
 	body["owner_name"] = identityDisplayName(identity)
 	body["base_url"] = a.resolveImageBaseURL(r)
@@ -127,10 +174,12 @@ func (a *App) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 	var stream *protocol.StreamResult
 	if protocol.IsImageChatRequest(body) {
 		summary = "文生图"
-		if sizeErr := validateImageSizeForProvider(a.resolveImageChannelForTask(body, model), util.Clean(body["size"])); sizeErr != nil {
+		metadata, sizeErr := a.imageTaskRequestMetadata(body, model, service.ImageCapabilityGenerate)
+		if sizeErr != nil {
 			util.WriteError(w, http.StatusBadRequest, sizeErr.Error())
 			return
 		}
+		applyImageRouteMetadataToBody(body, metadata)
 		if c, billingErr := a.deductImageCredits(identity, body, service.CreditReasonImageGeneration, "/v1/chat/completions"); billingErr != nil {
 			a.writeCreditBillingError(w, billingErr)
 			return
@@ -160,6 +209,7 @@ func (a *App) handleResponses(w http.ResponseWriter, r *http.Request) {
 		util.WriteError(w, http.StatusBadRequest, "请求体不是合法 JSON")
 		return
 	}
+	sanitizeClientImageRouteMetadata(body)
 	body["owner_id"] = identityScope(identity)
 	body["owner_name"] = identityDisplayName(identity)
 	body["base_url"] = a.resolveImageBaseURL(r)
