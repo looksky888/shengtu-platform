@@ -1,1 +1,1 @@
-5.1.0-20261030-platform-ux-polish
+5.2.0-20261030-fullstack-audit-polish

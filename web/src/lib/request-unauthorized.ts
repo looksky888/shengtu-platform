@@ -13,6 +13,16 @@ export function shouldRedirectUnauthorized(
   return status === 401 && redirectOnUnauthorized !== false && !pathname.startsWith("/login");
 }
 
+function hasControlCharacter(value: string): boolean {
+  for (let i = 0; i < value.length; i += 1) {
+    const code = value.charCodeAt(i);
+    if (code <= 0x1f || code === 0x7f) {
+      return true;
+    }
+  }
+  return false;
+}
+
 /**
  * Sanitizes an internal post-login return path.
  * Rejects external URLs, protocol-relative URLs (`//...`), `/`, `/login`, and control chars.
@@ -22,7 +32,7 @@ export function sanitizeInternalReturnPath(raw: string | null | undefined): stri
   if (!value || !value.startsWith("/") || value.startsWith("//") || value.startsWith("/\\")) {
     return "";
   }
-  if (/[\u0000-\u001F\u007F]/.test(value)) {
+  if (hasControlCharacter(value)) {
     return "";
   }
   try {

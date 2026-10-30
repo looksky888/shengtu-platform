@@ -54,7 +54,7 @@ services:
     build:
       context: .
       dockerfile: deploy/icloud-privacy-mail/Dockerfile
-    image: ${ICLOUD_PRIVACY_MAIL_IMAGE:-shengtu/icloud-privacy-mail:5.1.0-20261030-platform-ux-polish}
+    image: ${ICLOUD_PRIVACY_MAIL_IMAGE:-shengtu/icloud-privacy-mail:5.2.0-20261030-fullstack-audit-polish}
     container_name: shengtu39-icloud-privacy-mail
     restart: unless-stopped
     environment:
@@ -130,8 +130,8 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        VERSION: "${CHATGPT2API_VERSION:-5.1.0-20261030-platform-ux-polish}"
-    image: ${CHATGPT2API_IMAGE:-shengtu:5.1.0-20261030-platform-ux-polish}
+        VERSION: "${CHATGPT2API_VERSION:-5.2.0-20261030-fullstack-audit-polish}"
+    image: ${CHATGPT2API_IMAGE:-shengtu:5.2.0-20261030-fullstack-audit-polish}
     container_name: shengtu39-app
     restart: unless-stopped
     depends_on:

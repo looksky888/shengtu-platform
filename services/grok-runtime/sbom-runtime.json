@@ -6,7 +6,7 @@
     "component": {
       "type": "application",
       "name": "shengtu-grok-runtime",
-      "version": "5.1.0-20261030-platform-ux-polish"
+      "version": "5.2.0-20261030-fullstack-audit-polish"
     },
     "source": "requirements.lock"
   },
