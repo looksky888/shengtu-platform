@@ -1,12 +1,12 @@
 import { Plus, RefreshCw } from "lucide-react";
 
-import { AdjustCreditsDialog } from "@/app/users/adjust-credits-dialog";
 import { CreateUserDialog } from "@/app/users/create-user-dialog";
 import { DeleteUserDialog } from "@/app/users/delete-user-dialog";
 import { UserRoleDialog } from "@/app/users/user-role-dialog";
 import { useUsersManagement } from "@/app/users/use-users-management";
 import { UsersFilterBar } from "@/app/users/users-filter-bar";
 import { UsersTable } from "@/app/users/users-table";
+import { AdjustCreditsDialog } from "@/components/adjust-credits-dialog";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -149,12 +149,18 @@ export function UsersContent({ session }: { session: StoredAuthSession }) {
         onDelete={() => void users.handleDelete()}
       />
       <AdjustCreditsDialog
-        user={users.adjustingUser}
+        open={Boolean(users.adjustingUser)}
+        targetLabel={
+          users.adjustingUser?.name ||
+          users.adjustingUser?.username ||
+          users.adjustingUser?.id
+        }
         balance={adjustingBalance}
         mode={users.adjustMode}
         delta={users.adjustDelta}
         reason={users.adjustReason}
         isAdjusting={users.isAdjustingCredits}
+        canSubmit={Boolean(users.adjustingUser)}
         onOpenChange={(open) => (!open ? users.closeAdjustCreditsDialog() : null)}
         onModeChange={users.handleAdjustModeChange}
         onDeltaChange={users.setAdjustDelta}

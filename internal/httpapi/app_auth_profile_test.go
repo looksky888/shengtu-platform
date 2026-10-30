@@ -72,7 +72,27 @@ func TestAppAuthAndSPACompatibility(t *testing.T) {
 		t.Fatalf("/version body = %#v", versionBody)
 	}
 
+	anonReq := httptest.NewRequest(http.MethodGet, "/health", nil)
+	anonRes := httptest.NewRecorder()
+	app.Handler().ServeHTTP(anonRes, anonReq)
+	if anonRes.Code != http.StatusOK {
+		t.Fatalf("anonymous /health status = %d body = %s", anonRes.Code, anonRes.Body.String())
+	}
+	var anonHealth map[string]any
+	if err := json.Unmarshal(anonRes.Body.Bytes(), &anonHealth); err != nil {
+		t.Fatalf("anonymous health json: %v", err)
+	}
+	if anonHealth["status"] != "ok" || anonHealth["ready"] != true || anonHealth["version"] != "test-build" {
+		t.Fatalf("anonymous /health body = %#v", anonHealth)
+	}
+	for _, hiddenKey := range []string{"account_pool", "task_executors", "features_v35", "payment_callbacks"} {
+		if _, leaked := anonHealth[hiddenKey]; leaked {
+			t.Fatalf("anonymous /health leaked %s: %#v", hiddenKey, anonHealth)
+		}
+	}
+
 	req = httptest.NewRequest(http.MethodGet, "/health", nil)
+	req.Header.Set("Authorization", adminAuthHeader(t, app))
 	res = httptest.NewRecorder()
 	app.Handler().ServeHTTP(res, req)
 	if res.Code != http.StatusOK {

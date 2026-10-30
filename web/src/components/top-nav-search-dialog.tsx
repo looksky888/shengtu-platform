@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
+import { SETTINGS_TABS, type SettingsTabKey } from "@/app/settings/settings-tab-types";
 import {
   Dialog,
   DialogContent,
@@ -55,73 +56,58 @@ type CommandEntry = {
   onSelect: () => void;
 };
 
-const SETTINGS_SUB_COMMANDS: Array<{
-  tab: string;
-  label: string;
-  subtitle: string;
-  keywords: string[];
-}> = [
-  {
-    tab: "base",
-    label: "设置 · 基础设置",
-    subtitle: "平台名称、站点地址、无限画布链接与默认限流",
-    keywords: ["settings", "base", "canvas", "基础", "设置", "限流"],
+const SETTINGS_SUB_COMMAND_META: Record<
+  SettingsTabKey,
+  { subtitle: string; keywords: string[] }
+> = {
+  base: {
+    subtitle: "平台名称、登录头图、站点地址、无限画布链接与默认限流",
+    keywords: ["settings", "base", "canvas", "login", "基础", "品牌", "设置", "限流"],
   },
-  {
-    tab: "image",
-    label: "设置 · 生图与视频设置",
+  image: {
     subtitle: "生图渠道、模型并发、队列容量与积分定价",
-    keywords: ["settings", "image", "video", "price", "channel", "生图", "渠道", "定价", "积分"],
+    keywords: ["settings", "image", "video", "price", "channel", "生图", "路由", "渠道", "定价", "积分"],
   },
-  {
-    tab: "storage",
-    label: "设置 · 媒体存储",
-    subtitle: "本地/S3/R2 对象存储与图片视频保留天数",
-    keywords: ["settings", "storage", "s3", "r2", "存储", "清理"],
-  },
-  {
-    tab: "email",
-    label: "设置 · 邮箱与注册",
+  email: {
     subtitle: "注册开关、邮箱服务商与验证码超时配置",
     keywords: ["settings", "email", "mail", "邮箱", "注册"],
   },
-  {
-    tab: "register",
-    label: "设置 · 代理与 FlareSolverr",
+  register: {
     subtitle: "出站代理池、Cloudflare 过盾与注册机参数",
-    keywords: ["settings", "register", "proxy", "flaresolverr", "代理", "过盾"],
+    keywords: ["settings", "register", "proxy", "flaresolverr", "代理", "清障", "过盾"],
   },
-  {
-    tab: "imports",
-    label: "设置 · 账号导入",
+  imports: {
     subtitle: "CPA 远程号池连接与批量文件导入",
     keywords: ["settings", "import", "cpa", "pool", "导入", "号池"],
   },
-  {
-    tab: "announcement",
-    label: "设置 · 站内公告",
+  storage: {
+    subtitle: "本地/S3/R2 对象存储与图片视频保留天数",
+    keywords: ["settings", "storage", "s3", "r2", "存储", "清理"],
+  },
+  announcement: {
     subtitle: "工作台顶部公告通知与弹窗发布管理",
     keywords: ["settings", "announcement", "notice", "公告", "通知"],
   },
-  {
-    tab: "backup",
-    label: "设置 · 数据备份",
+  backup: {
     subtitle: "系统数据库与配置快照备份恢复",
     keywords: ["settings", "backup", "restore", "备份", "恢复"],
   },
-  {
-    tab: "maintenance",
-    label: "设置 · 维护与日志",
+  maintenance: {
     subtitle: "日志保留策略、级别开关与账号自动清理",
     keywords: ["settings", "maintenance", "logs", "维护", "日志"],
   },
-  {
-    tab: "system-update",
-    label: "设置 · 系统更新",
+  "system-update": {
     subtitle: "在线检查 GitHub Release 新版本并联动 Host Updater 无缝升级",
     keywords: ["settings", "update", "version", "upgrade", "更新", "升级", "版本"],
   },
-];
+};
+
+const SETTINGS_SUB_COMMANDS = SETTINGS_TABS.map((tab) => ({
+  tab: tab.key,
+  label: `设置 · ${tab.label}`,
+  subtitle: SETTINGS_SUB_COMMAND_META[tab.key].subtitle,
+  keywords: SETTINGS_SUB_COMMAND_META[tab.key].keywords,
+}));
 
 export type NavSearchDialogProps = {
   open: boolean;

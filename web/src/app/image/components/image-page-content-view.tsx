@@ -1,13 +1,38 @@
-import type { ComponentProps } from "react";
+import { Suspense, type ComponentProps } from "react";
 
 import { ImageComposer } from "@/app/image/components/image-composer";
 import { ImageDeleteConfirmDialog } from "@/app/image/components/image-delete-confirm-dialog";
-import { ImageEditDialog } from "@/app/image/components/edit-dialog/image-edit-dialog";
-import { ImageHistoryDialog } from "@/app/image/components/image-history-dialog";
-import { ImageInpaintDialog } from "@/app/image/components/image-inpaint-dialog";
+import type { ImageEditDialog } from "@/app/image/components/edit-dialog/image-edit-dialog";
+import type { ImageHistoryDialog } from "@/app/image/components/image-history-dialog";
+import type { ImageInpaintDialog } from "@/app/image/components/image-inpaint-dialog";
 import { ImagePageWorkspace } from "@/app/image/components/image-page-workspace";
 import { ImageResults } from "@/app/image/components/image-results";
-import { ImageLightbox } from "@/components/image-lightbox";
+import type { ImageLightbox } from "@/components/image-lightbox";
+import { lazyWithRetry } from "@/lib/lazy-with-retry";
+
+const LazyImageHistoryDialog = lazyWithRetry(() =>
+  import("@/app/image/components/image-history-dialog").then((mod) => ({
+    default: mod.ImageHistoryDialog,
+  })),
+);
+
+const LazyImageEditDialog = lazyWithRetry(() =>
+  import("@/app/image/components/edit-dialog/image-edit-dialog").then((mod) => ({
+    default: mod.ImageEditDialog,
+  })),
+);
+
+const LazyImageInpaintDialog = lazyWithRetry(() =>
+  import("@/app/image/components/image-inpaint-dialog").then((mod) => ({
+    default: mod.ImageInpaintDialog,
+  })),
+);
+
+const LazyImageLightbox = lazyWithRetry(() =>
+  import("@/components/image-lightbox").then((mod) => ({
+    default: mod.ImageLightbox,
+  })),
+);
 
 type WorkspaceProps = Omit<ComponentProps<typeof ImagePageWorkspace>, "overlays" | "results" | "composer">;
 
@@ -37,17 +62,27 @@ export function ImagePageContentView({
       <ImagePageWorkspace
         {...workspaceProps}
         overlays={
-          <>
-            <ImageHistoryDialog {...historyDialogProps} />
-            <ImageEditDialog {...editDialogProps} />
-            <ImageInpaintDialog {...inpaintDialogProps} />
-          </>
+          <Suspense fallback={null}>
+            {historyDialogProps.open ? (
+              <LazyImageHistoryDialog {...historyDialogProps} />
+            ) : null}
+            {editDialogProps.draft ? (
+              <LazyImageEditDialog {...editDialogProps} />
+            ) : null}
+            {inpaintDialogProps.source ? (
+              <LazyImageInpaintDialog {...inpaintDialogProps} />
+            ) : null}
+          </Suspense>
         }
         results={<ImageResults {...resultsProps} />}
         composer={<ImageComposer {...composerProps} />}
       />
 
-      <ImageLightbox {...lightboxProps} />
+      {lightboxProps.open ? (
+        <Suspense fallback={null}>
+          <LazyImageLightbox {...lightboxProps} />
+        </Suspense>
+      ) : null}
       <ImageDeleteConfirmDialog {...deleteConfirmDialogProps} />
     </>
   );

@@ -1,6 +1,8 @@
+"use client";
+
+import { useId } from "react";
 import { AlertTriangle, ArrowRight, Minus, Plus } from "lucide-react";
 
-import { formatCreditNumber, type CreditAdjustMode } from "@/app/users/users-utils";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -11,50 +13,71 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import type { ManagedUser } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 const CREDIT_PRESETS = [50, 100, 500, 1000, 5000] as const;
 
-type AdjustCreditsDialogProps = {
-  user: ManagedUser | null;
+export type CreditAdjustDirection = "add" | "deduct";
+
+export type AdjustCreditsDialogProps = {
+  open: boolean;
+  targetLabel?: string;
+  manualTarget?: {
+    value: string;
+    onChange: (value: string) => void;
+    placeholder?: string;
+  };
   balance: number;
-  mode?: CreditAdjustMode;
+  hasKnownBalance?: boolean;
+  mode?: CreditAdjustDirection;
   delta: string;
   reason: string;
   isAdjusting: boolean;
+  canSubmit?: boolean;
   onOpenChange: (open: boolean) => void;
-  onModeChange: (mode: CreditAdjustMode) => void;
+  onModeChange: (mode: CreditAdjustDirection) => void;
   onDeltaChange: (value: string) => void;
   onReasonChange: (value: string) => void;
   onSave: () => void;
 };
 
+function formatCreditNumber(value: number): string {
+  return new Intl.NumberFormat("zh-CN").format(Math.trunc(Number(value) || 0));
+}
+
 export function AdjustCreditsDialog({
-  user,
+  open,
+  targetLabel,
+  manualTarget,
   balance,
+  hasKnownBalance = true,
   mode = "add",
   delta,
   reason,
   isAdjusting,
+  canSubmit = true,
   onOpenChange,
   onModeChange,
   onDeltaChange,
   onReasonChange,
   onSave,
 }: AdjustCreditsDialogProps) {
-  const direction: CreditAdjustMode = mode === "deduct" ? "deduct" : "add";
-  const absAmount = Math.max(0, Math.trunc(Number(delta) || 0));
+  const idPrefix = useId();
+  const direction: CreditAdjustDirection = mode === "deduct" ? "deduct" : "add";
+  const sanitizedDigits = delta.replace(/\D+/g, "");
+  const absAmount = Math.max(0, Math.trunc(Number(sanitizedDigits) || 0));
   const nextBalance = direction === "deduct" ? balance - absAmount : balance + absAmount;
-  const isInsufficient = direction === "deduct" && nextBalance < 0;
+  const isInsufficient = hasKnownBalance && direction === "deduct" && nextBalance < 0;
 
   return (
-    <Dialog open={Boolean(user)} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="rounded-xl p-6">
         <DialogHeader className="gap-2">
           <DialogTitle>调整用户积分</DialogTitle>
           <DialogDescription className="text-sm leading-6">
-            为「{user?.name || user?.username || user?.id || "—"}」手动增加或扣减积分，变更将实时写入积分流水。
+            {manualTarget
+              ? "输入指定用户的 ID 手动增加或扣减积分，变更将实时写入全平台积分流水。"
+              : `为「${targetLabel || "—"}」手动增加或扣减积分，变更将实时写入全平台积分流水。`}
           </DialogDescription>
         </DialogHeader>
 
@@ -98,17 +121,33 @@ export function AdjustCreditsDialog({
             </button>
           </div>
 
+          {manualTarget ? (
+            <div className="space-y-2">
+              <label htmlFor={`${idPrefix}-target-user`} className="text-sm font-medium text-foreground">
+                目标用户 ID
+              </label>
+              <Input
+                id={`${idPrefix}-target-user`}
+                value={manualTarget.value}
+                onChange={(event) => manualTarget.onChange(event.target.value)}
+                placeholder={manualTarget.placeholder || "请输入用户 ID（例如 local_... 或 usr_...）"}
+                className="h-9 rounded-lg font-mono text-xs"
+                disabled={isAdjusting}
+              />
+            </div>
+          ) : null}
+
           <div className="space-y-2">
-            <label htmlFor="users-adjust-credits-amount" className="text-sm font-medium text-foreground">
+            <label htmlFor={`${idPrefix}-amount`} className="text-sm font-medium text-foreground">
               {direction === "deduct" ? "扣减数量" : "增加数量"}
             </label>
             <Input
-              id="users-adjust-credits-amount"
+              id={`${idPrefix}-amount`}
               type="text"
               inputMode="numeric"
-              min={1}
-              value={delta}
-              onChange={(event) => onDeltaChange(event.target.value)}
+              pattern="[0-9]*"
+              value={sanitizedDigits}
+              onChange={(event) => onDeltaChange(event.target.value.replace(/\D+/g, ""))}
               placeholder="请输入正整数积分数量，例如 100"
               className="h-9 rounded-lg tabular-nums"
               disabled={isAdjusting}
@@ -144,27 +183,48 @@ export function AdjustCreditsDialog({
               isInsufficient && "border-status-danger/35 bg-status-danger-soft/55",
             )}
           >
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="text-muted-foreground">
-                当前余额: <strong className="font-semibold text-foreground">{formatCreditNumber(balance)} 积分</strong>
-              </span>
-              <ArrowRight className="size-3.5 shrink-0 text-muted-foreground" />
-              <span className="text-muted-foreground">
-                变更后余额:{" "}
-                <strong
-                  className={cn(
-                    "font-semibold",
-                    isInsufficient
-                      ? "text-status-danger"
-                      : absAmount > 0 && direction === "add"
-                        ? "text-status-success"
-                        : "text-foreground",
-                  )}
-                >
-                  {formatCreditNumber(nextBalance)} 积分
-                </strong>
-              </span>
-            </div>
+            {hasKnownBalance ? (
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-muted-foreground">
+                  当前余额: <strong className="font-semibold text-foreground">{formatCreditNumber(balance)} 积分</strong>
+                </span>
+                <ArrowRight className="size-3.5 shrink-0 text-muted-foreground" />
+                <span className="text-muted-foreground">
+                  变更后余额:{" "}
+                  <strong
+                    className={cn(
+                      "font-semibold",
+                      isInsufficient
+                        ? "text-status-danger"
+                        : absAmount > 0 && direction === "add"
+                          ? "text-status-success"
+                          : "text-foreground",
+                    )}
+                  >
+                    {formatCreditNumber(nextBalance)} 积分
+                  </strong>
+                </span>
+              </div>
+            ) : (
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-muted-foreground">
+                  当前余额: <strong className="font-medium text-foreground">按用户账本实时核算</strong>
+                </span>
+                <ArrowRight className="size-3.5 shrink-0 text-muted-foreground" />
+                <span className="text-muted-foreground">
+                  本次变动:{" "}
+                  <strong
+                    className={cn(
+                      "font-semibold",
+                      direction === "deduct" ? "text-status-danger" : "text-status-success",
+                    )}
+                  >
+                    {direction === "deduct" ? "-" : "+"}
+                    {formatCreditNumber(absAmount)} 积分
+                  </strong>
+                </span>
+              </div>
+            )}
             {isInsufficient ? (
               <div className="mt-2 flex items-center gap-1.5 text-status-danger">
                 <AlertTriangle className="size-3.5 shrink-0" />
@@ -174,11 +234,11 @@ export function AdjustCreditsDialog({
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="users-adjust-credits-reason" className="text-sm font-medium text-foreground">
+            <label htmlFor={`${idPrefix}-reason`} className="text-sm font-medium text-foreground">
               原因说明（可选）
             </label>
             <Input
-              id="users-adjust-credits-reason"
+              id={`${idPrefix}-reason`}
               value={reason}
               onChange={(event) => onReasonChange(event.target.value)}
               placeholder="例如：后台补偿、人工扣减、活动发放"
@@ -204,7 +264,7 @@ export function AdjustCreditsDialog({
             loading={isAdjusting}
             className="h-9 rounded-lg px-4 tabular-nums"
             onClick={onSave}
-            disabled={isAdjusting || !user || absAmount < 1}
+            disabled={isAdjusting || !canSubmit || absAmount < 1 || isInsufficient}
           >
             {!isAdjusting ? (
               direction === "deduct" ? (

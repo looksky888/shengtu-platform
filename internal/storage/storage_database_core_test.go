@@ -26,6 +26,7 @@ func TestSQLitePragmasSurviveConnectionRecycling(t *testing.T) {
 		{pragma: "busy_timeout", want: 5000},
 		{pragma: "foreign_keys", want: 1},
 		{pragma: "temp_store", want: 2},
+		{pragma: "journal_size_limit", want: 67108864},
 	} {
 		var got int
 		if err := backend.db.QueryRow(`PRAGMA ` + tc.pragma).Scan(&got); err != nil {

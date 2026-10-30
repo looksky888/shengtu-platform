@@ -22,13 +22,30 @@ import {
 } from "@/lib/api";
 import { hasAPIPermission, type StoredAuthSession } from "@/store/auth";
 
-export function useCreditsAdmin(session: StoredAuthSession) {
+export type CreditsAdminTab = "cards" | "ledger" | "users";
+
+export function useCreditsAdmin(
+  session: StoredAuthSession,
+  activeTab: CreditsAdminTab = "cards",
+) {
   const permissions = useMemo(
     () => ({
       canManageCredits: hasAPIPermission(session, "POST", "/api/admin/credits"),
     }),
     [session],
   );
+
+  const [visitedTabs, setVisitedTabs] = useState<Record<CreditsAdminTab, boolean>>(() => ({
+    cards: activeTab === "cards",
+    ledger: activeTab === "ledger",
+    users: activeTab === "users",
+  }));
+
+  useEffect(() => {
+    setVisitedTabs((prev) =>
+      prev[activeTab] ? prev : { ...prev, [activeTab]: true },
+    );
+  }, [activeTab]);
 
   const [cards, setCards] = useState<CreditCard[]>([]);
   const [cardsTotal, setCardsTotal] = useState(0);
@@ -60,9 +77,9 @@ export function useCreditsAdmin(session: StoredAuthSession) {
   const [usersSearchDebounced, setUsersSearchDebounced] = useState("");
   const [usersTime, setUsersTime] = useState<TimeFilter>("all");
 
-  const [isCardsLoading, setIsCardsLoading] = useState(true);
-  const [isUsersLoading, setIsUsersLoading] = useState(true);
-  const [isLedgerLoading, setIsLedgerLoading] = useState(false);
+  const [isCardsLoading, setIsCardsLoading] = useState(() => activeTab === "cards");
+  const [isUsersLoading, setIsUsersLoading] = useState(() => activeTab === "users");
+  const [isLedgerLoading, setIsLedgerLoading] = useState(() => activeTab === "ledger");
   const [ledgerError, setLedgerError] = useState("");
 
   const cardsRequestSeq = useRef(0);
@@ -89,7 +106,12 @@ export function useCreditsAdmin(session: StoredAuthSession) {
     [ledger, ledgerPage, ledgerPageSize, ledgerTotal],
   );
 
-  const isLoading = isCardsLoading || isUsersLoading;
+  const isLoading =
+    activeTab === "cards"
+      ? isCardsLoading
+      : activeTab === "users"
+        ? isUsersLoading
+        : isLedgerLoading;
 
   useEffect(() => {
     setCardsPage(1);
@@ -114,18 +136,18 @@ export function useCreditsAdmin(session: StoredAuthSession) {
     return () => window.clearTimeout(timer);
   }, [ledgerSearch]);
 
-  const loadCards = useCallback(async () => {
+  const loadCards = useCallback(async (summaryOnly = false) => {
     cardsAbortRef.current?.abort();
     const controller = new AbortController();
     cardsAbortRef.current = controller;
     const seq = ++cardsRequestSeq.current;
-    setIsCardsLoading(true);
+    if (!summaryOnly) setIsCardsLoading(true);
     try {
       const bounds = adminTimeBounds(cardsTime);
       const data = await fetchCreditCards(
         {
-          page: cardsPage,
-          page_size: cardsPageSize,
+          page: summaryOnly ? 1 : cardsPage,
+          page_size: summaryOnly ? 1 : cardsPageSize,
           keyword: cardsSearchDebounced || undefined,
           status: cardsStatus !== "all" ? cardsStatus : undefined,
           start_at: bounds.start_at,
@@ -134,35 +156,39 @@ export function useCreditsAdmin(session: StoredAuthSession) {
         { signal: controller.signal },
       );
       if (seq !== cardsRequestSeq.current) return;
-      setCards(normalizeCreditCards(data.items));
+      if (!summaryOnly) {
+        setCards(normalizeCreditCards(data.items));
+        if (typeof data.page === "number" && data.page > 0 && data.page !== cardsPage) {
+          setCardsPage(data.page);
+        }
+      }
       setCardsTotal(typeof data.total === "number" ? data.total : 0);
       setActiveCardCount(typeof data.active_count === "number" ? data.active_count : 0);
       setUsedCardCount(typeof data.used_count === "number" ? data.used_count : 0);
-      if (typeof data.page === "number" && data.page > 0 && data.page !== cardsPage) {
-        setCardsPage(data.page);
-      }
     } catch (error) {
       if (controller.signal.aborted || seq !== cardsRequestSeq.current) return;
-      toast.error(error instanceof Error ? error.message : "加载卡密列表失败");
-      setCards([]);
+      if (!summaryOnly) {
+        toast.error(error instanceof Error ? error.message : "加载卡密列表失败");
+        setCards([]);
+      }
       setCardsTotal(0);
     } finally {
-      if (seq === cardsRequestSeq.current) setIsCardsLoading(false);
+      if (seq === cardsRequestSeq.current && !summaryOnly) setIsCardsLoading(false);
     }
   }, [cardsPage, cardsPageSize, cardsSearchDebounced, cardsStatus, cardsTime]);
 
-  const loadUsers = useCallback(async () => {
+  const loadUsers = useCallback(async (summaryOnly = false) => {
     usersAbortRef.current?.abort();
     const controller = new AbortController();
     usersAbortRef.current = controller;
     const seq = ++usersRequestSeq.current;
-    setIsUsersLoading(true);
+    if (!summaryOnly) setIsUsersLoading(true);
     try {
       const bounds = adminTimeBounds(usersTime);
       const data = await fetchCreditUsers(
         {
-          page: usersPage,
-          page_size: usersPageSize,
+          page: summaryOnly ? 1 : usersPage,
+          page_size: summaryOnly ? 1 : usersPageSize,
           keyword: usersSearchDebounced || undefined,
           start_at: bounds.start_at,
           end_at: bounds.end_at,
@@ -170,36 +196,42 @@ export function useCreditsAdmin(session: StoredAuthSession) {
         { signal: controller.signal },
       );
       if (seq !== usersRequestSeq.current) return;
-      setUsers(normalizeCreditUsers(data.items));
+      if (!summaryOnly) {
+        setUsers(normalizeCreditUsers(data.items));
+        if (typeof data.page === "number" && data.page > 0 && data.page !== usersPage) {
+          setUsersPage(data.page);
+        }
+      }
       setUsersTotal(typeof data.total === "number" ? data.total : 0);
       setTotalBalance(typeof data.total_balance === "number" ? data.total_balance : 0);
       setAccountCount(typeof data.account_count === "number" ? data.account_count : 0);
-      if (typeof data.page === "number" && data.page > 0 && data.page !== usersPage) {
-        setUsersPage(data.page);
-      }
     } catch (error) {
       if (controller.signal.aborted || seq !== usersRequestSeq.current) return;
-      toast.error(error instanceof Error ? error.message : "加载用户余额失败");
-      setUsers([]);
+      if (!summaryOnly) {
+        toast.error(error instanceof Error ? error.message : "加载用户余额失败");
+        setUsers([]);
+      }
       setUsersTotal(0);
     } finally {
-      if (seq === usersRequestSeq.current) setIsUsersLoading(false);
+      if (seq === usersRequestSeq.current && !summaryOnly) setIsUsersLoading(false);
     }
   }, [usersPage, usersPageSize, usersSearchDebounced, usersTime]);
 
-  const loadLedger = useCallback(async () => {
+  const loadLedger = useCallback(async (summaryOnly = false) => {
     ledgerAbortRef.current?.abort();
     const controller = new AbortController();
     ledgerAbortRef.current = controller;
     const seq = ++ledgerRequestSeq.current;
-    setIsLedgerLoading(true);
-    setLedgerError("");
+    if (!summaryOnly) {
+      setIsLedgerLoading(true);
+      setLedgerError("");
+    }
     try {
       const bounds = adminTimeBounds(ledgerTime);
       const data = await fetchCreditLedger(
         {
-          page: ledgerPage,
-          page_size: ledgerPageSize,
+          page: summaryOnly ? 1 : ledgerPage,
+          page_size: summaryOnly ? 1 : ledgerPageSize,
           keyword: ledgerSearchDebounced || undefined,
           reason: ledgerReason !== "all" ? ledgerReason : undefined,
           start_at: bounds.start_at,
@@ -208,35 +240,45 @@ export function useCreditsAdmin(session: StoredAuthSession) {
         { signal: controller.signal },
       );
       if (seq !== ledgerRequestSeq.current) return;
-      setLedger(normalizeCreditLedger(data.items));
-      setLedgerTotal(typeof data.total === "number" ? data.total : 0);
-      if (typeof data.page === "number" && data.page > 0 && data.page !== ledgerPage) {
-        setLedgerPage(data.page);
+      if (!summaryOnly) {
+        setLedger(normalizeCreditLedger(data.items));
+        if (typeof data.page === "number" && data.page > 0 && data.page !== ledgerPage) {
+          setLedgerPage(data.page);
+        }
       }
+      setLedgerTotal(typeof data.total === "number" ? data.total : 0);
     } catch (error) {
       if (controller.signal.aborted || seq !== ledgerRequestSeq.current) return;
-      const message = error instanceof Error ? error.message : "加载积分流水失败";
-      setLedgerError(message);
-      setLedger([]);
+      if (!summaryOnly) {
+        const message = error instanceof Error ? error.message : "加载积分流水失败";
+        setLedgerError(message);
+        setLedger([]);
+      }
       setLedgerTotal(0);
     } finally {
-      if (seq === ledgerRequestSeq.current) setIsLedgerLoading(false);
+      if (seq === ledgerRequestSeq.current && !summaryOnly) setIsLedgerLoading(false);
     }
   }, [ledgerPage, ledgerPageSize, ledgerReason, ledgerSearchDebounced, ledgerTime]);
 
   const loadData = useCallback(async () => {
-    await Promise.all([loadCards(), loadUsers(), loadLedger()]);
-  }, [loadCards, loadUsers, loadLedger]);
+    await Promise.all([
+      loadCards(!visitedTabs.cards),
+      loadUsers(!visitedTabs.users),
+      loadLedger(!visitedTabs.ledger),
+    ]);
+  }, [loadCards, loadLedger, loadUsers, visitedTabs.cards, visitedTabs.ledger, visitedTabs.users]);
 
   useEffect(() => {
-    void loadCards();
-  }, [loadCards]);
+    void loadCards(!visitedTabs.cards);
+  }, [loadCards, visitedTabs.cards]);
+
   useEffect(() => {
-    void loadUsers();
-  }, [loadUsers]);
+    void loadUsers(!visitedTabs.users);
+  }, [loadUsers, visitedTabs.users]);
+
   useEffect(() => {
-    void loadLedger();
-  }, [loadLedger]);
+    void loadLedger(!visitedTabs.ledger);
+  }, [loadLedger, visitedTabs.ledger]);
 
   useEffect(
     () => () => {
@@ -247,11 +289,15 @@ export function useCreditsAdmin(session: StoredAuthSession) {
     [],
   );
 
+  const refreshCards = useCallback(() => loadCards(!visitedTabs.cards), [loadCards, visitedTabs.cards]);
+  const refreshUsers = useCallback(() => loadUsers(!visitedTabs.users), [loadUsers, visitedTabs.users]);
+  const refreshLedger = useCallback(() => loadLedger(!visitedTabs.ledger), [loadLedger, visitedTabs.ledger]);
+
   const actions = useCreditsAdminActions({
     canManageCredits: permissions.canManageCredits,
-    loadCards,
-    loadUsers,
-    loadLedger,
+    loadCards: refreshCards,
+    loadUsers: refreshUsers,
+    loadLedger: refreshLedger,
     setCardsPage,
     setLedgerPage,
   });
@@ -306,7 +352,7 @@ export function useCreditsAdmin(session: StoredAuthSession) {
     setLedgerPageSize,
     setUsersPageSize,
     loadData,
-    loadLedger,
+    loadLedger: () => loadLedger(false),
     ...actions,
     copyGeneratedKeysText,
   };

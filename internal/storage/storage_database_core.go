@@ -105,6 +105,7 @@ var sqlitePragmas = []string{
 	"busy_timeout(5000)",
 	"foreign_keys(ON)",
 	"journal_mode(WAL)",
+	"journal_size_limit(67108864)",
 	"synchronous(NORMAL)",
 	"temp_store(MEMORY)",
 }

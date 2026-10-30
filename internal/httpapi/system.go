@@ -14,7 +14,7 @@ import (
 	"chatgpt2api/internal/version"
 )
 
-func (a *App) handleHealth(w http.ResponseWriter, _ *http.Request) {
+func (a *App) handleHealth(w http.ResponseWriter, r *http.Request) {
 	status := "ok"
 	degraded := []string{}
 	accountsReady := true
@@ -32,6 +32,22 @@ func (a *App) handleHealth(w http.ResponseWriter, _ *http.Request) {
 			status = "degraded"
 			degraded = append(degraded, "credits_not_ready")
 		}
+	}
+	isAdmin := false
+	if a.auth != nil && r != nil {
+		if token := requestAuthToken(r); token != "" {
+			if identity := a.auth.Authenticate(token); identity != nil && identity.Role == service.AuthRoleAdmin {
+				isAdmin = true
+			}
+		}
+	}
+	if !isAdmin {
+		util.WriteJSON(w, http.StatusOK, publicHealthResponse{
+			Status:  status,
+			Version: version.Get(),
+			Ready:   status == "ok",
+		})
+		return
 	}
 	payload := applicationHealthResponse{
 		Status:  status,

@@ -70,7 +70,7 @@ export default function ICloudPage() {
   ];
 
   return (
-    <div className="mx-auto flex w-full max-w-[1180px] flex-col gap-5 pb-8">
+    <section className="flex flex-col gap-5 pb-8">
       <PageHeader
         eyebrow="号池与运维"
         title="iCloud 隐私邮箱"
@@ -168,6 +168,6 @@ export default function ICloudPage() {
           </div>
         </div>
       )}
-    </div>
+    </section>
   );
 }

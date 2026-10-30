@@ -17,6 +17,7 @@ import {
   imageResolutionLabel,
 } from "@/app/image/components/image-results-utils";
 import type { ImageVisibility } from "@/lib/api";
+import { copyText } from "@/lib/clipboard";
 import { imageVisibilityLabel } from "@/lib/image-card-utils";
 import { formatBase64ImageFileSize } from "@/lib/image-size";
 import { cn } from "@/lib/utils";
@@ -95,7 +96,7 @@ export function ImageSuccessResultCard({
       return;
     }
     try {
-      await navigator.clipboard.writeText(trimmed);
+      await copyText(trimmed);
       toast.success("提示词已复制到剪贴板");
     } catch {
       toast.error("复制提示词失败");

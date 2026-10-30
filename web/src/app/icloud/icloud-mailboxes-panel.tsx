@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
+import { copyText as writeClipboardText } from "@/lib/clipboard";
 import { icloudApi, type ICloudMailbox } from "@/lib/icloud-api";
 import { isImeComposing } from "@/lib/keyboard";
 
@@ -20,7 +21,7 @@ import type { ICloudPageController } from "./use-icloud-page";
 
 async function copyText(text: string, successMessage: string) {
   try {
-    await navigator.clipboard.writeText(text);
+    await writeClipboardText(text);
     toast.success(successMessage);
   } catch {
     toast.error("复制失败");

@@ -4,6 +4,7 @@ import * as React from "react";
 import { Check, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { Button, type ButtonProps } from "@/components/ui/button";
+import { copyText } from "@/lib/clipboard";
 import { cn } from "@/lib/utils";
 
 export interface CopyButtonProps extends Omit<ButtonProps, "onClick"> {
@@ -43,7 +44,7 @@ export function CopyButton({
       return;
     }
     try {
-      await navigator.clipboard.writeText(value);
+      await copyText(value);
       setCopied(true);
       if (toastMessage) {
         toast.success(toastMessage);

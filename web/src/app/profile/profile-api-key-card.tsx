@@ -1,5 +1,5 @@
 import {
-  Ban,
+  Ban, BookOpen,
   CheckCircle2,
   Coins,
   Copy,
@@ -89,7 +89,7 @@ export function ProfileApiKeyCard({
   onRotateOpen,
   onDeleteOpen,
   onGenerate,
-  onTestConnectivity,
+  onTestConnectivity, onOpenDocs,
 }: ProfileApiKeyCardProps) {
   const origin =
     typeof window !== "undefined" && window.location.origin
@@ -115,7 +115,7 @@ export function ProfileApiKeyCard({
               </CardDescription>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">{onOpenDocs ? (<Button type="button" variant="outline" size="xs" onClick={onOpenDocs}><BookOpen className="size-3.5" />查看接入文档</Button>) : null}
             {apiKey ? (
               <Badge
                 variant={apiKey.enabled ? "success" : "danger"}

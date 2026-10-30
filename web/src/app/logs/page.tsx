@@ -11,6 +11,7 @@ import { detailJSON, emptyFilters, normalizeFilters } from "@/app/logs/logs-util
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { fetchSystemLogs, type SystemLog, type SystemLogFilters } from "@/lib/api";
+import { copyText } from "@/lib/clipboard";
 import { useAuthGuard } from "@/lib/use-auth-guard";
 
 function LogsContent() {
@@ -70,7 +71,7 @@ function LogsContent() {
 
   const handleCopyDetailJSON = async () => {
     try {
-      await navigator.clipboard.writeText(detailJSON(detailLog));
+      await copyText(detailJSON(detailLog));
       toast.success("日志详情已复制");
     } catch {
       toast.error("复制失败，请手动复制");

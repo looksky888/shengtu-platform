@@ -1,13 +1,22 @@
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 
 import { AnimatedRoutes } from "@/app/animated-routes";
-import { AdminConsoleSidebar } from "@/components/admin-console-sidebar";
-import { TopNav } from "@/components/top-nav";
 import { isAdminConsolePath, resolveRoutePageTitle } from "@/components/top-nav-config";
 import { normalizeBrandTitle } from "@/lib/app-meta";
+import { lazyWithRetry } from "@/lib/lazy-with-retry";
 import { useAppMeta } from "@/lib/use-app-meta";
 import { cn } from "@/lib/utils";
+
+const LazyTopNav = lazyWithRetry(() =>
+  import("@/components/top-nav").then((mod) => ({ default: mod.TopNav })),
+);
+
+const LazyAdminConsoleSidebar = lazyWithRetry(() =>
+  import("@/components/admin-console-sidebar").then((mod) => ({
+    default: mod.AdminConsoleSidebar,
+  })),
+);
 
 export function AppShell() {
   const location = useLocation();
@@ -27,7 +36,11 @@ export function AppShell() {
 
   return (
     <main className="flex min-h-screen min-w-0 flex-col bg-background text-foreground">
-      <TopNav />
+      {!isPublicRoute ? (
+        <Suspense fallback={<div className="h-14 shrink-0 border-b border-border/60 bg-background/80" />}>
+          <LazyTopNav />
+        </Suspense>
+      ) : null}
       <div
         className={cn(
           "mx-auto flex w-full min-w-0 max-w-[1520px] flex-1",
@@ -40,7 +53,11 @@ export function AppShell() {
                 : "flex-col px-3 py-3 sm:px-4 lg:px-5"
         )}
       >
-        <AdminConsoleSidebar />
+        {isConsoleRoute ? (
+          <Suspense fallback={null}>
+            <LazyAdminConsoleSidebar />
+          </Suspense>
+        ) : null}
         <div
           className={cn(
             "flex w-full min-w-0 flex-1 flex-col",

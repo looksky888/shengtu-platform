@@ -40,7 +40,7 @@ export function AccountsPageContent({ session }: { session: StoredAuthSession })
     setSearchParams(nextParams, { replace: true });
   };
 
-  const accounts = useAccountsManagement(session);
+  const accounts = useAccountsManagement(session, platform === "gpt");
   const grok = useGrokProviderCenter(platform === "grok");
   const canWriteGrok = hasAPIPermission(session, "post", "/api/grok");
   const {

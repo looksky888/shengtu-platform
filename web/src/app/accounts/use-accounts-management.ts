@@ -19,7 +19,7 @@ import {
 } from "@/lib/api";
 import { hasAPIPermission, type StoredAuthSession } from "@/store/auth";
 
-export function useAccountsManagement(session: StoredAuthSession) {
+export function useAccountsManagement(session: StoredAuthSession, enabled = true) {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [query, setQuery] = useState("");
@@ -34,7 +34,7 @@ export function useAccountsManagement(session: StoredAuthSession) {
   const [editProxyUrl, setEditProxyUrl] = useState("");
   const [editProxyTimezone, setEditProxyTimezone] = useState("");
   const [clearProxy, setClearProxy] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(enabled);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -133,12 +133,12 @@ export function useAccountsManagement(session: StoredAuthSession) {
   }, [applyAccountItems, page, pageSize, queryDebounced, statusFilter, typeFilter]);
 
   useEffect(() => {
-    void loadAccounts();
-  }, [loadAccounts]);
+    if (enabled) void loadAccounts();
+  }, [enabled, loadAccounts]);
 
   useEffect(() => {
-    void loadAccountsSummary();
-  }, [loadAccountsSummary]);
+    if (enabled) void loadAccountsSummary();
+  }, [enabled, loadAccountsSummary]);
 
   useEffect(
     () => () => {
@@ -176,7 +176,7 @@ export function useAccountsManagement(session: StoredAuthSession) {
       toast.success(`删除 ${data.removed ?? 0} 个账户`);
       setSelectedIds([]);
       void loadAccounts(true);
-      void loadAccountsSummary();
+      if (enabled) void loadAccountsSummary();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "删除账户失败");
     } finally {
@@ -197,7 +197,7 @@ export function useAccountsManagement(session: StoredAuthSession) {
         toast.success(`刷新成功 ${data.refreshed} 个账户`);
       }
       void loadAccounts(true);
-      void loadAccountsSummary();
+      if (enabled) void loadAccountsSummary();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "刷新账户失败");
     } finally {
@@ -228,7 +228,7 @@ export function useAccountsManagement(session: StoredAuthSession) {
         toast.success(`刷新成功 ${result.refreshed} 个账户`);
       }
       void loadAccounts(true);
-      void loadAccountsSummary();
+      if (enabled) void loadAccountsSummary();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "刷新账户失败");
     } finally {
@@ -278,7 +278,7 @@ export function useAccountsManagement(session: StoredAuthSession) {
       setEditingAccount(null);
       toast.success("账号信息已更新");
       void loadAccounts(true);
-      void loadAccountsSummary();
+      if (enabled) void loadAccountsSummary();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "更新账号失败");
     } finally {
@@ -298,7 +298,7 @@ export function useAccountsManagement(session: StoredAuthSession) {
     setSelectedIds([]);
     setPage(1);
     void loadAccounts(true);
-    void loadAccountsSummary();
+    if (enabled) void loadAccountsSummary();
   };
 
   return {

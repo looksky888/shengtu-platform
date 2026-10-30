@@ -19,6 +19,7 @@ import {
   getCachedAuthSession,
   getVerifiedAuthSession,
 } from "@/lib/session";
+import { ResolvedAuthSessionContext } from "@/lib/use-auth-guard";
 import { canAccessPath, getDefaultRouteForSession, type StoredAuthSession } from "@/store/auth";
 
 const routeTransition: Transition = {
@@ -74,7 +75,11 @@ function PermissionRoute({ requiredPath, children }: { requiredPath?: string; ch
   if (!canAccessPath(session, requiredPath)) {
     return <Navigate to={getDefaultRouteForSession(session)} replace />;
   }
-  return children;
+  return (
+    <ResolvedAuthSessionContext.Provider value={session}>
+      {children}
+    </ResolvedAuthSessionContext.Provider>
+  );
 }
 
 export function AnimatedRoutes() {

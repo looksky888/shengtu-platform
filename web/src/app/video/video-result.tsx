@@ -22,6 +22,7 @@ import {
   CreationTaskProgressState,
 } from "@/components/creation-task-state";
 import type { CreationTask } from "@/lib/api";
+import { copyText } from "@/lib/clipboard";
 import { creationTaskFailure } from "@/lib/creation-task-errors";
 import { cn } from "@/lib/utils";
 
@@ -570,7 +571,7 @@ function VideoFailureState({
 
 async function copyTaskID(taskID: string) {
   try {
-    await navigator.clipboard.writeText(taskID);
+    await copyText(taskID);
     toast.success("任务 ID 已复制");
   } catch {
     toast.error("复制任务 ID 失败");

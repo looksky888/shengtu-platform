@@ -44,6 +44,12 @@ type healthFeaturesV35 struct {
 	GrokRuntimeURL  string `json:"grok_runtime_url"`
 }
 
+type publicHealthResponse struct {
+	Status  string `json:"status"`
+	Version string `json:"version"`
+	Ready   bool   `json:"ready"`
+}
+
 type applicationHealthResponse struct {
 	Status             string                                   `json:"status"`
 	Version            string                                   `json:"version"`

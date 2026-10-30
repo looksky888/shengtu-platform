@@ -3,7 +3,6 @@
 import { Coins, CreditCard, LoaderCircle, ReceiptText } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 
-import { AdjustCreditsDialog } from "@/app/credits-admin/adjust-credits-dialog";
 import { CopyAssistDialog } from "@/app/credits-admin/copy-assist-dialog";
 import { CreditCardsSection } from "@/app/credits-admin/credit-cards-section";
 import { CreditLedgerSection } from "@/app/credits-admin/credit-ledger-section";
@@ -12,11 +11,10 @@ import { CreditsAdminHeader } from "@/app/credits-admin/credits-admin-header";
 import { DisableCreditCardDialog } from "@/app/credits-admin/disable-credit-card-dialog";
 import { GenerateCreditCardsDialog } from "@/app/credits-admin/generate-credit-cards-dialog";
 import { GeneratedCreditCardsDialog } from "@/app/credits-admin/generated-credit-cards-dialog";
-import { useCreditsAdmin } from "@/app/credits-admin/use-credits-admin";
+import { useCreditsAdmin, type CreditsAdminTab } from "@/app/credits-admin/use-credits-admin";
+import { AdjustCreditsDialog } from "@/components/adjust-credits-dialog";
 import { SubNav, type SubNavItem } from "@/components/ui/sub-nav";
 import { useAuthGuard } from "@/lib/use-auth-guard";
-
-type CreditsAdminTab = "cards" | "ledger" | "users";
 
 function parseCreditsAdminTab(raw: string | null): CreditsAdminTab {
   if (raw === "ledger") return "ledger";
@@ -25,9 +23,9 @@ function parseCreditsAdminTab(raw: string | null): CreditsAdminTab {
 }
 
 function CreditsAdminContent({ session }: { session: NonNullable<ReturnType<typeof useAuthGuard>["session"]> }) {
-  const state = useCreditsAdmin(session);
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = parseCreditsAdminTab(searchParams.get("tab"));
+  const state = useCreditsAdmin(session, activeTab);
 
   const handleTabChange = (nextTab: CreditsAdminTab) => {
     const nextParams = new URLSearchParams(searchParams);
@@ -67,6 +65,17 @@ function CreditsAdminContent({ session }: { session: NonNullable<ReturnType<type
         ? "按来源或用户检索全平台积分收支与自动退款记录"
         : "查看各账户实时算力积分余额并执行人工增减调账";
 
+  const isManualTarget = Boolean(state.adjustingAccount && !state.adjustingAccount.user_id);
+  const resolvedUserId = (state.adjustingAccount?.user_id || state.manualAdjustUserId).trim();
+  const matchedManualAccount =
+    isManualTarget && resolvedUserId
+      ? state.users.find((item) => item.user_id === resolvedUserId)
+      : undefined;
+  const hasKnownBalance = !isManualTarget || Boolean(matchedManualAccount);
+  const currentBalance = isManualTarget
+    ? (matchedManualAccount?.balance ?? 0)
+    : (state.adjustingAccount?.balance ?? 0);
+
   return (
     <section className="flex flex-col gap-5">
       <CreditsAdminHeader state={state} />
@@ -93,7 +102,32 @@ function CreditsAdminContent({ session }: { session: NonNullable<ReturnType<type
       <GenerateCreditCardsDialog state={state} />
       <GeneratedCreditCardsDialog state={state} />
       <DisableCreditCardDialog state={state} />
-      <AdjustCreditsDialog state={state} />
+      <AdjustCreditsDialog
+        open={Boolean(state.adjustingAccount)}
+        targetLabel={state.adjustingAccount?.user_id}
+        manualTarget={
+          isManualTarget
+            ? {
+                value: state.manualAdjustUserId,
+                onChange: state.setManualAdjustUserId,
+              }
+            : undefined
+        }
+        balance={currentBalance}
+        hasKnownBalance={hasKnownBalance}
+        mode={state.adjustMode}
+        delta={state.adjustDelta}
+        reason={state.adjustReason}
+        isAdjusting={state.isAdjustingCredits}
+        canSubmit={Boolean(state.adjustingAccount && resolvedUserId)}
+        onOpenChange={(open) => {
+          if (!open) state.resetAdjustDialog();
+        }}
+        onModeChange={state.handleAdjustModeChange}
+        onDeltaChange={state.setAdjustDelta}
+        onReasonChange={state.setAdjustReason}
+        onSave={() => void state.handleAdjustUserCredits()}
+      />
       <CopyAssistDialog state={state} />
     </section>
   );

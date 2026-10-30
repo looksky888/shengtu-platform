@@ -7,6 +7,11 @@ import (
 )
 
 func (b *DatabaseBackend) init() error {
+	if b.driver == "sqlite" {
+		// Effective immediately on brand-new SQLite files before tables exist;
+		// on existing files it takes effect on the next full VACUUM.
+		_, _ = b.db.Exec("PRAGMA auto_vacuum = INCREMENTAL")
+	}
 	schema := []string{
 		`CREATE TABLE IF NOT EXISTS accounts (id INTEGER PRIMARY KEY AUTOINCREMENT, access_token TEXT UNIQUE NOT NULL, data TEXT NOT NULL)`,
 		`CREATE TABLE IF NOT EXISTS auth_keys (id INTEGER PRIMARY KEY AUTOINCREMENT, key_id TEXT UNIQUE NOT NULL, data TEXT NOT NULL)`,

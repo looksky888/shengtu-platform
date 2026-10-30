@@ -41,6 +41,7 @@ export function ImageLightbox({
   const hasNext = currentIndex < images.length - 1;
   const [zoom, setZoom] = useState(MIN_ZOOM);
   const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [stageNode, setStageNode] = useState<HTMLDivElement | null>(null);
   const dragRef = useRef<{
     pointerId: number;
     startX: number;
@@ -69,20 +70,27 @@ export function ImageLightbox({
     });
   }, []);
 
-  const handleWheel = useCallback((event: React.WheelEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    if (event.deltaY < 0) {
-      setZoom((value) => Math.min(MAX_ZOOM, Number((value + ZOOM_STEP).toFixed(2))));
-    } else if (event.deltaY > 0) {
-      setZoom((value) => {
-        const next = Math.max(MIN_ZOOM, Number((value - ZOOM_STEP).toFixed(2)));
-        if (next === MIN_ZOOM) {
-          setPan({ x: 0, y: 0 });
-        }
-        return next;
-      });
-    }
-  }, []);
+  useEffect(() => {
+    if (!open || !stageNode) return;
+
+    const handleWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      if (event.deltaY < 0) {
+        setZoom((value) => Math.min(MAX_ZOOM, Number((value + ZOOM_STEP).toFixed(2))));
+      } else if (event.deltaY > 0) {
+        setZoom((value) => {
+          const next = Math.max(MIN_ZOOM, Number((value - ZOOM_STEP).toFixed(2)));
+          if (next === MIN_ZOOM) {
+            setPan({ x: 0, y: 0 });
+          }
+          return next;
+        });
+      }
+    };
+
+    stageNode.addEventListener("wheel", handleWheel, { passive: false });
+    return () => stageNode.removeEventListener("wheel", handleWheel);
+  }, [open, stageNode]);
 
   const goPrev = useCallback(() => {
     if (hasPrev) onIndexChange(currentIndex - 1);
@@ -187,6 +195,9 @@ export function ImageLightbox({
           <DialogPrimitive.Title className="sr-only">
             图片预览
           </DialogPrimitive.Title>
+          <DialogPrimitive.Description className="sr-only">
+            使用鼠标滚轮、双击或方向键缩放和切换预览图片
+          </DialogPrimitive.Description>
 
           <ImageLightboxToolbar
             current={current}
@@ -216,9 +227,9 @@ export function ImageLightbox({
           )}
 
           <div
+            ref={setStageNode}
             className="flex h-full w-full items-center justify-center overflow-hidden p-4 pt-24 sm:p-8 sm:pt-20"
             onClick={() => onOpenChange(false)}
-            onWheel={handleWheel}
           >
             <img
               src={current.src}

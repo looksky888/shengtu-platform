@@ -6,4 +6,6 @@
 logs/
 **/logs/
 .pytest_cache/
+**/.pytest_cache/
+_legacy_app_package/
 upstream/services/register/node_modules/
