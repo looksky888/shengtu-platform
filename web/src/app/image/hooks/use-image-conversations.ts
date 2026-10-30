@@ -3,11 +3,13 @@ import { toast } from "sonner";
 
 import { recoverConversationHistory } from "@/app/image/lib/conversation-task-sync";
 import { pickFallbackConversationId } from "@/app/image/lib/image-storage-utils";
+import { AUTH_SESSION_CHANGE_EVENT, getCachedAuthSession } from "@/lib/session";
 import { preserveEphemeralReferenceImages } from "@/store/image-conversation-ephemeral";
 import { sortImageConversations } from "@/store/image-conversation-normalize";
 import { advanceConversationRevision } from "@/store/image-conversation-revision";
 import {
   ACTIVE_IMAGE_CONVERSATION_STORAGE_KEY,
+  activeImageConversationStorageKey,
   getImageConversationStats,
   IMAGE_ACTIVE_CONVERSATION_REQUEST_EVENT,
   IMAGE_CONVERSATIONS_CHANGED_EVENT,
@@ -25,6 +27,20 @@ export function useImageConversations({ restoreStoredComposerSettings }: UseImag
   const [conversations, setConversations] = useState<ImageConversation[]>([]);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+  const [sessionScopeKey, setSessionScopeKey] = useState(() =>
+    activeImageConversationStorageKey(getCachedAuthSession()),
+  );
+
+  useEffect(() => {
+    const syncScope = () => {
+      const nextKey = activeImageConversationStorageKey(getCachedAuthSession());
+      setSessionScopeKey((current) => (current === nextKey ? current : nextKey));
+    };
+    window.addEventListener(AUTH_SESSION_CHANGE_EVENT, syncScope);
+    return () => {
+      window.removeEventListener(AUTH_SESSION_CHANGE_EVENT, syncScope);
+    };
+  }, []);
 
   const selectedConversation = useMemo(
     () => conversations.find((item) => item.id === selectedConversationId) ?? null,
@@ -77,6 +93,8 @@ export function useImageConversations({ restoreStoredComposerSettings }: UseImag
 
   useEffect(() => {
     let cancelled = false;
+    setIsLoadingHistory(true);
+    conversationsRef.current = [];
 
     const loadHistory = async () => {
       try {
@@ -91,7 +109,9 @@ export function useImageConversations({ restoreStoredComposerSettings }: UseImag
         let storedConversationId: string | null = null;
         if (typeof window !== "undefined") {
           try {
-            storedConversationId = window.localStorage.getItem(ACTIVE_IMAGE_CONVERSATION_STORAGE_KEY);
+            storedConversationId =
+              window.localStorage.getItem(sessionScopeKey) ??
+              window.localStorage.getItem(ACTIVE_IMAGE_CONVERSATION_STORAGE_KEY);
           } catch {
             storedConversationId = null;
           }
@@ -115,7 +135,7 @@ export function useImageConversations({ restoreStoredComposerSettings }: UseImag
     return () => {
       cancelled = true;
     };
-  }, [replaceConversations, restoreStoredComposerSettings]);
+  }, [replaceConversations, restoreStoredComposerSettings, sessionScopeKey]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -124,14 +144,14 @@ export function useImageConversations({ restoreStoredComposerSettings }: UseImag
 
     try {
       if (selectedConversationId) {
-        window.localStorage.setItem(ACTIVE_IMAGE_CONVERSATION_STORAGE_KEY, selectedConversationId);
+        window.localStorage.setItem(sessionScopeKey, selectedConversationId);
       } else {
-        window.localStorage.removeItem(ACTIVE_IMAGE_CONVERSATION_STORAGE_KEY);
+        window.localStorage.removeItem(sessionScopeKey);
       }
     } catch {
       // Ignore storage access errors.
     }
-  }, [selectedConversationId]);
+  }, [selectedConversationId, sessionScopeKey]);
 
   useEffect(() => {
     const handleOpenConversation = (event: Event) => {
@@ -173,8 +193,6 @@ export function useImageConversations({ restoreStoredComposerSettings }: UseImag
       options: { persist?: boolean } = {},
     ) => {
       const current = conversationsRef.current.find((item) => item.id === conversationId) ?? null;
-      // Every write advances the revision so merge arbitration never depends on the
-      // (frequently stale) display timestamp; see image-conversation-revision.
       const nextConversation = advanceConversationRevision(updater(current));
       const nextConversations = sortImageConversations([
         nextConversation,

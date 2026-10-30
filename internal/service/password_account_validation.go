@@ -8,6 +8,15 @@ import (
 	"strings"
 )
 
+var dummyPasswordBcryptHash []byte
+
+func init() {
+	hash, err := bcrypt.GenerateFromPassword([]byte("dummy-timing-shield-password"), bcrypt.DefaultCost)
+	if err == nil {
+		dummyPasswordBcryptHash = hash
+	}
+}
+
 func normalizeAccountUsername(username string) (string, error) {
 	username = strings.ToLower(strings.TrimSpace(username))
 	if !accountUsernameRE.MatchString(username) {
@@ -78,4 +87,11 @@ func verifyAccountPassword(password, hash string) bool {
 		return false
 	}
 	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) == nil
+}
+
+func verifyDummyAccountPassword(password string) {
+	if len(dummyPasswordBcryptHash) == 0 {
+		return
+	}
+	_ = bcrypt.CompareHashAndPassword(dummyPasswordBcryptHash, []byte(password))
 }

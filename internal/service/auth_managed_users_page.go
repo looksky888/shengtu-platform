@@ -16,8 +16,8 @@ import (
 // *CreditMax (from CreditService.IDsWithBalanceAbove). Missing id ⇒ balance 0.
 // Pass nil when no credit filter is active.
 //
-// Lock strategy: snapshot lite index under lock, filter/sort unlocked, then
-// re-lock only to project the page (keeps auth mutex free during O(n) filter).
+// Lock strategy: snapshot lite index under read lock, filter/sort unlocked, then
+// re-acquire read lock only to project the page.
 func (s *AuthService) QueryManagedUsersPage(query AdminListQuery, creditAboveMax map[string]struct{}) (ManagedUsersPage, error) {
 	page, pageSize, err := normalizeManagedUsersPage(query)
 	if err != nil {
@@ -39,9 +39,9 @@ func (s *AuthService) QueryManagedUsersPage(query AdminListQuery, creditAboveMax
 	now := time.Now()
 
 	// Snapshot lite index quickly; heavy filter/sort runs without holding s.mu.
-	s.mu.Lock()
+	s.mu.RLock()
 	lites := listManagedUserLitesLocked(s.items, s.roles, s.accounts)
-	s.mu.Unlock()
+	s.mu.RUnlock()
 
 	filtered := make([]managedUserLite, 0, len(lites))
 	for _, row := range lites {
@@ -66,7 +66,7 @@ func (s *AuthService) QueryManagedUsersPage(query AdminListQuery, creditAboveMax
 		ids = append(ids, row.ID)
 	}
 
-	s.mu.Lock()
+	s.mu.RLock()
 	items := projectManagedUsersByIDsLocked(s.items, s.roles, s.accounts, ids)
 	// Attach inactive_days for cleanup UI (page only); reuse lite timestamps by id.
 	liteByID := make(map[string]managedUserLite, len(pageLites))
@@ -80,7 +80,7 @@ func (s *AuthService) QueryManagedUsersPage(query AdminListQuery, creditAboveMax
 			items[i].InactiveDays = inactiveDaysSince(items[i].LastUsedAt, items[i].CreatedAt, now)
 		}
 	}
-	s.mu.Unlock()
+	s.mu.RUnlock()
 
 	return ManagedUsersPage{
 		Items:    items,

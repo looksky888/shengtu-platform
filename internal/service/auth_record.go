@@ -20,6 +20,7 @@ type AuthKey struct {
 	KeyHash        string   `json:"key_hash"`
 	KeyHint        string   `json:"key_hint,omitempty"`
 	Enabled        bool     `json:"enabled"`
+	RememberMe     bool     `json:"remember_me,omitempty"`
 	CreatedAt      string   `json:"created_at"`
 	ExpiresAt      string   `json:"expires_at,omitempty"`
 	LastUsedAt     string   `json:"last_used_at,omitempty"`
@@ -88,6 +89,7 @@ func authKeyFromMap(raw map[string]any) (AuthKey, bool) {
 		KeyHash:    hash,
 		KeyHint:    keyHint,
 		Enabled:    util.ToBool(util.ValueOr(raw["enabled"], true)),
+		RememberMe: util.ToBool(raw["remember_me"]),
 		CreatedAt:  created,
 		ExpiresAt:  util.Clean(raw["expires_at"]),
 		LastUsedAt: util.Clean(raw["last_used_at"]),
@@ -133,6 +135,9 @@ func (k AuthKey) toMap() map[string]any {
 		"created_at":      k.CreatedAt,
 		"menu_paths":      append([]string(nil), k.MenuPaths...),
 		"api_permissions": append([]string(nil), k.APIPermissions...),
+	}
+	if k.RememberMe {
+		out["remember_me"] = true
 	}
 	if k.KeyHint != "" {
 		out["key_hint"] = k.KeyHint

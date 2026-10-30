@@ -94,7 +94,31 @@ func (s *AuthService) ChangeProfilePassword(identity Identity, currentPassword, 
 	if err := validateAccountPassword(nextPassword); err != nil {
 		return err
 	}
+
+	s.mu.RLock()
+	var candidate PasswordAccount
+	found := false
+	for _, account := range s.accounts {
+		if account.ID == ownerID {
+			candidate = account
+			found = true
+			break
+		}
+	}
+	s.mu.RUnlock()
+	if !found {
+		return authError("用户账号不存在")
+	}
+	if !verifyAccountPassword(currentPassword, candidate.PasswordHash) {
+		return authError("当前密码错误")
+	}
+	hash, err := hashAccountPassword(nextPassword)
+	if err != nil {
+		return err
+	}
+
 	now := util.NowISO()
+	keepCredentialID := util.Clean(identity.CredentialID)
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -102,20 +126,46 @@ func (s *AuthService) ChangeProfilePassword(identity Identity, currentPassword, 
 		if account.ID != ownerID {
 			continue
 		}
-		if !verifyAccountPassword(currentPassword, account.PasswordHash) {
-			return authError("当前密码错误")
+		if account.PasswordHash != candidate.PasswordHash {
+			return authError("当前密码已变更，请重试")
 		}
-		hash, err := hashAccountPassword(nextPassword)
-		if err != nil {
-			return err
-		}
+		previousAccounts := append([]PasswordAccount(nil), s.accounts...)
+		previousItems := append([]AuthKey(nil), s.items...)
 		account.PasswordHash = hash
 		account.UpdatedAt = now
-		previous := s.accounts[index]
 		s.accounts[index] = account
+
+		var revokedSessions []AuthKey
+		for itemIndex := range s.items {
+			item := &s.items[itemIndex]
+			if item.Kind != AuthKindSession || item.Provider != AuthProviderLocal || item.OwnerID != ownerID {
+				continue
+			}
+			if keepCredentialID != "" && util.Clean(item.ID) == keepCredentialID {
+				continue
+			}
+			if !item.Enabled {
+				continue
+			}
+			item.Enabled = false
+			item.UpdatedAt = now
+			revokedSessions = append(revokedSessions, *item)
+		}
+
 		if err := s.savePasswordAccountsLocked(); err != nil {
-			s.accounts[index] = previous
+			s.accounts = previousAccounts
+			s.items = previousItems
+			s.rebuildKeyIndexLocked()
 			return authRollbackError(err, s.savePasswordAccountsLocked())
+		}
+		if len(revokedSessions) > 0 {
+			if err := s.persistAuthKeysLocked(revokedSessions); err != nil {
+				s.accounts = previousAccounts
+				s.items = previousItems
+				s.rebuildKeyIndexLocked()
+				rollbackErr := errors.Join(s.savePasswordAccountsLocked(), s.saveLocked())
+				return authRollbackError(err, rollbackErr)
+			}
 		}
 		return nil
 	}

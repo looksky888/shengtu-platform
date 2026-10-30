@@ -192,6 +192,53 @@ func (b *DatabaseBackend) QueryLogs(startDate, endDate string, limit int) ([]map
 	return out, rows.Err()
 }
 
+func (b *DatabaseBackend) QueryLogsBefore(startDate, endDate string, beforeID int64, limit int) ([]PagedLogRecord, error) {
+	query := "SELECT id, data FROM logs"
+	var filters []string
+	var args []any
+	if strings.TrimSpace(startDate) != "" {
+		args = append(args, strings.TrimSpace(startDate))
+		filters = append(filters, "day >= "+b.placeholder(len(args)))
+	}
+	if strings.TrimSpace(endDate) != "" {
+		args = append(args, strings.TrimSpace(endDate))
+		filters = append(filters, "day <= "+b.placeholder(len(args)))
+	}
+	if beforeID > 0 {
+		args = append(args, beforeID)
+		filters = append(filters, "id < "+b.placeholder(len(args)))
+	}
+	if len(filters) > 0 {
+		query += " WHERE " + strings.Join(filters, " AND ")
+	}
+	query += " ORDER BY id DESC"
+	if limit > 0 {
+		args = append(args, limit)
+		query += " LIMIT " + b.placeholder(len(args))
+	}
+	rows, err := b.reader().Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]PagedLogRecord, 0, max(0, min(limit, 1024)))
+	for rows.Next() {
+		var rowID int64
+		var text string
+		if err := rows.Scan(&rowID, &text); err != nil {
+			continue
+		}
+		item, err := decodeJSONString(text)
+		if err != nil {
+			continue
+		}
+		if m, ok := item.(map[string]any); ok {
+			out = append(out, PagedLogRecord{ID: rowID, Item: m})
+		}
+	}
+	return out, rows.Err()
+}
+
 func (b *DatabaseBackend) DeleteLogsBefore(day string) (int, error) {
 	day = strings.TrimSpace(day)
 	if day == "" {

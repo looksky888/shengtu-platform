@@ -23,6 +23,7 @@ func (s *AuthService) ResetUserAPIKey(id, name string) (ManagedUserPublic, AuthK
 
 	var updated AuthKey
 	foundUpdated := false
+	extraRemoved := false
 	if owner.ID != "" {
 		if name == "" {
 			name = "我的 API 令牌"
@@ -37,6 +38,7 @@ func (s *AuthService) ResetUserAPIKey(id, name string) (ManagedUserPublic, AuthK
 				continue
 			}
 			if foundUpdated {
+				extraRemoved = true
 				continue
 			}
 			updated = item
@@ -87,9 +89,16 @@ func (s *AuthService) ResetUserAPIKey(id, name string) (ManagedUserPublic, AuthK
 	if !foundUpdated {
 		return ManagedUserPublic{}, AuthKeyPublic{}, "", false, nil
 	}
-	if err := s.saveLocked(); err != nil {
+	persistErr := error(nil)
+	if extraRemoved {
+		persistErr = s.saveLocked()
+	} else {
+		persistErr = s.persistAuthKeyLocked(updated)
+	}
+	if persistErr != nil {
 		s.items = previousItems
-		return ManagedUserPublic{}, AuthKeyPublic{}, "", true, err
+		s.rebuildKeyIndexLocked()
+		return ManagedUserPublic{}, AuthKeyPublic{}, "", true, persistErr
 	}
 	key := AuthKeyPublicFromRecord(updated)
 	user, ok := managedUserPublicByIDLocked(s.items, s.roles, s.accounts, id)
@@ -104,8 +113,8 @@ func (s *AuthService) RevealUserAPIKey(id string) (string, bool) {
 	if id == "" {
 		return "", false
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	for _, item := range s.items {
 		if managedAuthUserID(item) != id || util.Clean(item.Kind) != AuthKindAPIKey {
 			continue

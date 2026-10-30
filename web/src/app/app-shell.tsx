@@ -1,18 +1,29 @@
+import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 
 import { AnimatedRoutes } from "@/app/animated-routes";
 import { AdminConsoleSidebar } from "@/components/admin-console-sidebar";
 import { TopNav } from "@/components/top-nav";
-import { isAdminConsolePath } from "@/components/top-nav-config";
+import { isAdminConsolePath, resolveRoutePageTitle } from "@/components/top-nav-config";
+import { normalizeBrandTitle } from "@/lib/app-meta";
+import { useAppMeta } from "@/lib/use-app-meta";
 import { cn } from "@/lib/utils";
 
 export function AppShell() {
   const location = useLocation();
+  const appMeta = useAppMeta();
   const pathname = location.pathname.replace(/\/+$/, "") || "/";
   const isPublicRoute = pathname === "/" || pathname === "/login";
   const isConsoleRoute = isAdminConsolePath(pathname);
   const isStudioRoute = pathname === "/image" || pathname === "/video";
   const isStageFramed = !isPublicRoute && !isStudioRoute;
+
+  useEffect(() => {
+    if (isPublicRoute) return;
+    const brandTitle = normalizeBrandTitle(appMeta.app_title);
+    const pageTitle = resolveRoutePageTitle(pathname);
+    document.title = pageTitle ? `${pageTitle} · ${brandTitle}` : brandTitle;
+  }, [appMeta.app_title, isPublicRoute, pathname]);
 
   return (
     <main className="flex min-h-screen min-w-0 flex-col bg-background text-foreground">

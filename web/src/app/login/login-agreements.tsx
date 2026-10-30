@@ -6,6 +6,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 
 export function LoginAgreements({ state }: { state: LoginPageState }) {
   const handleForgotPassword = () => {
+    if (state.passwordResetEnabled === null) {
+      toast.message("正在检查平台找回密码配置，请稍候…");
+      return;
+    }
     if (state.passwordResetEnabled === true) {
       state.openPasswordReset(state.username);
       return;

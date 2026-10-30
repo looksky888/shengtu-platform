@@ -24,17 +24,18 @@ func (a *App) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	accountName := util.Clean(body["username"])
-	if !allowLoginAttempt(r, accountName) {
+	if !checkLoginAllowed(r, accountName) {
 		util.WriteError(w, http.StatusTooManyRequests, "登录尝试过于频繁，请稍后再试")
-		return
-	}
-	identity, token, err := a.auth.LoginPassword(accountName, util.Clean(body["password"]))
-	if err != nil {
-		util.WriteError(w, http.StatusBadRequest, mapAuthUserError(err))
 		return
 	}
 	// Opt-in remember: default false when field omitted (safer shared-device default).
 	rememberMe := util.ToBool(body["remember_me"])
+	identity, token, err := a.auth.LoginPasswordWithRemember(accountName, util.Clean(body["password"]), rememberMe)
+	if err != nil {
+		recordLoginFailure(r, accountName)
+		util.WriteError(w, http.StatusBadRequest, mapAuthUserError(err))
+		return
+	}
 	setAuthSessionCookie(w, r, token, rememberMe)
 	a.logTermsAccepted(*identity, "login", body)
 	a.writeLoginResponse(w, *identity, token)
@@ -45,9 +46,12 @@ func (a *App) handleSession(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if token := requestBearerToken(r); token != "" {
-		// Session refresh keeps existing cookie max-age semantics (persistent).
-		setAuthSessionCookie(w, r, token, true)
+	// Only refresh browser cookies for actual session tokens (never leak API keys
+	// into cookies, and preserve the session's original remember_me preference).
+	if identity.Kind == service.AuthKindSession {
+		if token := requestAuthToken(r); token != "" {
+			setAuthSessionCookie(w, r, token, identity.RememberMe)
+		}
 	}
 	a.writeLoginResponse(w, identity, "")
 }
@@ -72,6 +76,11 @@ func (a *App) handleAccountRegister(w http.ResponseWriter, r *http.Request) {
 	}
 	clientIP := authClientIP(r)
 	email := util.Clean(body["email"])
+	password := util.Clean(body["password"])
+	if err := service.ValidateAccountPassword(password); err != nil {
+		util.WriteError(w, http.StatusBadRequest, mapAuthUserError(err))
+		return
+	}
 	deviceID := a.readDeviceID(r, util.Clean(body["device_id"]))
 	if deviceID == "" {
 		// Issue device binding even when quota check uses IP only.
@@ -80,9 +89,15 @@ func (a *App) handleAccountRegister(w http.ResponseWriter, r *http.Request) {
 		// Soft rotation: re-sign cookie with current device secret if needed.
 		a.refreshDeviceCookieIfStale(w, r, deviceID)
 	}
+	// Verify email OTP BEFORE reserving a registration risk slot so a user typo in
+	// the verification code never triggers or burns IP/device risk reservations.
+	verificationID, err := a.email.VerifyRegistrationCode(email, util.Clean(body["email_code"]), deviceID)
+	if err != nil {
+		util.WriteError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 	var reserveID string
 	if a.regQuota != nil {
-		var err error
 		reserveID, err = a.regQuota.Reserve(service.RegistrationRiskInput{
 			ClientIP: clientIP,
 			DeviceID: deviceID,
@@ -94,18 +109,9 @@ func (a *App) handleAccountRegister(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	inviteCode := firstNonEmpty(util.Clean(body["invite_code"]), util.Clean(r.URL.Query().Get("invite_code")))
-	verificationID, err := a.email.VerifyRegistrationCode(email, util.Clean(body["email_code"]), deviceID)
-	if err != nil {
-		if a.regQuota != nil {
-			if releaseErr := a.regQuota.Release(reserveID); releaseErr != nil && a.logger != nil {
-				a.logger.Warning("registration risk reserve release failed", "reserve_id", reserveID, "error", releaseErr.Error())
-			}
-		}
-		util.WriteError(w, http.StatusBadRequest, err.Error())
-		return
-	}
+	rememberMe := util.ToBool(body["remember_me"])
 	identity, token, err := a.completeEmailRegistration(
-		reserveID, verificationID, email, util.Clean(body["password"]), util.Clean(body["name"]),
+		reserveID, verificationID, email, password, util.Clean(body["name"]), rememberMe,
 	)
 	if err != nil {
 		var finalizeErr *emailRegistrationFinalizeError
@@ -132,7 +138,6 @@ func (a *App) handleAccountRegister(w http.ResponseWriter, r *http.Request) {
 			a.logger.Info("invite reward granted", "inviter_id", inviterID, "invitee_id", identity.ID, "code", inviteCode)
 		}
 	}
-	rememberMe := util.ToBool(body["remember_me"])
 	setAuthSessionCookie(w, r, token, rememberMe)
 	a.logTermsAccepted(*identity, "register", body)
 	a.writeLoginResponse(w, *identity, token)

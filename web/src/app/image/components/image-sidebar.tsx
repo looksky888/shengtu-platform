@@ -147,7 +147,7 @@ export function ImageSidebar({
             onClick={onCreateDraft}
           >
             <MessageSquarePlus className="size-3.5" />
-            <span>+ 新建会话</span>
+            <span>新建会话</span>
           </button>
         </div>
 
@@ -202,7 +202,15 @@ export function ImageSidebar({
             </div>
           ) : filteredConversations.length === 0 ? (
             <div className="px-3 py-5 text-center text-xs text-muted-foreground">
-              未找到匹配的会话记录
+              <p>未找到匹配的会话记录</p>
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="mt-2 inline-flex h-7 items-center gap-1 rounded-lg bg-surface px-2.5 text-[11px] font-medium text-foreground ring-1 ring-border/75 transition hover:bg-surface-hover"
+              >
+                <X className="size-3" />
+                <span>清空搜索</span>
+              </button>
             </div>
           ) : (
             filteredConversations.map((conversation) => {

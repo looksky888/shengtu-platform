@@ -55,6 +55,10 @@ function conversationScopeFromSession(session: StoredAuthSession | null) {
   return `${session.provider || "local"}:${session.role}:${subjectId}`;
 }
 
+export function activeImageConversationStorageKey(session: StoredAuthSession | null | undefined) {
+  return `${ACTIVE_IMAGE_CONVERSATION_STORAGE_KEY}:${conversationScopeFromSession(session ?? null)}`;
+}
+
 async function imageConversationsStorageKey() {
   const session = await getStoredAuthSession();
   return `${IMAGE_CONVERSATIONS_KEY_PREFIX}:${conversationScopeFromSession(session)}`;

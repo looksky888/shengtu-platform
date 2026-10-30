@@ -1,10 +1,12 @@
-import { DEFAULT_APP_TITLE, DEFAULT_PROJECT_NAME } from "@/lib/app-meta";
+import { DEFAULT_PROJECT_NAME, normalizeBrandTitle } from "@/lib/app-meta";
+
+export { normalizeBrandTitle };
 
 /** Gallery Paper (#fafafa) & Obsidian Ink (#09090b) studio backdrop with 32px hairline grid. */
 export const loginBackgroundClass = "bg-background studio-grid-bg text-foreground";
 
 export const loginCardClass =
-  "relative z-10 grid w-full max-w-[64rem] overflow-hidden rounded-2xl border border-border/90 bg-surface shadow-[0_24px_64px_-16px_rgba(0,0,0,0.08),0_2px_8px_rgba(0,0,0,0.03)] transition-[min-height] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none dark:border-white/[0.09] dark:bg-[#111113] dark:shadow-[0_28px_80px_rgba(0,0,0,0.68)] lg:min-h-[41rem] lg:grid-cols-[1.08fr_0.92fr]";
+  "relative z-10 grid w-full max-w-[30rem] overflow-hidden rounded-2xl border border-border/90 bg-surface shadow-[0_24px_64px_-16px_rgba(0,0,0,0.08),0_2px_8px_rgba(0,0,0,0.03)] transition-[min-height] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none dark:border-white/[0.09] dark:bg-[#111113] dark:shadow-[0_28px_80px_rgba(0,0,0,0.68)] lg:min-h-[41rem] lg:max-w-[64rem] lg:grid-cols-[1.08fr_0.92fr]";
 
 export type LoginAppMeta = {
   app_title?: string;
@@ -16,13 +18,11 @@ export type LoginAppMeta = {
   login_page_image_position_y?: number;
 };
 
-export function normalizeBrandTitle(rawTitle?: string): string {
-  const trimmed = String(rawTitle || "").trim();
-  if (!trimmed) return DEFAULT_APP_TITLE;
-  if (trimmed === "chatgpt2api" || trimmed === "ChatGPT" || trimmed.toLowerCase() === "chatgpt2api") {
-    return "Shengtu Studio";
-  }
-  return trimmed;
+export function resolveDarkroomVersionLabel(): string {
+  const raw = typeof __APP_VERSION__ !== "undefined" ? String(__APP_VERSION__ || "").trim() : "";
+  const core = raw.split("-")[0]?.trim() || "";
+  if (!core) return "DARKROOM · STUDIO";
+  return `DARKROOM · ${core.startsWith("v") ? core : `v${core}`}`;
 }
 
 export function appTitle(meta: LoginAppMeta): string {

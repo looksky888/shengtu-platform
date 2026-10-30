@@ -28,8 +28,9 @@ func (s *AuthService) createCredential(role, kind, name string, owner AuthOwner,
 	s.applyRoleToAuthItem(&item, "")
 	previousItems := append([]AuthKey(nil), s.items...)
 	s.items = append(s.items, item)
-	if err := s.saveLocked(); err != nil {
+	if err := s.persistAuthKeyLocked(item); err != nil {
 		s.items = previousItems
+		s.rebuildKeyIndexLocked()
 		return AuthKeyPublic{}, "", err
 	}
 	return AuthKeyPublicFromRecord(item), raw, nil
@@ -95,6 +96,7 @@ func identityForAuthItem(item AuthKey) *Identity {
 		CredentialID:   credentialID,
 		CredentialName: credentialName,
 		Kind:           util.Clean(item.Kind),
+		RememberMe:     item.RememberMe,
 		MenuPaths:      item.permissions().MenuPaths,
 		APIPermissions: item.permissions().APIPermissions,
 	}

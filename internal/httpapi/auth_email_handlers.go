@@ -16,6 +16,10 @@ func (a *App) handleRegistrationEmailCode(w http.ResponseWriter, r *http.Request
 		util.WriteError(w, http.StatusForbidden, "当前未开放注册")
 		return
 	}
+	if !allowRegistrationEmailAttempt(r) {
+		util.WriteError(w, http.StatusTooManyRequests, "验证码请求过于频繁，请稍后再试")
+		return
+	}
 	body, err := readJSONMap(r)
 	if err != nil {
 		util.WriteError(w, http.StatusBadRequest, "请求体不是合法 JSON")
@@ -27,8 +31,22 @@ func (a *App) handleRegistrationEmailCode(w http.ResponseWriter, r *http.Request
 		return
 	}
 	deviceID := a.ensureDeviceID(w, r)
+	if a.email == nil || !a.email.Enabled() {
+		util.WriteError(w, http.StatusServiceUnavailable, service.ErrRegistrationEmailUnavailable.Error())
+		return
+	}
 	if a.auth.EmailExists(email) {
-		// Do not reveal whether an email is already registered.
+		// Mirror the exact 60s per-email cooldown of SendRegistrationCode so callers
+		// cannot distinguish existing vs new emails via repeated requests.
+		if retryAfter, ok := allowExistingEmailRegistrationCooldown(email); !ok {
+			seconds := int(math.Ceil(retryAfter.Seconds()))
+			if seconds < 1 {
+				seconds = int(time.Minute.Seconds())
+			}
+			w.Header().Set("Retry-After", strconv.Itoa(seconds))
+			util.WriteError(w, http.StatusTooManyRequests, "验证码发送过于频繁，请稍后再试")
+			return
+		}
 		util.WriteJSON(w, http.StatusOK, service.EmailCodeDelivery{Sent: true, RetryAfterSeconds: 60, ExpiresInSeconds: 600})
 		return
 	}

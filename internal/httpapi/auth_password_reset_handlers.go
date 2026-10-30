@@ -82,10 +82,8 @@ func (a *App) handlePasswordReset(w http.ResponseWriter, r *http.Request) {
 		util.WriteError(w, http.StatusBadRequest, "邮箱或验证码无效、已过期，请重新获取")
 		return
 	}
-	if err := a.email.MarkCodeUsed(verificationID); err != nil {
-		util.WriteError(w, http.StatusBadRequest, "邮箱或验证码无效、已过期，请重新获取")
-		return
-	}
+	// Reset password first and consume verification code second so transient
+	// storage failures never burn a valid OTP without changing the password.
 	if err := a.auth.ResetPasswordByEmail(email, body.NewPassword); err != nil {
 		if errors.Is(err, service.ErrPasswordResetAccountUnavailable) {
 			util.WriteError(w, http.StatusBadRequest, "邮箱或验证码无效、已过期，请重新获取")
@@ -94,8 +92,11 @@ func (a *App) handlePasswordReset(w http.ResponseWriter, r *http.Request) {
 		if a.logger != nil {
 			a.logger.Error("password reset failed", "error", err.Error())
 		}
-		util.WriteError(w, http.StatusServiceUnavailable, "密码重置暂时失败，请重新获取验证码后再试")
+		util.WriteError(w, http.StatusServiceUnavailable, "密码重置暂时失败，请稍后重试")
 		return
+	}
+	if err := a.email.MarkCodeUsed(verificationID); err != nil && a.logger != nil {
+		a.logger.Warning("password reset mark code used failed after password update", "verification_id", verificationID, "error", err.Error())
 	}
 	util.WriteJSON(w, http.StatusOK, okResponse{OK: true})
 }

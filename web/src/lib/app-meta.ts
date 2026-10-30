@@ -26,6 +26,15 @@ export type AppMeta = {
 export const DEFAULT_APP_TITLE = "Shengtu Studio";
 export const DEFAULT_PROJECT_NAME = "AI Multimodal Workbench";
 
+export function normalizeBrandTitle(rawTitle?: string): string {
+  const trimmed = String(rawTitle || "").trim();
+  if (!trimmed) return DEFAULT_APP_TITLE;
+  if (trimmed === "chatgpt2api" || trimmed === "ChatGPT" || trimmed.toLowerCase() === "chatgpt2api") {
+    return DEFAULT_APP_TITLE;
+  }
+  return trimmed;
+}
+
 export const defaultAppMeta: AppMeta = {
   canvas_url: "",
   app_title: DEFAULT_APP_TITLE,
@@ -53,7 +62,7 @@ export function normalizeAppMeta(data: Partial<AppMeta> = {}): AppMeta {
   return {
     ...defaultAppMeta,
     ...data,
-    app_title: typeof data.app_title === "string" && data.app_title.trim() ? data.app_title.trim() : defaultAppMeta.app_title,
+    app_title: normalizeBrandTitle(typeof data.app_title === "string" ? data.app_title : defaultAppMeta.app_title),
     project_name:
       typeof data.project_name === "string" && data.project_name.trim() ? data.project_name.trim() : defaultAppMeta.project_name,
     canvas_url: typeof data.canvas_url === "string" ? data.canvas_url.trim() : "",

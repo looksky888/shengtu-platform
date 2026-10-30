@@ -11,13 +11,15 @@ import type { LoginPageState } from "@/app/login/use-login-page";
 import { cn } from "@/lib/utils";
 
 export function LoginFormPanel({ appMeta, state }: { appMeta: LoginAppMeta; state: LoginPageState }) {
+  const hasCustomMobileBanner = Boolean(String(appMeta.login_page_image_url || "").trim());
+
   return (
     <section
       className="flex min-h-[min(100%,32rem)] flex-col justify-center bg-surface px-5 py-7 sm:min-h-[520px] sm:px-9 sm:py-8 lg:border-l lg:border-border/80 lg:px-10 xl:px-11"
       aria-labelledby="login-heading"
     >
       <div className="flex flex-col gap-5 transition-[gap] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none sm:gap-6">
-        <LoginBrand appMeta={appMeta} />
+        {!hasCustomMobileBanner ? <LoginBrand appMeta={appMeta} /> : null}
 
         <div className="flex flex-col gap-4">
           <LoginHeading appMeta={appMeta} isRegisterMode={state.isRegisterMode} />
@@ -50,6 +52,7 @@ export function LoginFormPanel({ appMeta, state }: { appMeta: LoginAppMeta; stat
             id="login-password"
             label="密码"
             icon={KeyRound}
+            disabled={state.isSubmitting}
             passwordToggle
             showPassword={state.showPassword}
             onTogglePassword={() => state.setShowPassword((v) => !v)}

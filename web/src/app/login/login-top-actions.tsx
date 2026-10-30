@@ -7,7 +7,11 @@ import { Button } from "@/components/ui/button";
 
 export function LoginTopActions({ state }: { state: LoginPageState }) {
   return (
-    <div className="fixed top-4 right-4 z-50 flex items-center gap-2 sm:top-6 sm:right-6" role="toolbar" aria-label="页面操作">
+    <div
+      className="relative z-20 mb-3 flex w-full max-w-[30rem] shrink-0 items-center justify-end gap-2 self-center lg:fixed lg:top-6 lg:right-6 lg:z-50 lg:mb-0 lg:w-auto lg:max-w-none"
+      role="toolbar"
+      aria-label="页面操作"
+    >
       <Button
         asChild
         type="button"

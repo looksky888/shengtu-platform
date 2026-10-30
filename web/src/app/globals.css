@@ -254,6 +254,18 @@
     outline: 2px solid color-mix(in srgb, var(--ring) 28%, transparent);
     outline-offset: 2px;
   }
+  input::-ms-reveal,
+  input::-ms-clear {
+    display: none;
+  }
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus {
+    -webkit-text-fill-color: var(--foreground);
+    -webkit-box-shadow: 0 0 0 1000px var(--surface) inset;
+    transition: background-color 9999s ease-out 0s;
+    caret-color: var(--foreground);
+  }
 }
 
 ::view-transition-old(root),

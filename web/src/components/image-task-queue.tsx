@@ -28,12 +28,12 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { fetchCreationTasks } from "@/lib/api";
 import { isTurnBusy } from "@/lib/image-turn-state";
-import { getCachedAuthSession } from "@/lib/session";
+import { AUTH_SESSION_CHANGE_EVENT, getCachedAuthSession } from "@/lib/session";
 import { usePageVisible } from "@/lib/use-page-visible";
 import { cn } from "@/lib/utils";
 import { canAccessPath } from "@/store/auth";
 import {
-  ACTIVE_IMAGE_CONVERSATION_STORAGE_KEY,
+  activeImageConversationStorageKey,
   IMAGE_ACTIVE_CONVERSATION_REQUEST_EVENT,
 } from "@/store/image-conversations";
 import {
@@ -77,11 +77,13 @@ function useActiveVideoTakes(open: boolean): RecentVideoTake[] {
     window.addEventListener("storage", sync);
     window.addEventListener("focus", sync);
     window.addEventListener(VIDEO_RECENT_TAKES_UPDATED_EVENT, sync);
+    window.addEventListener(AUTH_SESSION_CHANGE_EVENT, sync);
     const timer = open ? window.setInterval(sync, 2500) : null;
     return () => {
       window.removeEventListener("storage", sync);
       window.removeEventListener("focus", sync);
       window.removeEventListener(VIDEO_RECENT_TAKES_UPDATED_EVENT, sync);
+      window.removeEventListener(AUTH_SESSION_CHANGE_EVENT, sync);
       if (timer !== null) window.clearInterval(timer);
     };
   }, [open]);
@@ -122,6 +124,16 @@ export function ImageTaskQueue({ className }: { className?: string }) {
   );
   const isOnVideoPage = location.pathname.startsWith("/video") && !location.pathname.startsWith("/video-library");
   const activeVideoTaskIdsKey = activeVideoTakes.map((item) => item.taskId).join(",");
+
+  useEffect(() => {
+    const handleSessionChange = () => {
+      previousQueueItemsRef.current = new Map();
+      setRecentCompletions([]);
+      setRecentVideoCompletions([]);
+    };
+    window.addEventListener(AUTH_SESSION_CHANGE_EVENT, handleSessionChange);
+    return () => window.removeEventListener(AUTH_SESSION_CHANGE_EVENT, handleSessionChange);
+  }, []);
 
   // Background polling for active video tasks when the user switches away from /video.
   useEffect(() => {
@@ -266,7 +278,7 @@ export function ImageTaskQueue({ className }: { className?: string }) {
   const openConversation = (conversationId: string) => {
     try {
       window.localStorage.setItem(
-        ACTIVE_IMAGE_CONVERSATION_STORAGE_KEY,
+        activeImageConversationStorageKey(getCachedAuthSession()),
         conversationId,
       );
     } catch {

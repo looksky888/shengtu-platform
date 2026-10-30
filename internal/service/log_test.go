@@ -1,6 +1,7 @@
 package service
 
 import (
+	"chatgpt2api/internal/storage"
 	"chatgpt2api/internal/util"
 	"os"
 	"path/filepath"
@@ -156,5 +157,83 @@ func TestLogServiceCleansOldLogs(t *testing.T) {
 	items := logs.Search(LogQuery{Limit: 10})
 	if len(items) != 1 || items[0]["summary"] != "新日志" {
 		t.Fatalf("remaining logs = %#v", items)
+	}
+}
+
+
+type countingLogCursorBackend struct {
+	queryLogsLimitCalls []int
+	cursorBatchCalls    []int
+	rows                []map[string]any
+}
+
+func (b *countingLogCursorBackend) LoadAccounts() ([]map[string]any, error)   { return nil, nil }
+func (b *countingLogCursorBackend) SaveAccounts([]map[string]any) error       { return nil }
+func (b *countingLogCursorBackend) LoadAuthKeys() ([]map[string]any, error)   { return nil, nil }
+func (b *countingLogCursorBackend) SaveAuthKeys([]map[string]any) error       { return nil }
+func (b *countingLogCursorBackend) HealthCheck() storage.BackendHealth        { return storage.BackendHealth{Status: "ok"} }
+func (b *countingLogCursorBackend) Info() storage.BackendInfo                 { return storage.BackendInfo{Type: "sqlite"} }
+func (b *countingLogCursorBackend) AppendLog(item map[string]any) error {
+	b.rows = append(b.rows, item)
+	return nil
+}
+
+func (b *countingLogCursorBackend) QueryLogs(startDate, endDate string, limit int) ([]map[string]any, error) {
+	b.queryLogsLimitCalls = append(b.queryLogsLimitCalls, limit)
+	out := make([]map[string]any, 0, min(max(limit, 0), len(b.rows)))
+	for i := len(b.rows) - 1; i >= 0; i-- {
+		out = append(out, b.rows[i])
+		if limit > 0 && len(out) >= limit {
+			break
+		}
+	}
+	return out, nil
+}
+
+func (b *countingLogCursorBackend) QueryLogsBefore(startDate, endDate string, beforeID int64, limit int) ([]storage.PagedLogRecord, error) {
+	b.cursorBatchCalls = append(b.cursorBatchCalls, limit)
+	out := make([]storage.PagedLogRecord, 0, limit)
+	for i := len(b.rows) - 1; i >= 0; i-- {
+		id := int64(i + 1)
+		if beforeID > 0 && id >= beforeID {
+			continue
+		}
+		out = append(out, storage.PagedLogRecord{ID: id, Item: b.rows[i]})
+		if limit > 0 && len(out) >= limit {
+			break
+		}
+	}
+	return out, nil
+}
+
+func TestLogServicePushesDownSQLLimitAndPagesFilteredQueries(t *testing.T) {
+	dir := t.TempDir()
+	backend := &countingLogCursorBackend{}
+	logs := NewLogService(dir, backend)
+
+	for i := 0; i < 650; i++ {
+		module := "images"
+		if i == 5 {
+			module = "rare-audit"
+		}
+		if err := logs.Add("event", map[string]any{"module": module}); err != nil {
+			t.Fatalf("Add(%d) error = %v", i, err)
+		}
+	}
+
+	unfiltered := logs.SearchTyped(LogQuery{Limit: 25})
+	if len(unfiltered) != 25 {
+		t.Fatalf("unfiltered len = %d, want 25", len(unfiltered))
+	}
+	if len(backend.queryLogsLimitCalls) != 1 || backend.queryLogsLimitCalls[0] != 25 {
+		t.Fatalf("expected single QueryLogs call with limit=25, got %v", backend.queryLogsLimitCalls)
+	}
+
+	filtered := logs.SearchTyped(LogQuery{Module: "rare-audit", Limit: 10})
+	if len(filtered) != 1 {
+		t.Fatalf("filtered len = %d, want 1", len(filtered))
+	}
+	if len(backend.cursorBatchCalls) != 2 {
+		t.Fatalf("expected cursor batch paging (2 batches for 650 rows), got %v", backend.cursorBatchCalls)
 	}
 }

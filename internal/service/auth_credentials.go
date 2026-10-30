@@ -29,6 +29,7 @@ func (s *AuthService) UpsertAPIKeyForOwner(name string, owner AuthOwner) (AuthKe
 	nextItems := make([]AuthKey, 0, len(s.items)+1)
 	var updated AuthKey
 	found := false
+	extraRemoved := false
 	for _, item := range s.items {
 		matchesOwnerAPIKey := util.Clean(item.Role) == AuthRoleUser &&
 			util.Clean(item.Kind) == AuthKindAPIKey &&
@@ -38,6 +39,7 @@ func (s *AuthService) UpsertAPIKeyForOwner(name string, owner AuthOwner) (AuthKe
 			continue
 		}
 		if found {
+			extraRemoved = true
 			continue
 		}
 		updated = item
@@ -61,9 +63,16 @@ func (s *AuthService) UpsertAPIKeyForOwner(name string, owner AuthOwner) (AuthKe
 		nextItems = append(nextItems, updated)
 	}
 	s.items = nextItems
-	if err := s.saveLocked(); err != nil {
+	persistErr := error(nil)
+	if extraRemoved {
+		persistErr = s.saveLocked()
+	} else {
+		persistErr = s.persistAuthKeyLocked(updated)
+	}
+	if persistErr != nil {
 		s.items = previousItems
-		return AuthKeyPublic{}, "", err
+		s.rebuildKeyIndexLocked()
+		return AuthKeyPublic{}, "", persistErr
 	}
 	return AuthKeyPublicFromRecord(updated), raw, nil
 }
@@ -86,6 +95,7 @@ func (s *AuthService) UpsertPersonalAPIKey(identity Identity, name string) (Auth
 	nextItems := make([]AuthKey, 0, len(s.items)+1)
 	var updated AuthKey
 	found := false
+	extraRemoved := false
 	for _, item := range s.items {
 		matchesPersonalAPIKey := util.Clean(item.Role) == role &&
 			util.Clean(item.Kind) == AuthKindAPIKey &&
@@ -95,6 +105,7 @@ func (s *AuthService) UpsertPersonalAPIKey(identity Identity, name string) (Auth
 			continue
 		}
 		if found {
+			extraRemoved = true
 			continue
 		}
 		updated = item
@@ -115,9 +126,16 @@ func (s *AuthService) UpsertPersonalAPIKey(identity Identity, name string) (Auth
 		nextItems = append(nextItems, updated)
 	}
 	s.items = nextItems
-	if err := s.saveLocked(); err != nil {
+	persistErr := error(nil)
+	if extraRemoved {
+		persistErr = s.saveLocked()
+	} else {
+		persistErr = s.persistAuthKeyLocked(updated)
+	}
+	if persistErr != nil {
 		s.items = previousItems
-		return AuthKeyPublic{}, "", err
+		s.rebuildKeyIndexLocked()
+		return AuthKeyPublic{}, "", persistErr
 	}
 	return AuthKeyPublicFromRecord(updated), raw, nil
 }
@@ -128,8 +146,8 @@ func (s *AuthService) RevealKey(id string, filter AuthKeyFilter) (string, bool) 
 		return "", false
 	}
 	filter = normalizeAuthKeyFilter(filter)
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	for _, item := range s.items {
 		if item.ID != id || !matchAuthKey(item, filter) {
 			continue
@@ -170,8 +188,9 @@ func (s *AuthService) UpdateKey(id string, updates AuthKeyUpdate, filter AuthKey
 		}
 		prev := item
 		s.items[index] = next
-		if err := s.saveLocked(); err != nil {
+		if err := s.persistAuthKeyLocked(next); err != nil {
 			s.items[index] = prev
+			s.rebuildKeyIndexLocked()
 			return AuthKeyPublic{}, fmt.Errorf("保存密钥失败: %w", err)
 		}
 		return AuthKeyPublicFromRecord(next), nil

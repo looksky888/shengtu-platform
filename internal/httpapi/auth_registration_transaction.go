@@ -22,8 +22,8 @@ func (e *emailRegistrationFinalizeError) Error() string {
 
 func (e *emailRegistrationFinalizeError) Unwrap() error { return e.primary }
 
-func (a *App) completeEmailRegistration(reserveID, verificationID, email, password, name string) (*service.Identity, string, error) {
-	identity, token, err := a.auth.RegisterEmailUser(email, password, name)
+func (a *App) completeEmailRegistration(reserveID, verificationID, email, password, name string, rememberMe bool) (*service.Identity, string, error) {
+	identity, token, err := a.auth.RegisterEmailUserWithRemember(email, password, name, rememberMe)
 	if err != nil {
 		if a.regQuota != nil {
 			if releaseErr := a.regQuota.Release(reserveID); releaseErr != nil {

@@ -1,13 +1,6 @@
-import { DEFAULT_APP_TITLE } from "@/lib/app-meta";
+import { DEFAULT_APP_TITLE, normalizeBrandTitle } from "@/lib/app-meta";
 
-export function normalizeBrandTitle(rawTitle?: string): string {
-  const trimmed = String(rawTitle || "").trim();
-  if (!trimmed) return DEFAULT_APP_TITLE;
-  if (trimmed === "chatgpt2api" || trimmed === "ChatGPT" || trimmed.toLowerCase() === "chatgpt2api") {
-    return "Shengtu Studio";
-  }
-  return trimmed;
-}
+export { normalizeBrandTitle };
 
 export type CuratedArtwork = {
   id: string;

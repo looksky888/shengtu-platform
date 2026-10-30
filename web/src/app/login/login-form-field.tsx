@@ -15,6 +15,7 @@ type LoginFormFieldProps = {
   autoComplete?: string;
   tabIndex?: number;
   autoFocus?: boolean;
+  disabled?: boolean;
   hint?: string;
   /** When true, render show/hide toggle (forces password input semantics). */
   passwordToggle?: boolean;
@@ -33,6 +34,7 @@ export function LoginFormField({
   autoComplete,
   tabIndex,
   autoFocus,
+  disabled,
   hint,
   passwordToggle,
   showPassword,
@@ -62,6 +64,7 @@ export function LoginFormField({
           autoComplete={autoComplete}
           tabIndex={tabIndex}
           autoFocus={autoFocus}
+          disabled={disabled}
           value={value}
           onChange={(event) => onChange(event.target.value)}
           placeholder={placeholder}
@@ -75,7 +78,8 @@ export function LoginFormField({
           <button
             type="button"
             tabIndex={tabIndex}
-            className="absolute top-1/2 right-1.5 inline-flex size-7 -translate-y-1/2 items-center justify-center rounded-md text-subtle-foreground transition hover:bg-surface-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20"
+            disabled={disabled}
+            className="absolute top-1/2 right-1.5 inline-flex size-7 -translate-y-1/2 items-center justify-center rounded-md text-subtle-foreground transition hover:bg-surface-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 disabled:pointer-events-none disabled:opacity-50"
             onClick={onTogglePassword}
             aria-label={showPassword ? "隐藏密码" : "显示密码"}
             aria-pressed={showPassword}

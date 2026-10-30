@@ -145,7 +145,7 @@ func SyncICloudIMAPMessagesWithCursor(ctx context.Context, state LoginState, mai
 		}
 		sortInts(uids)
 		uids = lastIntValues(uids, maxMessages)
-		if len(uids) > 0 {
+		if folder == "INBOX" && len(uids) > 0 {
 			lastUID = strconv.Itoa(uids[len(uids)-1])
 		}
 		for _, chunk := range chunkInts(uids, 20) {

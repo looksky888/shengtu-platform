@@ -141,6 +141,18 @@ type LogBackend interface {
 	QueryLogs(startDate, endDate string, limit int) ([]map[string]any, error)
 }
 
+// PagedLogRecord carries the monotonic database row ID alongside a decoded log map.
+type PagedLogRecord struct {
+	ID   int64
+	Item map[string]any
+}
+
+// LogCursorBackend optionally supports bounded cursor scans in descending ID order
+// so filtered log searches never have to load the entire logs table into memory.
+type LogCursorBackend interface {
+	QueryLogsBefore(startDate, endDate string, beforeID int64, limit int) ([]PagedLogRecord, error)
+}
+
 // UserUsageAggregateRow is one user/day counter bucket.
 type UserUsageAggregateRow struct {
 	UserID    string

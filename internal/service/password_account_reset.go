@@ -9,7 +9,7 @@ import (
 var ErrPasswordResetAccountUnavailable = errors.New("密码重置账号不可用")
 
 // ResetPasswordByEmail changes a verified email account password and revokes
-// its login session. User-created API keys remain active.
+// all of its login sessions. User-created API keys remain active.
 func (s *AuthService) ResetPasswordByEmail(rawEmail, nextPassword string) error {
 	email, err := normalizeAccountEmail(rawEmail)
 	if err != nil {
@@ -36,15 +36,18 @@ func (s *AuthService) ResetPasswordByEmail(rawEmail, nextPassword string) error 
 	account.PasswordHash = hash
 	account.UpdatedAt = now
 	s.accounts[index] = account
-	sessionChanged := false
+	var revokedSessions []AuthKey
 	for itemIndex := range s.items {
 		item := &s.items[itemIndex]
 		if item.Kind != AuthKindSession || item.Provider != AuthProviderLocal || item.OwnerID != account.ID {
 			continue
 		}
+		if !item.Enabled {
+			continue
+		}
 		item.Enabled = false
 		item.UpdatedAt = now
-		sessionChanged = true
+		revokedSessions = append(revokedSessions, *item)
 	}
 
 	if err := s.savePasswordAccountsLocked(); err != nil {
@@ -53,10 +56,10 @@ func (s *AuthService) ResetPasswordByEmail(rawEmail, nextPassword string) error 
 		s.rebuildKeyIndexLocked()
 		return authRollbackError(err, s.savePasswordAccountsLocked())
 	}
-	if !sessionChanged {
+	if len(revokedSessions) == 0 {
 		return nil
 	}
-	if err := s.saveLocked(); err != nil {
+	if err := s.persistAuthKeysLocked(revokedSessions); err != nil {
 		s.accounts = previousAccounts
 		s.items = previousItems
 		s.rebuildKeyIndexLocked()

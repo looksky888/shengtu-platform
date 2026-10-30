@@ -22,6 +22,24 @@ func (s *AuthService) EnsureBootstrapAdmin(username, password string) (Bootstrap
 		return BootstrapAdminResult{}, err
 	}
 
+	s.mu.RLock()
+	for _, account := range s.accounts {
+		if account.Role == AuthRoleAdmin {
+			s.mu.RUnlock()
+			return BootstrapAdminResult{Username: account.Username}, nil
+		}
+	}
+	if _, ok := passwordAccountByUsernameLocked(s.accounts, username); ok {
+		s.mu.RUnlock()
+		return BootstrapAdminResult{}, fmt.Errorf("管理员用户名已存在")
+	}
+	s.mu.RUnlock()
+
+	hash, err := hashAccountPassword(password)
+	if err != nil {
+		return BootstrapAdminResult{}, err
+	}
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for _, account := range s.accounts {
@@ -31,10 +49,6 @@ func (s *AuthService) EnsureBootstrapAdmin(username, password string) (Bootstrap
 	}
 	if _, ok := passwordAccountByUsernameLocked(s.accounts, username); ok {
 		return BootstrapAdminResult{}, fmt.Errorf("管理员用户名已存在")
-	}
-	hash, err := hashAccountPassword(password)
-	if err != nil {
-		return BootstrapAdminResult{}, err
 	}
 	now := util.NowISO()
 	account := PasswordAccount{
@@ -57,6 +71,10 @@ func (s *AuthService) EnsureBootstrapAdmin(username, password string) (Bootstrap
 }
 
 func (s *AuthService) RegisterPasswordUser(username, password, name string) (*Identity, string, error) {
+	return s.RegisterPasswordUserWithRemember(username, password, name, false)
+}
+
+func (s *AuthService) RegisterPasswordUserWithRemember(username, password, name string, rememberMe bool) (*Identity, string, error) {
 	username, err := normalizeAccountUsername(username)
 	if err != nil {
 		return nil, "", err
@@ -90,14 +108,14 @@ func (s *AuthService) RegisterPasswordUser(username, password, name string) (*Id
 	previousAccounts := append([]PasswordAccount(nil), s.accounts...)
 	previousItems := append([]AuthKey(nil), s.items...)
 	s.accounts = append(s.accounts, account)
-	item, raw := s.issuePasswordSessionLocked(account, now)
+	item, raw, mutated := s.issuePasswordSessionLocked(account, now, rememberMe)
 	if err := s.savePasswordAccountsLocked(); err != nil {
 		s.accounts = previousAccounts
 		s.items = previousItems
 		s.rebuildKeyIndexLocked()
 		return nil, "", authRollbackError(err, s.savePasswordAccountsLocked())
 	}
-	if err := s.saveLocked(); err != nil {
+	if err := s.persistAuthKeysLocked(mutated); err != nil {
 		s.accounts = previousAccounts
 		s.items = previousItems
 		s.rebuildKeyIndexLocked()
@@ -110,6 +128,10 @@ func (s *AuthService) RegisterPasswordUser(username, password, name string) (*Id
 // RegisterEmailUser creates a 3.7 public account. Username remains an internal
 // stable identifier; users authenticate this account by verified email only.
 func (s *AuthService) RegisterEmailUser(email, password, name string) (*Identity, string, error) {
+	return s.RegisterEmailUserWithRemember(email, password, name, false)
+}
+
+func (s *AuthService) RegisterEmailUserWithRemember(email, password, name string, rememberMe bool) (*Identity, string, error) {
 	email, err := normalizeAccountEmail(email)
 	if err != nil {
 		return nil, "", err
@@ -146,14 +168,14 @@ func (s *AuthService) RegisterEmailUser(email, password, name string) (*Identity
 	previousAccounts := append([]PasswordAccount(nil), s.accounts...)
 	previousItems := append([]AuthKey(nil), s.items...)
 	s.accounts = append(s.accounts, account)
-	item, raw := s.issuePasswordSessionLocked(account, now)
+	item, raw, mutated := s.issuePasswordSessionLocked(account, now, rememberMe)
 	if err := s.savePasswordAccountsLocked(); err != nil {
 		s.accounts = previousAccounts
 		s.items = previousItems
 		s.rebuildKeyIndexLocked()
 		return nil, "", authRollbackError(err, s.savePasswordAccountsLocked())
 	}
-	if err := s.saveLocked(); err != nil {
+	if err := s.persistAuthKeysLocked(mutated); err != nil {
 		s.accounts = previousAccounts
 		s.items = previousItems
 		s.rebuildKeyIndexLocked()
@@ -173,8 +195,8 @@ func newEmailAccountUsernameLocked(accounts []PasswordAccount) string {
 }
 
 func (s *AuthService) EmailExists(email string) bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	_, _, ok := passwordAccountIndexByEmailLocked(s.accounts, email)
 	return ok
 }
@@ -232,19 +254,57 @@ func (s *AuthService) CreatePasswordUser(username, password, name, roleID string
 }
 
 func (s *AuthService) LoginPassword(accountName, password string) (*Identity, string, error) {
+	return s.LoginPasswordWithRemember(accountName, password, false)
+}
+
+func (s *AuthService) LoginPasswordWithRemember(accountName, password string, rememberMe bool) (*Identity, string, error) {
 	accountName = strings.TrimSpace(accountName)
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	index, account, ok := -1, PasswordAccount{}, false
-	if strings.Contains(accountName, "@") {
-		index, account, ok = passwordAccountIndexByEmailLocked(s.accounts, accountName)
-	} else if username, err := normalizeAccountUsername(accountName); err == nil {
-		index, account, ok = passwordAccountIndexByUsernameLocked(s.accounts, username)
-		if ok && account.Email != "" {
-			ok = false
+	byEmail := strings.Contains(accountName, "@")
+	var normalizedUsername string
+	var usernameErr error
+	if !byEmail {
+		normalizedUsername, usernameErr = normalizeAccountUsername(accountName)
+	}
+
+	// Step 1: Lookup candidate account under read lock only.
+	s.mu.RLock()
+	var candidate PasswordAccount
+	found := false
+	if byEmail {
+		_, candidate, found = passwordAccountIndexByEmailLocked(s.accounts, accountName)
+	} else if usernameErr == nil {
+		_, candidate, found = passwordAccountIndexByUsernameLocked(s.accounts, normalizedUsername)
+		if found && candidate.Email != "" {
+			found = false
 		}
 	}
-	if !ok || !verifyAccountPassword(password, account.PasswordHash) {
+	s.mu.RUnlock()
+
+	// Step 2: Run CPU-intensive bcrypt verification outside AuthService lock.
+	if !found {
+		verifyDummyAccountPassword(password)
+		return nil, "", authError("账号或密码错误")
+	}
+	if !verifyAccountPassword(password, candidate.PasswordHash) {
+		return nil, "", authError("账号或密码错误")
+	}
+	if !candidate.Enabled {
+		return nil, "", authError("用户已被禁用")
+	}
+
+	// Step 3: Commit login timestamp and session issuance under write lock.
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	index := -1
+	var account PasswordAccount
+	for i, existing := range s.accounts {
+		if existing.ID == candidate.ID {
+			index = i
+			account = existing
+			break
+		}
+	}
+	if index < 0 || account.PasswordHash != candidate.PasswordHash {
 		return nil, "", authError("账号或密码错误")
 	}
 	if !account.Enabled {
@@ -256,14 +316,14 @@ func (s *AuthService) LoginPassword(accountName, password string) (*Identity, st
 	account.LastLoginAt = now
 	account.UpdatedAt = now
 	s.accounts[index] = account
-	item, raw := s.issuePasswordSessionLocked(account, now)
+	item, raw, mutated := s.issuePasswordSessionLocked(account, now, rememberMe)
 	if err := s.savePasswordAccountsLocked(); err != nil {
 		s.accounts = previousAccounts
 		s.items = previousItems
 		s.rebuildKeyIndexLocked()
 		return nil, "", authRollbackError(err, s.savePasswordAccountsLocked())
 	}
-	if err := s.saveLocked(); err != nil {
+	if err := s.persistAuthKeysLocked(mutated); err != nil {
 		s.accounts = previousAccounts
 		s.items = previousItems
 		s.rebuildKeyIndexLocked()

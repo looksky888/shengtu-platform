@@ -2,7 +2,11 @@
 
 import { motion, useReducedMotion } from "motion/react";
 
-import { normalizeBrandTitle, type LoginAppMeta } from "@/app/login/login-utils";
+import {
+  normalizeBrandTitle,
+  resolveDarkroomVersionLabel,
+  type LoginAppMeta,
+} from "@/app/login/login-utils";
 import { LoginPageImageStage } from "@/components/login-page-image-stage";
 import { resolveLoginPageImageSrc } from "@/lib/app-meta";
 
@@ -20,6 +24,53 @@ const DARKROOM_SECONDARY_PLATES = [
     tag: "16:10 RAW",
   },
 ] as const;
+
+/**
+ * Compact mobile banner (<1024px) rendered only when an admin custom poster is configured.
+ */
+export function LoginMobileVisualBanner({ appMeta }: { appMeta: LoginAppMeta }) {
+  const customImageUrl = String(appMeta.login_page_image_url || "").trim();
+  if (!customImageUrl) return null;
+  const brand = normalizeBrandTitle(appMeta.app_title);
+  const versionLabel = resolveDarkroomVersionLabel();
+
+  return (
+    <div
+      className="relative h-36 w-full overflow-hidden border-b border-border/80 bg-[#0c0c0e] text-zinc-100 sm:h-44 lg:hidden"
+      aria-hidden="true"
+    >
+      <div className="absolute inset-0">
+        <LoginPageImageStage
+          src={resolveLoginPageImageSrc(customImageUrl)}
+          mode={appMeta.login_page_image_mode}
+          zoom={appMeta.login_page_image_zoom}
+          positionX={appMeta.login_page_image_position_x}
+          positionY={appMeta.login_page_image_position_y}
+          fillParent
+          className="h-full w-full"
+          frameClassName="rounded-none"
+        />
+      </div>
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#0c0c0e]/85 via-[#0c0c0e]/30 to-[#0c0c0e]/45" />
+      <div className="relative z-[2] flex h-full items-end justify-between gap-2 px-5 py-3.5 sm:px-9">
+        <div className="flex items-center gap-2">
+          <img
+            src="/logo-mark.svg"
+            alt=""
+            aria-hidden="true"
+            className="size-7 rounded-lg ring-1 ring-white/20"
+          />
+          <span className="truncate text-xs font-semibold tracking-[-0.02em] text-zinc-100">
+            {brand}
+          </span>
+        </div>
+        <span className="rounded-md border border-white/15 bg-black/45 px-2 py-0.5 font-mono text-[9.5px] tracking-[0.08em] text-zinc-300 backdrop-blur-xs">
+          {versionLabel}
+        </span>
+      </div>
+    </div>
+  );
+}
 
 /**
  * Left Showcase Panel — Obsidian Darkroom Curatorial Gallery (#0c0c0e).
@@ -171,6 +222,7 @@ export function LoginVisualPanel({
 }
 
 function DarkroomBrandHeader({ brand }: { brand: string }) {
+  const versionLabel = resolveDarkroomVersionLabel();
   return (
     <div className="relative z-[2] flex items-center justify-between gap-3">
       <div className="flex items-center gap-2.5">
@@ -185,7 +237,7 @@ function DarkroomBrandHeader({ brand }: { brand: string }) {
         </span>
       </div>
       <span className="rounded-md border border-white/10 bg-white/[0.04] px-2 py-0.5 font-mono text-[10px] tracking-[0.1em] text-zinc-400">
-        DARKROOM · v4.9
+        {versionLabel}
       </span>
     </div>
   );

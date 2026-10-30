@@ -1,4 +1,4 @@
-import { BadgeCheck, KeyRound, Mail } from "lucide-react";
+import { AlertCircle, BadgeCheck, KeyRound, Mail } from "lucide-react";
 
 import { LoginFormField } from "@/app/login/login-form-field";
 import type { LoginPageState } from "@/app/login/use-login-page";
@@ -14,6 +14,8 @@ import {
 import { Input } from "@/components/ui/input";
 
 export function PasswordResetDialog({ state }: { state: LoginPageState }) {
+  const busy = state.isResettingPassword || state.isSendingResetCode;
+
   return (
     <Dialog open={state.passwordResetOpen} onOpenChange={state.setPasswordResetOpen}>
       <DialogContent className="max-h-[90svh] overflow-y-auto">
@@ -30,8 +32,19 @@ export function PasswordResetDialog({ state }: { state: LoginPageState }) {
             event.preventDefault();
             void state.submitPasswordReset();
           }}
+          aria-busy={busy}
           noValidate
         >
+          {state.resetError ? (
+            <div
+              role="alert"
+              className="flex items-start gap-2.5 rounded-lg border border-rose-200/90 bg-rose-50/90 px-3.5 py-2.5 text-xs leading-5 text-rose-700 dark:border-rose-500/25 dark:bg-rose-500/10 dark:text-rose-300"
+            >
+              <AlertCircle className="mt-0.5 size-4 shrink-0 text-rose-600 dark:text-rose-400" aria-hidden="true" />
+              <span className="min-w-0 flex-1 font-medium">{state.resetError}</span>
+            </div>
+          ) : null}
+
           <LoginFormField
             id="reset-email"
             label="注册邮箱"
@@ -39,6 +52,7 @@ export function PasswordResetDialog({ state }: { state: LoginPageState }) {
             type="email"
             autoComplete="email"
             autoFocus
+            disabled={busy}
             value={state.resetEmail}
             onChange={state.setResetEmail}
             placeholder="请输入注册邮箱"
@@ -63,6 +77,7 @@ export function PasswordResetDialog({ state }: { state: LoginPageState }) {
                   id="reset-email-code"
                   inputMode="numeric"
                   autoComplete="one-time-code"
+                  disabled={busy}
                   value={state.resetEmailCode}
                   maxLength={state.passwordResetCodeLength}
                   onChange={(event) => state.setResetEmailCode(
@@ -76,7 +91,7 @@ export function PasswordResetDialog({ state }: { state: LoginPageState }) {
                 type="button"
                 variant="outline"
                 className="h-10 rounded-lg text-xs"
-                disabled={state.isSendingResetCode || state.resetCodeCountdown > 0 || state.passwordResetEnabled === false}
+                disabled={busy || state.resetCodeCountdown > 0 || state.passwordResetEnabled === false}
                 onClick={() => void state.sendResetCode()}
               >
                 {state.isSendingResetCode
@@ -92,7 +107,10 @@ export function PasswordResetDialog({ state }: { state: LoginPageState }) {
             id="reset-new-password"
             label="新密码"
             icon={KeyRound}
-            type="password"
+            disabled={busy}
+            passwordToggle
+            showPassword={state.showResetPassword}
+            onTogglePassword={() => state.setShowResetPassword((v) => !v)}
             autoComplete="new-password"
             value={state.resetNewPassword}
             onChange={state.setResetNewPassword}
@@ -103,7 +121,10 @@ export function PasswordResetDialog({ state }: { state: LoginPageState }) {
             id="reset-confirm-password"
             label="确认新密码"
             icon={KeyRound}
-            type="password"
+            disabled={busy}
+            passwordToggle
+            showPassword={state.showResetConfirmPassword}
+            onTogglePassword={() => state.setShowResetConfirmPassword((v) => !v)}
             autoComplete="new-password"
             value={state.resetConfirmPassword}
             onChange={state.setResetConfirmPassword}
@@ -115,11 +136,11 @@ export function PasswordResetDialog({ state }: { state: LoginPageState }) {
               type="button"
               variant="outline"
               onClick={() => state.setPasswordResetOpen(false)}
-              disabled={state.isResettingPassword || state.isSendingResetCode}
+              disabled={busy}
             >
               取消
             </Button>
-            <Button type="submit" disabled={state.isResettingPassword || state.isSendingResetCode}>
+            <Button type="submit" disabled={busy}>
               {state.isResettingPassword ? "重置中…" : "重置密码"}
             </Button>
           </DialogFooter>

@@ -27,6 +27,19 @@ func logQueryDateBounds(query LogQuery) (string, string) {
 	return startDate, endDate
 }
 
+func hasInMemoryLogFilters(query LogQuery) bool {
+	return strings.TrimSpace(query.StartTime) != "" ||
+		strings.TrimSpace(query.EndTime) != "" ||
+		strings.TrimSpace(query.Username) != "" ||
+		strings.TrimSpace(query.Module) != "" ||
+		strings.TrimSpace(query.Method) != "" ||
+		strings.TrimSpace(query.Summary) != "" ||
+		strings.TrimSpace(query.Status) != "" ||
+		strings.TrimSpace(query.IPAddress) != "" ||
+		strings.TrimSpace(query.OperationType) != "" ||
+		strings.TrimSpace(query.LogLevel) != ""
+}
+
 func matchLogQuery(item LogEntry, query LogQuery) bool {
 	if !matchLogDate(item, strings.TrimSpace(query.StartDate), strings.TrimSpace(query.EndDate)) {
 		return false

@@ -12,12 +12,14 @@ import (
 )
 
 const (
-	loginRateWindow           = 15 * time.Minute
-	loginRateMaxHits          = 12
-	registerRateMax           = 8
-	passwordResetEmailRateMax = 8
-	passwordResetRateMax      = 12
-	authRateKeySep            = "|"
+	loginRateWindow               = 15 * time.Minute
+	loginRateMaxHits              = 12
+	registerRateMax               = 8
+	registrationEmailRateMax      = 12
+	registrationEmailCooldown     = time.Minute
+	passwordResetEmailRateMax     = 8
+	passwordResetRateMax          = 12
+	authRateKeySep                = "|"
 )
 
 // authRateLimiter is a simple in-process sliding window for login/register abuse control.
@@ -27,6 +29,51 @@ type authRateLimiter struct {
 }
 
 var globalAuthRateLimiter = &authRateLimiter{hits: map[string][]time.Time{}}
+
+func (l *authRateLimiter) canProceed(key string, max int, window time.Duration) bool {
+	if key == "" || max <= 0 {
+		return true
+	}
+	now := util.NowChina()
+	cutoff := now.Add(-window)
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	list := l.hits[key]
+	kept := list[:0]
+	for _, t := range list {
+		if t.After(cutoff) {
+			kept = append(kept, t)
+		}
+	}
+	l.hits[key] = kept
+	return len(kept) < max
+}
+
+func (l *authRateLimiter) recordHit(key string, window time.Duration) {
+	if key == "" {
+		return
+	}
+	now := util.NowChina()
+	cutoff := now.Add(-window)
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	list := l.hits[key]
+	kept := list[:0]
+	for _, t := range list {
+		if t.After(cutoff) {
+			kept = append(kept, t)
+		}
+	}
+	kept = append(kept, now)
+	l.hits[key] = kept
+	if len(l.hits) > 10000 {
+		for k, times := range l.hits {
+			if len(times) == 0 || !times[len(times)-1].After(cutoff) {
+				delete(l.hits, k)
+			}
+		}
+	}
+}
 
 func (l *authRateLimiter) allow(key string, max int, window time.Duration) bool {
 	if key == "" || max <= 0 {
@@ -58,6 +105,24 @@ func (l *authRateLimiter) allow(key string, max int, window time.Duration) bool 
 		}
 	}
 	return true
+}
+
+func (l *authRateLimiter) allowCooldown(key string, cooldown time.Duration) (time.Duration, bool) {
+	if key == "" || cooldown <= 0 {
+		return 0, true
+	}
+	now := util.NowChina()
+	cutoff := now.Add(-cooldown)
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	list := l.hits[key]
+	for i := len(list) - 1; i >= 0; i-- {
+		if list[i].After(cutoff) {
+			return cooldown - now.Sub(list[i]), false
+		}
+	}
+	l.hits[key] = []time.Time{now}
+	return 0, true
 }
 
 // authClientIP resolves the client IP for login rate limits, public registration
@@ -100,22 +165,43 @@ func trustProxyHeadersEnabled() bool {
 	return v == "1" || v == "true" || v == "yes" || v == "on"
 }
 
-func allowLoginAttempt(r *http.Request, username string) bool {
+func checkLoginAllowed(r *http.Request, username string) bool {
 	ip := authClientIP(r)
 	user := strings.ToLower(strings.TrimSpace(username))
-	// Per IP and per IP+user windows.
-	if !globalAuthRateLimiter.allow("login-ip"+authRateKeySep+ip, loginRateMaxHits, loginRateWindow) {
+	if !globalAuthRateLimiter.canProceed("login-ip"+authRateKeySep+ip, loginRateMaxHits, loginRateWindow) {
 		return false
 	}
-	if user != "" && !globalAuthRateLimiter.allow("login-user"+authRateKeySep+ip+authRateKeySep+user, loginRateMaxHits, loginRateWindow) {
+	if user != "" && !globalAuthRateLimiter.canProceed("login-user"+authRateKeySep+ip+authRateKeySep+user, loginRateMaxHits, loginRateWindow) {
 		return false
 	}
 	return true
 }
 
+func recordLoginFailure(r *http.Request, username string) {
+	ip := authClientIP(r)
+	user := strings.ToLower(strings.TrimSpace(username))
+	globalAuthRateLimiter.recordHit("login-ip"+authRateKeySep+ip, loginRateWindow)
+	if user != "" {
+		globalAuthRateLimiter.recordHit("login-user"+authRateKeySep+ip+authRateKeySep+user, loginRateWindow)
+	}
+}
+
 func allowRegisterAttempt(r *http.Request) bool {
 	ip := authClientIP(r)
 	return globalAuthRateLimiter.allow("register-ip"+authRateKeySep+ip, registerRateMax, loginRateWindow)
+}
+
+func allowRegistrationEmailAttempt(r *http.Request) bool {
+	ip := authClientIP(r)
+	return globalAuthRateLimiter.allow("register-email-ip"+authRateKeySep+ip, registrationEmailRateMax, loginRateWindow)
+}
+
+func allowExistingEmailRegistrationCooldown(email string) (time.Duration, bool) {
+	normalized := strings.ToLower(strings.TrimSpace(email))
+	if normalized == "" {
+		return 0, true
+	}
+	return globalAuthRateLimiter.allowCooldown("register-email-existing"+authRateKeySep+normalized, registrationEmailCooldown)
 }
 
 func allowPasswordResetEmailAttempt(r *http.Request) bool {

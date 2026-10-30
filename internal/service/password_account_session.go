@@ -3,56 +3,126 @@ package service
 import (
 	"chatgpt2api/internal/util"
 	"fmt"
+	"sort"
 	"time"
 )
 
-func (s *AuthService) issuePasswordSessionLocked(account PasswordAccount, now string) (AuthKey, string) {
+// MaxSessionsPerAccount caps how many concurrent active browser sessions a
+// single password/email account may hold before the least-recently-used session
+// is evicted.
+const MaxSessionsPerAccount = 5
+
+func sessionActivityTimestamp(item AuthKey) string {
+	if used := util.Clean(item.LastUsedAt); used != "" {
+		return used
+	}
+	if updated := util.Clean(item.UpdatedAt); updated != "" {
+		return updated
+	}
+	return util.Clean(item.CreatedAt)
+}
+
+func (s *AuthService) populateIssuedSessionFieldsLocked(item *AuthKey, account PasswordAccount, raw, now string, rememberMe bool) {
+	item.Name = passwordSessionName
+	item.OwnerID = account.ID
+	item.OwnerName = account.DisplayName()
+	item.Provider = AuthProviderLocal
+	item.Kind = AuthKindSession
+	item.Username = account.Username
+	storeAuthSecret(item, raw)
+	item.Enabled = account.Enabled
+	item.RememberMe = rememberMe
+	item.LastUsedAt = ""
+	item.UpdatedAt = now
+	item.ExpiresAt = passwordSessionExpiresAt(now)
+	if account.Role == AuthRoleUser {
+		item.Role = AuthRoleUser
+		applyManagedRoleToAuthItem(item, roleForAccountLocked(s.roles, account))
+	} else {
+		item.Role = AuthRoleAdmin
+		item.RoleID = AuthRoleAdmin
+		item.RoleName = "管理员"
+		item.applyPermissions(DefaultPermissionSetForRole(AuthRoleAdmin))
+	}
+}
+
+// issuePasswordSessionLocked issues a new session token while allowing up to
+// MaxSessionsPerAccount concurrent active sessions per account (LRU-evicting the
+// oldest active session when full, or reusing expired/disabled session slots).
+// Returns the issued AuthKey, raw token, and the slice of mutated AuthKeys to persist.
+func (s *AuthService) issuePasswordSessionLocked(account PasswordAccount, now string, rememberMe bool) (AuthKey, string, []AuthKey) {
 	raw := "sess-" + util.RandomTokenURL(32)
 	owner := AuthOwner{
 		ID:       account.ID,
 		Name:     account.DisplayName(),
 		Provider: AuthProviderLocal,
 	}
+	nowTime, err := time.Parse(time.RFC3339Nano, util.Clean(now))
+	if err != nil {
+		nowTime = time.Now()
+	}
+
+	var activeIndices []int
+	var reusableIndices []int
 	for index, item := range s.items {
 		if util.Clean(item.Kind) != AuthKindSession ||
 			util.Clean(item.Provider) != AuthProviderLocal ||
 			util.Clean(item.OwnerID) != account.ID {
 			continue
 		}
-		next := item
-		next.Name = passwordSessionName
-		next.OwnerName = account.DisplayName()
-		next.Username = account.Username
-		storeAuthSecret(&next, raw)
-		next.Enabled = account.Enabled
-		next.LastUsedAt = ""
-		next.UpdatedAt = now
-		next.ExpiresAt = passwordSessionExpiresAt(now)
-		if account.Role == AuthRoleUser {
-			applyManagedRoleToAuthItem(&next, roleForAccountLocked(s.roles, account))
+		if !item.Enabled || authSessionExpired(item, nowTime) {
+			reusableIndices = append(reusableIndices, index)
 		} else {
-			next.Role = AuthRoleAdmin
-			next.RoleID = AuthRoleAdmin
-			next.RoleName = "管理员"
-			next.applyPermissions(DefaultPermissionSetForRole(AuthRoleAdmin))
+			activeIndices = append(activeIndices, index)
 		}
-		s.items[index] = next
-		return next, raw
 	}
 
-	item := newAuthItem(account.Role, AuthKindSession, passwordSessionName, owner, raw)
-	item.Username = account.Username
-	item.Enabled = account.Enabled
-	item.UpdatedAt = now
-	item.ExpiresAt = passwordSessionExpiresAt(now)
-	if account.Role == AuthRoleUser {
-		applyManagedRoleToAuthItem(&item, roleForAccountLocked(s.roles, account))
-	} else {
-		item.RoleID = AuthRoleAdmin
-		item.RoleName = "管理员"
+	if len(activeIndices) < MaxSessionsPerAccount {
+		if len(reusableIndices) > 0 {
+			target := reusableIndices[0]
+			next := s.items[target]
+			next.CreatedAt = now
+			s.populateIssuedSessionFieldsLocked(&next, account, raw, now, rememberMe)
+			s.items[target] = next
+			return next, raw, []AuthKey{next}
+		}
+		item := newAuthItem(account.Role, AuthKindSession, passwordSessionName, owner, raw)
+		item.CreatedAt = now
+		s.populateIssuedSessionFieldsLocked(&item, account, raw, now, rememberMe)
+		s.items = append(s.items, item)
+		return item, raw, []AuthKey{item}
 	}
-	s.items = append(s.items, item)
-	return item, raw
+
+	// Sort active sessions oldest-activity-first so activeIndices[0] is LRU.
+	sort.SliceStable(activeIndices, func(i, j int) bool {
+		ti := sessionActivityTimestamp(s.items[activeIndices[i]])
+		tj := sessionActivityTimestamp(s.items[activeIndices[j]])
+		if ti != tj {
+			return ti < tj
+		}
+		return s.items[activeIndices[i]].ID < s.items[activeIndices[j]].ID
+	})
+
+	mutated := make([]AuthKey, 0, 2)
+	// If legacy state somehow had more than MaxSessionsPerAccount active rows,
+	// disable any overflow beyond the 4 newest kept sessions.
+	overflowCount := len(activeIndices) - MaxSessionsPerAccount
+	for k := 0; k < overflowCount; k++ {
+		idx := activeIndices[k]
+		disabled := s.items[idx]
+		disabled.Enabled = false
+		disabled.UpdatedAt = now
+		s.items[idx] = disabled
+		mutated = append(mutated, disabled)
+	}
+
+	target := activeIndices[overflowCount]
+	next := s.items[target]
+	next.CreatedAt = now
+	s.populateIssuedSessionFieldsLocked(&next, account, raw, now, rememberMe)
+	s.items[target] = next
+	mutated = append(mutated, next)
+	return next, raw, mutated
 }
 
 func (s *AuthService) RevokeSession(raw string) (bool, error) {
@@ -70,9 +140,14 @@ func (s *AuthService) RevokeSession(raw string) (bool, error) {
 	if !ok || index < 0 || index >= len(s.items) || s.items[index].Kind != AuthKindSession {
 		return false, nil
 	}
-	s.items[index].Enabled = false
-	s.items[index].UpdatedAt = util.NowISO()
-	if err := s.saveLocked(); err != nil {
+	prev := s.items[index]
+	next := prev
+	next.Enabled = false
+	next.UpdatedAt = util.NowISO()
+	s.items[index] = next
+	if err := s.persistAuthKeyLocked(next); err != nil {
+		s.items[index] = prev
+		s.rebuildKeyIndexLocked()
 		return true, fmt.Errorf("撤销登录会话失败: %w", err)
 	}
 	return true, nil

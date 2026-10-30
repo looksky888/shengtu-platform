@@ -81,9 +81,33 @@ func (s *AuthService) saveLocked() error {
 
 // persistAuthKeyLocked writes one credential. Uses UpsertAuthKey when available.
 func (s *AuthService) persistAuthKeyLocked(item AuthKey) error {
+	if !s.storeReady {
+		return fmt.Errorf("鉴权数据未成功加载，已拒绝写入以防清空存储")
+	}
 	if patcher, ok := s.storage.(storage.AuthKeyUpsertBackend); ok {
 		if err := patcher.UpsertAuthKey(item.ID, item.toMap()); err != nil {
 			return err
+		}
+		s.rebuildKeyIndexLocked()
+		return nil
+	}
+	return s.saveLocked()
+}
+
+// persistAuthKeysLocked writes one or more mutated credentials via UpsertAuthKey when
+// supported, falling back to saveLocked otherwise.
+func (s *AuthService) persistAuthKeysLocked(items []AuthKey) error {
+	if !s.storeReady {
+		return fmt.Errorf("鉴权数据未成功加载，已拒绝写入以防清空存储")
+	}
+	if len(items) == 0 {
+		return nil
+	}
+	if patcher, ok := s.storage.(storage.AuthKeyUpsertBackend); ok {
+		for _, item := range items {
+			if err := patcher.UpsertAuthKey(item.ID, item.toMap()); err != nil {
+				return err
+			}
 		}
 		s.rebuildKeyIndexLocked()
 		return nil
@@ -150,7 +174,9 @@ func (s *AuthService) syncPasswordAccountsToItems() {
 		}
 		item.Username = account.Username
 		item.OwnerName = account.DisplayName()
-		item.Enabled = account.Enabled
+		if !account.Enabled {
+			item.Enabled = false
+		}
 		if account.Role == AuthRoleUser {
 			item.Role = AuthRoleUser
 			applyManagedRoleToAuthItem(item, roleForAccountLocked(s.roles, account))

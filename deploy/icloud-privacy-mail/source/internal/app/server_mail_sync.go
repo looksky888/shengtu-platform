@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"strconv"
 	"strings"
 	"sync"
@@ -10,6 +11,18 @@ import (
 
 func (s *Server) syncMailbox(ctx context.Context, mailbox Mailbox, after time.Time, keyword string) (int, error) {
 	return s.syncMailboxCodeBatchForOwnerWithLimit(ctx, mailbox.OwnerID, []Mailbox{mailbox}, after, keyword, mailboxSyncThreadLimit(mailbox))
+}
+
+func advanceIMAPUIDCursor(current, candidate string) string {
+	currentNum := imapUIDNumber(current)
+	candidateNum := imapUIDNumber(candidate)
+	if candidateNum > currentNum {
+		return strconv.Itoa(candidateNum)
+	}
+	if currentNum > 0 {
+		return strconv.Itoa(currentNum)
+	}
+	return strings.TrimSpace(current)
 }
 
 func (s *Server) syncMailboxCodeBatchForOwnerWithLimit(ctx context.Context, ownerID string, mailboxes []Mailbox, after time.Time, keyword string, maxMessages int) (int, error) {
@@ -93,42 +106,44 @@ func (s *Server) syncMailboxCodeBatchForOwnerWithLimit(ctx context.Context, owne
 		if messagesByMailbox == nil {
 			messagesByMailbox = map[string][]ICloudSyncedMessage{}
 		}
-		lastAccountUID := firstNonEmpty(syncResult.LastUID, highestICloudMessageUID(messagesByMailbox))
+		lastAccountUID := advanceIMAPUIDCursor(
+			group.state.IMAPLastSyncUID,
+			firstNonEmpty(syncResult.LastUID, highestICloudMessageUID(messagesByMailbox)),
+		)
 		updates := make([]mailboxMessageSync, 0, len(group.mailboxes))
 		for _, mailbox := range group.mailboxes {
-			lastSyncUID := mailbox.LastSyncUID
+			lastSyncUID := advanceIMAPUIDCursor(mailbox.LastSyncUID, lastAccountUID)
 			latestMessageAt := mailbox.LastSyncAt
 			messages := make([]syncedMessageInput, 0, len(messagesByMailbox[mailbox.ID]))
 			for _, msg := range messagesByMailbox[mailbox.ID] {
-				if extractOTP(msg.Subject+"\n"+msg.Body) == "" {
-					continue
-				}
 				remoteID := strings.TrimSpace(msg.RemoteID)
 				if remoteID == "" && strings.TrimSpace(msg.UID) != "" {
 					remoteID = "imap:" + strings.TrimSpace(msg.UID)
+				}
+				candidateUID := firstNonEmpty(msg.UID, remoteID)
+				lastSyncUID = advanceIMAPUIDCursor(lastSyncUID, candidateUID)
+				if msg.ReceivedAt.After(latestMessageAt) {
+					latestMessageAt = msg.ReceivedAt
+				}
+				if extractOTP(msg.Subject+"\n"+msg.Body) == "" {
+					continue
 				}
 				messages = append(messages, syncedMessageInput{
 					RemoteID: remoteID, Source: "imap", Subject: msg.Subject,
 					From: msg.From, Body: msg.Body, ReceivedAt: msg.ReceivedAt,
 				})
-				candidateUID := firstNonEmpty(msg.UID, remoteID)
-				if msg.ReceivedAt.After(latestMessageAt) {
-					latestMessageAt = msg.ReceivedAt
-					lastSyncUID = candidateUID
-				} else if strings.TrimSpace(lastSyncUID) == "" && strings.TrimSpace(candidateUID) != "" {
-					lastSyncUID = candidateUID
-				}
 			}
-			if len(messages) > 0 {
-				syncedAt := latestMessageAt
-				if syncedAt.IsZero() {
-					syncedAt = now
-				}
-				updates = append(updates, mailboxMessageSync{
-					MailboxID: mailbox.ID, Messages: messages, UpdateCursor: true,
-					SyncedAt: syncedAt, LastUID: lastSyncUID,
-				})
+			syncedAt := now
+			if latestMessageAt.After(syncedAt) {
+				syncedAt = latestMessageAt
 			}
+			updates = append(updates, mailboxMessageSync{
+				MailboxID:    mailbox.ID,
+				Messages:     messages,
+				UpdateCursor: true,
+				SyncedAt:     syncedAt,
+				LastUID:      lastSyncUID,
+			})
 		}
 		return s.store.applyMessageSync(updates, &iCloudIMAPSyncCursorUpdate{
 			OwnerID: group.session.OwnerID, AccountID: group.session.AccountID, StateKey: imapStateKey(group.state),
@@ -159,21 +174,19 @@ func (s *Server) syncMailboxCodeBatchForOwnerWithLimit(ctx context.Context, owne
 
 	synced := 0
 	failed := 0
-	var firstErr error
+	errs := make([]error, 0)
 	for _, out := range outcomes {
 		synced += out.created
 		if out.err != nil {
 			failed++
-			if firstErr == nil {
-				firstErr = out.err
-			}
+			errs = append(errs, out.err)
 			if s.logger != nil {
 				s.logger.Warn("multi-account IMAP sync failed for account group", "imap_key", out.key, "err", out.err)
 			}
 		}
 	}
-	if failed == len(order) && firstErr != nil {
-		return synced, firstErr
+	if failed == len(order) && len(errs) > 0 {
+		return synced, errors.Join(errs...)
 	}
 	return synced, nil
 }
@@ -227,6 +240,8 @@ func (s *Server) syncMailboxBatchForOwnerWithLimit(ctx context.Context, ownerID 
 	if len(order) == 0 {
 		return errCode("icloud_session_missing", "未保存 iCloud 登录态，请先保存旧接口登录态", true)
 	}
+	failed := 0
+	errs := make([]error, 0)
 	for _, key := range order {
 		group := groups[key]
 		syncScopeKey := mailboxSyncOwnerKey(ownerID) + "|web|" + group.key
@@ -250,6 +265,8 @@ func (s *Server) syncMailboxBatchForOwnerWithLimit(ctx context.Context, ownerID 
 			if len(order) == 1 {
 				return err
 			}
+			failed++
+			errs = append(errs, err)
 			if s.logger != nil {
 				s.logger.Warn("multi-account web mail sync failed for account group", "account_key", group.key, "err", err)
 			}
@@ -261,6 +278,12 @@ func (s *Server) syncMailboxBatchForOwnerWithLimit(ctx context.Context, ownerID 
 			latestMessageAt := mailbox.LastSyncAt
 			messages := make([]syncedMessageInput, 0, len(messagesByMailbox[mailbox.ID]))
 			for _, msg := range messagesByMailbox[mailbox.ID] {
+				if msg.ReceivedAt.After(latestMessageAt) {
+					latestMessageAt = msg.ReceivedAt
+					lastSyncUID = firstNonEmpty(msg.UID, msg.RemoteID)
+				} else if strings.TrimSpace(lastSyncUID) == "" {
+					lastSyncUID = firstNonEmpty(msg.UID, msg.RemoteID)
+				}
 				if extractOTP(msg.Subject+"\n"+msg.Body) == "" {
 					continue
 				}
@@ -268,10 +291,6 @@ func (s *Server) syncMailboxBatchForOwnerWithLimit(ctx context.Context, ownerID 
 					RemoteID: msg.RemoteID, Source: "icloud", Subject: msg.Subject,
 					From: msg.From, Body: msg.Body, ReceivedAt: msg.ReceivedAt,
 				})
-				if msg.ReceivedAt.After(latestMessageAt) {
-					latestMessageAt = msg.ReceivedAt
-					lastSyncUID = firstNonEmpty(msg.UID, msg.RemoteID)
-				}
 			}
 			updates = append(updates, mailboxMessageSync{
 				MailboxID: mailbox.ID, Messages: messages, UpdateCursor: true,
@@ -281,6 +300,9 @@ func (s *Server) syncMailboxBatchForOwnerWithLimit(ctx context.Context, ownerID 
 		if _, err := s.store.applyMessageSync(updates, nil); err != nil {
 			return err
 		}
+	}
+	if failed == len(order) && len(errs) > 0 {
+		return errors.Join(errs...)
 	}
 	return nil
 }

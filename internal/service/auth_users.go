@@ -44,8 +44,8 @@ func (s *AuthService) IsProtectedManagedUser(id string) bool {
 	if id == "" {
 		return false
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	return s.isProtectedManagedUserLocked(id)
 }
 

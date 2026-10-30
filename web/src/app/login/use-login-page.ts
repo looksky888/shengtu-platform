@@ -1,12 +1,16 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 import { PENDING_STUDIO_PROMPT_STORAGE_KEY } from "@/app/landing/landing-brand";
-import { useLoginRegistrationMode } from "@/app/login/use-login-registration-mode";
+import {
+  extractInviteCodeFromSearch,
+  useLoginRegistrationMode,
+} from "@/app/login/use-login-registration-mode";
 import { usePasswordReset } from "@/app/login/use-password-reset";
 import { isRegistrationEmailValid, useRegistrationEmail } from "@/app/login/use-registration-email";
 import { login, registerAccount } from "@/lib/api";
+import { dispatchQuotaRefresh } from "@/lib/quota-events";
 import { extractReturnToFromSearch } from "@/lib/request-unauthorized";
 import { setVerifiedAuthSession } from "@/lib/session";
 import { applyColorTheme, getPreferredColorTheme, saveColorTheme, type ColorTheme } from "@/lib/theme";
@@ -23,8 +27,13 @@ export function useLoginPage() {
   const mode = useLoginRegistrationMode();
   const themeToggleRef = useRef<HTMLButtonElement | null>(null);
   const [username, setUsernameState] = useState(() => getRememberedUsername());
-  const [password, setPasswordState] = useState("");
+  const [loginPassword, setLoginPasswordState] = useState("");
+  const [registerPassword, setRegisterPasswordState] = useState("");
   const [displayName, setDisplayNameState] = useState("");
+  const urlInviteCode = extractInviteCodeFromSearch(mode.searchParams);
+  const [inviteCode, setInviteCodeState] = useState(() => urlInviteCode);
+  const [inviteInputExpanded, setInviteInputExpanded] = useState(() => Boolean(urlInviteCode));
+  const inviteEditedRef = useRef(false);
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(() => getAuthPersistPreference());
   const [agreedToTerms, setAgreedToTermsState] = useState(false);
@@ -40,10 +49,19 @@ export function useLoginPage() {
     mode.passwordResetResendSeconds,
     (email) => {
       setUsernameState(email);
-      setPasswordState("");
+      setLoginPasswordState("");
       setErrorMessage(null);
     },
   );
+
+  useEffect(() => {
+    if (!inviteEditedRef.current && urlInviteCode) {
+      setInviteCodeState(urlInviteCode);
+      setInviteInputExpanded(true);
+    }
+  }, [urlInviteCode]);
+
+  const password = mode.isRegisterMode ? registerPassword : loginPassword;
 
   const setUsername = (value: string) => {
     if (errorMessage) setErrorMessage(null);
@@ -51,11 +69,20 @@ export function useLoginPage() {
   };
   const setPassword = (value: string) => {
     if (errorMessage) setErrorMessage(null);
-    setPasswordState(value);
+    if (mode.isRegisterMode) {
+      setRegisterPasswordState(value);
+    } else {
+      setLoginPasswordState(value);
+    }
   };
   const setDisplayName = (value: string) => {
     if (errorMessage) setErrorMessage(null);
     setDisplayNameState(value);
+  };
+  const setInviteCode = (value: string) => {
+    inviteEditedRef.current = true;
+    if (errorMessage) setErrorMessage(null);
+    setInviteCodeState(value);
   };
   const setEmail = (value: string) => {
     if (errorMessage) setErrorMessage(null);
@@ -71,6 +98,9 @@ export function useLoginPage() {
   };
 
   const setRegisterMode = (next: boolean) => {
+    if (next && !registrationEmail.email.trim() && isRegistrationEmailValid(username)) {
+      registrationEmail.setEmail(username.trim().toLowerCase());
+    }
     mode.setRegisterMode(next);
     setShowPassword(false);
     setErrorMessage(null);
@@ -78,7 +108,6 @@ export function useLoginPage() {
 
   const reportValidationError = (message: string) => {
     setErrorMessage(message);
-    toast.error(message);
   };
 
   const handleSubmit = async () => {
@@ -101,9 +130,12 @@ export function useLoginPage() {
     setErrorMessage(null);
     setIsSubmitting(true);
     try {
-      const inviteCode = (mode.searchParams.get("invite_code") || mode.searchParams.get("invite") || "").trim() || undefined;
+      const normalizedInviteCode = inviteCode.trim() || undefined;
       const data = mode.isRegisterMode
-        ? await registerAccount(normalizedEmail, normalizedEmailCode, password, normalizedName, { rememberMe, inviteCode })
+        ? await registerAccount(normalizedEmail, normalizedEmailCode, password, normalizedName, {
+          rememberMe,
+          inviteCode: normalizedInviteCode,
+        })
         : await login(normalizedUsername, password, { rememberMe });
       const token = String(data.token || "").trim();
       if (!token) throw new Error("登录会话签发失败");
@@ -121,6 +153,7 @@ export function useLoginPage() {
       };
       await setVerifiedAuthSession(session, { rememberMe });
       setRememberedUsername(rememberMe ? (mode.isRegisterMode ? normalizedEmail : normalizedUsername) : "");
+      dispatchQuotaRefresh();
       toast.success(mode.isRegisterMode ? "注册成功" : "登录成功");
 
       let pendingPrompt = (mode.searchParams.get("prompt") || "").trim();
@@ -140,7 +173,6 @@ export function useLoginPage() {
     } catch (error) {
       const message = error instanceof Error ? error.message : mode.isRegisterMode ? "注册失败，请重试" : "登录失败，请检查账号或密码";
       setErrorMessage(message);
-      toast.error(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -157,11 +189,12 @@ export function useLoginPage() {
   };
 
   return {
-    username, password, displayName, showPassword, rememberMe, agreedToTerms, termsOpen,
+    username, password, displayName, inviteCode, hasUrlInviteCode: Boolean(urlInviteCode),
+    inviteInputExpanded, showPassword, rememberMe, agreedToTerms, termsOpen,
     isSubmitting, errorMessage, theme, themeToggleRef, isCheckingAuth,
     ...mode, ...registrationEmail, ...passwordReset,
-    setUsername, setPassword, setDisplayName, setEmail, setEmailCode,
-    setShowPassword, setRememberMe, setAgreedToTerms, setTermsOpen,
+    setUsername, setPassword, setDisplayName, setInviteCode, setInviteInputExpanded,
+    setEmail, setEmailCode, setShowPassword, setRememberMe, setAgreedToTerms, setTermsOpen,
     setIsRegisterMode: setRegisterMode, handleSubmit, handleThemeToggle,
   };
 }

@@ -38,8 +38,8 @@ type ManagedUserPublic struct {
 
 // ListUsersTyped returns typed managed users via the same projector as the paged list.
 func (s *AuthService) ListUsersTyped() []ManagedUserPublic {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	lites := listManagedUserLitesLocked(s.items, s.roles, s.accounts)
 	ids := make([]string, 0, len(lites))
 	for _, row := range lites {
@@ -52,16 +52,16 @@ func (s *AuthService) ListUsersTyped() []ManagedUserPublic {
 
 // ManagedUserExists reports whether a managed user id projects to a public row.
 func (s *AuthService) ManagedUserExists(id string) bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	_, ok := managedUserPublicByIDLocked(s.items, s.roles, s.accounts, id)
 	return ok
 }
 
 // GetManagedUserPublic returns a typed managed-user row for admin/audit use.
 func (s *AuthService) GetManagedUserPublic(id string) (ManagedUserPublic, bool) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	return managedUserPublicByIDLocked(s.items, s.roles, s.accounts, id)
 }
 
@@ -110,8 +110,8 @@ func AuthKeyPublicFromRecord(item AuthKey) AuthKeyPublic {
 // ListKeysTyped returns typed public API keys for the filter.
 func (s *AuthService) ListKeysTyped(filter AuthKeyFilter) []AuthKeyPublic {
 	filter = normalizeAuthKeyFilter(filter)
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	out := make([]AuthKeyPublic, 0, len(s.items))
 	for _, item := range s.items {
 		if matchAuthKey(item, filter) {
@@ -127,8 +127,8 @@ func (s *AuthService) ListSingleAPIKeyForOwnerTyped(ownerID string) []AuthKeyPub
 	if ownerID == "" {
 		return []AuthKeyPublic{}
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	for _, item := range s.items {
 		if util.Clean(item.Role) == AuthRoleUser &&
 			util.Clean(item.Kind) == AuthKindAPIKey &&
@@ -145,8 +145,8 @@ func (s *AuthService) ListPersonalAPIKeyTyped(identity Identity) []AuthKeyPublic
 	if !ok {
 		return []AuthKeyPublic{}
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	for _, item := range s.items {
 		if util.Clean(item.Role) == role &&
 			util.Clean(item.Kind) == AuthKindAPIKey &&
@@ -188,8 +188,8 @@ func ManagedRolePublicFromRecord(role ManagedRole, userCount int) ManagedRolePub
 
 // ListRolesTyped returns typed managed roles.
 func (s *AuthService) ListRolesTyped() []ManagedRolePublic {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	counts := managedRoleUserCountsLocked(s.items, s.accounts)
 	out := make([]ManagedRolePublic, 0, len(s.roles))
 	for _, role := range s.roles {

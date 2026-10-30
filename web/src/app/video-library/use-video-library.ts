@@ -9,6 +9,21 @@ import {
   type VideoLibraryScope,
 } from "@/lib/video-task-api";
 
+export type VideoLibraryPageSize = 12 | 24 | 48;
+
+const VIDEO_LIBRARY_PAGE_SIZE_KEY = "shengtu:video-library-page-size";
+
+function readInitialVideoPageSize(): VideoLibraryPageSize {
+  if (typeof window === "undefined") return 24;
+  try {
+    const raw = Number(window.localStorage.getItem(VIDEO_LIBRARY_PAGE_SIZE_KEY));
+    if (raw === 12 || raw === 24 || raw === 48) return raw;
+  } catch {
+    // Ignore storage access errors.
+  }
+  return 24;
+}
+
 export function useVideoLibrary(enabled = true, initialScope: VideoLibraryScope = "mine") {
   const [assets, setAssets] = useState<VideoAsset[]>([]);
   const [total, setTotal] = useState(0);
@@ -16,6 +31,7 @@ export function useVideoLibrary(enabled = true, initialScope: VideoLibraryScope 
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [scope, setScope] = useState<VideoLibraryScope>(initialScope);
+  const [pageSize, setPageSizeState] = useState<VideoLibraryPageSize>(() => readInitialVideoPageSize());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [searchKeyword, setSearchKeyword] = useState("");
@@ -39,7 +55,7 @@ export function useVideoLibrary(enabled = true, initialScope: VideoLibraryScope 
   const selectedAssets = useMemo(() => filteredAssets.filter((asset) => selectedIDs[asset.id]), [filteredAssets, selectedIDs]);
   const allFilteredSelected = filteredAssets.length > 0 && selectedAssets.length === filteredAssets.length;
 
-  const load = useCallback(async (signal?: AbortSignal, requestedScope = scope) => {
+  const load = useCallback(async (signal?: AbortSignal, requestedScope = scope, requestedLimit = pageSize) => {
     loadAbortRef.current?.abort();
     const controller = new AbortController();
     loadAbortRef.current = controller;
@@ -48,7 +64,7 @@ export function useVideoLibrary(enabled = true, initialScope: VideoLibraryScope 
     signal?.addEventListener("abort", abortFromCaller, { once: true });
     setLoading(true);
     try {
-      const result = await fetchVideoAssets(requestedScope, { signal: controller.signal });
+      const result = await fetchVideoAssets(requestedScope, { signal: controller.signal, limit: requestedLimit });
       if (requestID !== loadRequestRef.current || controller.signal.aborted) return;
       setAssets(result.items);
       setTotal(result.total);
@@ -67,21 +83,32 @@ export function useVideoLibrary(enabled = true, initialScope: VideoLibraryScope 
         loadAbortRef.current = null;
       }
     }
-  }, [scope]);
+  }, [pageSize, scope]);
 
   useEffect(() => {
     if (!enabled) return;
-    void load(undefined, scope);
+    void load(undefined, scope, pageSize);
     return () => {
       loadRequestRef.current += 1;
       loadAbortRef.current?.abort();
       loadAbortRef.current = null;
     };
-  }, [enabled, load, scope]);
+  }, [enabled, load, pageSize, scope]);
 
   useEffect(() => {
     if (enabled) setScope(initialScope);
   }, [enabled, initialScope]);
+
+  function changePageSize(nextSize: VideoLibraryPageSize) {
+    if (nextSize === pageSize) return;
+    setPageSizeState(nextSize);
+    setSelectedIDs({});
+    try {
+      window.localStorage.setItem(VIDEO_LIBRARY_PAGE_SIZE_KEY, String(nextSize));
+    } catch {
+      // Ignore storage access errors.
+    }
+  }
 
   function changeScope(next: VideoLibraryScope) {
     if (next === scope) return;
@@ -188,7 +215,7 @@ export function useVideoLibrary(enabled = true, initialScope: VideoLibraryScope 
     if (!hasMore || !nextCursor || loadingMore) return;
     setLoadingMore(true);
     try {
-      const result = await fetchVideoAssets(scope, { cursor: nextCursor });
+      const result = await fetchVideoAssets(scope, { cursor: nextCursor, limit: pageSize });
       setAssets((current) => [...current, ...result.items.filter((item) => !current.some((existing) => existing.id === item.id))]);
       setTotal(result.total);
       setNextCursor(result.next_cursor || "");
@@ -207,6 +234,8 @@ export function useVideoLibrary(enabled = true, initialScope: VideoLibraryScope 
     hasMore,
     loadingMore,
     scope,
+    pageSize,
+    setPageSize: changePageSize,
     loading,
     error,
     searchKeyword,

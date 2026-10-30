@@ -7,7 +7,7 @@ import { toast } from "sonner";
 
 import { VideoLibraryGrid } from "@/app/video-library/video-library-grid";
 import { VideoLibraryTabs } from "@/app/video-library/video-library-tabs";
-import { useVideoLibrary } from "@/app/video-library/use-video-library";
+import { useVideoLibrary, type VideoLibraryPageSize } from "@/app/video-library/use-video-library";
 import { MediaDeleteDialog } from "@/components/media-delete-dialog";
 import { MediaAssetTypeSwitcher } from "@/components/media-library-tabs";
 import { PageHeader } from "@/components/page-header";
@@ -140,6 +140,19 @@ export default function VideoLibraryPage() {
             <SelectItem value="all">全部状态</SelectItem>
             <SelectItem value="private">私有</SelectItem>
             <SelectItem value="public">已公开</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select
+          value={String(controller.pageSize)}
+          onValueChange={(value) => controller.setPageSize(Number(value) as VideoLibraryPageSize)}
+        >
+          <SelectTrigger aria-label="每页加载视频数量" className="h-9 w-[124px] rounded-lg text-xs tabular-nums">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="12">每页 12 个</SelectItem>
+            <SelectItem value="24">每页 24 个</SelectItem>
+            <SelectItem value="48">每页 48 个</SelectItem>
           </SelectContent>
         </Select>
         {hasActiveFilters ? (

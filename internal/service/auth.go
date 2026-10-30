@@ -34,6 +34,7 @@ type Identity struct {
 	CredentialID   string
 	CredentialName string
 	Kind           string
+	RememberMe     bool
 	MenuPaths      []string
 	APIPermissions []string
 }
@@ -50,6 +51,7 @@ func (i Identity) Map() map[string]any {
 		"credential_id":   i.CredentialID,
 		"credential_name": i.CredentialName,
 		"kind":            i.Kind,
+		"remember_me":     i.RememberMe,
 		"menu_paths":      append([]string(nil), i.MenuPaths...),
 		"api_permissions": append([]string(nil), i.APIPermissions...),
 	}
@@ -86,7 +88,7 @@ func (r ManagedRole) PermissionSet() PermissionSet {
 }
 
 type AuthService struct {
-	mu              sync.Mutex
+	mu              sync.RWMutex
 	storage         storage.Backend
 	roleStore       storage.JSONDocumentBackend
 	accounts        []PasswordAccount
@@ -123,8 +125,8 @@ func NewAuthService(backend storage.Backend) *AuthService {
 
 // StoreReady reports whether auth credentials were loaded successfully from storage.
 func (s *AuthService) StoreReady() bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	return s.storeReady && s.roleStoreReady && s.passwordStoreReady
 }
 
@@ -151,6 +153,34 @@ func (s *AuthService) Authenticate(raw string) *Identity {
 		return nil
 	}
 	hash := util.SHA256Hex(candidate)
+	now := time.Now().UTC()
+
+	// Fast read-lock path when keyIndex is populated and lastUsedFlushAt is fresh.
+	s.mu.RLock()
+	if s.keyIndex != nil {
+		index, ok := s.keyIndex[hash]
+		if !ok || index < 0 || index >= len(s.items) {
+			s.mu.RUnlock()
+			return nil
+		}
+		item := s.items[index]
+		stored := util.Clean(item.KeyHash)
+		if stored != "" && hmac.Equal([]byte(stored), []byte(hash)) {
+			if !item.Enabled || authSessionExpired(item, now) {
+				s.mu.RUnlock()
+				return nil
+			}
+			id := util.Clean(item.ID)
+			if last, hasFlush := s.lastUsedFlushAt[id]; hasFlush && now.Sub(last) < time.Minute {
+				next := item
+				s.applyRoleToAuthItem(&next, managedAuthRoleID(next))
+				s.mu.RUnlock()
+				return identityForAuthItem(next)
+			}
+		}
+	}
+	s.mu.RUnlock()
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.keyIndex == nil {
@@ -178,12 +208,11 @@ func (s *AuthService) Authenticate(raw string) *Identity {
 	if !item.Enabled {
 		return nil
 	}
-	if authSessionExpired(item, time.Now()) {
+	if authSessionExpired(item, now) {
 		return nil
 	}
 	next := item
 	s.applyRoleToAuthItem(&next, managedAuthRoleID(next))
-	now := time.Now().UTC()
 	next.LastUsedAt = now.Format(time.RFC3339Nano)
 	s.items[index] = next
 	// key_hash unchanged — index stays valid

@@ -1,9 +1,11 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 
+import { usePersistedCountdown } from "@/app/login/use-persisted-countdown";
 import { sendRegistrationEmailCode } from "@/lib/api";
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const REGISTER_OTP_COUNTDOWN_KEY = "shengtu:otp-countdown:register";
 
 export function isRegistrationEmailValid(email: string) {
   return emailPattern.test(email.trim());
@@ -13,13 +15,7 @@ export function useRegistrationEmail(enabled: boolean | null, defaultResendSecon
   const [email, setEmail] = useState("");
   const [emailCode, setEmailCode] = useState("");
   const [isSendingEmailCode, setIsSendingEmailCode] = useState(false);
-  const [emailCodeCountdown, setEmailCodeCountdown] = useState(0);
-
-  useEffect(() => {
-    if (emailCodeCountdown <= 0) return;
-    const timer = window.setTimeout(() => setEmailCodeCountdown((value) => Math.max(0, value - 1)), 1000);
-    return () => window.clearTimeout(timer);
-  }, [emailCodeCountdown]);
+  const [emailCodeCountdown, startEmailCodeCountdown] = usePersistedCountdown(REGISTER_OTP_COUNTDOWN_KEY);
 
   const sendEmailCode = async () => {
     const normalizedEmail = email.trim().toLowerCase();
@@ -35,7 +31,7 @@ export function useRegistrationEmail(enabled: boolean | null, defaultResendSecon
     try {
       const result = await sendRegistrationEmailCode(normalizedEmail);
       setEmail(normalizedEmail);
-      setEmailCodeCountdown(Math.max(1, Number(result.retry_after_seconds) || defaultResendSeconds));
+      startEmailCodeCountdown(Math.max(1, Number(result.retry_after_seconds) || defaultResendSeconds));
       toast.success("验证码已发送", { description: "请检查收件箱和垃圾邮件。" });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "验证码发送失败");

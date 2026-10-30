@@ -10,8 +10,8 @@ func (s *AuthService) RoleExists(id string) bool {
 	if id == "" {
 		id = DefaultManagedRoleID
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	_, ok := managedRoleByIDLocked(s.roles, id)
 	return ok
 }

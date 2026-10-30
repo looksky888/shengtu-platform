@@ -312,3 +312,16 @@ export function getNavItemIcon(item: NavItem): LucideIcon {
   }
   return ROUTE_ICON_MAP[item.href] ?? FolderKanban;
 }
+
+
+export function resolveRoutePageTitle(pathname: string): string | null {
+  const clean = pathname.replace(/\/+$/, "") || "/";
+  if (clean === "/" || clean === "/login") {
+    return null;
+  }
+  if (isActivePath(clean, profileNavItem.href)) {
+    return profileNavItem.label;
+  }
+  const matched = navItems.find((item) => !item.external && isActivePath(clean, item.href));
+  return matched?.label ?? null;
+}

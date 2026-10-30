@@ -155,6 +155,7 @@ services:
       CHATGPT2API_SETTINGS_ENV_FILE: /app/data/settings.env
       # Listen on the container interface; ports above control the host exposure.
       CHATGPT2API_BIND_ADDR: "0.0.0.0"
+      CHATGPT2API_TRUST_PROXY_HEADERS: ${CHATGPT2API_TRUST_PROXY_HEADERS:-true}
       STORAGE_BACKEND: ${STORAGE_BACKEND:-sqlite}
       DATABASE_URL: ${DATABASE_URL:-sqlite:////app/data/chatgpt2api.db}
       CHATGPT2API_FLARESOLVERR_URL: ${CHATGPT2API_FLARESOLVERR_URL:-http://flaresolverr:8191}

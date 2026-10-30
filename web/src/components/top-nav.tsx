@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import webConfig from "@/constants/common-env";
 import { fetchProfileCredits, logout } from "@/lib/api";
 import { QUOTA_REFRESH_EVENT } from "@/lib/quota-events";
-import { DEFAULT_APP_TITLE } from "@/lib/app-meta";
+import { normalizeBrandTitle } from "@/lib/app-meta";
 import { withCanvasNav } from "@/lib/canvas-link";
 import {
   AUTH_SESSION_CHANGE_EVENT,
@@ -72,8 +72,7 @@ export function TopNav() {
   const pathname = location.pathname.replace(/\/+$/, "") || "/";
   const appMeta = useAppMeta();
   const isDesktopNav = useIsDesktopNavViewport();
-  const brandTitle =
-    (appMeta.app_title || DEFAULT_APP_TITLE).trim() || DEFAULT_APP_TITLE;
+  const brandTitle = normalizeBrandTitle(appMeta.app_title);
   const [session, setSession] = useState<
     StoredAuthSession | null | undefined
   >(() => getCachedAuthSession());
@@ -325,10 +324,7 @@ function NavBrandButton({
   onToggle: () => void;
 }) {
   const navigate = useNavigate();
-  const displayBrand =
-    brandTitle === "chatgpt2api" || brandTitle === "ChatGPT"
-      ? "Shengtu Studio"
-      : brandTitle;
+  const displayBrand = normalizeBrandTitle(brandTitle);
   return (
     <div className="flex min-w-0 items-center gap-1.5">
       <Button

@@ -4,9 +4,15 @@ import { toast } from "sonner";
 
 import { fetchAuthProviders } from "@/lib/api";
 
+export function extractInviteCodeFromSearch(params: URLSearchParams): string {
+  return (params.get("invite_code") || params.get("invite") || "").trim();
+}
+
 function wantsRegisterFromSearch(params: URLSearchParams) {
   const raw = (params.get("register") || "").trim().toLowerCase();
-  return raw === "1" || raw === "true" || raw === "yes";
+  if (raw === "1" || raw === "true" || raw === "yes") return true;
+  if (raw === "0" || raw === "false" || raw === "no") return false;
+  return Boolean(extractInviteCodeFromSearch(params));
 }
 
 export function useLoginRegistrationMode() {
@@ -85,8 +91,13 @@ export function useLoginRegistrationMode() {
     isRegisterModeRef.current = next;
     setIsRegisterMode(next);
     const params = new URLSearchParams(window.location.search);
-    if (next) params.set("register", "1");
-    else params.delete("register");
+    if (next) {
+      params.set("register", "1");
+    } else if (extractInviteCodeFromSearch(params)) {
+      params.set("register", "0");
+    } else {
+      params.delete("register");
+    }
     setSearchParams(params, { replace: true });
   }, [registrationEnabled, setSearchParams]);
 

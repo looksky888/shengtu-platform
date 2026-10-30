@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import { formatDateTime } from "@/lib/datetime";
 import { isTurnBusy } from "@/lib/image-turn-state";
+import { AUTH_SESSION_CHANGE_EVENT } from "@/lib/session";
 import {
   IMAGE_CONVERSATIONS_CHANGED_EVENT,
   listImageConversations,
@@ -106,10 +107,12 @@ export function useImageConversationsForQueue() {
     void loadConversations();
     window.addEventListener("focus", handleRefresh);
     window.addEventListener(IMAGE_CONVERSATIONS_CHANGED_EVENT, handleRefresh);
+    window.addEventListener(AUTH_SESSION_CHANGE_EVENT, handleRefresh);
     return () => {
       active = false;
       window.removeEventListener("focus", handleRefresh);
       window.removeEventListener(IMAGE_CONVERSATIONS_CHANGED_EVENT, handleRefresh);
+      window.removeEventListener(AUTH_SESSION_CHANGE_EVENT, handleRefresh);
     };
   }, []);
   return conversations;
