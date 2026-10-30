@@ -50,36 +50,41 @@ export function useImageTurnActions({
         return;
       }
 
+      const turnKey = imageTurnProgressKey(conversationId, turnId);
+      cancelledTurnIdsRef.current.add(turnKey);
+      clearTurnProgress(conversationId, turnId);
+
       const taskIds = Array.from(
         new Set(targetTurn.images.flatMap((image) => (image.status === "loading" && image.taskId ? [image.taskId] : []))),
       );
       if (taskIds.length === 0) {
-        if (targetTurn.mode === "chat") {
-          const turnKey = imageTurnProgressKey(conversationId, turnId);
-          cancelledTurnIdsRef.current.add(turnKey);
-          clearTurnProgress(conversationId, turnId);
-          await updateConversation(conversationId, (current) => {
-            const conversation = current ?? targetConversation;
-            return {
-              ...conversation,
-              updatedAt: new Date().toISOString(),
-              turns: conversation.turns.map((turn) => {
-                if (turn.id !== turnId) {
-                  return turn;
-                }
-                const images = turn.images.map((image) =>
-                  image.status === "loading" ? { ...image, status: "cancelled" as const, error: "请求已终止" } : image,
-                );
-                return {
-                  ...turn,
-                  ...deriveTurnStatus({ ...turn, images }),
-                  images,
-                };
-              }),
-            };
-          });
-          toast.success("已终止对话请求");
-        }
+        await updateConversation(conversationId, (current) => {
+          const conversation = current ?? targetConversation;
+          return {
+            ...conversation,
+            updatedAt: new Date().toISOString(),
+            turns: conversation.turns.map((turn) => {
+              if (turn.id !== turnId) {
+                return turn;
+              }
+              const images = turn.images.map((image) =>
+                image.status === "loading"
+                  ? {
+                      ...image,
+                      status: "cancelled" as const,
+                      error: targetTurn.mode === "chat" ? "请求已终止" : "任务已终止",
+                    }
+                  : image,
+              );
+              return {
+                ...turn,
+                ...deriveTurnStatus({ ...turn, images }),
+                images,
+              };
+            }),
+          };
+        });
+        toast.success(targetTurn.mode === "chat" ? "已终止对话请求" : "已终止生成任务");
         return;
       }
 
@@ -87,7 +92,12 @@ export function useImageTurnActions({
       const taskMap = new Map(
         results.flatMap((result) => (result.status === "fulfilled" ? [[result.value.id, result.value] as const] : [])),
       );
-      const failedRequests = results.filter((result) => result.status === "rejected").length;
+      // 404 means the task had not yet been submitted in the local sliding window, so it is safely cancelled locally.
+      const failedRequests = results.filter(
+        (result) =>
+          result.status === "rejected" &&
+          (result.reason as { status?: number } | null | undefined)?.status !== 404,
+      ).length;
       await updateConversation(conversationId, (current) => {
         const conversation = current ?? targetConversation;
         return {

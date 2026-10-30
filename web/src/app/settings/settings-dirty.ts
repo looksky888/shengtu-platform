@@ -53,6 +53,8 @@ export function registerConfigSnapshot(value: unknown) {
     check_interval: source.check_interval,
     clearance: source.clearance,
     grok: source.grok,
+    ...(source.checkout !== undefined ? { checkout: source.checkout } : {}),
+    ...(source.sub2api_sync !== undefined ? { sub2api_sync: source.sub2api_sync } : {}),
   };
   return settingsSnapshot(editable);
 }

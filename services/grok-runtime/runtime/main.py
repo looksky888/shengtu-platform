@@ -16,7 +16,7 @@ from typing import Any
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 
 from runtime.internal_auth import require_internal, require_startup_token
 from runtime.image_payload import decode_edit_images
@@ -26,7 +26,7 @@ from runtime.request_body import read_json_object
 logger = logging.getLogger(__name__)
 
 SERVICE = "grok-runtime"
-VERSION = os.getenv("GROK_RUNTIME_VERSION", "4.5-20260925-ui-workspace")
+VERSION = os.getenv("GROK_RUNTIME_VERSION", "5.2.2-20261030-audit-and-studio-upgrade")
 
 _UPSTREAM = Path(__file__).resolve().parents[1] / "upstream"
 # Always put vendored reverse stack first so `import app.products` resolves to
@@ -139,6 +139,33 @@ def _prepare_data_dirs() -> Path:
     return data_dir
 
 
+def _ensure_provider_credential_key(data_dir: Path) -> None:
+    import base64
+    from runtime.provider_accounts.credential_cipher import ProviderCredentialCipher
+
+    configured = (os.environ.get("GROK_PROVIDER_CREDENTIAL_KEY") or "").strip()
+    if configured:
+        ProviderCredentialCipher.from_base64(configured)
+        return
+
+    secret_file = data_dir / "provider_credential.secret"
+    if secret_file.is_file():
+        persisted = secret_file.read_text(encoding="utf-8").strip()
+        if persisted:
+            ProviderCredentialCipher.from_base64(persisted)
+            os.environ["GROK_PROVIDER_CREDENTIAL_KEY"] = persisted
+            return
+
+    generated = base64.b64encode(os.urandom(32)).decode("ascii")
+    ProviderCredentialCipher.from_base64(generated)
+    fd = os.open(secret_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    try:
+        os.write(fd, (generated + "\n").encode("utf-8"))
+    finally:
+        os.close(fd)
+    os.environ["GROK_PROVIDER_CREDENTIAL_KEY"] = generated
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Start register bridge + EmbeddedGrokRuntime (account directory)."""
@@ -149,7 +176,8 @@ async def lifespan(app: FastAPI):
     previous_provider_sink = None
 
     require_startup_token()
-    _prepare_data_dirs()
+    data_dir = _prepare_data_dirs()
+    _ensure_provider_credential_key(data_dir)
     _native_importable, _native_error = _try_import_native()
     _register_ready = _try_import_register()
     _oauth_ready = _try_import_oauth()
@@ -255,19 +283,47 @@ async def chat_completions(request: Request) -> Any:
     from runtime.provider_accounts.runtime_context import ProviderRoute, provider_route
 
     try:
-        # Studio tests use non-stream JSON; streaming SSE is still supported by upstream.
         if grok.is_xai_cli_oauth_model(payload.get("model")):
-            return await _json_from_dispatch(await grok.dispatch_chat_completion(payload))
+            result = await grok.dispatch_chat_completion(payload)
+            if isinstance(result, StreamingResponse):
+                return result
+            return await _json_from_dispatch(result)
         spec = grok.model_spec(payload.get("model"))
         provider = "console" if spec is not None and spec.is_console_chat() else "web"
         quota = "chat" if provider == "console" else _web_text_quota(spec)
-        with provider_route(ProviderRoute(provider, "text", quota)):
+        route = ProviderRoute(provider, "text", quota)
+        with provider_route(route):
             result = await grok.dispatch_chat_completion(payload)
+            if isinstance(result, StreamingResponse):
+                return _wrap_streaming_with_route(result, route)
             return await _json_from_dispatch(result)
     except HTTPException:
         raise
     except Exception as exc:
         raise _dispatch_http_exception(exc) from exc
+
+
+def _wrap_streaming_with_route(response: StreamingResponse, route: Any) -> StreamingResponse:
+    from runtime.provider_accounts.runtime_context import provider_route
+
+    iterator = response.body_iterator
+
+    async def _iter():
+        while True:
+            try:
+                with provider_route(route):
+                    chunk = await iterator.__anext__()
+            except StopAsyncIteration:
+                break
+            yield chunk
+
+    return StreamingResponse(
+        _iter(),
+        status_code=response.status_code,
+        headers=dict(response.headers),
+        media_type=response.media_type,
+        background=response.background,
+    )
 
 
 def _web_text_quota(spec: Any) -> str:

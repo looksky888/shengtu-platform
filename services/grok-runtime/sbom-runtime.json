@@ -6,7 +6,7 @@
     "component": {
       "type": "application",
       "name": "shengtu-grok-runtime",
-      "version": "5.2.1-20261030-sentinel-clearance-fix"
+      "version": "5.2.2-20261030-audit-and-studio-upgrade"
     },
     "source": "requirements.lock"
   },

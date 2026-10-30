@@ -1,3 +1,9 @@
+export function shouldWarnBeforeLeavingPendingOrder(
+  order: { status?: string } | null | undefined,
+): boolean {
+  return Boolean(order && (order.status === "created" || order.status === "pending"));
+}
+
 // Unload requests cannot await the async session store; use the verified page session.
 export async function cancelPaymentOnLeave(apiUrl: string, token: string, orderID: string) {
   const response = await fetch(`${apiUrl.replace(/\/+$/, "")}/api/payment/orders/${encodeURIComponent(orderID)}/cancel`, {

@@ -26,6 +26,14 @@ func (s *coldBackupStore) Restore(ctx context.Context, artifact BackupArtifact) 
 		return fmt.Errorf("打开更新备份: %w", err)
 	}
 	defer archive.Close()
+	archiveEntries := make(map[string]struct{}, len(archive.File))
+	for _, entry := range archive.File {
+		archiveEntries[filepath.ToSlash(filepath.Clean(filepath.FromSlash(entry.Name)))] = struct{}{}
+	}
+	var restoredDBTargets []struct {
+		entryName string
+		target    string
+	}
 	for _, entry := range archive.File {
 		if err := ctx.Err(); err != nil {
 			return err
@@ -36,6 +44,26 @@ func (s *coldBackupStore) Restore(ctx context.Context, artifact BackupArtifact) 
 		}
 		if err := restoreBackupEntry(entry, root, target); err != nil {
 			return err
+		}
+		if !entry.FileInfo().IsDir() && strings.HasSuffix(strings.ToLower(target), ".db") {
+			restoredDBTargets = append(restoredDBTargets, struct {
+				entryName string
+				target    string
+			}{
+				entryName: filepath.ToSlash(filepath.Clean(filepath.FromSlash(entry.Name))),
+				target:    target,
+			})
+		}
+	}
+	// Clean up stale SQLite WAL/SHM sidecar files left behind by a failed target
+	// container when the cold backup only archived the checkpointed .db file.
+	for _, dbItem := range restoredDBTargets {
+		for _, suffix := range []string{"-wal", "-shm"} {
+			if _, inArchive := archiveEntries[dbItem.entryName+suffix]; !inArchive {
+				if err := os.Remove(dbItem.target + suffix); err != nil && !errors.Is(err, os.ErrNotExist) {
+					return fmt.Errorf("清理残留数据库日志 %s: %w", dbItem.target+suffix, err)
+				}
+			}
 		}
 	}
 	return nil

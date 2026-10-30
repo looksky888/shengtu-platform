@@ -17,6 +17,20 @@ func collectURLs(v any) []string {
 						urls = append(urls, u)
 					}
 				}
+			} else if key == "content" || key == "text" {
+				if text, ok := value.(string); ok {
+					for _, target := range extractMarkdownImageTargets(text) {
+						if isHTTPOrMediaURL(target) {
+							urls = append(urls, target)
+						}
+					}
+				} else {
+					urls = append(urls, collectURLs(value)...)
+				}
+			} else if key == "result" && util.Clean(x["type"]) == "image_generation_call" {
+				if target := util.Clean(value); isHTTPOrMediaURL(target) {
+					urls = append(urls, target)
+				}
 			} else {
 				urls = append(urls, collectURLs(value)...)
 			}

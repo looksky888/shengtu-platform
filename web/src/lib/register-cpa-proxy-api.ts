@@ -112,10 +112,6 @@ export async function startCPAImport(poolId: string, names: string[]) {
   });
 }
 
-export async function fetchCPAPoolImportJob(poolId: string) {
-  return httpRequest<{ import_job: CPAImportJob | null }>(`/api/cpa/pools/${poolId}/import`);
-}
-
 // ── Upstream proxy ────────────────────────────────────────────────
 
 export type ProxySettings = {
@@ -129,17 +125,6 @@ export type ProxyTestResult = {
   latency_ms: number;
   error: string | null;
 };
-
-export async function fetchProxy() {
-  return httpRequest<{ proxy: ProxySettings }>("/api/proxy");
-}
-
-export async function updateProxy(updates: { enabled?: boolean; url?: string }) {
-  return httpRequest<{ proxy: ProxySettings }>("/api/proxy", {
-    method: "POST",
-    body: updates,
-  });
-}
 
 export async function testProxy(url?: string) {
   return httpRequest<{ result: ProxyTestResult }>("/api/proxy/test", {

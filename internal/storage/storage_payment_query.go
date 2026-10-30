@@ -81,10 +81,10 @@ func (b *DatabaseBackend) paymentOrderFilterWhere(filter PaymentOrderFilter) (st
 		add(`user_id = %s`, filter.UserID)
 	}
 	if filter.StartAt != "" {
-		add(`created_at >= %s`, filter.StartAt)
+		add(b.utcSortableExpr("created_at")+` >= %s`, normalizeUTCSortableISO(filter.StartAt))
 	}
 	if filter.EndAt != "" {
-		add(`created_at <= %s`, filter.EndAt)
+		add(b.utcSortableExpr("created_at")+` <= %s`, normalizeUTCSortableISO(filter.EndAt))
 	}
 	if len(clauses) == 0 {
 		return "1 = 1", args

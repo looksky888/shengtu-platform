@@ -350,5 +350,67 @@ def test_open_session_recovers_from_cloudflare_challenge_via_flaresolverr(monkey
         assert s3.timezone == "Asia/Tokyo"
         assert len(flare_calls) == 2
         assert added_cookies[-1][0]["value"] == "clear-2"
+        assert solver.clearance_locks == {}
+        assert solver.clearance_waiters == {}
+
+    asyncio.run(run())
+
+
+def test_clearance_cache_bounds_and_cdp_session_reuse(monkeypatch):
+    monkeypatch.setenv("SENTINEL_SOLVER_TIMEZONE", "UTC")
+    monkeypatch.setenv("SENTINEL_SOLVER_MAX_SESSIONS", "2")
+
+    cdp_session_creations = 0
+    sent_overrides: list[dict] = []
+
+    class FakeCDP:
+        async def send(self, method: str, params: dict):
+            if method == "Emulation.setUserAgentOverride":
+                sent_overrides.append(params)
+
+    class FakePage:
+        pass
+
+    class FakeContext:
+        async def add_cookies(self, cookies: list[dict]):
+            return None
+
+        async def new_cdp_session(self, page):
+            nonlocal cdp_session_creations
+            cdp_session_creations += 1
+            return FakeCDP()
+
+    async def run():
+        import time as _time
+        from browser import ClearanceBundle
+
+        solver = BrowserSolver()
+        now = _time.monotonic()
+        for idx in range(80):
+            solver.clearance_cache[f"http://proxy-{idx}:8080"] = ClearanceBundle(
+                user_agent="Mozilla/5.0 Chrome/142.0.0.0",
+                cookies=[],
+                expires_at=now + 100 + idx,
+            )
+        solver._prune_clearance_cache()
+        assert len(solver.clearance_cache) == 64
+        assert "http://proxy-0:8080" not in solver.clearance_cache
+        assert "http://proxy-79:8080" in solver.clearance_cache
+
+        ctx = FakeContext()
+        page = FakePage()
+        await BrowserSolver._apply_clearance(
+            ctx,
+            page,
+            ClearanceBundle(user_agent="Mozilla/5.0 Chrome/141.0.0.0", cookies=[], expires_at=now + 600),
+        )
+        await BrowserSolver._apply_clearance(
+            ctx,
+            page,
+            ClearanceBundle(user_agent="Mozilla/5.0 Chrome/142.0.0.0", cookies=[], expires_at=now + 600),
+        )
+        assert cdp_session_creations == 1
+        assert len(sent_overrides) == 2
+        assert sent_overrides[-1]["userAgent"] == "Mozilla/5.0 Chrome/142.0.0.0"
 
     asyncio.run(run())

@@ -905,7 +905,7 @@ async def _run_video_job(
             raw = result.get("content")
             if not isinstance(raw, bytes) or not raw:
                 raise UpstreamError("Console video returned no downloadable content")
-            path = _save_video_bytes(raw, job.id)
+            path = await asyncio.to_thread(_save_video_bytes, raw, job.id)
             async with _VIDEO_JOBS_LOCK:
                 job.status = "completed"
                 job.progress = 100
@@ -943,7 +943,7 @@ async def _run_video_job(
             raw = result.get("content")
             if not isinstance(raw, bytes) or not raw:
                 raise UpstreamError("Build video returned no downloadable content")
-            path = _save_video_bytes(raw, job.id)
+            path = await asyncio.to_thread(_save_video_bytes, raw, job.id)
             async with _VIDEO_JOBS_LOCK:
                 job.status = "completed"
                 job.progress = 100
@@ -974,7 +974,7 @@ async def _run_video_job(
             runner=_runner,
         )
 
-        path = _save_video_bytes(raw, job.id)
+        path = await asyncio.to_thread(_save_video_bytes, raw, job.id)
         async with _VIDEO_JOBS_LOCK:
             job.status = "completed"
             job.progress = 100
@@ -987,6 +987,16 @@ async def _run_video_job(
         async with _VIDEO_JOBS_LOCK:
             job.status = "failed"
             job.error = _job_error_payload(_exception_message(exc))
+
+
+_BACKGROUND_VIDEO_TASKS: set[asyncio.Task[Any]] = set()
+
+
+def _spawn_video_background_task(coro: Any) -> asyncio.Task[Any]:
+    task = asyncio.create_task(coro)
+    _BACKGROUND_VIDEO_TASKS.add(task)
+    task.add_done_callback(_BACKGROUND_VIDEO_TASKS.discard)
+    return task
 
 
 async def create_video(
@@ -1024,7 +1034,7 @@ async def create_video(
         created_at=int(time.time()),
     )
     await _put_video_job(job)
-    asyncio.create_task(
+    _spawn_video_background_task(
         _run_video_job(
             job,
             model=model,
@@ -1036,7 +1046,7 @@ async def create_video(
             input_references=input_references,
         )
     )
-    asyncio.create_task(_expire_video_job(job.id))
+    _spawn_video_background_task(_expire_video_job(job.id))
     return job.to_dict()
 
 
@@ -1172,25 +1182,29 @@ async def completions(
             async def _progress(progress: int) -> None:
                 await queue.put(max(0, min(100, progress)))
 
-            task = asyncio.create_task(_run(progress_cb=_progress))
-            while not task.done() or not queue.empty():
-                try:
-                    progress = await asyncio.wait_for(queue.get(), timeout=0.1)
-                except asyncio.TimeoutError:
-                    continue
-                if progress > last_progress:
-                    last_progress = progress
-                    chunk = make_thinking_chunk(
-                        response_id, model, _progress_reason_delta(progress)
-                    )
-                    yield f"data: {orjson.dumps(chunk).decode()}\n\n"
+            task = _spawn_video_background_task(_run(progress_cb=_progress))
+            try:
+                while not task.done() or not queue.empty():
+                    try:
+                        progress = await asyncio.wait_for(queue.get(), timeout=0.1)
+                    except asyncio.TimeoutError:
+                        continue
+                    if progress > last_progress:
+                        last_progress = progress
+                        chunk = make_thinking_chunk(
+                            response_id, model, _progress_reason_delta(progress)
+                        )
+                        yield f"data: {orjson.dumps(chunk).decode()}\n\n"
 
-            content = await task
-            chunk = make_stream_chunk(response_id, model, content)
-            yield f"data: {orjson.dumps(chunk).decode()}\n\n"
-            final = make_stream_chunk(response_id, model, "", is_final=True)
-            yield f"data: {orjson.dumps(final).decode()}\n\n"
-            yield "data: [DONE]\n\n"
+                content = await task
+                chunk = make_stream_chunk(response_id, model, content)
+                yield f"data: {orjson.dumps(chunk).decode()}\n\n"
+                final = make_stream_chunk(response_id, model, "", is_final=True)
+                yield f"data: {orjson.dumps(final).decode()}\n\n"
+                yield "data: [DONE]\n\n"
+            finally:
+                if not task.done():
+                    task.cancel()
 
         return _sse()
 

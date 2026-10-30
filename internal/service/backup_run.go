@@ -189,7 +189,7 @@ func (s *BackupService) executeBackup(ctx context.Context, cfg BackupConfig, tas
 	}
 	excluded := []string(nil)
 	var snapshotDir string
-	if stringSet(cfg.Include)["data"] && s.snapshotter != nil {
+	if effectiveBackupIncludes(cfg)["data"] && s.snapshotter != nil {
 		if err := s.setPhase(taskID, "snapshotting"); err != nil {
 			return out, err
 		}

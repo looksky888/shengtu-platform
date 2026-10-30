@@ -96,6 +96,9 @@ export function LoginVisualCard() {
   const stageLoginPageImageFile = useSettingsStore(
     (state) => state.stageLoginPageImageFile
   );
+  const discardPendingLoginPageImage = useSettingsStore(
+    (state) => state.discardPendingLoginPageImage
+  );
   const resetConfigSection = useSettingsStore(
     (state) => state.resetConfigSection
   );
@@ -122,6 +125,22 @@ export function LoginVisualCard() {
     tab: "base",
     label: "登录页海报展示",
     isDirty,
+    save: async () => {
+      const currentState = useSettingsStore.getState();
+      const stillDirty =
+        Boolean(currentState.pendingLoginImageFile) ||
+        isConfigKeysDirty(
+          currentState.config,
+          currentState.savedConfigSnapshot,
+          LOGIN_VISUAL_KEYS
+        );
+      if (!stillDirty) return true;
+      return saveLoginPageVisual({ sectionKey: "login_visual" });
+    },
+    discard: () => {
+      discardPendingLoginPageImage();
+      return true;
+    },
   });
 
   if (!config) return null;

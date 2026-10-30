@@ -49,7 +49,7 @@ type ConversationRequest struct {
 // when parsing client input and again in Normalized().
 const (
 	MinImageCount = 1
-	MaxImageCount = 4
+	MaxImageCount = 15
 )
 
 // normalizeImageCount clamps n into the supported range. ParseImageCount rejects

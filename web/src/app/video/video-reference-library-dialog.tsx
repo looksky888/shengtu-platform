@@ -20,10 +20,11 @@ export function VideoReferenceLibraryDialog({ controller }: { controller: VideoC
   const [deletingAsset, setDeletingAsset] = useState<VideoReferenceAsset | null>(null);
   const [isDeletingAsset, setIsDeletingAsset] = useState(false);
 
+  const trimmedQuery = query.trim();
   const assets = useMemo(() => {
-    const keyword = query.trim().toLowerCase();
+    const keyword = trimmedQuery.toLowerCase();
     return keyword ? controller.referenceAssets.filter((item) => item.name.toLowerCase().includes(keyword)) : controller.referenceAssets;
-  }, [controller.referenceAssets, query]);
+  }, [controller.referenceAssets, trimmedQuery]);
 
   useEffect(() => {
     if (controller.referenceLibraryOpen) {
@@ -168,7 +169,7 @@ export function VideoReferenceLibraryDialog({ controller }: { controller: VideoC
                     );
                   })}
                 </div>
-                {controller.referenceAssetsHasMore && !query.trim() ? (
+                {controller.referenceAssetsHasMore && !trimmedQuery ? (
                   <div className="mt-5 flex justify-center">
                     <Button
                       type="button"
@@ -183,6 +184,27 @@ export function VideoReferenceLibraryDialog({ controller }: { controller: VideoC
                     </Button>
                   </div>
                 ) : null}
+              </div>
+            ) : controller.referenceAssets.length > 0 && trimmedQuery ? (
+              <div className="flex min-h-64 w-full flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border/80 bg-surface-muted/40 px-6 text-center">
+                <span className="grid size-11 place-items-center rounded-xl border border-border/75 bg-surface text-muted-foreground shadow-2xs">
+                  <Search className="size-5" />
+                </span>
+                <div>
+                  <strong className="block text-sm text-foreground">未找到匹配的参考图片</strong>
+                  <span className="mt-1 block text-xs text-muted-foreground">
+                    没有名称包含「{trimmedQuery}」的参考图片，请更换关键词重试。
+                  </span>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="rounded-lg"
+                  onClick={() => setQuery("")}
+                >
+                  清空搜索
+                </Button>
               </div>
             ) : (
               <button

@@ -13,14 +13,27 @@ import {
   type RegisterConfig,
 } from "@/lib/api";
 import {
+  isDegradedRegisterPayload,
   normalizeRegisterClearanceConfig,
   normalizeRegisterConfig,
-} from "./settings-normalizers";
+  reconcileIncomingRegisterConfig,
+} from "./settings-register-sync";
 import { registerConfigSnapshot } from "./settings-dirty";
 import { runSettingsRequest, type SettingsRequestFlight } from "./settings-load-flight";
 import type { SettingsLoadOptions, SettingsStore } from "./settings-store-types";
 
 const registerFlight: SettingsRequestFlight<boolean> = { value: null };
+
+function unwrapValidRegisterConfig(raw: RegisterConfig, fallbackMessage: string): RegisterConfig {
+  if (isDegradedRegisterPayload(raw, true)) {
+    const errorMessage =
+      raw && typeof raw.error === "string" && raw.error.trim()
+        ? raw.error.trim()
+        : fallbackMessage;
+    throw new Error(errorMessage);
+  }
+  return normalizeRegisterConfig(raw);
+}
 
 export type RegisterSlice = Pick<
   SettingsStore,
@@ -62,9 +75,33 @@ export const createRegisterSlice: StateCreator<SettingsStore, [], [], RegisterSl
     try {
       const data = await fetchRegisterConfig({ signal });
       if (!isCurrent()) return false;
+      if (isDegradedRegisterPayload(data.register, get().registerConfig !== null)) {
+        set((state) => {
+          const reconciled = reconcileIncomingRegisterConfig({
+            currentConfig: state.registerConfig,
+            savedRegisterSnapshot: state.savedRegisterSnapshot,
+            isSavingRegister: state.isSavingRegister,
+            incoming: data.register,
+          });
+          return {
+            registerConfig: reconciled.registerConfig,
+            savedRegisterSnapshot: reconciled.savedRegisterSnapshot,
+            loadedAt: { ...state.loadedAt, register: Date.now() },
+          };
+        });
+        if (!silent) {
+          const message =
+            data.register && typeof data.register.error === "string" && data.register.error.trim()
+              ? data.register.error.trim()
+              : "注册服务暂时不可用";
+          toast.error(message);
+        }
+        return false;
+      }
+      const nextConfig = normalizeRegisterConfig(data.register);
       set((state) => ({
-        registerConfig: normalizeRegisterConfig(data.register),
-        savedRegisterSnapshot: registerConfigSnapshot(normalizeRegisterConfig(data.register)),
+        registerConfig: nextConfig,
+        savedRegisterSnapshot: registerConfigSnapshot(nextConfig),
         loadedAt: { ...state.loadedAt, register: Date.now() },
       }));
       return true;
@@ -80,10 +117,19 @@ export const createRegisterSlice: StateCreator<SettingsStore, [], [], RegisterSl
   }),
 
   setRegisterConfig: (config) => {
-    // While user is saving, keep local form until save response wins.
-    if (get().isSavingRegister) return;
-    const nextConfig = normalizeRegisterConfig(config);
-    set({ registerConfig: nextConfig, savedRegisterSnapshot: registerConfigSnapshot(nextConfig), isLoadingRegister: false });
+    set((state) => {
+      const reconciled = reconcileIncomingRegisterConfig({
+        currentConfig: state.registerConfig,
+        savedRegisterSnapshot: state.savedRegisterSnapshot,
+        isSavingRegister: state.isSavingRegister,
+        incoming: config,
+      });
+      return {
+        registerConfig: reconciled.registerConfig,
+        savedRegisterSnapshot: reconciled.savedRegisterSnapshot,
+        isLoadingRegister: false,
+      };
+    });
   },
 
   setRegisterClearance: (updates) => {
@@ -205,7 +251,7 @@ export const createRegisterSlice: StateCreator<SettingsStore, [], [], RegisterSl
         clearance: normalizeRegisterClearanceConfig(registerConfig.clearance) as RegisterConfig["clearance"],
         grok: registerConfig.grok,
       });
-      const nextConfig = normalizeRegisterConfig(data.register);
+      const nextConfig = unwrapValidRegisterConfig(data.register, "保存注册配置失败");
       set({ registerConfig: nextConfig, savedRegisterSnapshot: registerConfigSnapshot(nextConfig) });
       toast.success("注册配置已保存");
       return true;
@@ -238,7 +284,7 @@ export const createRegisterSlice: StateCreator<SettingsStore, [], [], RegisterSl
         });
       }
       const data = registerConfig.enabled ? await stopRegister() : await startRegister();
-      const nextConfig = normalizeRegisterConfig(data.register);
+      const nextConfig = unwrapValidRegisterConfig(data.register, "切换注册状态失败");
       set({ registerConfig: nextConfig, savedRegisterSnapshot: registerConfigSnapshot(nextConfig) });
       toast.success(registerConfig.enabled ? "注册任务已停止" : "注册任务已启动");
     } catch (error) {
@@ -252,7 +298,7 @@ export const createRegisterSlice: StateCreator<SettingsStore, [], [], RegisterSl
     set({ isSavingRegister: true });
     try {
       const data = await resetRegisterApi();
-      const nextConfig = normalizeRegisterConfig(data.register);
+      const nextConfig = unwrapValidRegisterConfig(data.register, "重置注册统计失败");
       set({ registerConfig: nextConfig, savedRegisterSnapshot: registerConfigSnapshot(nextConfig) });
       toast.success("注册统计已重置");
     } catch (error) {
@@ -266,7 +312,7 @@ export const createRegisterSlice: StateCreator<SettingsStore, [], [], RegisterSl
     set({ isSavingRegister: true });
     try {
       const data = await resetOutlookPoolApi(scope);
-      const nextConfig = normalizeRegisterConfig(data.register);
+      const nextConfig = unwrapValidRegisterConfig(data.register, "重置邮箱池状态失败");
       set({ registerConfig: nextConfig, savedRegisterSnapshot: registerConfigSnapshot(nextConfig) });
       toast.success(
         scope === "unused"

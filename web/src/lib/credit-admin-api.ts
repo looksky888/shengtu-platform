@@ -34,17 +34,4 @@ export async function fetchCreditCards(query: CreditCardsQuery, options: { signa
 export async function disableCreditCard(cardId: string) { return httpRequest<{ item: CreditCard }>(`${creditCardPath(cardId)}/disable`, { method: "POST", body: {} }); }
 export async function fetchCreditLedger(query: CreditLedgerQuery, options: { signal?: AbortSignal } = {}) { return httpRequest<CreditLedgerPage>(`/api/admin/credits/ledger?${queryParams(query)}`, { signal: options.signal }); }
 export async function fetchCreditUsers(query: CreditUsersQuery, options: { signal?: AbortSignal } = {}) { return httpRequest<CreditUsersPage>(`/api/admin/credits/users?${queryParams(query)}`, { signal: options.signal }); }
-export async function fetchAllCreditUsers(options: { signal?: AbortSignal } = {}) {
-  const items: CreditAccount[] = [];
-  let page = 1, totalBalance = 0, accountCount = 0;
-  for (;;) {
-    const data = await fetchCreditUsers({ page, page_size: 100 }, options);
-    items.push(...(Array.isArray(data.items) ? data.items : []));
-    totalBalance = typeof data.total_balance === "number" ? data.total_balance : totalBalance;
-    accountCount = typeof data.account_count === "number" ? data.account_count : accountCount;
-    if (items.length >= (data.total ?? 0) || !data.items?.length || page >= 1000) break;
-    page += 1;
-  }
-  return { items, total_balance: totalBalance, account_count: accountCount };
-}
 export async function adjustUserCredits(userId: string, delta: number, reason?: string) { return httpRequest<{ account: CreditAccount; entry: CreditLedgerEntry }>(`/api/admin/credits/users/${encodeURIComponent(userId)}/adjust`, { method: "POST", body: reason ? { delta, reason } : { delta } }); }

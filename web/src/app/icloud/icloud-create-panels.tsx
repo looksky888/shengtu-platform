@@ -121,16 +121,19 @@ export function ICloudCreatePanels({
             <SelectItem value="icloud_web">只用旧接口</SelectItem>
           </SelectContent>
         </Select>
-        <Input
-          aria-label="定时创建间隔（秒）"
-          type="number"
-          min={60}
-          value={schedInterval}
-          onChange={(event) =>
-            setSchedInterval(Number(event.target.value) || 60)
-          }
-          disabled={Boolean(scheduler?.running)}
-        />
+        <label className="flex flex-col gap-1.5">
+          <span className="text-xs font-medium text-muted-foreground">间隔（秒）</span>
+          <Input
+            aria-label="定时创建间隔（秒）"
+            type="number"
+            min={60}
+            value={schedInterval}
+            onChange={(event) =>
+              setSchedInterval(Number(event.target.value) || 60)
+            }
+            disabled={Boolean(scheduler?.running)}
+          />
+        </label>
         <div className="flex flex-wrap gap-2">
           <Button
             size="sm"

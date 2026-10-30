@@ -17,6 +17,8 @@ import { toast } from "sonner";
 
 import {
   VIDEO_RECENT_TAKES_UPDATED_EVENT,
+  isTerminalVideoStatus,
+  markMissingVideoTakesError,
   readRecentVideoTakes,
   recentVideoTakesStorageKey,
   upsertRecentVideoTake,
@@ -155,6 +157,17 @@ export function ImageTaskQueue({ className }: { className?: string }) {
         let changed = false;
         const newlyCompleted: RecentVideoCompletion[] = [];
 
+        const clearStoredLastTaskId = (targetId: string) => {
+          if (!lastTaskKey || !targetId) return;
+          try {
+            if (window.localStorage.getItem(lastTaskKey) === targetId) {
+              window.localStorage.removeItem(lastTaskKey);
+            }
+          } catch {
+            // Ignore storage access errors.
+          }
+        };
+
         for (const remote of result.items || []) {
           const existing = updatedTakes.find((item) => item.taskId === remote.id);
           if (!existing) continue;
@@ -162,7 +175,15 @@ export function ImageTaskQueue({ className }: { className?: string }) {
             (item) => item.url && item.content_type?.startsWith("video/"),
           );
           const nextVideoUrl = videoAsset?.url || existing.videoUrl;
-          if (existing.status === remote.status && existing.videoUrl === nextVideoUrl) {
+          const nextError =
+            remote.status === "error"
+              ? remote.error || existing.error
+              : undefined;
+          if (
+            existing.status === remote.status &&
+            existing.videoUrl === nextVideoUrl &&
+            existing.error === nextError
+          ) {
             continue;
           }
           changed = true;
@@ -170,25 +191,46 @@ export function ImageTaskQueue({ className }: { className?: string }) {
             ...existing,
             status: remote.status,
             videoUrl: nextVideoUrl,
+            error: nextError,
           };
           updatedTakes = upsertRecentVideoTake(updatedTakes, merged);
           if (
             (existing.status === "queued" || existing.status === "running") &&
-            (remote.status === "success" || remote.status === "error" || remote.status === "cancelled")
+            isTerminalVideoStatus(remote.status)
           ) {
             newlyCompleted.push({ take: merged, completedAt: Date.now() });
+            clearStoredLastTaskId(remote.id);
             if (remote.status === "success") {
-              if (lastTaskKey) {
-                try {
-                  if (window.localStorage.getItem(lastTaskKey) === remote.id) {
-                    window.localStorage.removeItem(lastTaskKey);
-                  }
-                } catch {
-                  // Ignore storage access errors.
-                }
-              }
               toast.success("视频渲染已完成，点击顶栏队列可立即查看");
             }
+          }
+        }
+
+        const returnedIds = new Set((result.items || []).map((item) => item.id));
+        const missingIds = Array.from(
+          new Set([
+            ...(Array.isArray(result.missing_ids) ? result.missing_ids : []),
+            ...ids.filter((id) => !returnedIds.has(id)),
+          ]),
+        );
+        if (missingIds.length > 0) {
+          for (const missingId of missingIds) {
+            clearStoredLastTaskId(missingId);
+          }
+          const missingResult = markMissingVideoTakesError(updatedTakes, missingIds);
+          if (missingResult.changed) {
+            for (const item of missingResult.takes) {
+              const previous = updatedTakes.find((prev) => prev.taskId === item.taskId);
+              if (
+                previous &&
+                !isTerminalVideoStatus(previous.status) &&
+                item.status === "error"
+              ) {
+                newlyCompleted.push({ take: item, completedAt: Date.now() });
+              }
+            }
+            updatedTakes = missingResult.takes;
+            changed = true;
           }
         }
 
@@ -200,11 +242,17 @@ export function ImageTaskQueue({ className }: { className?: string }) {
             [...newlyCompleted, ...current].slice(0, 3),
           );
         }
+        const stillHasActive = updatedTakes.some(
+          (item) => !isTerminalVideoStatus(item.status),
+        );
+        if (!disposed && stillHasActive) {
+          timer = window.setTimeout(pollVideoTasks, 3000);
+        }
       } catch {
         // Ignore transient network errors during background queue polling.
-      }
-      if (!disposed) {
-        timer = window.setTimeout(pollVideoTasks, 3000);
+        if (!disposed) {
+          timer = window.setTimeout(pollVideoTasks, 3000);
+        }
       }
     };
 

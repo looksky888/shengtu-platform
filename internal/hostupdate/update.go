@@ -217,11 +217,15 @@ func (m *Manager) rollbackUpdate(taskID string, cause error) {
 	if persistErr != nil {
 		errorsFound = append(errorsFound, fmt.Errorf("持久化回滚状态: %w", persistErr))
 	}
+	stopped := true
 	if err := m.stopApp(ctx); err != nil {
+		stopped = false
 		errorsFound = append(errorsFound, fmt.Errorf("停止目标应用: %w", err))
 	}
 	if transaction.Backup != nil {
-		if err := m.backup.Restore(ctx, *transaction.Backup); err != nil {
+		if !stopped {
+			errorsFound = append(errorsFound, errors.New("目标应用未成功停止，已阻止冷备份覆盖以防损坏数据库"))
+		} else if err := m.backup.Restore(ctx, *transaction.Backup); err != nil {
 			errorsFound = append(errorsFound, fmt.Errorf("恢复冷备份: %w", err))
 		}
 	}

@@ -14,6 +14,7 @@ import (
 const (
 	loginRateWindow               = 15 * time.Minute
 	loginRateMaxHits              = 12
+	loginAccountRateMaxHits       = 20
 	registerRateMax               = 8
 	registrationEmailRateMax      = 12
 	registrationEmailCooldown     = time.Minute
@@ -140,17 +141,18 @@ func authClientIP(r *http.Request) string {
 		return ""
 	}
 	if trustProxyHeadersEnabled() {
-		if cf := strings.TrimSpace(r.Header.Get("CF-Connecting-IP")); net.ParseIP(cf) != nil {
-			return cf
-		}
-		if xff := strings.TrimSpace(r.Header.Get("X-Forwarded-For")); xff != "" {
-			parts := strings.Split(xff, ",")
-			if ip := strings.TrimSpace(parts[0]); net.ParseIP(ip) != nil {
-				return ip
+		if trustCFHeaderEnabled() {
+			if cf := strings.TrimSpace(r.Header.Get("CF-Connecting-IP")); net.ParseIP(cf) != nil {
+				return cf
 			}
 		}
 		if xr := strings.TrimSpace(r.Header.Get("X-Real-IP")); net.ParseIP(xr) != nil {
 			return xr
+		}
+		if xff := strings.TrimSpace(r.Header.Get("X-Forwarded-For")); xff != "" {
+			if ip := trustedXForwardedForClientIP(xff); ip != "" {
+				return ip
+			}
 		}
 	}
 	host, _, err := net.SplitHostPort(strings.TrimSpace(r.RemoteAddr))
@@ -160,8 +162,32 @@ func authClientIP(r *http.Request) string {
 	return strings.TrimSpace(r.RemoteAddr)
 }
 
+func trustedXForwardedForClientIP(xff string) string {
+	parts := strings.Split(xff, ",")
+	lastValid := ""
+	for i := len(parts) - 1; i >= 0; i-- {
+		candidate := strings.TrimSpace(parts[i])
+		parsed := net.ParseIP(candidate)
+		if parsed == nil {
+			continue
+		}
+		if lastValid == "" {
+			lastValid = candidate
+		}
+		if !parsed.IsLoopback() && !parsed.IsPrivate() && !parsed.IsLinkLocalUnicast() {
+			return candidate
+		}
+	}
+	return lastValid
+}
+
 func trustProxyHeadersEnabled() bool {
 	v := strings.TrimSpace(strings.ToLower(os.Getenv("CHATGPT2API_TRUST_PROXY_HEADERS")))
+	return v == "1" || v == "true" || v == "yes" || v == "on"
+}
+
+func trustCFHeaderEnabled() bool {
+	v := strings.TrimSpace(strings.ToLower(os.Getenv("CHATGPT2API_TRUST_CF_HEADER")))
 	return v == "1" || v == "true" || v == "yes" || v == "on"
 }
 
@@ -174,6 +200,9 @@ func checkLoginAllowed(r *http.Request, username string) bool {
 	if user != "" && !globalAuthRateLimiter.canProceed("login-user"+authRateKeySep+ip+authRateKeySep+user, loginRateMaxHits, loginRateWindow) {
 		return false
 	}
+	if user != "" && !globalAuthRateLimiter.canProceed("login-account"+authRateKeySep+user, loginAccountRateMaxHits, loginRateWindow) {
+		return false
+	}
 	return true
 }
 
@@ -183,6 +212,7 @@ func recordLoginFailure(r *http.Request, username string) {
 	globalAuthRateLimiter.recordHit("login-ip"+authRateKeySep+ip, loginRateWindow)
 	if user != "" {
 		globalAuthRateLimiter.recordHit("login-user"+authRateKeySep+ip+authRateKeySep+user, loginRateWindow)
+		globalAuthRateLimiter.recordHit("login-account"+authRateKeySep+user, loginRateWindow)
 	}
 }
 

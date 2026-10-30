@@ -82,6 +82,7 @@ export type SettingsStore = {
   ) => Promise<SaveConfigReceipt | null>;
   saveLoginPageVisual: (options?: SaveConfigSectionOptions) => Promise<boolean>;
   stageLoginPageImageFile: (file: File | null) => void;
+  discardPendingLoginPageImage: () => void;
   resetConfigSection: (keys: readonly (keyof SettingsConfig)[]) => void;
   fetchImageProxyModelOptions: () => Promise<void>;
   setRefreshAccountIntervalMinute: (value: string) => void;

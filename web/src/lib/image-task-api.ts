@@ -14,15 +14,6 @@ export type ImageTaskTodayStats = {
   updated_at: string;
 };
 
-/** Admin today stats (requires RBAC 查看生图统计). Prefer period query via fetchImageTaskStats. */
-export async function fetchImageTaskTodayStats(options: { signal?: AbortSignal } = {}) {
-  const data = await httpRequest<{ stats: ImageTaskTodayStats }>("/api/admin/image-task-stats/today", {
-    headers: { "Cache-Control": "no-cache", Pragma: "no-cache" },
-    signal: options.signal,
-  });
-  return data.stats;
-}
-
 /** Studio FAB: same ledger-backed daily stats as settings, any logged-in user. */
 export async function fetchStudioImageTaskTodayStats(options: { signal?: AbortSignal } = {}) {
   const data = await httpRequest<{ stats: ImageTaskTodayStats }>("/api/image-task-stats/today", {
@@ -163,19 +154,6 @@ export async function fetchAccountPoolHealth(options: { signal?: AbortSignal } =
   });
 }
 
-export async function fetchQuarantineList(
-  grade?: "temporary" | "permanent" | "all",
-  options: { signal?: AbortSignal } = {},
-) {
-  const params = new URLSearchParams();
-  if (grade && grade !== "all") params.set("grade", grade);
-  const qs = params.toString();
-  return httpRequest<QuarantineListResponse>(`/api/admin/account-quarantine${qs ? `?${qs}` : ""}`, {
-    headers: { "Cache-Control": "no-cache", Pragma: "no-cache" },
-    signal: options.signal,
-  });
-}
-
 export async function restoreQuarantineAccount(tokenHash: string) {
   return httpRequest<{ restored: boolean; error?: string; email?: string; token_hash?: string }>(
     "/api/admin/account-quarantine",
@@ -220,13 +198,6 @@ export async function fetchAdminImageTaskLogs(
     throw new Error("任务日志返回格式错误");
   }
   return { items: data.items, total: data.total, executors: data.executors };
-}
-
-export async function fetchRecentCreationTasks(options: { limit?: number; status?: "active" | "all" } = {}) {
-  const params = new URLSearchParams();
-  if (options.limit) params.set("limit", String(options.limit));
-  if (options.status) params.set("status", options.status);
-  return fetchCreationTaskList(params);
 }
 
 export async function fetchCreationTasks(ids: string[]) {

@@ -24,6 +24,10 @@ func (a *App) Close() error {
 	if a.cancel != nil {
 		a.cancel()
 	}
+	if a.register != nil {
+		a.register.Close()
+	}
+	a.cleanupWG.Wait()
 	var paymentErr error
 	if a.paymentOrders != nil {
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 60*time.Second)

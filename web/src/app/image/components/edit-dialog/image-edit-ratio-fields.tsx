@@ -7,7 +7,6 @@ import {
 } from "@/app/image/image-options";
 import {
   EMPTY_IMAGE_ASPECT_RATIO_SELECT_VALUE,
-  GRAYSCALE_TEST_UNAVAILABLE_LABEL,
   type EditingTurnDraft,
 } from "@/app/image/lib/image-page-types";
 import { Input } from "@/components/ui/input";
@@ -60,9 +59,8 @@ export function RatioSizeFields({ draft, setDraft, customRatioInvalid }: RatioSi
                 <SelectItem
                   key={option.label}
                   value={option.value || EMPTY_IMAGE_ASPECT_RATIO_SELECT_VALUE}
-                  disabled={option.value !== ""}
                 >
-                  {option.value === "" ? option.label : `${option.label}（${GRAYSCALE_TEST_UNAVAILABLE_LABEL}）`}
+                  {option.label}
                 </SelectItem>
               ))}
             </SelectGroup>
@@ -83,8 +81,8 @@ export function RatioSizeFields({ draft, setDraft, customRatioInvalid }: RatioSi
           <SelectContent>
             <SelectGroup>
               {IMAGE_RATIO_RESOLUTION_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={option.value} disabled={option.value !== "auto"}>
-                  {option.value === "auto" ? option.label : `${option.label}（${GRAYSCALE_TEST_UNAVAILABLE_LABEL}）`}
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
                 </SelectItem>
               ))}
             </SelectGroup>

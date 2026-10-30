@@ -22,6 +22,7 @@ const (
 
 type UpdateService struct {
 	mu             sync.Mutex
+	opMu           sync.Mutex
 	repo           string
 	apiBaseURL     string
 	githubToken    string
@@ -151,6 +152,10 @@ func (s *UpdateService) EnsureAutomaticUpdateSupported() error {
 }
 
 func (s *UpdateService) PerformUpdate(ctx context.Context) error {
+	if !s.opMu.TryLock() {
+		return errors.New("已有更新或回滚任务正在进行中")
+	}
+	defer s.opMu.Unlock()
 	if err := s.EnsureAutomaticUpdateSupported(); err != nil {
 		return err
 	}
@@ -220,6 +225,10 @@ func (s *UpdateService) PerformUpdate(ctx context.Context) error {
 }
 
 func (s *UpdateService) Rollback() error {
+	if !s.opMu.TryLock() {
+		return errors.New("已有更新或回滚任务正在进行中")
+	}
+	defer s.opMu.Unlock()
 	if err := s.EnsureAutomaticUpdateSupported(); err != nil {
 		return err
 	}

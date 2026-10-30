@@ -81,6 +81,8 @@ func (s *AccountService) DeleteAccounts(tokens []string) map[string]any {
 	prevReservations := cloneStringIntMap(s.imageReservations)
 	prevCooldown := cloneStringTimeMap(s.imageCooldownUntil)
 	prevProbes := cloneStringTimeMap(s.imageProbeAt)
+	prevModelCooldown := cloneStringTimeMap(s.imageModelCooldownUntil)
+	prevLeases := cloneStringTimeMap(s.imageLeases)
 	next := make([]Account, 0, len(s.items))
 	removed := 0
 	for _, item := range s.items {
@@ -90,6 +92,8 @@ func (s *AccountService) DeleteAccounts(tokens []string) map[string]any {
 			delete(s.imageReservations, token)
 			delete(s.imageCooldownUntil, token)
 			delete(s.imageProbeAt, token)
+			delete(s.imageModelCooldownUntil, token)
+			delete(s.imageLeases, token)
 			continue
 		}
 		next = append(next, item)
@@ -114,6 +118,8 @@ func (s *AccountService) DeleteAccounts(tokens []string) map[string]any {
 			s.imageReservations = prevReservations
 			s.imageCooldownUntil = prevCooldown
 			s.imageProbeAt = prevProbes
+			s.imageModelCooldownUntil = prevModelCooldown
+			s.imageLeases = prevLeases
 			items := publicAccounts(s.items)
 			s.mu.Unlock()
 			return map[string]any{"removed": 0, "items": items, "error": saveErr.Error()}
@@ -155,15 +161,21 @@ func (s *AccountService) UpdateAccount(accessToken string, updates map[string]an
 		prevReservations := cloneStringIntMap(s.imageReservations)
 		prevCooldown := cloneStringTimeMap(s.imageCooldownUntil)
 		prevProbes := cloneStringTimeMap(s.imageProbeAt)
+	prevModelCooldown := cloneStringTimeMap(s.imageModelCooldownUntil)
+	prevLeases := cloneStringTimeMap(s.imageLeases)
 		delete(s.imageReservations, accessToken)
 		delete(s.imageCooldownUntil, accessToken)
 		delete(s.imageProbeAt, accessToken)
+		delete(s.imageModelCooldownUntil, accessToken)
+		delete(s.imageLeases, accessToken)
 		s.items = append(s.items[:idx], s.items[idx+1:]...)
 		if err := s.deleteAccountsRowLocked([]string{accessToken}); err != nil {
 			s.items = prevItems
 			s.imageReservations = prevReservations
 			s.imageCooldownUntil = prevCooldown
 			s.imageProbeAt = prevProbes
+			s.imageModelCooldownUntil = prevModelCooldown
+			s.imageLeases = prevLeases
 			return nil, fmt.Errorf("保存账号失败: %w", err)
 		}
 		s.logs.Add("自动移除限流账号", map[string]any{

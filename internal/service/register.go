@@ -47,6 +47,7 @@ type RegisterService struct {
 	config      RegisterConfig
 	logs        []RegisterLog
 	runnerAlive bool
+	runCancel   context.CancelFunc
 	subscribers map[chan string]struct{}
 	storeReady  bool
 }
@@ -202,8 +203,25 @@ func (s *RegisterService) Stop() (map[string]any, error) {
 		s.logs = previousLogs
 		return nil, fmt.Errorf("保存注册停止状态失败: %w", err)
 	}
+	if s.runCancel != nil {
+		s.runCancel()
+		s.runCancel = nil
+	}
 	s.notifyLocked()
 	return s.snapshotLocked(), nil
+}
+
+func (s *RegisterService) Close() {
+	if s == nil {
+		return
+	}
+	s.mu.Lock()
+	cancel := s.runCancel
+	s.runCancel = nil
+	s.mu.Unlock()
+	if cancel != nil {
+		cancel()
+	}
 }
 
 func (s *RegisterService) Reset() (map[string]any, error) {
@@ -282,18 +300,21 @@ func (s *RegisterService) startLocked(resetLogs bool) error {
 		mode = registerModeTotal
 	}
 	s.appendLogLocked(fmt.Sprintf("注册任务启动，模式=%s，线程数=%d", mode, s.config.Threads), "yellow")
-	go s.run()
+	runCtx, cancel := context.WithCancel(context.Background())
+	s.runCancel = cancel
+	go s.run(runCtx, cancel)
 	return nil
 }
 
-func (s *RegisterService) run() {
+func (s *RegisterService) run(runCtx context.Context, runCancel context.CancelFunc) {
+	defer runCancel()
 	cfg := s.workerConfig()
 	threads := maxInt(1, util.ToInt(cfg["threads"], 1))
 	submitted, running, done, success, fail := 0, 0, 0, 0, 0
 	results := make(chan registerWorkerResult, threads)
 	for {
 		current := s.workerConfig()
-		for util.ToBool(current["enabled"]) && !s.targetReached(current, submitted) && running < threads {
+		for runCtx.Err() == nil && util.ToBool(current["enabled"]) && !s.targetReached(current, submitted) && running < threads {
 			submitted++
 			running++
 			// Always clone from unredacted workerConfig so outlook mailboxes stay populated.
@@ -317,17 +338,23 @@ func (s *RegisterService) run() {
 						results <- registerWorkerResult{ok: false}
 					}
 				}()
-				results <- s.runWorker(index, config)
+				results <- s.runWorker(runCtx, index, config)
 			}(submitted, workerCfg)
 			current = s.workerConfig()
 		}
 		s.bumpStats(map[string]any{"running": running, "done": done, "success": success, "fail": fail})
 		if running == 0 {
 			mode := util.Clean(current["mode"])
-			if !util.ToBool(current["enabled"]) || mode == "" || mode == registerModeTotal {
+			if runCtx.Err() != nil || !util.ToBool(current["enabled"]) || mode == "" || mode == registerModeTotal {
 				break
 			}
-			time.Sleep(time.Duration(maxInt(1, util.ToInt(current["check_interval"], 5))) * time.Second)
+			timer := time.NewTimer(time.Duration(maxInt(1, util.ToInt(current["check_interval"], 5))) * time.Second)
+			select {
+			case <-runCtx.Done():
+				timer.Stop()
+				continue
+			case <-timer.C:
+			}
 			continue
 		}
 		res := <-results
@@ -351,7 +378,7 @@ func (s *RegisterService) run() {
 	s.mu.Unlock()
 }
 
-func (s *RegisterService) runWorker(index int, config map[string]any) registerWorkerResult {
+func (s *RegisterService) runWorker(ctx context.Context, index int, config map[string]any) registerWorkerResult {
 	start := time.Now()
 	worker, err := newRegisterWorker(s, index, config)
 	if err != nil {
@@ -360,7 +387,7 @@ func (s *RegisterService) runWorker(index int, config map[string]any) registerWo
 	}
 	defer worker.close()
 	s.appendLog(fmt.Sprintf("[任务%d] 任务启动", index), "")
-	result, runErr := worker.run(context.Background())
+	result, runErr := worker.run(ctx)
 	cost := time.Since(start).Seconds()
 	if runErr != nil {
 		s.appendLog(fmt.Sprintf("任务%d 注册失败，本次耗时%.1fs，原因: %v", index, cost, runErr), "red")
@@ -372,7 +399,7 @@ func (s *RegisterService) runWorker(index int, config map[string]any) registerWo
 		s.appendLog(fmt.Sprintf("任务%d 注册失败，本次耗时%.1fs，原因: %v", index, cost, err), "red")
 		return registerWorkerResult{ok: false, index: index, err: err.Error(), cost: cost}
 	}
-	if err := s.persistAndRefreshRegisteredAccount(context.Background(), accessToken); err != nil {
+	if err := s.persistAndRefreshRegisteredAccount(ctx, accessToken); err != nil {
 		s.appendLog(fmt.Sprintf("任务%d 注册账号同步失败，本次耗时%.1fs，原因: %v", index, cost, err), "red")
 		return registerWorkerResult{ok: false, index: index, result: result, err: err.Error(), cost: cost}
 	}

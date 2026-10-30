@@ -74,8 +74,8 @@ func (s *ImageTaskService) cancelTaskByKey(key string) (map[string]any, error) {
 		observer = s.terminalObserver
 		if observer != nil {
 			copy := *task
-			copy.Data = append([]map[string]any(nil), task.Data...)
-			copy.Events = append([]map[string]any(nil), task.Events...)
+			copy.Data = cloneTaskMapSlice(task.Data)
+			copy.Events = cloneTaskMapSlice(task.Events)
 			snapshot = &copy
 		}
 	}

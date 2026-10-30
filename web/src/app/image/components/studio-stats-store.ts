@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 
 import { fetchStudioImageTaskTodayStats } from "@/lib/api";
+import { AUTH_SESSION_CHANGE_EVENT } from "@/lib/auth-session-events";
 import { getPageVisibilitySnapshot } from "@/lib/page-visibility";
 import { httpRequest } from "@/lib/request";
+import { getCachedAuthSession } from "@/lib/session";
 
 import { emptyStudioStatsView, mapLedgerStats, type StudioStatsView } from "./studio-stats-fab-utils";
 
@@ -34,6 +36,8 @@ let openSubscriberCount = 0;
 let pollTimer: number | null = null;
 let inFlightStats: Promise<void> | null = null;
 let inFlightHealth: Promise<void> | null = null;
+let sessionRevision = 0;
+let authListenerBound = false;
 
 function emit() {
   listeners.forEach((listener) => listener());
@@ -47,11 +51,13 @@ function updateSnapshot(patch: Partial<StudioTelemetrySnapshot>) {
 export function fetchSharedStudioStats(options: { silent?: boolean; force?: boolean } = {}): Promise<void> {
   const { silent = false, force = false } = options;
   if (!force && inFlightStats) return inFlightStats;
+  const startedRevision = sessionRevision;
   if (!silent) {
     updateSnapshot({ loading: true });
   }
   const task = fetchStudioImageTaskTodayStats()
     .then((raw) => {
+      if (startedRevision !== sessionRevision) return;
       updateSnapshot({
         stats: mapLedgerStats(raw),
         loading: false,
@@ -60,6 +66,7 @@ export function fetchSharedStudioStats(options: { silent?: boolean; force?: bool
       });
     })
     .catch((err: unknown) => {
+      if (startedRevision !== sessionRevision) return;
       updateSnapshot({
         loading: false,
         error: err instanceof Error ? err.message : "加载生图统计失败",
@@ -77,23 +84,44 @@ export function fetchSharedStudioStats(options: { silent?: boolean; force?: bool
 export function fetchSharedOnlinePool(options: { force?: boolean } = {}): Promise<void> {
   const { force = false } = options;
   if (!force && inFlightHealth) return inFlightHealth;
+  const cachedSession = getCachedAuthSession();
+  if (cachedSession !== undefined && cachedSession?.role !== "admin") {
+    updateSnapshot({
+      onlineAccounts: null,
+      lastHealthFetchedAt: Date.now(),
+    });
+    return Promise.resolve();
+  }
+  const startedRevision = sessionRevision;
   const task = httpRequest<{ account_pool?: { available?: number; free_slots?: number } }>("/health", {
     method: "GET",
     headers: { "Cache-Control": "no-cache" },
   })
     .then((health) => {
+      if (startedRevision !== sessionRevision) return;
+      const now = Date.now();
       const pool = health?.account_pool;
-      if (!pool) return;
-      const count = typeof pool.available === "number" ? pool.available : pool.free_slots;
-      if (typeof count === "number" && Number.isFinite(count)) {
+      if (!pool) {
         updateSnapshot({
-          onlineAccounts: Math.max(0, Math.floor(count)),
-          lastHealthFetchedAt: Date.now(),
+          onlineAccounts: null,
+          lastHealthFetchedAt: now,
         });
+        return;
       }
+      const count = typeof pool.available === "number" ? pool.available : pool.free_slots;
+      updateSnapshot({
+        onlineAccounts:
+          typeof count === "number" && Number.isFinite(count)
+            ? Math.max(0, Math.floor(count))
+            : null,
+        lastHealthFetchedAt: now,
+      });
     })
     .catch(() => {
-      // Preserve last known online count on transient network jitter.
+      if (startedRevision !== sessionRevision) return;
+      updateSnapshot({
+        lastHealthFetchedAt: Date.now(),
+      });
     })
     .finally(() => {
       if (inFlightHealth === task) {
@@ -102,6 +130,32 @@ export function fetchSharedOnlinePool(options: { force?: boolean } = {}): Promis
     });
   inFlightHealth = task;
   return task;
+}
+
+function handleAuthSessionChange() {
+  sessionRevision += 1;
+  inFlightStats = null;
+  inFlightHealth = null;
+  const nextSession = getCachedAuthSession();
+  updateSnapshot({
+    stats: emptyStudioStatsView(),
+    onlineAccounts: null,
+    loading: Boolean(nextSession && subscriberCount > 0),
+    error: null,
+    lastStatsFetchedAt: 0,
+    lastHealthFetchedAt: 0,
+  });
+  if (nextSession && subscriberCount > 0 && getPageVisibilitySnapshot()) {
+    void fetchSharedStudioStats({ force: true });
+    void fetchSharedOnlinePool({ force: true });
+  }
+  syncPollingLoop();
+}
+
+function ensureAuthSessionListener() {
+  if (authListenerBound || typeof window === "undefined") return;
+  authListenerBound = true;
+  window.addEventListener(AUTH_SESSION_CHANGE_EVENT, handleAuthSessionChange);
 }
 
 function syncPollingLoop() {
@@ -137,6 +191,7 @@ function handleVisibilityChange() {
 }
 
 function subscribe(listener: () => void) {
+  ensureAuthSessionListener();
   listeners.add(listener);
   subscriberCount += 1;
   if (subscriberCount === 1 && typeof document !== "undefined") {

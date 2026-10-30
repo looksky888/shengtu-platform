@@ -196,8 +196,8 @@ func storedManagedRole(role ManagedRole) map[string]any {
 		"builtin":         role.Builtin,
 		"created_at":      role.CreatedAt,
 		"updated_at":      role.UpdatedAt,
-		"menu_paths":      append([]string(nil), role.PermissionSet().MenuPaths...),
-		"api_permissions": append([]string(nil), role.PermissionSet().APIPermissions...),
+		"menu_paths":      cloneNonNilStringSlice(role.PermissionSet().MenuPaths),
+		"api_permissions": cloneNonNilStringSlice(role.PermissionSet().APIPermissions),
 	}
 }
 

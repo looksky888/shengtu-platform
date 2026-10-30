@@ -14,7 +14,7 @@ class MessageItem(BaseModel):
 
 
 class ImageConfig(BaseModel):
-    n:               int | None = Field(1, ge=1, le=10)
+    n:               int | None = Field(1, ge=1, le=15)
     size:            str | None = "1024x1024"
     response_format: str | None = None
     resolution: Literal["1k", "2k"] | None = None
@@ -38,7 +38,7 @@ class ChatCompletionRequest(BaseModel):
     video_config:        VideoConfig | None         = None
     # Accept the common top-level media fields as compatibility aliases for
     # image_config/video_config. Explicit nested configs take precedence.
-    n:                   int | None                 = Field(None, ge=1, le=10)
+    n:                   int | None                 = Field(None, ge=1, le=15)
     size:                str | None                 = None
     response_format:     str | None                 = None
     seconds:             int | None                 = None
@@ -53,7 +53,7 @@ class ChatCompletionRequest(BaseModel):
 class ImageGenerationRequest(BaseModel):
     model:           str
     prompt:          str
-    n:               int | None = Field(1, ge=1, le=10)
+    n:               int | None = Field(1, ge=1, le=15)
     size:            str | None = "1024x1024"
     response_format: str | None = "url"
     resolution: Literal["1k", "2k"] | None = Field(
@@ -102,7 +102,7 @@ class ResponsesCreateRequest(BaseModel):
     # configuration so an Imagine model can be used through /v1/responses.
     image_config:         ImageConfig | None    = None
     video_config:         VideoConfig | None    = None
-    n:                    int | None            = Field(None, ge=1, le=10)
+    n:                    int | None            = Field(None, ge=1, le=15)
     size:                 str | None            = None
     response_format:      str | None            = None
     seconds:              int | None            = None

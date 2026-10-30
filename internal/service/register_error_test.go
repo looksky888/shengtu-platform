@@ -195,7 +195,7 @@ func TestRegisterServiceLogMessagesAreReadableChinese(t *testing.T) {
 	service.logs = nil
 	cfg := registerDefaultConfig()
 	cfg.Proxy = "http://"
-	result := service.runWorker(1, cfg.toMap())
+	result := service.runWorker(context.Background(), 1, cfg.toMap())
 	if result.ok {
 		t.Fatal("runWorker() succeeded with invalid proxy")
 	}

@@ -3,9 +3,8 @@
 import { LoaderCircle } from "lucide-react";
 
 import { useVideoCreation } from "@/app/video/use-video-creation";
-import { VideoForm } from "@/app/video/video-form";
 import { VideoReferenceLibraryDialog } from "@/app/video/video-reference-library-dialog";
-import { VideoResult } from "@/app/video/video-result";
+import { VideoWorkspace } from "@/app/video/video-workspace";
 import { VideoPreviewDialog } from "@/components/video-preview-dialog";
 import { useAuthGuard } from "@/lib/use-auth-guard";
 
@@ -22,11 +21,8 @@ export default function VideoPage() {
   }
 
   return (
-    <section className="flex flex-col lg:h-[calc(100dvh-4.75rem)] lg:min-h-[600px]">
-      <div className="grid min-h-0 flex-1 items-stretch gap-3.5 lg:grid-cols-[380px_minmax(0,1fr)] xl:grid-cols-[400px_minmax(0,1fr)]">
-        <VideoForm controller={controller} />
-        <VideoResult controller={controller} />
-      </div>
+    <>
+      <VideoWorkspace controller={controller} />
       <VideoPreviewDialog
         variant="studio"
         video={controller.previewVideo}
@@ -40,6 +36,6 @@ export default function VideoPage() {
         }}
       />
       <VideoReferenceLibraryDialog controller={controller} />
-    </section>
+    </>
   );
 }

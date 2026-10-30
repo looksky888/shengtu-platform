@@ -62,6 +62,11 @@ func (a *App) runLoggedChatTask(ctx context.Context, identity service.Identity, 
 	payload["owner_name"] = identityDisplayName(identity)
 	payload["stream"] = false
 	model := firstNonEmpty(util.Clean(payload["model"]), util.ImageModelAuto)
+	if protocol.IsImageChatRequest(payload) {
+		err := protocol.HTTPError{Status: http.StatusBadRequest, Message: "对话任务接口不支持图片生成，请使用 /api/creation-tasks/image-generations"}
+		a.logCall(identity, "文本生成", http.MethodPost, "/api/creation-tasks/chat-completions", model, start, "failed", http.StatusBadRequest, err.Message, nil)
+		return map[string]any{"data": []any{}, "message": err.Message}, err
+	}
 	summary := "文本生成"
 	var result map[string]any
 	var err error

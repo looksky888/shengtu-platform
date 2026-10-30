@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -68,6 +69,10 @@ func (a *App) handleImageGenerations(w http.ResponseWriter, r *http.Request) {
 		util.WriteError(w, http.StatusBadRequest, "请求体不是合法 JSON")
 		return
 	}
+	if n := util.ToInt(body["n"], 1); n < protocol.MinImageCount || n > protocol.MaxImageCount {
+		util.WriteError(w, http.StatusBadRequest, fmt.Sprintf("生成数量 n 须在 %d–%d 之间", protocol.MinImageCount, protocol.MaxImageCount))
+		return
+	}
 	sanitizeClientImageRouteMetadata(body)
 	body["owner_id"] = identityScope(identity)
 	body["owner_name"] = identityDisplayName(identity)
@@ -109,8 +114,8 @@ func (a *App) handleImageEdits(w http.ResponseWriter, r *http.Request) {
 		util.WriteError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	if n := util.ToInt(body["n"], 1); n < 1 || n > 4 {
-		util.WriteError(w, http.StatusBadRequest, "生成数量 n 须在 1–4 之间")
+	if n := util.ToInt(body["n"], 1); n < protocol.MinImageCount || n > protocol.MaxImageCount {
+		util.WriteError(w, http.StatusBadRequest, fmt.Sprintf("生成数量 n 须在 %d–%d 之间", protocol.MinImageCount, protocol.MaxImageCount))
 		return
 	}
 	if len(images) == 0 {
@@ -173,6 +178,10 @@ func (a *App) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 	var result map[string]any
 	var stream *protocol.StreamResult
 	if protocol.IsImageChatRequest(body) {
+		if n := util.ToInt(body["n"], 1); n < protocol.MinImageCount || n > protocol.MaxImageCount {
+			util.WriteError(w, http.StatusBadRequest, fmt.Sprintf("生成数量 n 须在 %d–%d 之间", protocol.MinImageCount, protocol.MaxImageCount))
+			return
+		}
 		summary = "文生图"
 		metadata, sizeErr := a.imageTaskRequestMetadata(body, model, service.ImageCapabilityGenerate)
 		if sizeErr != nil {
@@ -190,9 +199,10 @@ func (a *App) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 	} else if util.IsGrokChatModel(model) {
 		summary = "Grok 对话"
 		if util.ToBool(body["stream"]) {
-			body["stream"] = false
+			stream, err = a.streamGrokNativeChatCompletion(r.Context(), body)
+		} else {
+			result, err = a.runGrokNativeChatCompletion(r.Context(), body)
 		}
-		result, err = a.runGrokNativeChatCompletion(r.Context(), body)
 	} else {
 		result, stream, err = a.engine.HandleChatCompletions(r.Context(), body)
 	}
@@ -223,13 +233,49 @@ func (a *App) handleResponses(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 	if protocol.HasResponseImageGenerationTool(body) {
+		if n := util.ToInt(body["n"], 1); n < protocol.MinImageCount || n > protocol.MaxImageCount {
+			util.WriteError(w, http.StatusBadRequest, fmt.Sprintf("生成数量 n 须在 %d–%d 之间", protocol.MinImageCount, protocol.MaxImageCount))
+			return
+		}
+		if !util.IsResponsesImageToolModel(model) {
+			util.WriteError(w, http.StatusBadRequest, "unsupported image_generation model: "+model)
+			return
+		}
+		tool := protocol.ResponseImageGenerationTool(body)
+		toolModel := util.Clean(tool["model"])
+		if toolModel != "" && !util.IsResponsesImageToolModel(toolModel) {
+			util.WriteError(w, http.StatusBadRequest, "unsupported image_generation model: "+toolModel)
+			return
+		}
+		billingBody := util.CopyMap(body)
+		effectiveModel := firstNonEmpty(toolModel, model)
+		if effectiveModel == util.ImageModelAuto {
+			effectiveModel = util.ImageModelGPT
+		}
+		billingBody["model"] = effectiveModel
+		if toolSize := util.Clean(tool["size"]); toolSize != "" {
+			billingBody["size"] = toolSize
+		}
+		if toolQuality := util.Clean(tool["quality"]); toolQuality != "" {
+			billingBody["quality"] = toolQuality
+		}
+		metadata, sizeErr := a.imageTaskRequestMetadata(billingBody, effectiveModel, service.ImageCapabilityGenerate)
+		if sizeErr != nil {
+			util.WriteError(w, http.StatusBadRequest, sizeErr.Error())
+			return
+		}
+		applyImageRouteMetadataToBody(billingBody, metadata)
+		applyImageRouteMetadataToBody(body, metadata)
 		summary = "文生图"
-		c, billingErr := a.deductImageCredits(identity, body, service.CreditReasonImageGeneration, "/v1/responses")
+		c, billingErr := a.deductImageCredits(identity, billingBody, service.CreditReasonImageGeneration, "/v1/responses")
 		if billingErr != nil {
 			a.writeCreditBillingError(w, billingErr)
 			return
 		}
 		charge = c
+	} else if util.IsGrokChatModel(model) || util.IsGrokImageModel(model) {
+		util.WriteError(w, http.StatusBadRequest, "Grok 模型不支持 /v1/responses，请使用 /v1/chat/completions 或 /v1/images/generations")
+		return
 	}
 	result, stream, err := a.engine.HandleResponsesScoped(r.Context(), body, identityScope(identity))
 	a.writeProtocol(w, r, result, stream, err, "openai", "/v1/responses", model, identity, summary, service.ImageVisibilityPrivate, charge)
@@ -250,6 +296,10 @@ func (a *App) handleMessages(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	model := firstNonEmpty(util.Clean(body["model"]), "auto")
+	if util.IsGrokChatModel(model) || util.IsGrokImageModel(model) {
+		util.WriteError(w, http.StatusBadRequest, "Grok 模型不支持 Anthropic /v1/messages，请使用 /v1/chat/completions")
+		return
+	}
 	result, stream, err := a.engine.HandleMessages(r.Context(), body)
 	a.writeProtocol(w, r, result, stream, err, "anthropic", "/v1/messages", model, identity, "Messages", service.ImageVisibilityPrivate, nil)
 }

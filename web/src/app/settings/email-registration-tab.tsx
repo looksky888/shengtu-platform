@@ -13,6 +13,9 @@ import {
 } from "./settings-tab-lazy";
 import { SETTINGS_TAB_REFRESH_EVENT } from "./settings-tabs";
 
+const ANCHOR_WRAPPER_CLASS =
+  "min-w-0 scroll-mt-32 rounded-[14px] transition-shadow duration-300 data-[anchor-flash='1']:ring-2 data-[anchor-flash='1']:ring-foreground/35";
+
 export function EmailRegistrationTab({
   canManageSystem,
 }: {
@@ -22,7 +25,7 @@ export function EmailRegistrationTab({
   const [smtpEnabled, setSmtpEnabled] = useState<boolean | null>(null);
   const [riskEnabled, setRiskEnabled] = useState<boolean | null>(null);
   const [activeBlocksCount, setActiveBlocksCount] = useState<number | null>(
-    null
+    null,
   );
 
   useEffect(() => {
@@ -50,28 +53,54 @@ export function EmailRegistrationTab({
   }
 
   return (
-    <section className="grid items-start gap-5 md:grid-cols-2">
-      <div className="md:col-span-2">
+    <section className="space-y-5">
+      <div
+        id="settings-section-email-overview"
+        data-settings-section="settings-section-email-overview"
+        className={ANCHOR_WRAPPER_CLASS}
+      >
         <EmailRegistrationOverview
           smtpEnabled={smtpEnabled}
           riskEnabled={riskEnabled}
           activeBlocksCount={activeBlocksCount}
         />
       </div>
-      <div className="grid min-w-0 content-start gap-5">
-        <EmailSettingsCard
-          refreshSignal={refreshSignal}
-          onStatusChange={setSmtpEnabled}
-        />
-        <RegistrationRiskBlocksCard
-          refreshSignal={refreshSignal}
-          onCountChange={setActiveBlocksCount}
-        />
+
+      <div className="grid items-start gap-5 xl:grid-cols-2">
+        <div className="grid min-w-0 content-start gap-5">
+          <div
+            id="settings-section-email-smtp"
+            data-settings-section="settings-section-email-smtp"
+            className={ANCHOR_WRAPPER_CLASS}
+          >
+            <EmailSettingsCard
+              refreshSignal={refreshSignal}
+              onStatusChange={setSmtpEnabled}
+            />
+          </div>
+          <div
+            id="settings-section-email-blocks"
+            data-settings-section="settings-section-email-blocks"
+            className={ANCHOR_WRAPPER_CLASS}
+          >
+            <RegistrationRiskBlocksCard
+              refreshSignal={refreshSignal}
+              onCountChange={setActiveBlocksCount}
+            />
+          </div>
+        </div>
+
+        <div
+          id="settings-section-email-risk"
+          data-settings-section="settings-section-email-risk"
+          className={ANCHOR_WRAPPER_CLASS}
+        >
+          <RegistrationRiskSettingsCard
+            refreshSignal={refreshSignal}
+            onStatusChange={setRiskEnabled}
+          />
+        </div>
       </div>
-      <RegistrationRiskSettingsCard
-        refreshSignal={refreshSignal}
-        onStatusChange={setRiskEnabled}
-      />
     </section>
   );
 }

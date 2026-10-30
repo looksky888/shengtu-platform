@@ -231,7 +231,7 @@ func (s *ImageTaskService) FailedBillingCandidates() []CreationBillingCandidate 
 	s.mu.RLock()
 	out := make([]CreationBillingCandidate, 0)
 	for _, task := range s.tasks {
-		if task == nil || task.BillingReconciled || (task.Status != TaskStatusError && task.Status != TaskStatusCancelled) {
+		if task == nil || task.workerActive || task.BillingReconciled || (task.Status != TaskStatusError && task.Status != TaskStatusCancelled) {
 			continue
 		}
 		_, reason, refID := BillingRefForTask(task)

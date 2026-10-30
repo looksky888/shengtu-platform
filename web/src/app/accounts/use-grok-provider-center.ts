@@ -25,6 +25,12 @@ import {
 export type GrokProviderFilter = GrokProvider | "all";
 export type GrokProviderStatusFilter = GrokProviderStatus | "all";
 
+const MAX_CONSECUTIVE_POLL_FAILURES = 5;
+
+function isActiveTaskStatus(status?: string | null) {
+  return status === "queued" || status === "running";
+}
+
 function taskFailureMessage(task: GrokProviderConversionTask) {
   const failures = task.result.failures || [];
   if (failures.length) {
@@ -54,6 +60,8 @@ export function useGrokProviderCenter(enabled = true) {
   const [taskAutoOpen, setTaskAutoOpen] = useState(false);
   const handledTask = useRef("");
   const successMessages = useRef(new Map<string, string>());
+  const hasLoadedDataRef = useRef(false);
+  hasLoadedDataRef.current = Boolean(data);
 
   const load = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
@@ -68,6 +76,9 @@ export function useGrokProviderCenter(enabled = true) {
       if (!signal?.aborted) setLoading(false);
     }
   }, [keyword, page, pageSize, provider, status]);
+
+  const loadRef = useRef(load);
+  loadRef.current = load;
 
   useEffect(() => {
     if (!enabled) return;
@@ -88,47 +99,87 @@ export function useGrokProviderCenter(enabled = true) {
         }
       })
       .catch((reason) => {
-        if (!controller.signal.aborted && data) {
+        if (!controller.signal.aborted && hasLoadedDataRef.current) {
           setActionError(reason instanceof Error ? reason.message : "恢复账号任务失败");
         }
       });
     return () => controller.abort();
-  }, [data, enabled]);
+  }, [enabled]);
 
   useEffect(() => {
     if (!task) return;
-    const running = task.status === "queued" || task.status === "running";
-    setBusy(running);
-    if (!running) {
-      if (handledTask.current === task.id) return;
-      handledTask.current = task.id;
-      if (task.status === "succeeded") {
-        const failed = Number(task.result.failed || 0);
-        const message = successMessages.current.get(task.id) || "账号任务已完成";
-        if (failed > 0) toast.warning(`${message}，${failed} 项需检查`);
-        else toast.success(message);
-        setSelected([]);
-        void load();
-      } else {
-        const message = taskFailureMessage(task);
-        setActionError(message);
-        toast.error(message);
-      }
-      successMessages.current.delete(task.id);
+    if (isActiveTaskStatus(task.status)) {
+      setBusy(true);
       return;
     }
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => {
-      getGrokProviderConversionTask(task.id, controller.signal)
-        .then(({ task: next }) => setTask(next))
-        .catch((reason) => {
-          if (!controller.signal.aborted) {
-            setActionError(reason instanceof Error ? reason.message : "刷新账号任务失败");
-          }
-        });
-    }, 900);
-    return () => { controller.abort(); window.clearTimeout(timer); };
-  }, [load, task]);
+    setBusy(false);
+    if (handledTask.current === task.id) return;
+    handledTask.current = task.id;
+    if (task.status === "succeeded") {
+      const failed = Number(task.result.failed || 0);
+      const message = successMessages.current.get(task.id) || "账号任务已完成";
+      if (failed > 0) toast.warning(`${message}，${failed} 项需检查`);
+      else toast.success(message);
+      setSelected([]);
+      void loadRef.current();
+    } else {
+      const message = taskFailureMessage(task);
+      setActionError(message);
+      toast.error(message);
+    }
+    successMessages.current.delete(task.id);
+  }, [task]);
+
+  const taskId = task?.id || "";
+  const taskActive = isActiveTaskStatus(task?.status);
+
+  useEffect(() => {
+    if (!taskId || !taskActive) return;
+    let disposed = false;
+    let timer: number | undefined;
+    let activeController: AbortController | null = null;
+    let consecutiveFailures = 0;
+
+    const scheduleNext = (delayMs: number) => {
+      if (disposed) return;
+      timer = window.setTimeout(() => void pollOnce(), delayMs);
+    };
+
+    const pollOnce = async () => {
+      if (disposed) return;
+      const controller = new AbortController();
+      activeController = controller;
+      try {
+        const { task: next } = await getGrokProviderConversionTask(taskId, controller.signal);
+        if (disposed || controller.signal.aborted) return;
+        consecutiveFailures = 0;
+        setActionError("");
+        setTask(next);
+        if (isActiveTaskStatus(next.status)) {
+          scheduleNext(900);
+        }
+      } catch (reason) {
+        if (disposed || controller.signal.aborted) return;
+        consecutiveFailures += 1;
+        if (consecutiveFailures < MAX_CONSECUTIVE_POLL_FAILURES) {
+          const backoffMs = 900 * Math.min(8, 2 ** (consecutiveFailures - 1));
+          scheduleNext(backoffMs);
+          return;
+        }
+        const message = reason instanceof Error ? reason.message : "刷新账号任务失败";
+        setActionError(message);
+        toast.error(message);
+        setBusy(false);
+      }
+    };
+
+    scheduleNext(900);
+    return () => {
+      disposed = true;
+      activeController?.abort();
+      if (timer !== undefined) window.clearTimeout(timer);
+    };
+  }, [taskActive, taskId]);
 
   const selectedAccounts = useMemo(
     () => (data?.items || []).filter((item) => selected.includes(item.id)),

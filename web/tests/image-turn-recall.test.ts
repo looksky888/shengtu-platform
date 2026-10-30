@@ -36,3 +36,27 @@ test("history edit recalls prompt and generation settings into the composer", ()
   assert.equal(recalled.visibility, "public");
   assert.deepEqual(recalled.referenceImages, turn.referenceImages);
 });
+
+test("history edit recalls up to 15 images and clamps higher counts to 15", () => {
+  const baseTurn: ImageTurn = {
+    id: "turn-15",
+    prompt: "生成 15 张角色三视图",
+    model: "gpt-image-2.5",
+    mode: "generate",
+    referenceImages: [],
+    count: 15,
+    size: "1024x1024",
+    quality: "high",
+    outputFormat: "png",
+    visibility: "private",
+    images: [],
+    createdAt: "2026-10-30T12:00:00+08:00",
+    status: "success",
+  };
+
+  assert.equal(buildComposerRecallState(baseTurn, "gpt-image-2.5", "gpt-5-5-thinking").count, "15");
+  assert.equal(
+    buildComposerRecallState({ ...baseTurn, count: 24 }, "gpt-image-2.5", "gpt-5-5-thinking").count,
+    "15",
+  );
+});

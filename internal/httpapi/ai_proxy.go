@@ -145,9 +145,7 @@ func (a *App) chatImageViaGrokNative(ctx context.Context, body map[string]any) (
 	if !util.ToBool(body["stream"]) {
 		return completion, nil, nil
 	}
-	// Reuse proxy stream shaping via temporary channel call path: non-stream for native first release.
-	_ = created
-	return completion, nil, nil
+	return emitCompletionAsStream(ctx, model, content, created, completion)
 }
 
 func (a *App) chatImageViaProxy(ctx context.Context, body map[string]any, channel string) (map[string]any, *protocol.StreamResult, error) {
@@ -175,13 +173,16 @@ func (a *App) chatImageViaProxy(ctx context.Context, body map[string]any, channe
 	if !util.ToBool(body["stream"]) {
 		return completion, nil, nil
 	}
-	// Proxy backends are request/response; emit a short OpenAI-compatible chat stream.
+	return emitCompletionAsStream(ctx, model, content, created, completion)
+}
+
+func emitCompletionAsStream(ctx context.Context, model, content string, created int64, completion map[string]any) (map[string]any, *protocol.StreamResult, error) {
 	items := make(chan map[string]any, 2)
 	errCh := make(chan error, 1)
 	go func() {
 		defer close(items)
 		defer close(errCh)
-		id := "chatcmpl-" + util.NewHex(32)
+		id := firstNonEmpty(util.Clean(completion["id"]), "chatcmpl-"+util.NewHex(32))
 		if created == 0 {
 			created = int64(util.ToInt(completion["created"], 0))
 		}

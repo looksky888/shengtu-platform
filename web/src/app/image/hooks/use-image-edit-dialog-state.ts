@@ -55,13 +55,14 @@ export function useImageEditDialogState({
             : isImageCreationModel(targetTurn.model)
               ? targetTurn.model
               : defaultImageModel,
+        modelLabel: targetTurn.mode === "chat" ? undefined : targetTurn.modelLabel,
         channelModelId: targetTurn.mode === "chat" ? undefined : targetTurn.channelModelId,
         channelName: targetTurn.mode === "chat" ? undefined : targetTurn.channelName,
         mode: targetTurn.mode,
         count: targetTurn.mode === "chat" ? "1" : String(normalizeRequestedImageCount(targetTurn.count || targetTurn.images.length || 1)),
         sizeMode: targetTurn.mode === "chat" ? "auto" : sizeSelection.mode,
         aspectRatio: targetTurn.mode === "chat" ? "" : sizeSelection.aspectRatio,
-        resolution: targetTurn.mode === "chat" ? "auto" : sizeSelection.mode === "ratio" ? "auto" : sizeSelection.resolution,
+        resolution: targetTurn.mode === "chat" ? "auto" : sizeSelection.resolution,
         customRatio: targetTurn.mode === "chat" ? DEFAULT_IMAGE_CUSTOM_RATIO : sizeSelection.customRatio,
         customWidth: targetTurn.mode === "chat" ? DEFAULT_IMAGE_CUSTOM_WIDTH : sizeSelection.customWidth,
         customHeight: targetTurn.mode === "chat" ? DEFAULT_IMAGE_CUSTOM_HEIGHT : sizeSelection.customHeight,

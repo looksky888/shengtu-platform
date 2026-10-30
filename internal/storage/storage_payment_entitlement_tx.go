@@ -40,12 +40,14 @@ func (b *DatabaseBackend) CompletePaymentStorage(input PaymentStorageCompletion)
 		return PaymentOrderRecord{}, false, errors.New("payment storage snapshot mismatch")
 	}
 	baseExpiry := input.CreditedAt
+	creditedBound := normalizeUTCSortableISO(input.CreditedAt)
+	expiresExpr := b.utcSortableExpr("expires_at")
 	var currentExpiry sql.NullString
-	query := `SELECT MAX(expires_at) FROM user_storage_entitlements WHERE user_id = ` + b.placeholder(1) + ` AND expires_at > ` + b.placeholder(2)
-	if err := tx.QueryRow(query, order.UserID, input.CreditedAt).Scan(&currentExpiry); err != nil {
+	query := `SELECT expires_at FROM user_storage_entitlements WHERE user_id = ` + b.placeholder(1) + ` AND ` + expiresExpr + ` > ` + b.placeholder(2) + ` ORDER BY ` + expiresExpr + ` DESC LIMIT 1`
+	if err := tx.QueryRow(query, order.UserID, creditedBound).Scan(&currentExpiry); err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return PaymentOrderRecord{}, false, err
 	}
-	if currentExpiry.Valid && currentExpiry.String > baseExpiry {
+	if currentExpiry.Valid && compareTimestampStrings(currentExpiry.String, baseExpiry) > 0 {
 		baseExpiry = currentExpiry.String
 	}
 	base, err := time.Parse(time.RFC3339Nano, baseExpiry)
@@ -53,7 +55,7 @@ func (b *DatabaseBackend) CompletePaymentStorage(input PaymentStorageCompletion)
 		return PaymentOrderRecord{}, false, errors.New("storage entitlement base expiry invalid")
 	}
 	expiresAt := base.AddDate(0, 0, order.StorageDaysSnapshot).UTC().Format(time.RFC3339Nano)
-	if _, err := tx.Exec(`UPDATE user_storage_entitlements SET expires_at = `+b.placeholder(1)+`, updated_at = `+b.placeholder(2)+` WHERE user_id = `+b.placeholder(3)+` AND expires_at > `+b.placeholder(4), expiresAt, input.CreditedAt, order.UserID, input.CreditedAt); err != nil {
+	if _, err := tx.Exec(`UPDATE user_storage_entitlements SET expires_at = `+b.placeholder(1)+`, updated_at = `+b.placeholder(2)+` WHERE user_id = `+b.placeholder(3)+` AND `+expiresExpr+` > `+b.placeholder(4), expiresAt, input.CreditedAt, order.UserID, creditedBound); err != nil {
 		return PaymentOrderRecord{}, false, err
 	}
 	input.Entitlement.ExpiresAt = expiresAt
@@ -82,7 +84,7 @@ func (b *DatabaseBackend) LoadActiveStorageEntitlement(userID, now string) (Paym
 	}
 	item := PaymentStorageEntitlementSummary{UserID: userID}
 	var expiresAt sql.NullString
-	err := b.db.QueryRow(`SELECT COALESCE(SUM(storage_bytes), 0), MAX(expires_at), COALESCE((SELECT SUM(size_bytes) FROM media_assets WHERE owner_id = `+b.placeholder(1)+` AND media_type = 'image' AND status IN ('ready', 'pending') AND deleted_at = ''), 0) FROM user_storage_entitlements WHERE user_id = `+b.placeholder(2)+` AND expires_at > `+b.placeholder(3), userID, userID, now).Scan(&item.StorageBytes, &expiresAt, &item.UsedBytes)
+	err := b.db.QueryRow(`SELECT COALESCE(SUM(storage_bytes), 0), MAX(expires_at), COALESCE((SELECT SUM(size_bytes) FROM media_assets WHERE owner_id = `+b.placeholder(1)+` AND media_type = 'image' AND status IN ('ready', 'pending') AND deleted_at = ''), 0) FROM user_storage_entitlements WHERE user_id = `+b.placeholder(2)+` AND `+b.utcSortableExpr("expires_at")+` > `+b.placeholder(3), userID, userID, normalizeUTCSortableISO(now)).Scan(&item.StorageBytes, &expiresAt, &item.UsedBytes)
 	if err != nil {
 		return PaymentStorageEntitlementSummary{}, err
 	}
@@ -97,7 +99,7 @@ func (b *DatabaseBackend) ListActiveStorageEntitlements(now string) (map[string]
 	if now == "" {
 		return nil, errors.New("storage entitlement time is required")
 	}
-	rows, err := b.db.Query(`SELECT e.user_id, SUM(e.storage_bytes), MAX(e.expires_at), COALESCE((SELECT SUM(m.size_bytes) FROM media_assets m WHERE m.owner_id = e.user_id AND m.media_type = 'image' AND m.status IN ('ready', 'pending') AND m.deleted_at = ''), 0) FROM user_storage_entitlements e WHERE e.expires_at > `+b.placeholder(1)+` GROUP BY e.user_id`, now)
+	rows, err := b.db.Query(`SELECT e.user_id, SUM(e.storage_bytes), MAX(e.expires_at), COALESCE((SELECT SUM(m.size_bytes) FROM media_assets m WHERE m.owner_id = e.user_id AND m.media_type = 'image' AND m.status IN ('ready', 'pending') AND m.deleted_at = ''), 0) FROM user_storage_entitlements e WHERE `+b.utcSortableExpr("e.expires_at")+` > `+b.placeholder(1)+` GROUP BY e.user_id`, normalizeUTCSortableISO(now))
 	if err != nil {
 		return nil, err
 	}

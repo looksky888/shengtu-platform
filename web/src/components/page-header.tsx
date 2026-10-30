@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 type PageHeaderProps = {
-  eyebrow?: string;
+  eyebrow?: ReactNode;
   title: string;
   badge?: ReactNode;
   description?: string;
@@ -23,7 +23,7 @@ export function PageHeader({
     <section
       className={cn(
         "flex flex-col gap-3 border-b border-border/75 pb-4 lg:flex-row lg:items-center lg:justify-between lg:gap-4",
-        className
+        className,
       )}
     >
       <div className="flex max-w-3xl flex-col gap-1">

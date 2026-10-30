@@ -14,24 +14,29 @@ import {
   markTurnError,
   markTurnTasksGenerating,
 } from "@/app/image/lib/image-queue-utils";
-
-/** Max automatic resubmits per taskId when backend reports missing_ids (prevents infinite credit drain). */
-const MAX_MISSING_RESUBMITS_PER_TASK = 1;
 import {
+  isRetryableSubmitCapacityError,
   sleep,
-  submitCreationTaskGroupsSequentially,
 } from "@/app/image/lib/image-task-utils";
 import {
   formatCreationTaskError,
   usesReferenceImages,
 } from "@/app/image/lib/image-turn-utils";
 import {
+  cancelCreationTask,
   fetchCreationTasks,
   type CreationTask,
 } from "@/lib/api";
 import { AUTH_SESSION_CHANGE_EVENT } from "@/lib/auth-session-events";
 import type { ImageConversation } from "@/store/image-conversations";
 import { imageTurnProgressKey } from "@/store/image-turn-progress";
+
+/** Max automatic resubmits per taskId when backend reports missing_ids (prevents infinite credit drain). */
+const MAX_MISSING_RESUBMITS_PER_TASK = 1;
+/** Max 2-second idle waits when zero tasks of this turn are in-flight and backend returns 429 RPM/concurrency. */
+const MAX_IDLE_CAPACITY_WAITS = 30;
+/** Short pacing interval between rapid multi-image submissions (1–15 images). */
+const SUBMIT_PACING_MS = 150;
 
 type UpdateConversation = (
   conversationId: string,
@@ -117,20 +122,13 @@ export function useImageQueueRunner({
                 ? "正在读取参考图并准备上传"
                 : "正在创建图片生成请求",
         });
+
         const pendingTaskGroups = buildPendingTaskGroups(activeTurn);
         const submitTaskGroup = buildImageQueueTaskSubmitter(snapshot, activeTurn, assertCurrentSession);
-        updateTurnProgress(conversationId, activeTurn.id, {
-          message: activeTurn.mode === "chat" ? "正在提交对话请求" : "正在提交生成任务",
-          detail: activeTurn.mode === "chat" ? "对话请求正在处理" : `${pendingTaskGroups.length} 张图片生成请求已提交`,
-        });
-        const submitted = await submitCreationTaskGroupsSequentially(pendingTaskGroups, submitTaskGroup);
-        assertCurrentSession();
-        await applyTasks(submitted);
-        updateTurnProgress(conversationId, activeTurn.id, {
-          message: activeTurn.mode === "chat" ? "等待对话回复" : "等待生成结果",
-          detail: "任务已经提交，正在查询生成状态",
-        });
-
+        const unsubmittedGroups = [...pendingTaskGroups];
+        const totalPlannedCount = pendingTaskGroups.length;
+        let submittedCount = 0;
+        let consecutiveIdleCapacityWaits = 0;
         const missingResubmitCount = new Map<string, number>();
 
         while (true) {
@@ -144,15 +142,127 @@ export function useImageQueueRunner({
           if (!latestTurn || latestTurn.status === "cancelled" || latestTurn.status === "error") {
             break;
           }
-          const loadingTaskIds = getLoadingTaskIds(latestTurn);
-          if (loadingTaskIds.length === 0) {
+
+          // Sliding-window submission: submit as many pending image tasks as user/channel concurrency allows.
+          let hitCapacityLimit = false;
+          if (unsubmittedGroups.length > 0) {
+            const newlySubmitted: CreationTask[] = [];
+            while (unsubmittedGroups.length > 0) {
+              assertCurrentSession();
+              if (cancelledTurnIdsRef.current.has(activeTurnKey)) {
+                break;
+              }
+              const nextGroup = unsubmittedGroups[0];
+              updateTurnProgress(conversationId, activeTurn.id, {
+                message: activeTurn.mode === "chat" ? "正在提交对话请求" : "正在提交生成任务",
+                detail:
+                  activeTurn.mode === "chat"
+                    ? "对话请求正在处理"
+                    : totalPlannedCount > 1
+                      ? `正在提交第 ${Math.min(totalPlannedCount, submittedCount + 1)} / ${totalPlannedCount} 张图片请求`
+                      : "1 张图片生成请求已提交",
+              });
+              try {
+                const task = await submitTaskGroup(nextGroup);
+                const latestConvAfterSubmit = conversationsRef.current.find(
+                  (conversation) => conversation.id === conversationId,
+                );
+                const latestTurnAfterSubmit = latestConvAfterSubmit?.turns.find(
+                  (turn) => turn.id === activeTurn.id,
+                );
+                if (
+                  cancelledTurnIdsRef.current.has(activeTurnKey) ||
+                  !latestTurnAfterSubmit ||
+                  latestTurnAfterSubmit.status === "cancelled"
+                ) {
+                  const orphanIds = new Set<string>([
+                    task.id || nextGroup.taskId,
+                    ...newlySubmitted.map((item) => item.id).filter(Boolean),
+                  ]);
+                  orphanIds.forEach((orphanId) => {
+                    if (orphanId) {
+                      void cancelCreationTask(orphanId).catch(() => undefined);
+                    }
+                  });
+                  newlySubmitted.length = 0;
+                  break;
+                }
+                unsubmittedGroups.shift();
+                submittedCount += 1;
+                consecutiveIdleCapacityWaits = 0;
+                newlySubmitted.push(task);
+                if (unsubmittedGroups.length > 0 && !cancelledTurnIdsRef.current.has(activeTurnKey)) {
+                  await sleep(SUBMIT_PACING_MS);
+                }
+              } catch (submitError) {
+                if (submitError instanceof ImageQueueSessionChangedError) {
+                  throw submitError;
+                }
+                if (isRetryableSubmitCapacityError(submitError)) {
+                  hitCapacityLimit = true;
+                  break;
+                }
+                if (newlySubmitted.length > 0) {
+                  assertCurrentSession();
+                  await applyTasks(newlySubmitted);
+                  newlySubmitted.length = 0;
+                }
+                if (submittedCount === 0) {
+                  throw submitError;
+                }
+                const partialMessage = formatCreationTaskError(
+                  submitError,
+                  activeTurn.mode === "chat" ? "对话请求失败" : "部分图片提交失败",
+                );
+                const remainingIds = unsubmittedGroups.map((item) => item.taskId);
+                unsubmittedGroups.length = 0;
+                await updateConversation(conversationId, (current) => {
+                  const conversation = current ?? snapshot;
+                  return markMissingTasksExhausted(conversation, activeTurn.id, remainingIds, partialMessage);
+                });
+                toast.error(`${partialMessage}（已提交的 ${submittedCount} 张继续生成）`);
+                break;
+              }
+            }
+            if (newlySubmitted.length > 0) {
+              assertCurrentSession();
+              await applyTasks(newlySubmitted);
+            }
+          }
+
+          if (cancelledTurnIdsRef.current.has(activeTurnKey)) {
             break;
+          }
+
+          const unsubmittedIds = new Set(unsubmittedGroups.map((item) => item.taskId));
+          const postSubmitConv = conversationsRef.current.find((conversation) => conversation.id === conversationId);
+          const postSubmitTurn = postSubmitConv?.turns.find((turn) => turn.id === activeTurn.id);
+          if (!postSubmitTurn || postSubmitTurn.status === "cancelled" || postSubmitTurn.status === "error") {
+            break;
+          }
+
+          const inFlightIds = getLoadingTaskIds(postSubmitTurn).filter((id) => !unsubmittedIds.has(id));
+          if (inFlightIds.length === 0 && unsubmittedGroups.length === 0) {
+            break;
+          }
+
+          if (hitCapacityLimit && inFlightIds.length === 0) {
+            consecutiveIdleCapacityWaits += 1;
+            if (consecutiveIdleCapacityWaits > MAX_IDLE_CAPACITY_WAITS) {
+              throw new Error("当前并发或速率已达上限，请稍后重试");
+            }
           }
 
           updateTurnProgress(conversationId, activeTurn.id, {
             message: activeTurn.mode === "chat" ? "等待对话回复" : "等待生成结果",
-            detail: activeTurn.mode === "chat" ? "对话请求处理中" : `还有 ${loadingTaskIds.length} 张图片生成中`,
+            detail:
+              activeTurn.mode === "chat"
+                ? "对话请求处理中"
+                : unsubmittedGroups.length > 0
+                  ? `已提交 ${submittedCount}/${totalPlannedCount} 张，${inFlightIds.length} 张生成中（其余排队补位）`
+                  : `还有 ${inFlightIds.length} 张图片生成中`,
           });
+
           await sleep(2000);
           assertCurrentSession();
 
@@ -165,9 +275,12 @@ export function useImageQueueRunner({
           if (!afterSleepTurn || afterSleepTurn.status === "cancelled" || afterSleepTurn.status === "error") {
             break;
           }
-          const pollIds = getLoadingTaskIds(afterSleepTurn);
+          const pollIds = getLoadingTaskIds(afterSleepTurn).filter((id) => !unsubmittedIds.has(id));
           if (pollIds.length === 0) {
-            break;
+            if (unsubmittedGroups.length === 0) {
+              break;
+            }
+            continue;
           }
 
           const taskList = await fetchCreationTasks(pollIds);
@@ -203,10 +316,10 @@ export function useImageQueueRunner({
                 detail: `${canResubmit.length} 个任务状态丢失，正在重新提交（每任务最多 ${MAX_MISSING_RESUBMITS_PER_TASK} 次）`,
               });
               const missingTaskGroups = buildMissingTaskGroups(turnForResubmit, canResubmit);
-              const resubmitted = await submitCreationTaskGroupsSequentially(missingTaskGroups, submitTaskGroup);
-              assertCurrentSession();
-              if (resubmitted.length > 0) {
-                await applyTasks(resubmitted);
+              for (const missingGroup of missingTaskGroups) {
+                if (!unsubmittedGroups.some((existing) => existing.taskId === missingGroup.taskId)) {
+                  unsubmittedGroups.push(missingGroup);
+                }
               }
             }
           }

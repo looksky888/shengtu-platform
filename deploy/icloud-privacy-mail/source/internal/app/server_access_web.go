@@ -23,10 +23,12 @@ func publicCreateSettings(settings CreateSettings) map[string]any {
 	settings = normalizeCreateSettings(settings.OwnerID, settings)
 	createChannel := normalizeMailboxCreateChannel(mailboxCreateChannel(settings.CreateChannel))
 	schedulerChannel := normalizeMailboxCreateChannel(mailboxCreateChannel(settings.SchedulerCreateChannel))
+	accountIDs := make([]string, 0, len(settings.AccountIDs))
+	accountIDs = append(accountIDs, settings.AccountIDs...)
 	return map[string]any{
 		"label":                            settings.Label,
 		"note":                             settings.Note,
-		"account_ids":                      append([]string(nil), settings.AccountIDs...),
+		"account_ids":                      accountIDs,
 		"create_channel":                   string(createChannel),
 		"create_channel_label":             mailboxCreateChannelLabel(createChannel),
 		"scheduler_create_channel":         string(schedulerChannel),

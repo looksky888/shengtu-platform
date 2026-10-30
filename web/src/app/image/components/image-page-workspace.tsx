@@ -3,6 +3,7 @@
 import { useState, type CSSProperties, type ReactNode, type RefObject } from "react";
 import { History, PanelLeftOpen, Plus, Trash2 } from "lucide-react";
 
+import { ImageConversationScrollRail } from "@/app/image/components/image-conversation-scroll-rail";
 import { ImageSidebar } from "@/app/image/components/image-sidebar";
 import { StudioStatsPopover } from "@/app/image/components/studio-stats-popover";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -48,6 +49,8 @@ export function ImagePageWorkspace({
   composer,
 }: ImagePageWorkspaceProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const selectedConversation = conversations.find((item) => item.id === selectedConversationId) ?? null;
+  const turnsCount = selectedConversation?.turns.length ?? 0;
 
   return (
     <section
@@ -113,16 +116,24 @@ export function ImagePageWorkspace({
           onClearHistory={onClearHistory}
         />
 
-        <div
-          ref={resultsViewportRef}
-          className="hide-scrollbar min-h-0 flex-1 overflow-y-auto px-1 pt-2 pb-[14rem] sm:px-4 sm:pt-3 sm:pb-[15rem]"
-          style={
-            composerDockHeight > 0
-              ? { paddingBottom: composerDockHeight + 24 }
-              : undefined
-          }
-        >
-          {results}
+        <div className="relative flex min-h-0 flex-1">
+          <div
+            ref={resultsViewportRef}
+            className="hide-scrollbar min-h-0 flex-1 overflow-y-auto pt-2 pr-7 pb-[14rem] pl-1 sm:pt-3 sm:pr-9 sm:pb-[15rem] sm:pl-4"
+            style={
+              composerDockHeight > 0
+                ? { paddingBottom: composerDockHeight + 24 }
+                : undefined
+            }
+          >
+            {results}
+          </div>
+
+          <ImageConversationScrollRail
+            viewportRef={resultsViewportRef}
+            turnsCount={turnsCount}
+            selectedConversationId={selectedConversationId}
+          />
         </div>
 
         <div

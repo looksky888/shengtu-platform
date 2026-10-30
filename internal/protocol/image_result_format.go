@@ -23,7 +23,7 @@ import (
 
 func (e *Engine) CollectImageOutputs(outputs <-chan ImageOutput, errCh <-chan error) (map[string]any, error) {
 	var created int64
-	var data []map[string]any
+	data := make([]map[string]any, 0)
 	message := ""
 	var progress []string
 	for output := range outputs {
@@ -69,7 +69,7 @@ func (e *Engine) FormatImageResult(items []map[string]any, prompt, responseForma
 
 func (e *Engine) FormatImageResultWithOptions(items []map[string]any, prompt, responseFormat, baseURL, ownerID, ownerName string, created int64, message string, options ImageOutputOptions) (map[string]any, error) {
 	defaultFormat := NormalizeImageOutputFormat(options.Format)
-	var data []map[string]any
+	data := make([]map[string]any, 0)
 	for _, item := range items {
 		b64 := util.Clean(item["b64_json"])
 		if b64 == "" {

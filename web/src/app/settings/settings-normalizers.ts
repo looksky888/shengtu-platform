@@ -1,9 +1,13 @@
-import type { CPARemoteFile, RegisterConfig, SettingsConfig } from "@/lib/api";
+import type { CPARemoteFile, SettingsConfig } from "@/lib/api";
 import { isGPTImageModel } from "@/lib/api-models";
 import {
   normalizeLoginPageImageMode,
   normalizeLoginPageImageTransform,
 } from "@/lib/login-page-image-layout";
+export {
+  normalizeRegisterClearanceConfig,
+  normalizeRegisterConfig,
+} from "./settings-register-sync";
 
 export function normalizeImageAccountSchedule(value: unknown): "least_loaded" | "least_fail" | "quota_aware" {
   const raw = String(value || "").trim().toLowerCase();
@@ -22,51 +26,6 @@ export function normalizeImageDefaultModel(value: unknown): string {
     "auto",
   ]);
   return allowed.has(raw) ? raw : "gpt-image-2.5-flare";
-}
-
-export function normalizeRegisterClearanceConfig(value: unknown) {
-  const raw = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
-  return {
-    enabled: Boolean(raw.enabled),
-    mode: String(raw.mode || "flaresolverr"),
-    flaresolverr_url: String(raw.flaresolverr_url || ""),
-    timeout_seconds: Math.max(1, Number(raw.timeout_seconds) || 60),
-    refresh_interval_seconds: Math.max(0, Number(raw.refresh_interval_seconds) || 3600),
-    proxy: String(raw.proxy || ""),
-    user_agent: String(raw.user_agent || ""),
-    cf_clearance: String(raw.cf_clearance || ""),
-    cf_cookies: String(raw.cf_cookies || ""),
-  };
-}
-
-export function normalizeRegisterConfig(config: RegisterConfig): RegisterConfig {
-  const source = config;
-  const rawTarget = String(source?.target || "openai").trim().toLowerCase();
-  const target = rawTarget === "grok" ? "grok" : "openai";
-  const grok =
-    source?.grok && typeof source.grok === "object" && !Array.isArray(source.grok)
-      ? { ...(source.grok as Record<string, unknown>) }
-      : {};
-  return {
-    ...source,
-    target,
-    backend: typeof source.backend === "string" ? source.backend : source.backend,
-    proxy: typeof source.proxy === "string" ? source.proxy : "",
-    total: Number(source.total || 1),
-    threads: Number(source.threads || 1),
-    mode: source.mode || "total",
-    target_quota: Number(source.target_quota || 1),
-    target_available: Number(source.target_available || 1),
-    check_interval: Number(source.check_interval || 5),
-    mail: {
-      request_timeout: Number(source.mail?.request_timeout || 15),
-      wait_timeout: Number(source.mail?.wait_timeout || 30),
-      wait_interval: Number(source.mail?.wait_interval || 3),
-      providers: Array.isArray(source.mail?.providers) ? source.mail.providers : [],
-    },
-    clearance: normalizeRegisterClearanceConfig(source.clearance) as RegisterConfig["clearance"],
-    grok,
-  };
 }
 
 export function normalizeConfig(config: SettingsConfig): SettingsConfig {

@@ -32,13 +32,51 @@ func (s *ImageTaskService) transitionTaskStage(key, stage string) {
 	task.transitionStage(time.Now(), stage)
 }
 
+func cloneTaskMapSlice(src []map[string]any) []map[string]any {
+	if len(src) == 0 {
+		return []map[string]any{}
+	}
+	out := make([]map[string]any, len(src))
+	copy(out, src)
+	return out
+}
+
+func (s *ImageTaskService) setTaskWorkerActive(key string, active bool) {
+	s.mu.Lock()
+	if task := s.tasks[key]; task != nil {
+		task.workerActive = active
+	}
+	s.mu.Unlock()
+}
+
 func (s *ImageTaskService) finishActiveTask(key string, updates map[string]any) {
 	now := util.NowLocal()
 	var observer func(*ImageTask)
 	var snapshot *ImageTask
 	s.mu.Lock()
 	task := s.tasks[key]
-	if task == nil || !isActiveTaskStatus(util.Clean(task.Status)) {
+	if task == nil {
+		s.mu.Unlock()
+		return
+	}
+	if !isActiveTaskStatus(util.Clean(task.Status)) {
+		// If the user cancelled mid-flight after k of n images were already
+		// generated and archived, preserve those k items on the cancelled task so
+		// billing reconciliation never misreads SuccessCount as 0.
+		if util.Clean(task.Status) == TaskStatusCancelled {
+			if rows := util.AsMapSlice(updates["data"]); len(rows) > 0 && len(task.Data) == 0 {
+				task.Data = cloneTaskMapSlice(rows)
+				if outputType := util.Clean(updates["output_type"]); outputType != "" {
+					task.OutputType = outputType
+				}
+				task.UpdatedAt = now
+				s.markTaskDirtyLocked(key)
+				if err := s.flushSaveLocked(); err != nil {
+					log.Printf("image task cancelled-partial persistence failed: %v", err)
+				}
+				s.notifySubscribersLocked()
+			}
+		}
 		s.mu.Unlock()
 		return
 	}
@@ -49,7 +87,7 @@ func (s *ImageTaskService) finishActiveTask(key string, updates map[string]any) 
 	task.durationSecondsSet = true
 	task.UpdatedAt = now
 	// terminal event
-	events := append([]map[string]any(nil), task.Events...)
+	events := cloneTaskMapSlice(task.Events)
 	events = append(events, map[string]any{
 		"time":    now,
 		"stage":   util.Clean(task.ProgressStage),
@@ -72,8 +110,8 @@ func (s *ImageTaskService) finishActiveTask(key string, updates map[string]any) 
 	observer = s.terminalObserver
 	if observer != nil {
 		copy := *task
-		copy.Data = append([]map[string]any(nil), task.Data...)
-		copy.Events = append([]map[string]any(nil), task.Events...)
+		copy.Data = cloneTaskMapSlice(task.Data)
+		copy.Events = cloneTaskMapSlice(task.Events)
 		snapshot = &copy
 	}
 	s.mu.Unlock()

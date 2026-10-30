@@ -306,18 +306,31 @@ func publicImageChannelModel(channel ImageChannel, model ImageChannelModel) Imag
 	return ImageChannelModelPublic{
 		ID: model.ID, ChannelID: channel.ID, ChannelName: channel.Name, ChannelAlias: channel.Alias,
 		ChannelType: channel.Type, DisplayName: model.DisplayName, UpstreamModel: model.UpstreamModel,
-		Capabilities: append([]string{}, model.Capabilities...), Resolutions: append([]string(nil), model.Resolutions...),
-		Formats: append([]string(nil), model.Formats...), CreditCost: model.CreditCost,
+		Capabilities: cloneNonNilStringSlice(model.Capabilities), Resolutions: cloneNonNilStringSlice(model.Resolutions),
+		Formats: cloneNonNilStringSlice(model.Formats), CreditCost: model.CreditCost,
 		CreditCosts: cloneImageChannelCreditCosts(model.CreditCosts), Sort: model.Sort, ChannelSort: channel.Sort,
 	}
 }
 
 func cloneImageChannelModel(model ImageChannelModel) ImageChannelModel {
-	model.Capabilities = append([]string(nil), model.Capabilities...)
-	model.Resolutions = append([]string(nil), model.Resolutions...)
-	model.Formats = append([]string(nil), model.Formats...)
+	model.Capabilities = cloneNonNilStringSlice(model.Capabilities)
+	model.Resolutions = cloneNonNilStringSlice(model.Resolutions)
+	model.Formats = cloneNonNilStringSlice(model.Formats)
 	model.CreditCosts = cloneImageChannelCreditCosts(model.CreditCosts)
 	return model
+}
+
+func cloneNonNilSlice[T any](values []T) []T {
+	if len(values) == 0 {
+		return []T{}
+	}
+	out := make([]T, len(values))
+	copy(out, values)
+	return out
+}
+
+func cloneNonNilStringSlice(values []string) []string {
+	return cloneNonNilSlice(values)
 }
 
 func cloneImageChannelCreditCosts(costs map[string]int) map[string]int {

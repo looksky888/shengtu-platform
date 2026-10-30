@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from runtime.main import _prepare_data_dirs
+from runtime.main import _ensure_provider_credential_key, _prepare_data_dirs
 
 AUTH_KEY = "unit-test-auth-key"
 
@@ -91,3 +91,33 @@ def test_prepare_data_dirs_keeps_operator_managed_config(monkeypatch, tmp_path: 
     _prepare_data_dirs()
 
     assert json.loads(cfg.read_text(encoding="utf-8")) == existing
+
+
+def test_ensure_provider_credential_key_persists_with_owner_only_mode_and_reloads(
+    monkeypatch, tmp_path: Path
+) -> None:
+    monkeypatch.delenv("GROK_PROVIDER_CREDENTIAL_KEY", raising=False)
+    data_dir = tmp_path / "data"
+    data_dir.mkdir(parents=True)
+
+    opened_modes: list[int] = []
+    real_open = os.open
+
+    def recording_open(path, flags, mode=0o777, *args, **kwargs):
+        opened_modes.append(mode)
+        return real_open(path, flags, mode, *args, **kwargs)
+
+    monkeypatch.setattr("runtime.main.os.open", recording_open)
+    _ensure_provider_credential_key(data_dir)
+
+    secret_file = data_dir / "provider_credential.secret"
+    assert secret_file.is_file()
+    assert opened_modes == [0o600]
+    first_key = os.environ["GROK_PROVIDER_CREDENTIAL_KEY"]
+    assert secret_file.read_text(encoding="utf-8").strip() == first_key
+
+    monkeypatch.delenv("GROK_PROVIDER_CREDENTIAL_KEY", raising=False)
+    opened_modes.clear()
+    _ensure_provider_credential_key(data_dir)
+    assert opened_modes == []
+    assert os.environ["GROK_PROVIDER_CREDENTIAL_KEY"] == first_key

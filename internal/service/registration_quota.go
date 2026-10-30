@@ -231,10 +231,10 @@ func normalizeRegistrationRiskInput(input RegistrationRiskInput) RegistrationRis
 
 func cloneRegistrationQuotaState(value registrationQuotaState) registrationQuotaState {
 	return registrationQuotaState{
-		Events:   append([]RegistrationQuotaEvent(nil), value.Events...),
-		Attempts: append([]RegistrationAttempt(nil), value.Attempts...),
-		Blocks:   append([]RegistrationRiskBlock(nil), value.Blocks...),
-		Unblocks: append([]RegistrationRiskUnblock(nil), value.Unblocks...),
+		Events:   cloneNonNilSlice(value.Events),
+		Attempts: cloneNonNilSlice(value.Attempts),
+		Blocks:   cloneNonNilSlice(value.Blocks),
+		Unblocks: cloneNonNilSlice(value.Unblocks),
 	}
 }
 

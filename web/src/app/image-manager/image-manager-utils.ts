@@ -7,7 +7,7 @@ import {
   type ImageResolutionFilter,
   type ImageVisibilityFilter,
 } from "@/app/image-manager/image-manager-types";
-import type { ImageVisibility, ManagedImage } from "@/lib/api";
+import type { ManagedImage } from "@/lib/api";
 import { imageVisibilityLabel } from "@/lib/image-card-utils";
 import { formatImageFileSize } from "@/lib/image-size";
 import { downloadImageBlob, downloadImageFiles, type ImageDownloadProgress } from "@/lib/image-download";

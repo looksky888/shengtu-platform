@@ -1,18 +1,25 @@
-import { CUSTOM_IMAGE_ASPECT_RATIO, parseImageRatio, type ImageAspectRatio, type ImageResolution, type ImageSizeMode } from "@/app/image/image-options";
+import { CUSTOM_IMAGE_ASPECT_RATIO, parseImageRatio, type ImageAspectRatio, type ImageSizeMode } from "@/app/image/image-options";
 import { supportsImageQuality, type ImageModel, type ImageOutputFormat, type ImageQuality } from "@/lib/api";
 import type { ImageConversationMode, ImageTurn, StoredReferenceImage } from "@/store/image-conversations";
 
-import { usesResponseImageTaskModel } from "./creation-task-route";
+import {
+  MAX_IMAGE_COUNT,
+  MIN_IMAGE_COUNT,
+  normalizeRequestedImageCount,
+  sanitizeImageCountInput,
+} from "./image-count-utils";
 import { estimatedCreditsPerImage, estimatedCreditsPerImageForModel } from "./image-credit-estimation";
 import { DEFAULT_IMAGE_CREDIT_COSTS, MISSING_RECOVERABLE_TASK_ID_ERROR, type ComposerMode, type ImageCreditCosts } from "./image-page-types";
 
 export { usesResponseImageTaskModel, resolveCreationTaskRoute } from "./creation-task-route";
+export {
+  MAX_IMAGE_COUNT,
+  MIN_IMAGE_COUNT,
+  normalizeRequestedImageCount,
+  sanitizeImageCountInput,
+};
 export { estimatedCreditsPerImage, estimatedCreditsPerImageForModel };
 export type { CreationTaskRouteKind } from "./creation-task-route";
-
-export function normalizeRequestedImageCount(value: string | number) {
-  return Math.max(1, Math.min(10, Number(value) || 1));
-}
 
 /**
  * Map studio size presets to Grok pixel sizes for credit preview.

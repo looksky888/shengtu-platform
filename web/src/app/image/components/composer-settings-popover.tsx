@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ChevronDown, RotateCcw, SlidersHorizontal, X } from "lucide-react";
+import { ChevronDown, Minus, Plus, RotateCcw, SlidersHorizontal, X } from "lucide-react";
 
 import type { ComposerSettingsPopoverProps } from "@/app/image/components/composer-settings-types";
 import {
@@ -18,13 +18,19 @@ import {
 } from "@/app/image/image-options";
 import { requiresPaidAccountImageSize } from "@/app/image/image-paid-size";
 import { DEFAULT_IMAGE_OUTPUT_FORMAT, DEFAULT_IMAGE_QUALITY } from "@/app/image/lib/image-page-types";
+import {
+  MAX_IMAGE_COUNT,
+  MIN_IMAGE_COUNT,
+  normalizeRequestedImageCount,
+  sanitizeImageCountInput,
+} from "@/app/image/lib/image-turn-utils";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { IMAGE_OUTPUT_FORMAT_OPTIONS, isGrokImageModel, type ImageOutputFormat, type ImageQuality } from "@/lib/api";
 import { normalizeStringArray } from "@/lib/model-catalog-normalizers";
 import { cn } from "@/lib/utils";
 
-const COUNT_PILL_OPTIONS = ["1", "2", "4"] as const;
+const COUNT_PILL_OPTIONS = ["1", "2", "4", "8", "15"] as const;
 
 const SIZE_MODE_PILLS: ReadonlyArray<{ value: ImageSizeMode; label: string }> = [
   { value: "auto", label: "自适应" },
@@ -32,10 +38,11 @@ const SIZE_MODE_PILLS: ReadonlyArray<{ value: ImageSizeMode; label: string }> = 
   { value: "custom", label: "自定义像素" },
 ];
 
-const STUDIO_RATIO_TILES: ReadonlyArray<{
+const STANDARD_ASPECT_RATIOS: ReadonlyArray<{
   value: ImageAspectRatio;
   label: string;
   frameClass: string;
+  grokUnsupported?: boolean;
 }> = [
   { value: "", label: "Auto", frameClass: "h-3 w-3.5 border-dashed" },
   { value: "1:1", label: "1:1", frameClass: "size-3" },
@@ -45,6 +52,8 @@ const STUDIO_RATIO_TILES: ReadonlyArray<{
   { value: "3:4", label: "3:4", frameClass: "h-3.5 w-2.5" },
   { value: "3:2", label: "3:2", frameClass: "h-2.5 w-[15px]" },
   { value: "2:3", label: "2:3", frameClass: "h-[15px] w-2.5" },
+  { value: "21:9", label: "21:9", frameClass: "h-2 w-[18px]", grokUnsupported: true },
+  { value: CUSTOM_IMAGE_ASPECT_RATIO, label: "自定义", frameClass: "h-3 w-3.5 border-dotted", grokUnsupported: true },
 ];
 
 const CUSTOM_PIXEL_PRESETS = [
@@ -112,6 +121,13 @@ export function ComposerSettingsPopover(props: ComposerSettingsPopoverProps) {
   );
 
   const grokMode = isGrokImageModel(imageModel);
+  const ratioTiles = useMemo(
+    () =>
+      grokMode
+        ? STANDARD_ASPECT_RATIOS.filter((tile) => !tile.grokUnsupported)
+        : STANDARD_ASPECT_RATIOS,
+    [grokMode],
+  );
   const configuredResolutions = normalizeStringArray(props.imageResolutions);
   const resolutionOptions = configuredResolutions.length
     ? IMAGE_RESOLUTION_OPTIONS.filter((option) =>
@@ -204,16 +220,10 @@ export function ComposerSettingsPopover(props: ComposerSettingsPopoverProps) {
     supportsQuality,
   ]);
 
-  const countOptions = useMemo(() => {
-    const trimmed = String(imageCount || "1").trim();
-    if ((COUNT_PILL_OPTIONS as readonly string[]).includes(trimmed)) {
-      return [...COUNT_PILL_OPTIONS];
-    }
-    return [...COUNT_PILL_OPTIONS, trimmed];
-  }, [imageCount]);
+  const normalizedCount = normalizeRequestedImageCount(imageCount);
 
   const isAtDefault =
-    imageCount === "1" &&
+    normalizedCount === 1 &&
     imageSizeMode === "auto" &&
     imageAspectRatio === "" &&
     imageResolution === defaultResolution &&
@@ -237,7 +247,11 @@ export function ComposerSettingsPopover(props: ComposerSettingsPopoverProps) {
     <Popover
       open={isOpen}
       onOpenChange={(next) => {
-        if (next) onCloseModelMenu();
+        if (next) {
+          onCloseModelMenu();
+        } else if (!String(imageCount).trim()) {
+          onImageCountChange(String(normalizedCount));
+        }
         onOpenChange(next);
       }}
     >
@@ -256,7 +270,7 @@ export function ComposerSettingsPopover(props: ComposerSettingsPopoverProps) {
           <span className="hidden sm:inline">参数</span>
           <span className="hidden text-muted-foreground/50 sm:inline">·</span>
           <span className="font-mono text-[11px] font-medium text-foreground/90 tabular-nums">
-            {triggerSizeLabel} · {imageCount}张
+            {triggerSizeLabel} · {normalizedCount}张
           </span>
         </button>
       </PopoverTrigger>
@@ -288,38 +302,86 @@ export function ComposerSettingsPopover(props: ComposerSettingsPopoverProps) {
             </button>
           </div>
 
-          {/* 2. 生成张数 (count) */}
+          {/* 2. 生成张数 (count: 1–15 自由输入 + 快捷档位) */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between text-[11px]">
               <span className="font-medium text-muted-foreground">生成张数</span>
-              <span className="font-mono text-[10px] text-subtle-foreground">单次并发批处理</span>
+              <span className="font-mono text-[10px] text-subtle-foreground">
+                可填 {MIN_IMAGE_COUNT}–{MAX_IMAGE_COUNT} 张 · 并发批处理
+              </span>
             </div>
-            <div
-              className="grid gap-1 rounded-xl bg-surface-muted/95 p-1"
-              style={{ gridTemplateColumns: `repeat(${countOptions.length}, minmax(0, 1fr))` }}
-              role="radiogroup"
-              aria-label="生成张数"
-            >
-              {countOptions.map((val) => {
-                const active = String(imageCount) === val;
-                return (
-                  <button
-                    key={val}
-                    type="button"
-                    role="radio"
-                    aria-checked={active}
-                    onClick={() => onImageCountChange(val)}
-                    className={cn(
-                      "h-7 rounded-lg font-mono text-xs tabular-nums transition-all",
-                      active
-                        ? "bg-surface font-semibold text-foreground shadow-xs ring-1 ring-black/[0.05] dark:bg-zinc-800 dark:ring-white/[0.1]"
-                        : "font-medium text-muted-foreground hover:text-foreground",
-                    )}
-                  >
-                    {val} 张
-                  </button>
-                );
-              })}
+            <div className="flex items-center gap-1.5">
+              <div
+                className="grid min-w-0 flex-1 grid-cols-5 gap-1 rounded-xl bg-surface-muted/95 p-1"
+                role="radiogroup"
+                aria-label="生成张数快捷选择"
+              >
+                {COUNT_PILL_OPTIONS.map((val) => {
+                  const active = String(normalizedCount) === val && String(imageCount).trim() !== "";
+                  return (
+                    <button
+                      key={val}
+                      type="button"
+                      role="radio"
+                      aria-checked={active}
+                      onClick={() => onImageCountChange(val)}
+                      className={cn(
+                        "h-7 rounded-lg font-mono text-xs tabular-nums transition-all",
+                        active
+                          ? "bg-surface font-semibold text-foreground shadow-xs ring-1 ring-black/[0.05] dark:bg-zinc-800 dark:ring-white/[0.1]"
+                          : "font-medium text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      {val}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="flex h-9 shrink-0 items-center rounded-xl border border-border/80 bg-surface px-1 shadow-2xs">
+                <button
+                  type="button"
+                  aria-label="减少生成张数"
+                  disabled={normalizedCount <= MIN_IMAGE_COUNT}
+                  onClick={() => onImageCountChange(String(Math.max(MIN_IMAGE_COUNT, normalizedCount - 1)))}
+                  className="inline-flex size-6.5 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground disabled:pointer-events-none disabled:opacity-35"
+                >
+                  <Minus className="size-3" />
+                </button>
+                <Input
+                  aria-label="自定义生成张数"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={imageCount}
+                  placeholder={String(normalizedCount)}
+                  onChange={(event) => onImageCountChange(sanitizeImageCountInput(event.target.value))}
+                  onBlur={() => onImageCountChange(String(normalizedCount))}
+                  onKeyDown={(event) => {
+                    if (event.key === "ArrowUp") {
+                      event.preventDefault();
+                      onImageCountChange(String(Math.min(MAX_IMAGE_COUNT, normalizedCount + 1)));
+                    } else if (event.key === "ArrowDown") {
+                      event.preventDefault();
+                      onImageCountChange(String(Math.max(MIN_IMAGE_COUNT, normalizedCount - 1)));
+                    } else if (event.key === "Enter") {
+                      event.preventDefault();
+                      onImageCountChange(String(normalizedCount));
+                    }
+                  }}
+                  className="h-7 w-7 border-0 bg-transparent px-0 text-center font-mono text-xs font-semibold text-foreground tabular-nums shadow-none focus-visible:ring-0"
+                />
+                <span className="pr-0.5 text-[10px] font-medium text-muted-foreground select-none">张</span>
+                <button
+                  type="button"
+                  aria-label="增加生成张数"
+                  disabled={normalizedCount >= MAX_IMAGE_COUNT}
+                  onClick={() => onImageCountChange(String(Math.min(MAX_IMAGE_COUNT, normalizedCount + 1)))}
+                  className="inline-flex size-6.5 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground disabled:pointer-events-none disabled:opacity-35"
+                >
+                  <Plus className="size-3" />
+                </button>
+              </div>
             </div>
           </div>
 
@@ -343,12 +405,15 @@ export function ComposerSettingsPopover(props: ComposerSettingsPopoverProps) {
             </div>
 
             <div className="grid grid-cols-4 gap-1.5" role="radiogroup" aria-label="画幅比例">
-              {STUDIO_RATIO_TILES.map((tile) => {
+              {ratioTiles.map((tile) => {
                 const isAutoTile = tile.value === "";
                 const active = isAutoTile
                   ? imageSizeMode === "auto" || (imageSizeMode === "ratio" && imageAspectRatio === "")
                   : imageSizeMode === "ratio" && imageAspectRatio === tile.value;
-                const disabled = !isAutoTile && requiresPaidForSelection(tile.value, imageResolution);
+                const disabled =
+                  !isAutoTile &&
+                  tile.value !== CUSTOM_IMAGE_ASPECT_RATIO &&
+                  requiresPaidForSelection(tile.value, imageResolution);
 
                 return (
                   <button

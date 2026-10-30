@@ -63,7 +63,7 @@ func (p PromptFavorite) toMap() map[string]any {
 		"source":               p.Source,
 		"title":                p.Title,
 		"preview":              p.Preview,
-		"reference_image_urls": append([]string(nil), p.ReferenceImageURLs...),
+		"reference_image_urls": cloneNonNilStringSlice(p.ReferenceImageURLs),
 		"prompt":               p.Prompt,
 		"author":               p.Author,
 		"mode":                 p.Mode,

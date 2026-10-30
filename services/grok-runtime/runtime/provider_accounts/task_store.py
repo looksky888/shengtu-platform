@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import sqlite3
 import threading
@@ -30,7 +31,7 @@ class SQLiteTaskStore:
                 return
             self._path.parent.mkdir(parents=True, exist_ok=True)
             try:
-                with sqlite3.connect(self._path, timeout=5) as conn:
+                with contextlib.closing(sqlite3.connect(self._path, timeout=5)) as conn, conn:
                     conn.execute("PRAGMA busy_timeout=5000")
                     conn.execute(
                         """CREATE TABLE IF NOT EXISTS provider_conversion_tasks (
@@ -64,7 +65,7 @@ class SQLiteTaskStore:
     def load(self) -> list[dict[str, Any]]:
         self.initialize()
         try:
-            with self._lock, sqlite3.connect(self._path, timeout=5) as conn:
+            with self._lock, contextlib.closing(sqlite3.connect(self._path, timeout=5)) as conn, conn:
                 conn.row_factory = sqlite3.Row
                 rows = conn.execute(
                     "SELECT * FROM provider_conversion_tasks ORDER BY updated_at, id"
@@ -77,7 +78,7 @@ class SQLiteTaskStore:
         self.initialize()
         progress = snapshot.get("progress") or {}
         try:
-            with self._lock, sqlite3.connect(self._path, timeout=5) as conn:
+            with self._lock, contextlib.closing(sqlite3.connect(self._path, timeout=5)) as conn, conn:
                 conn.execute("PRAGMA busy_timeout=5000")
                 conn.execute(
                     """INSERT INTO provider_conversion_tasks (
@@ -122,7 +123,7 @@ class SQLiteTaskStore:
             return
         self.initialize()
         try:
-            with self._lock, sqlite3.connect(self._path, timeout=5) as conn:
+            with self._lock, contextlib.closing(sqlite3.connect(self._path, timeout=5)) as conn, conn:
                 conn.executemany(
                     "DELETE FROM provider_conversion_tasks WHERE id=?",
                     [(task_id,) for task_id in ids],

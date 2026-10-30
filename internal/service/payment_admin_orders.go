@@ -72,15 +72,15 @@ func (s *PaymentAdminService) QueryOrders(query PaymentOrderAdminQuery) (Payment
 			return PaymentOrderAdminPage{}, errors.New("支付订单状态筛选无效")
 		}
 	}
-	startAt, err := normalizePaymentOrderFilterTime(query.StartAt)
+	startTime, startAt, err := parsePaymentOrderFilterTime(query.StartAt)
 	if err != nil {
 		return PaymentOrderAdminPage{}, errors.New("支付订单开始时间无效")
 	}
-	endAt, err := normalizePaymentOrderFilterTime(query.EndAt)
+	endTime, endAt, err := parsePaymentOrderFilterTime(query.EndAt)
 	if err != nil {
 		return PaymentOrderAdminPage{}, errors.New("支付订单结束时间无效")
 	}
-	if startAt != "" && endAt != "" && startAt > endAt {
+	if startAt != "" && endAt != "" && startTime.After(endTime) {
 		return PaymentOrderAdminPage{}, errors.New("支付订单开始时间不能晚于结束时间")
 	}
 	query.StartAt, query.EndAt = startAt, endAt
@@ -152,16 +152,19 @@ func normalizePaymentOrderAdminQuery(query PaymentOrderAdminQuery) PaymentOrderA
 	return query
 }
 
-func normalizePaymentOrderFilterTime(value string) (string, error) {
+func parsePaymentOrderFilterTime(value string) (time.Time, string, error) {
 	value = strings.TrimSpace(value)
 	if value == "" {
-		return "", nil
+		return time.Time{}, "", nil
 	}
-	parsed, err := time.Parse(time.RFC3339, value)
+	parsed, err := time.Parse(time.RFC3339Nano, value)
 	if err != nil {
-		return "", err
+		parsed, err = time.Parse(time.RFC3339, value)
+		if err != nil {
+			return time.Time{}, "", err
+		}
 	}
-	return parsed.UTC().Format(time.RFC3339Nano), nil
+	return parsed.UTC(), parsed.UTC().Format(time.RFC3339Nano), nil
 }
 
 func publicPaymentOrderAdmin(item storage.PaymentOrderRecord) PaymentOrderAdminPublic {

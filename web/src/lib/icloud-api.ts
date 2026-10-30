@@ -243,6 +243,7 @@ export const icloudApi = {
     label?: string;
     note?: string;
     create_channel?: string;
+    interval_seconds?: number;
     interval_minutes?: number;
   }) =>
     httpRequest<{ message?: string; scheduler?: ICloudScheduler }>(path("icloud/scheduler/start"), {

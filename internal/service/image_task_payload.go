@@ -26,12 +26,14 @@ func taskKey(owner, id string) string {
 	return owner + ":" + id
 }
 
+const MaxImageTaskCount = 15
+
 func normalizedImageTaskCount(n int) int {
 	if n < 1 {
 		return 1
 	}
-	if n > 4 {
-		return 4
+	if n > MaxImageTaskCount {
+		return MaxImageTaskCount
 	}
 	return n
 }

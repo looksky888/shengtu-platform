@@ -651,3 +651,45 @@ export function SettingsEmptyState({
     />
   );
 }
+
+
+/**
+ * Horizontal key-control row inspired by ddcat-ai/open-ai-canvas `SettingsRow`,
+ * pairing a left title/description with a right-aligned action or input slot.
+ */
+export function SettingsRow({
+  title,
+  description,
+  badge,
+  hint,
+  children,
+  className,
+}: {
+  title: ReactNode;
+  description?: ReactNode;
+  badge?: ReactNode;
+  hint?: string;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex flex-col justify-between gap-3 border-t border-border/55 py-3.5 first:border-t-0 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:gap-6",
+        className,
+      )}
+    >
+      <div className="min-w-0 flex-1 space-y-0.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm font-medium text-foreground">{title}</span>
+          {badge}
+          {hint ? <SettingsHelp content={hint} /> : null}
+        </div>
+        {description ? (
+          <p className="text-xs leading-5 text-muted-foreground">{description}</p>
+        ) : null}
+      </div>
+      <div className="flex shrink-0 items-center sm:justify-end">{children}</div>
+    </div>
+  );
+}

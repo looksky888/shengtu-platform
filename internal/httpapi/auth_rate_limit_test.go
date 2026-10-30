@@ -34,12 +34,39 @@ func TestAuthClientIPTrustsXFFWhenEnabled(t *testing.T) {
 
 func TestAuthClientIPPrefersCFConnectingIPWhenTrusted(t *testing.T) {
 	t.Setenv("CHATGPT2API_TRUST_PROXY_HEADERS", "true")
+	t.Setenv("CHATGPT2API_TRUST_CF_HEADER", "")
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req.RemoteAddr = "10.0.0.1:80"
 	req.Header.Set("CF-Connecting-IP", "198.51.100.20")
-	req.Header.Set("X-Forwarded-For", "198.51.100.7")
+	req.Header.Set("X-Forwarded-For", "203.0.113.99, 198.51.100.7, 10.0.0.1")
+	if got := authClientIP(req); got != "198.51.100.7" {
+		t.Fatalf("authClientIP without CF trust = %q, want right-most public XFF hop 198.51.100.7", got)
+	}
+
+	t.Setenv("CHATGPT2API_TRUST_CF_HEADER", "true")
 	if got := authClientIP(req); got != "198.51.100.20" {
-		t.Fatalf("authClientIP = %q, want CF-Connecting-IP", got)
+		t.Fatalf("authClientIP with CF trust = %q, want CF-Connecting-IP", got)
+	}
+}
+
+func TestLoginAccountRateLimitBlocksRotatingIPBruteForce(t *testing.T) {
+	resetAuthRateLimiterForTest()
+	defer resetAuthRateLimiterForTest()
+	for i := 0; i < loginAccountRateMaxHits; i++ {
+		req := httptest.NewRequest(http.MethodPost, "/auth/login", nil)
+		req.RemoteAddr = "198.51.100." + string(rune('1'+(i%9))) + ":" + string(rune('1'+(i/9))) + "000"
+		if !checkLoginAllowed(req, "Admin") {
+			t.Fatalf("attempt %d unexpectedly blocked before account limit", i+1)
+		}
+		recordLoginFailure(req, "Admin")
+	}
+	freshIPReq := httptest.NewRequest(http.MethodPost, "/auth/login", nil)
+	freshIPReq.RemoteAddr = "203.0.113.250:9999"
+	if checkLoginAllowed(freshIPReq, "admin") {
+		t.Fatal("expected rotating-IP brute force on same username to be blocked")
+	}
+	if !checkLoginAllowed(freshIPReq, "other-user") {
+		t.Fatal("expected unrelated username from fresh IP to remain allowed")
 	}
 }
 

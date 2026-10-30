@@ -11,6 +11,11 @@ import (
 	"time"
 )
 
+const (
+	imapCommandTimeout  = 30 * time.Second
+	maxIMAPLiteralBytes = 16 << 20
+)
+
 func WatchICloudIMAPExists(ctx context.Context, state LoginState, onExists func()) error {
 	state, err := normalizeICloudIMAPState(state)
 	if err != nil {
@@ -35,6 +40,7 @@ func WatchICloudIMAPExists(ctx context.Context, state LoginState, onExists func(
 	defer close(stopClose)
 
 	reader := bufio.NewReader(conn)
+	_ = conn.SetDeadline(time.Now().Add(imapCommandTimeout))
 	greeting, err := reader.ReadString('\n')
 	if err != nil {
 		return errCode("imap_greeting_failed", "读取 iCloud IMAP 欢迎信息失败："+err.Error(), true)
@@ -75,6 +81,7 @@ func WatchICloudIMAPExists(ctx context.Context, state LoginState, onExists func(
 }
 
 func imapWaitForExists(ctx context.Context, conn net.Conn, reader *bufio.Reader, tag string) error {
+	_ = conn.SetDeadline(time.Now().Add(imapCommandTimeout))
 	if _, err := fmt.Fprintf(conn, "%s IDLE\r\n", tag); err != nil {
 		return err
 	}
@@ -85,15 +92,18 @@ func imapWaitForExists(ctx context.Context, conn net.Conn, reader *bufio.Reader,
 	if !strings.HasPrefix(strings.TrimSpace(line), "+") {
 		return fmt.Errorf("IMAP IDLE 未进入等待状态：%s", strings.TrimSpace(line))
 	}
+	_ = conn.SetWriteDeadline(time.Time{})
 	for ctx.Err() == nil {
 		_ = conn.SetReadDeadline(time.Now().Add(imapIdleReadTimeout))
 		line, err = reader.ReadString('\n')
 		if err != nil {
+			_ = conn.SetDeadline(time.Now().Add(5 * time.Second))
 			_, _ = fmt.Fprint(conn, "DONE\r\n")
 			return err
 		}
 		line = strings.TrimRight(line, "\r\n")
 		if imapLineHasExistsEvent(line) {
+			_ = conn.SetDeadline(time.Now().Add(imapCommandTimeout))
 			_, _ = fmt.Fprint(conn, "DONE\r\n")
 			_, _ = imapReadUntilTag(reader, tag)
 			return nil
@@ -102,6 +112,7 @@ func imapWaitForExists(ctx context.Context, conn net.Conn, reader *bufio.Reader,
 			return nil
 		}
 	}
+	_ = conn.SetDeadline(time.Now().Add(5 * time.Second))
 	_, _ = fmt.Fprint(conn, "DONE\r\n")
 	_, _ = imapReadUntilTag(reader, tag)
 	return ctx.Err()
@@ -129,6 +140,7 @@ func imapCommand(conn net.Conn, reader *bufio.Reader, tag, command string) ([]st
 }
 
 func imapCommandWithLiterals(conn net.Conn, reader *bufio.Reader, tag, command string) ([]string, [][]byte, error) {
+	_ = conn.SetDeadline(time.Now().Add(imapCommandTimeout))
 	if _, err := fmt.Fprintf(conn, "%s %s\r\n", tag, command); err != nil {
 		return nil, nil, err
 	}
@@ -142,6 +154,9 @@ func imapCommandWithLiterals(conn net.Conn, reader *bufio.Reader, tag, command s
 		line = strings.TrimRight(line, "\r\n")
 		lines = append(lines, strings.TrimSpace(line))
 		if n, ok := imapLiteralSize(line); ok {
+			if n < 0 || n > maxIMAPLiteralBytes {
+				return lines, literals, fmt.Errorf("IMAP 字面量大小异常: %d", n)
+			}
 			body := make([]byte, n)
 			if _, err := io.ReadFull(reader, body); err != nil {
 				return lines, literals, err

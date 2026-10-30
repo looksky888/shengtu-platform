@@ -164,7 +164,10 @@ export function useAccountsManagement(session: StoredAuthSession, enabled = true
     const selectedSet = new Set(selectedIds);
     return accounts.filter((item) => selectedSet.has(item.id)).map((item) => item.id);
   }, [accounts, selectedIds]);
-  const abnormalAccountIds = useMemo(() => accounts.filter((item) => item.status === "异常").map((item) => item.id), [accounts]);
+  const abnormalAccountIds = useMemo(
+    () => (summaryAccounts.length > 0 ? summaryAccounts : accounts).filter((item) => item.status === "异常").map((item) => item.id),
+    [accounts, summaryAccounts],
+  );
   const paginationItems = useMemo(() => buildPaginationItems(pageCount, safePage), [pageCount, safePage]);
 
   const handleDeleteAccounts = async (accountIds: string[]) => {

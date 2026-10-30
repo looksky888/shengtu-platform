@@ -201,13 +201,17 @@ func (s *ImageChannelService) channelFromInput(current ImageChannel, input Image
 	}, nil
 }
 
+func isVideoUpstreamChannelModel(upstream string) bool {
+	return strings.Contains(strings.ToLower(strings.TrimSpace(upstream)), "video")
+}
+
 func normalizeImageChannelModelInput(input ImageChannelModelInput) (ImageChannelModel, error) {
 	upstream := strings.TrimSpace(input.UpstreamModel)
 	if upstream == "" {
 		return ImageChannelModel{}, errors.New("请填写上游模型 ID")
 	}
 	capabilities := uniqueAllowedValues(input.Capabilities, []string{ImageCapabilityGenerate, ImageCapabilityEdit})
-	if len(capabilities) == 0 {
+	if len(capabilities) == 0 && !isVideoUpstreamChannelModel(upstream) {
 		return ImageChannelModel{}, errors.New("至少选择一种图片能力")
 	}
 	if input.CreditCost < 1 || input.CreditCost > 1000000 {

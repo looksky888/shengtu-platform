@@ -8,7 +8,6 @@ export const DEFAULT_IMAGE_OUTPUT_FORMAT: ImageOutputFormat = "png";
 export const activeConversationQueueIds = new Set<string>();
 export const EMPTY_IMAGE_ASPECT_RATIO_SELECT_VALUE = "__empty_aspect_ratio__";
 export const MISSING_RECOVERABLE_TASK_ID_ERROR = "页面刷新或任务中断，未找到可恢复的任务 ID";
-export const GRAYSCALE_TEST_UNAVAILABLE_LABEL = "灰度测试未开放";
 
 export type ComposerMode = "chat" | "image";
 
@@ -17,6 +16,7 @@ export type EditingTurnDraft = {
   turnId: string;
   prompt: string;
   model: ImageModel;
+  modelLabel?: string;
   channelModelId?: string;
   channelName?: string;
   mode: ImageConversationMode;

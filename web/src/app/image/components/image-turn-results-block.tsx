@@ -105,7 +105,7 @@ export function ImageTurnResultsBlock({
   const allDownloadKey = `all:${conversationId}:${turn.id}`;
 
   return (
-    <div className="flex flex-col gap-3 sm:gap-4">
+    <div data-turn-order={turnIndex + 1} className="flex flex-col gap-3 sm:gap-4">
       <ImageTurnPromptCard
         conversationId={conversationId}
         turn={turn}

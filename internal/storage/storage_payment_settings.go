@@ -101,8 +101,8 @@ func (b *DatabaseBackend) loadPaymentStatsPeriod(start, end time.Time) (PaymentS
 			COALESCE(SUM(CASE WHEN status = 'succeeded' AND paid_at >= ` + b.placeholder(9) + ` AND paid_at < ` + b.placeholder(10) + ` THEN amount_fen ELSE 0 END), 0),
 			COALESCE(SUM(CASE WHEN status = 'succeeded' AND product_type_snapshot = 'credits' AND paid_at >= ` + b.placeholder(11) + ` AND paid_at < ` + b.placeholder(12) + ` THEN credits_snapshot ELSE 0 END), 0)
 			FROM payment_orders`
-		startValue := start.UTC().Format(time.RFC3339Nano)
-		endValue := end.UTC().Format(time.RFC3339Nano)
+		startValue := formatUTCZeroNanoBound(start)
+		endValue := formatUTCZeroNanoBound(end)
 		args = []any{startValue, endValue, startValue, endValue, startValue, endValue, startValue, endValue, startValue, endValue, startValue, endValue}
 	}
 	if err := b.db.QueryRow(query, args...).Scan(&period.TotalOrders, &period.SucceededOrders, &period.FailedOrders, &period.ClosedOrders, &period.SucceededAmountFen, &period.CreditedCredits); err != nil {

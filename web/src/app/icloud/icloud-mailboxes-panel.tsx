@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { copyText as writeClipboardText } from "@/lib/clipboard";
-import { icloudApi, type ICloudMailbox } from "@/lib/icloud-api";
+import type { ICloudMailbox } from "@/lib/icloud-api";
 import { isImeComposing } from "@/lib/keyboard";
 
 import { DeleteMailboxDialog } from "./delete-mailbox-dialog";

@@ -1,61 +1,14 @@
 import { httpRequest } from "@/lib/request";
 import type {
-  ChatCompletionResponse,
   CreationTask,
   CreationTaskMessage,
   ImageModel,
   ImageOutputFormat,
   ImageQuality,
-  ImageResponse,
   ImageVisibility,
 } from "@/lib/api-types";
 
 export * from "@/lib/image-task-api";
-
-export async function generateImage(prompt: string, model?: ImageModel, size?: string, quality?: ImageQuality) {
-  return httpRequest<ImageResponse>(
-    "/v1/images/generations",
-    {
-      method: "POST",
-      body: {
-        prompt,
-        ...(model ? { model } : {}),
-        ...(size ? { size } : {}),
-        ...(quality ? { quality } : {}),
-        n: 1,
-        response_format: "b64_json",
-      },
-    },
-  );
-}
-
-export async function editImage(files: File | File[], prompt: string, model?: ImageModel, size?: string, quality?: ImageQuality) {
-  const formData = new FormData();
-  const uploadFiles = Array.isArray(files) ? files : [files];
-
-  uploadFiles.forEach((file) => {
-    formData.append("image", file);
-  });
-  formData.append("prompt", prompt);
-  if (model) {
-    formData.append("model", model);
-  }
-  if (size) {
-    formData.append("size", size);
-  }
-  if (quality) {
-    formData.append("quality", quality);
-  }
-  formData.append("n", "1");
-
-  return httpRequest<ImageResponse>(
-    "/v1/images/edits",
-    {
-      method: "POST",
-      body: formData,
-    },
-  );
-}
 
 export async function createImageGenerationTask(
   clientTaskId: string,
@@ -194,17 +147,6 @@ export async function createChatCompletionTask(
       prompt,
       model,
       messages,
-    },
-  });
-}
-
-export async function createChatCompletion(model: ImageModel, messages: CreationTaskMessage[]) {
-  return httpRequest<ChatCompletionResponse>("/v1/chat/completions", {
-    method: "POST",
-    body: {
-      model,
-      messages,
-      stream: false,
     },
   });
 }

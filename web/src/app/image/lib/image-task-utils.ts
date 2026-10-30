@@ -2,7 +2,10 @@ import type { CreationTask, ImageVisibility } from "@/lib/api";
 import { getManagedImagePathFromUrl } from "@/lib/image-path";
 import type { ImageConversationMode, StoredImage } from "@/store/image-conversations";
 
+import { isRetryableSubmitCapacityError } from "./image-count-utils";
 import { formatCreationTaskErrorMessage } from "./image-turn-utils";
+
+export { isRetryableSubmitCapacityError };
 
 const IMAGE_TASK_IMAGE_COUNT = 1;
 
@@ -16,12 +19,13 @@ export function positiveDimension(value: unknown) {
 export async function submitCreationTaskGroupsSequentially<T>(
   groups: Array<{ taskId: string; count: number }>,
   submit: (group: { taskId: string; count: number }) => Promise<T>,
+  delayMs = 150,
 ) {
   const results: T[] = [];
-  for (const group of groups) {
-    results.push(await submit(group));
-    if (groups.length > 1) {
-      await sleep(800);
+  for (let index = 0; index < groups.length; index += 1) {
+    results.push(await submit(groups[index]));
+    if (index < groups.length - 1 && delayMs > 0) {
+      await sleep(delayMs);
     }
   }
   return results;

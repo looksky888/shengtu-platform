@@ -42,7 +42,7 @@ export function useICloudPage(enabled: boolean) {
   const [isDeletingMailbox, setIsDeletingMailbox] = useState(false);
   const pageData = useICloudPageData(enabled);
   const {
-    loading, sessions, sessionsLoaded, mailboxes, scheduler, setScheduler, loadErrors,
+    loading, sessions, sessionsLoaded, mailboxes, setScheduler, loadErrors,
     mailboxPage, changeMailboxPage, refreshAll, refreshFirstMailboxPage, refreshMailboxList,
   } = pageData;
   const { selectedAccountIds, toggleAccount } = useICloudAccountSelection({
@@ -255,7 +255,7 @@ export function useICloudPage(enabled: boolean) {
       const result = await icloudApi.startScheduler({
         account_ids: selectedAccountIds,
         create_channel: schedChannel || undefined,
-        interval_minutes: schedInterval,
+        interval_seconds: schedInterval,
         label: createLabel || undefined,
       });
       setScheduler(result.scheduler || null);

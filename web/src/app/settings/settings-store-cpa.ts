@@ -10,7 +10,7 @@ import {
   fetchCPAPools,
   startCPAImport,
   updateCPAPool,
-  type CPAPool,
+
 } from "@/lib/api";
 import { normalizeFiles } from "./settings-normalizers";
 import { runSettingsRequest, type SettingsRequestFlight } from "./settings-load-flight";

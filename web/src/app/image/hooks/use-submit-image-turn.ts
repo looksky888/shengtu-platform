@@ -18,6 +18,7 @@ import { buildConversationTitle, createId } from "@/app/image/lib/reference-imag
 import type { ImageModel, ImageOutputFormat, ImageQuality, ImageVisibility } from "@/lib/api";
 import type { ImageChannelType } from "@/lib/image-channel-api";
 import { fetchPublicPoolFreeSlots, isChatModel, isGrokImageModel, isImageCreationModel } from "@/lib/api";
+import { getCachedAuthSession } from "@/lib/session";
 import { touchConversation } from "@/store/image-conversation-revision";
 import {
   getImageConversationStats,
@@ -141,7 +142,8 @@ export function useSubmitImageTurn({
 
       // /health.account_pool only describes the ChatGPT account pool. Grok has
       // its own provider queue and must never be blocked or warned by this snapshot.
-      if (effectiveImageMode !== "chat" && !isGrokImageModel(effectiveModel) && requestedCount > 1) {
+      const isAdminSession = getCachedAuthSession()?.role === "admin";
+      if (isAdminSession && effectiveImageMode !== "chat" && !isGrokImageModel(effectiveModel) && requestedCount > 1) {
         const freeSlots = await fetchPublicPoolFreeSlots();
         if (freeSlots !== null && requestedCount > freeSlots) {
           toast.info(

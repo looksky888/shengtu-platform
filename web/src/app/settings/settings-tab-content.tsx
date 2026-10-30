@@ -29,6 +29,23 @@ import {
 } from "./settings-tab-lazy";
 import type { SettingsTabKey } from "./settings-tab-types";
 
+const ANCHOR_WRAPPER_CLASS =
+  "min-w-0 scroll-mt-32 rounded-[14px] transition-shadow duration-300 data-[anchor-flash='1']:ring-2 data-[anchor-flash='1']:ring-foreground/35";
+
+function SectionAnchor({
+  id,
+  children,
+}: {
+  id: string;
+  children: ReactNode;
+}) {
+  return (
+    <div id={id} data-settings-section={id} className={ANCHOR_WRAPPER_CLASS}>
+      {children}
+    </div>
+  );
+}
+
 function TabLoading() {
   return (
     <div className="flex min-h-52 items-center justify-center rounded-[14px] border border-border/80 bg-surface text-sm text-muted-foreground shadow-2xs">
@@ -49,16 +66,6 @@ function AdminPermissionNotice({ message }: { message: string }) {
   );
 }
 
-function MasonryItem({
-  children,
-  className,
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
-  return <div className={`min-w-0 ${className ?? ""}`}>{children}</div>;
-}
-
 function BaseTab({ canManageSystem }: { canManageSystem: boolean }) {
   if (!canManageSystem) {
     return (
@@ -66,16 +73,16 @@ function BaseTab({ canManageSystem }: { canManageSystem: boolean }) {
     );
   }
   return (
-    <section className="grid gap-5 md:grid-cols-2">
-      <MasonryItem className="md:col-span-2">
+    <section className="space-y-5">
+      <SectionAnchor id="settings-section-base-runtime">
         <ConfigCard />
-      </MasonryItem>
-      <MasonryItem className="md:col-span-2">
+      </SectionAnchor>
+      <SectionAnchor id="settings-section-base-canvas">
         <CanvasLinkCard />
-      </MasonryItem>
-      <MasonryItem className="md:col-span-2">
+      </SectionAnchor>
+      <SectionAnchor id="settings-section-base-login">
         <LoginVisualCard />
-      </MasonryItem>
+      </SectionAnchor>
     </section>
   );
 }
@@ -87,21 +94,19 @@ function RegisterTab({ canManageSystem }: { canManageSystem: boolean }) {
     );
   }
   return (
-    <section className="grid gap-5 md:grid-cols-2">
-      <div className="rounded-[14px] border border-border/80 bg-surface px-4 py-3 text-xs leading-5 text-muted-foreground shadow-2xs md:col-span-2">
-        <strong className="font-semibold text-foreground">
-          作用域说明：
-        </strong>
-        左栏控制<strong className="font-medium text-foreground">生图与视频上游号池</strong>的出站代理及
-        WARP 清障；右栏独立控制<strong className="font-medium text-foreground">自动化注册机</strong>的代理与
-        Cloudflare Clearance 预热，两者互不覆盖。
+    <section className="space-y-5">
+      <div className="rounded-[14px] border border-border/80 bg-surface px-4 py-3 text-xs leading-5 text-muted-foreground shadow-2xs">
+        <strong className="font-semibold text-foreground">作用域说明：</strong>
+        「上游代理与 WARP」控制<strong className="font-medium text-foreground">生图与视频上游号池</strong>的出站代理及挑战冷却；「自动注册机清障」独立控制<strong className="font-medium text-foreground">自动化注册机</strong>的代理与 Cloudflare Clearance 预热，两者互不覆盖。
       </div>
-      <MasonryItem>
-        <UpstreamProxyRuntimeCard />
-      </MasonryItem>
-      <MasonryItem>
-        <RegisterClearanceCard />
-      </MasonryItem>
+      <div className="grid items-start gap-5 xl:grid-cols-2">
+        <SectionAnchor id="settings-section-register-upstream">
+          <UpstreamProxyRuntimeCard />
+        </SectionAnchor>
+        <SectionAnchor id="settings-section-register-bot">
+          <RegisterClearanceCard />
+        </SectionAnchor>
+      </div>
     </section>
   );
 }
@@ -119,16 +124,16 @@ function ImageTab({
     );
   }
   return (
-    <section className="grid gap-5 md:grid-cols-2">
-      <MasonryItem className="md:col-span-2">
+    <section className="space-y-5">
+      <SectionAnchor id="settings-section-image-channels">
         <ImageProviderCard />
-      </MasonryItem>
-      <MasonryItem className="md:col-span-2">
+      </SectionAnchor>
+      <SectionAnchor id="settings-section-image-routing">
         <ImageAccountPoolRoutingCard />
-      </MasonryItem>
-      <MasonryItem className="md:col-span-2">
+      </SectionAnchor>
+      <SectionAnchor id="settings-section-image-stats">
         <ImageTaskStatsCard active={active} />
-      </MasonryItem>
+      </SectionAnchor>
     </section>
   );
 }
@@ -140,10 +145,10 @@ function StorageTab({ canManageSystem }: { canManageSystem: boolean }) {
     );
   }
   return (
-    <section className="grid gap-5 md:grid-cols-2">
-      <MasonryItem className="md:col-span-2">
+    <section className="space-y-5">
+      <SectionAnchor id="settings-section-storage-r2">
         <MediaStorageCard />
-      </MasonryItem>
+      </SectionAnchor>
     </section>
   );
 }
@@ -156,10 +161,10 @@ function ImportsTab({ canManageSystem }: { canManageSystem: boolean }) {
   }
   return (
     <>
-      <section className="grid gap-5 md:grid-cols-2">
-        <MasonryItem className="md:col-span-2">
+      <section className="space-y-5">
+        <SectionAnchor id="settings-section-imports-cpa">
           <CPAPoolsCard />
-        </MasonryItem>
+        </SectionAnchor>
       </section>
       <CPAPoolDialog />
       <ImportBrowserDialog />
@@ -174,10 +179,10 @@ function AnnouncementTab({ canManageSystem }: { canManageSystem: boolean }) {
     );
   }
   return (
-    <section className="grid gap-5 md:grid-cols-2">
-      <MasonryItem className="md:col-span-2">
+    <section className="space-y-5">
+      <SectionAnchor id="settings-section-announcement-list">
         <AnnouncementsCard />
-      </MasonryItem>
+      </SectionAnchor>
     </section>
   );
 }
@@ -189,52 +194,53 @@ function BackupTab({ canManageSystem }: { canManageSystem: boolean }) {
     );
   }
   return (
-    <section className="grid gap-5 md:grid-cols-2">
-      <MasonryItem className="md:col-span-2">
+    <section className="space-y-5">
+      <SectionAnchor id="settings-section-backup-policy">
         <BackupSettingsCard />
-      </MasonryItem>
+      </SectionAnchor>
     </section>
   );
 }
 
 function MaintenanceTab({ canManageSystem }: { canManageSystem: boolean }) {
   return (
-    <section className="grid gap-5 md:grid-cols-2">
-      <div className="rounded-[14px] border border-border/80 bg-surface p-4 shadow-2xs md:col-span-2">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="min-w-0">
-            <div className="text-sm font-semibold text-foreground sm:text-[15px]">
-              日志与任务治理快捷入口
+    <section className="space-y-5">
+      <SectionAnchor id="settings-section-maintenance-shortcuts">
+        <div className="rounded-[14px] border border-border/80 bg-surface p-4 shadow-2xs">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-sm font-semibold text-foreground sm:text-[15px]">
+                日志与任务治理快捷入口
+              </div>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                快速跳转至审计日志检索台或历史创作任务队列
+              </p>
             </div>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              快速跳转至审计日志检索台或历史创作任务队列
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button asChild variant="outline" size="sm">
-              <Link to="/logs">
-                <FileClock className="size-3.5" />
-                系统日志
-              </Link>
-            </Button>
-            <Button asChild variant="outline" size="sm">
-              <Link to="/task-queue?tab=history">
-                <ListChecks className="size-3.5" />
-                任务历史
-              </Link>
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button asChild variant="outline" size="sm">
+                <Link to="/logs">
+                  <FileClock className="size-3.5" />
+                  系统日志
+                </Link>
+              </Button>
+              <Button asChild variant="outline" size="sm">
+                <Link to="/task-queue?tab=history">
+                  <ListChecks className="size-3.5" />
+                  任务历史
+                </Link>
+              </Button>
+            </div>
           </div>
         </div>
-      </div>
-      {canManageSystem ? (
-        <MasonryItem className="md:col-span-2">
+      </SectionAnchor>
+
+      <SectionAnchor id="settings-section-maintenance-logs">
+        {canManageSystem ? (
           <LogGovernanceCard />
-        </MasonryItem>
-      ) : (
-        <MasonryItem className="md:col-span-2">
+        ) : (
           <AdminPermissionNotice message="仅系统管理员可调整日志保留期与执行过期日志清理。" />
-        </MasonryItem>
-      )}
+        )}
+      </SectionAnchor>
     </section>
   );
 }
@@ -246,10 +252,10 @@ function SystemUpdateTab({ canManageSystem }: { canManageSystem: boolean }) {
     );
   }
   return (
-    <section className="grid gap-5 md:grid-cols-2">
-      <MasonryItem className="md:col-span-2">
+    <section className="space-y-5">
+      <SectionAnchor id="settings-section-update-center">
         <SystemUpdateCard />
-      </MasonryItem>
+      </SectionAnchor>
     </section>
   );
 }

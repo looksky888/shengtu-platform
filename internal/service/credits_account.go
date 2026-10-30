@@ -4,6 +4,7 @@ import (
 	"chatgpt2api/internal/util"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -120,6 +121,47 @@ func (s *CreditService) Adjust(userID string, delta int, reason, refID string) (
 	return s.changeBalance(userID, delta, reason, refID)
 }
 
+func baseChargeRefFromRefundRef(refID string) string {
+	if idx := strings.Index(refID, ":partial:"); idx > 0 {
+		return refID[:idx]
+	}
+	return refID
+}
+
+func isCreationRefundReason(reason string) bool {
+	return reason == CreditReasonImageRefund || reason == CreditReasonVideoRefund
+}
+
+// findAnyCreationRefundLocked checks whether a creation charge has already been
+// settled by EITHER a full refund (baseRef) OR any partial refund (baseRef:partial:*).
+// At most one refund entry may ever exist per creation charge reference.
+func (s *CreditService) findAnyCreationRefundLocked(userID, refundReason, baseRef string) (CreditLedgerEntry, bool, error) {
+	entry, ok, err := s.findLedgerByRefLocked(userID, refundReason, baseRef)
+	if err != nil || ok {
+		return entry, ok, err
+	}
+	partialPrefix := baseRef + ":partial:"
+	indexPrefix := ledgerRefKey(userID, refundReason, partialPrefix)
+	for key, idx := range s.ledgerRefIndex {
+		if strings.HasPrefix(key, indexPrefix) {
+			if idx >= 0 && idx < len(s.state.Ledger) {
+				return s.state.Ledger[idx], true, nil
+			}
+			return CreditLedgerEntry{UserID: userID, Reason: refundReason, RefID: baseRef}, true, nil
+		}
+	}
+	if s.ledgerTableBacked && s.ledgerStore != nil {
+		hasPrefix, err := s.ledgerStore.HasCreditLedgerRefPrefix(userID, refundReason, partialPrefix)
+		if err != nil {
+			return CreditLedgerEntry{}, false, err
+		}
+		if hasPrefix {
+			return CreditLedgerEntry{UserID: userID, Reason: refundReason, RefID: baseRef}, true, nil
+		}
+	}
+	return CreditLedgerEntry{}, false, nil
+}
+
 func (s *CreditService) AddOnce(userID string, amount int, reason, refID string) (CreditAccount, CreditLedgerEntry, bool, error) {
 	userID = util.Clean(userID)
 	if amount <= 0 {
@@ -140,14 +182,23 @@ func (s *CreditService) AddOnce(userID string, amount int, reason, refID string)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	entry, ok, err := s.findLedgerByRefLocked(userID, reason, refID)
+	var (
+		entry CreditLedgerEntry
+		ok    bool
+		err   error
+	)
+	if isCreationRefundReason(reason) {
+		entry, ok, err = s.findAnyCreationRefundLocked(userID, reason, baseChargeRefFromRefundRef(refID))
+	} else {
+		entry, ok, err = s.findLedgerByRefLocked(userID, reason, refID)
+	}
 	if err != nil {
 		return CreditAccount{}, CreditLedgerEntry{}, false, err
 	}
 	if ok {
-		account, exists := s.state.Accounts[entry.UserID]
+		account, exists := s.state.Accounts[userID]
 		if !exists {
-			account = CreditAccount{UserID: entry.UserID}
+			account = CreditAccount{UserID: userID}
 		}
 		return account, entry, false, nil
 	}
@@ -334,7 +385,7 @@ func (s *CreditService) ReconcileCreationCharge(userID, chargeReason, refID stri
 		amount = unit * (billedCount - successCount)
 		refundRefID = fmt.Sprintf("%s:partial:%d_of_%d", refID, successCount, billedCount)
 	}
-	refundedEntry, refunded, err := s.findLedgerByRefLocked(userID, refundReason, refundRefID)
+	refundedEntry, refunded, err := s.findAnyCreationRefundLocked(userID, refundReason, baseChargeRefFromRefundRef(refID))
 	_ = refundedEntry
 	if err != nil {
 		s.mu.Unlock()

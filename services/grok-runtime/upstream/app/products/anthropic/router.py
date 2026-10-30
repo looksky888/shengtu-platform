@@ -54,7 +54,7 @@ class MessagesRequest(BaseModel):
     # standard text block containing the generated URL or video task details.
     image_config: dict[str, Any] | None = None
     video_config: dict[str, Any] | None = None
-    n: int | None = Field(default=None, ge=1, le=10)
+    n: int | None = Field(default=None, ge=1, le=15)
     size: str | None = None
     response_format: str | None = None
     seconds: int | None = None

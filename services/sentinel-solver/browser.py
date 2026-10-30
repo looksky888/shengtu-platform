@@ -110,6 +110,7 @@ class BrowserSolver:
         self.opening_in_flight: set[str] = set()
         self.clearance_cache: dict[str, ClearanceBundle] = {}
         self.clearance_locks: dict[str, asyncio.Lock] = {}
+        self.clearance_waiters: dict[str, int] = {}
         self.max_sessions = _env_positive_int("SENTINEL_SOLVER_MAX_SESSIONS", MAX_SESSIONS)
         self.default_timezone = os.environ.get("SENTINEL_SOLVER_TIMEZONE", "").strip()
         self.default_proxy = os.environ.get("SENTINEL_SOLVER_PROXY", "").strip()
@@ -272,25 +273,46 @@ class BrowserSolver:
             return None
         return bundle
 
+    def _prune_clearance_cache(self) -> None:
+        now = time.monotonic()
+        expired = [key for key, item in self.clearance_cache.items() if item.expires_at <= now]
+        for key in expired:
+            self.clearance_cache.pop(key, None)
+        max_entries = max(64, self.max_sessions * 4)
+        while len(self.clearance_cache) > max_entries:
+            oldest_key = min(self.clearance_cache, key=lambda k: self.clearance_cache[k].expires_at)
+            self.clearance_cache.pop(oldest_key, None)
+
     async def _get_flaresolverr_clearance(
         self, proxy_url: str, force_refresh: bool = False
     ) -> ClearanceBundle | None:
         if not self.flaresolverr_url:
             return None
         lock = self.clearance_locks.setdefault(proxy_url, asyncio.Lock())
-        async with lock:
-            if not force_refresh:
-                cached = self._peek_cached_clearance(proxy_url)
-                if cached is not None:
-                    return cached
-            bundle = await asyncio.to_thread(
-                self._fetch_flaresolverr_clearance_sync,
-                self.flaresolverr_url,
-                proxy_url,
-                self.flaresolverr_timeout,
-            )
-            self.clearance_cache[proxy_url] = bundle
-            return bundle
+        self.clearance_waiters[proxy_url] = self.clearance_waiters.get(proxy_url, 0) + 1
+        try:
+            async with lock:
+                if not force_refresh:
+                    cached = self._peek_cached_clearance(proxy_url)
+                    if cached is not None:
+                        return cached
+                bundle = await asyncio.to_thread(
+                    self._fetch_flaresolverr_clearance_sync,
+                    self.flaresolverr_url,
+                    proxy_url,
+                    self.flaresolverr_timeout,
+                )
+                self._prune_clearance_cache()
+                self.clearance_cache[proxy_url] = bundle
+                self._prune_clearance_cache()
+                return bundle
+        finally:
+            remaining = self.clearance_waiters.get(proxy_url, 1) - 1
+            if remaining <= 0:
+                self.clearance_waiters.pop(proxy_url, None)
+                self.clearance_locks.pop(proxy_url, None)
+            else:
+                self.clearance_waiters[proxy_url] = remaining
 
     @staticmethod
     def _is_cloudflare_challenge(response, title: str = "") -> bool:
@@ -312,7 +334,13 @@ class BrowserSolver:
             await context.add_cookies(clearance.cookies)
         if clearance.user_agent and hasattr(context, "new_cdp_session"):
             try:
-                cdp = await context.new_cdp_session(page)
+                cdp = getattr(page, "_ua_cdp_session", None)
+                if cdp is None:
+                    cdp = await context.new_cdp_session(page)
+                    try:
+                        setattr(page, "_ua_cdp_session", cdp)
+                    except Exception:
+                        pass
                 override: dict[str, object] = {
                     "userAgent": clearance.user_agent,
                     "acceptLanguage": "en-US,en;q=0.9",
@@ -379,6 +407,7 @@ class BrowserSolver:
             self.context_index.clear()
             self.clearance_cache.clear()
             self.clearance_locks.clear()
+            self.clearance_waiters.clear()
         for session in sessions:
             await session.context.close()
         if self.browser is not None:

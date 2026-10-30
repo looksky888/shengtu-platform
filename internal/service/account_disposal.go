@@ -224,7 +224,7 @@ func (s *AccountService) tryRecoverDeadTokenByRefresh(accessToken string) bool {
 		return false
 	}
 	// Prefer keeping usable status for image pool.
-	if util.Clean(item["status"]) == "异常" || util.Clean(item["status"]) == "禁用" {
+	if util.Clean(item["status"]) == "异常" {
 		_, _ = s.UpdateAccount(accessToken, map[string]any{"status": "正常"})
 	}
 	s.mu.Lock()

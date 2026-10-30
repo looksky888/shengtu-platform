@@ -7,10 +7,21 @@ const VIDEO_RECENT_TAKES_KEY_PREFIX = "shengtu_recent_video_takes";
 
 export const LEGACY_VIDEO_TASK_KEY = VIDEO_TASK_KEY_PREFIX;
 
-
-export const MAX_RECENT_VIDEO_TAKES = 6;
+export const MAX_RECENT_VIDEO_TAKES = 30;
 export const VIDEO_RECENT_TAKES_UPDATED_EVENT = "shengtu:video-takes-updated";
+export const EXPIRED_VIDEO_TASK_MESSAGE = "任务已过期或服务已重启";
 
+export type SubmittedVideoMeta = {
+  taskId: string;
+  prompt: string;
+  ratio: string;
+  size: VideoGenerationRequest["size"];
+  seconds: VideoGenerationRequest["seconds"];
+  resolutionName: VideoGenerationRequest["resolution_name"];
+  preset: VideoGenerationRequest["preset"];
+  model: VideoGenerationRequest["model"];
+  createdAt: string;
+};
 
 export type RecentVideoTake = {
   taskId: string;
@@ -23,6 +34,7 @@ export type RecentVideoTake = {
   model: VideoGenerationRequest["model"];
   status: CreationTask["status"];
   videoUrl?: string;
+  error?: string;
   createdAt: string;
 };
 
@@ -49,6 +61,12 @@ const VALID_STATUSES = new Set<CreationTask["status"]>([
   "error",
   "cancelled",
 ]);
+
+export function isTerminalVideoStatus(
+  status: CreationTask["status"] | string | null | undefined,
+): boolean {
+  return status === "success" || status === "error" || status === "cancelled";
+}
 
 export function videoTaskStorageKey(session: StoredAuthSession | null | undefined) {
   const subjectID = String(session?.subjectId || "").trim();
@@ -108,6 +126,7 @@ function normalizeRecentTake(raw: unknown): RecentVideoTake | null {
   const statusCandidate = String(record.status || "success") as CreationTask["status"];
   const status = VALID_STATUSES.has(statusCandidate) ? statusCandidate : "success";
   const videoUrl = String(record.videoUrl || "").trim() || undefined;
+  const error = status === "error" ? String(record.error || "").trim() || undefined : undefined;
   return {
     taskId,
     prompt: String(record.prompt || "").trim(),
@@ -119,6 +138,7 @@ function normalizeRecentTake(raw: unknown): RecentVideoTake | null {
     model: normalizeVideoModel(record.model),
     status,
     videoUrl,
+    ...(error ? { error } : {}),
     createdAt: String(record.createdAt || "").trim() || new Date().toISOString(),
   };
 }
@@ -171,12 +191,20 @@ export function upsertRecentVideoTake(
     return [incoming, ...current].slice(0, MAX_RECENT_VIDEO_TAKES);
   }
   const existing = current[existingIndex];
+  const nextError =
+    incoming.status === "error"
+      ? incoming.error || existing.error
+      : undefined;
   const merged: RecentVideoTake = {
     ...existing,
     ...incoming,
     prompt: incoming.prompt || existing.prompt,
     videoUrl: incoming.videoUrl || existing.videoUrl,
+    error: nextError,
   };
+  if (!merged.error) {
+    delete merged.error;
+  }
   if (options.moveToFront) {
     return [
       merged,
@@ -186,4 +214,72 @@ export function upsertRecentVideoTake(
   const next = [...current];
   next[existingIndex] = merged;
   return next.slice(0, MAX_RECENT_VIDEO_TAKES);
+}
+
+export function removeRecentVideoTake(
+  current: RecentVideoTake[],
+  taskId: string,
+): RecentVideoTake[] {
+  const normalizedId = String(taskId || "").trim();
+  if (!normalizedId) return current;
+  return current.filter((item) => item.taskId !== normalizedId);
+}
+
+export function markMissingVideoTakesError(
+  current: RecentVideoTake[],
+  missingIds: readonly string[],
+  errorMessage = EXPIRED_VIDEO_TASK_MESSAGE,
+): { takes: RecentVideoTake[]; changed: boolean } {
+  const missingSet = new Set(
+    missingIds.map((id) => String(id || "").trim()).filter(Boolean),
+  );
+  if (missingSet.size === 0 || current.length === 0) {
+    return { takes: current, changed: false };
+  }
+  let changed = false;
+  const takes = current.map((item) => {
+    if (!missingSet.has(item.taskId)) return item;
+    if (isTerminalVideoStatus(item.status)) return item;
+    changed = true;
+    return {
+      ...item,
+      status: "error" as const,
+      error: item.error || errorMessage,
+    };
+  });
+  return { takes: changed ? takes : current, changed };
+}
+
+export function buildUnifiedVideoTakes(
+  recentTakes: RecentVideoTake[],
+  liveTask: CreationTask | null,
+  submittedMeta: SubmittedVideoMeta | null,
+  liveVideoUrl?: string,
+): RecentVideoTake[] {
+  if (!liveTask) return recentTakes;
+  if (recentTakes.some((item) => item.taskId === liveTask.id)) {
+    return recentTakes;
+  }
+  if (isTerminalVideoStatus(liveTask.status)) {
+    return recentTakes;
+  }
+  if (!submittedMeta || submittedMeta.taskId !== liveTask.id) {
+    return recentTakes;
+  }
+  return [
+    {
+      taskId: liveTask.id,
+      prompt: submittedMeta.prompt,
+      ratio: submittedMeta.ratio,
+      size: submittedMeta.size,
+      seconds: submittedMeta.seconds,
+      resolutionName: submittedMeta.resolutionName,
+      preset: submittedMeta.preset,
+      model: submittedMeta.model,
+      status: liveTask.status,
+      videoUrl: liveVideoUrl,
+      createdAt: submittedMeta.createdAt,
+    },
+    ...recentTakes,
+  ];
 }

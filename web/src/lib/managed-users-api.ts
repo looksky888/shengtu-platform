@@ -7,7 +7,6 @@ import type {
   ManagedUser,
   ManagedUserUsage,
   PermissionMenu,
-  UserKey,
 } from "@/lib/api-types";
 
 function managedUserPath(userId: string) {
@@ -139,17 +138,6 @@ export async function updateManagedUser(
     method: "POST",
     body: updates,
   });
-}
-
-export async function revealManagedUserKey(userId: string) {
-  return httpRequest<{ key: string }>(`${managedUserPath(userId)}/key`);
-}
-
-export async function resetManagedUserKey(userId: string, name?: string) {
-  return httpRequest<{ item: ManagedUser; api_key: UserKey; key: string }>(
-    `${managedUserPath(userId)}/reset-key`,
-    { method: "POST", body: { name: name ?? "" } },
-  );
 }
 
 export type DeleteManagedUserOptions = {

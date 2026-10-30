@@ -1,6 +1,20 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { cancelPaymentOnLeave } from "../src/lib/payment-order-leave.ts";
+import {
+  cancelPaymentOnLeave,
+  shouldWarnBeforeLeavingPendingOrder,
+} from "../src/lib/payment-order-leave.ts";
+
+test("shouldWarnBeforeLeavingPendingOrder matches only created and pending orders", () => {
+  assert.equal(shouldWarnBeforeLeavingPendingOrder(null), false);
+  assert.equal(shouldWarnBeforeLeavingPendingOrder(undefined), false);
+  assert.equal(shouldWarnBeforeLeavingPendingOrder({ status: "created" }), true);
+  assert.equal(shouldWarnBeforeLeavingPendingOrder({ status: "pending" }), true);
+  assert.equal(shouldWarnBeforeLeavingPendingOrder({ status: "closing" }), false);
+  assert.equal(shouldWarnBeforeLeavingPendingOrder({ status: "succeeded" }), false);
+  assert.equal(shouldWarnBeforeLeavingPendingOrder({ status: "closed" }), false);
+  assert.equal(shouldWarnBeforeLeavingPendingOrder({ status: "failed" }), false);
+});
 
 test("leave cancellation preserves API base, authentication and keepalive", async (t) => {
   let captured: { url: unknown; init?: RequestInit } | undefined;

@@ -52,8 +52,8 @@ func (i Identity) Map() map[string]any {
 		"credential_name": i.CredentialName,
 		"kind":            i.Kind,
 		"remember_me":     i.RememberMe,
-		"menu_paths":      append([]string(nil), i.MenuPaths...),
-		"api_permissions": append([]string(nil), i.APIPermissions...),
+		"menu_paths":      cloneNonNilStringSlice(i.MenuPaths),
+		"api_permissions": cloneNonNilStringSlice(i.APIPermissions),
 	}
 }
 

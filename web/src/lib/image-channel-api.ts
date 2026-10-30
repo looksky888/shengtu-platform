@@ -1,3 +1,7 @@
+import {
+  normalizeImageChannelModel,
+  normalizeImageChannelModels,
+} from "@/lib/model-catalog-normalizers";
 import { httpRequest } from "@/lib/request";
 
 export type ImageChannelType = "account_pool" | "openai_compatible" | "grok_runtime";
@@ -75,20 +79,40 @@ export const updateImageChannel = (id: string, input: ImageChannelInput) =>
 export const deleteImageChannel = (id: string) =>
   httpRequest<void>(channelPath(id), { method: "DELETE" });
 
-export const fetchImageChannelModels = (channelId: string) =>
-  httpRequest<{ models: ImageChannelModel[] }>(`${channelPath(channelId)}/models`);
+export const fetchImageChannelModels = async (channelId: string) => {
+  const response = await httpRequest<{ models: ImageChannelModel[] | null }>(
+    `${channelPath(channelId)}/models`,
+  );
+  return {
+    models: normalizeImageChannelModels(response?.models),
+  };
+};
 
-export const createImageChannelModel = (channelId: string, input: ImageChannelModelInput) =>
-  httpRequest<ImageChannelModel>(`${channelPath(channelId)}/models`, { method: "POST", body: input });
+export const createImageChannelModel = async (
+  channelId: string,
+  input: ImageChannelModelInput,
+) => {
+  const created = await httpRequest<ImageChannelModel>(
+    `${channelPath(channelId)}/models`,
+    { method: "POST", body: input },
+  );
+  return normalizeImageChannelModel(created);
+};
 
-export const updateImageChannelModel = (channelId: string, modelId: string, input: ImageChannelModelInput) =>
-  httpRequest<ImageChannelModel>(`${channelPath(channelId)}/models/${encodeURIComponent(modelId)}`, { method: "PUT", body: input });
+export const updateImageChannelModel = async (
+  channelId: string,
+  modelId: string,
+  input: ImageChannelModelInput,
+) => {
+  const updated = await httpRequest<ImageChannelModel>(
+    `${channelPath(channelId)}/models/${encodeURIComponent(modelId)}`,
+    { method: "PUT", body: input },
+  );
+  return normalizeImageChannelModel(updated);
+};
 
 export const deleteImageChannelModel = (channelId: string, modelId: string) =>
   httpRequest<void>(`${channelPath(channelId)}/models/${encodeURIComponent(modelId)}`, { method: "DELETE" });
 
 export const discoverImageChannelModels = (channelId: string) =>
   httpRequest<{ models: string[] }>(`${channelPath(channelId)}/discover`, { method: "POST", body: {} });
-
-export const fetchPublicImageChannelModels = () =>
-  httpRequest<{ models: PublicImageChannelModel[] }>("/api/image-channels");

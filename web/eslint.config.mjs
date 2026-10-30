@@ -39,7 +39,15 @@ const eslintConfig = [
     prettier,
     {
         rules: {
-            '@typescript-eslint/no-unused-vars': 'off', // 不检查未使用的变量
+            '@typescript-eslint/no-unused-vars': [
+                'error',
+                {
+                    argsIgnorePattern: '^_',
+                    varsIgnorePattern: '^_',
+                    caughtErrorsIgnorePattern: '^_',
+                    ignoreRestSiblings: true,
+                },
+            ],
             '@typescript-eslint/no-explicit-any': 'off', // 关闭 any 报错
         },
     },

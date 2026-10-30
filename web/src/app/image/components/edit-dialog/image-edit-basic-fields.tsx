@@ -9,6 +9,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { EditingTurnDraft } from "@/app/image/lib/image-page-types";
+import {
+  MAX_IMAGE_COUNT,
+  MIN_IMAGE_COUNT,
+  normalizeRequestedImageCount,
+  sanitizeImageCountInput,
+} from "@/app/image/lib/image-turn-utils";
 import type { ModelOption, SetEditingTurnDraft } from "@/app/image/components/edit-dialog/types";
 
 type ImageEditBasicFieldsProps = {
@@ -34,16 +40,22 @@ export function ImageEditBasicFields({ draft, setDraft, modelOptions }: ImageEdi
       <div className={draft.mode === "chat" ? "grid grid-cols-1 gap-3" : "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"}>
         {draft.mode !== "chat" ? (
           <label className="flex flex-col gap-2 text-sm font-medium text-foreground">
-            张数
+            张数（{MIN_IMAGE_COUNT}–{MAX_IMAGE_COUNT}）
             <Input
               type="number"
               inputMode="numeric"
-              min="1"
-              max="10"
+              min={MIN_IMAGE_COUNT}
+              max={MAX_IMAGE_COUNT}
               step="1"
               value={draft.count}
-              onChange={(event) =>
-                setDraft((current) => (current ? { ...current, count: event.target.value } : current))
+              onChange={(event) => {
+                const nextCount = sanitizeImageCountInput(event.target.value);
+                setDraft((current) => (current ? { ...current, count: nextCount } : current));
+              }}
+              onBlur={() =>
+                setDraft((current) =>
+                  current ? { ...current, count: String(normalizeRequestedImageCount(current.count)) } : current,
+                )
               }
             />
           </label>
@@ -57,6 +69,7 @@ export function ImageEditBasicFields({ draft, setDraft, modelOptions }: ImageEdi
               setDraft((current) => (current && option ? {
                 ...current,
                 model: option.value,
+                modelLabel: option.label,
                 channelModelId: option.channelModelId,
                 channelName: option.channelName,
               } : current));

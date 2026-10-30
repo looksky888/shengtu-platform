@@ -21,8 +21,9 @@ func (a *App) writeProtocol(w http.ResponseWriter, r *http.Request, result map[s
 		return
 	}
 	if stream == nil {
-		urls := collectURLs(result)
-		if charge != nil && len(util.AsMapSlice(result["data"])) == 0 {
+		urls := dedupe(collectURLs(result))
+		delivered := countDeliveredProtocolImages(result, urls, chargeMaxN(charge))
+		if charge != nil && delivered == 0 {
 			a.refundImageCredits(charge)
 			message := firstNonEmpty(util.Clean(result["message"]), "图片生成未返回有效数据")
 			a.logCall(identity, summary, r.Method, endpoint, model, start, "failed", http.StatusBadGateway, message, urls)
@@ -30,7 +31,7 @@ func (a *App) writeProtocol(w http.ResponseWriter, r *http.Request, result map[s
 			return
 		}
 		if charge != nil {
-			a.refundImageCreditsForSuccess(charge, len(util.AsMapSlice(result["data"])))
+			a.refundImageCreditsForSuccess(charge, delivered)
 		}
 		a.recordGeneratedImages(identity, urls, visibility)
 		a.logCall(identity, summary, r.Method, endpoint, model, start, "success", http.StatusOK, "", urls)
@@ -57,6 +58,7 @@ func (a *App) writeProtocol(w http.ResponseWriter, r *http.Request, result map[s
 				flusher.Flush()
 			}
 		}
+		urls = dedupe(urls)
 		if err := <-stream.Err; err != nil {
 			// Partial success: only refund images that never arrived.
 			a.refundImageCreditsForSuccess(charge, inlineImages.count(urls, hasImageData, chargeMaxN(charge)))
@@ -66,7 +68,7 @@ func (a *App) writeProtocol(w http.ResponseWriter, r *http.Request, result map[s
 			fmt.Fprintf(w, "data: %s\n\n", jsonString(map[string]any{"type": "error", "error": map[string]any{"type": fmt.Sprintf("%T", err), "message": err.Error()}}))
 			return
 		}
-		if !hasImageData {
+		if charge != nil && !inlineImages.hasAny(urls, hasImageData) {
 			a.refundImageCredits(charge)
 			message := "image generation stream returned no image data"
 			a.logCall(identity, summary, r.Method, endpoint, model, start, "failed", http.StatusBadGateway, message, urls)
@@ -97,13 +99,14 @@ func (a *App) writeProtocol(w http.ResponseWriter, r *http.Request, result map[s
 			flusher.Flush()
 		}
 	}
+	urls = dedupe(urls)
 	if err := <-stream.Err; err != nil {
 		a.refundImageCreditsForSuccess(charge, inlineImages.count(urls, hasImageData, chargeMaxN(charge)))
 		a.recordGeneratedImages(identity, urls, visibility)
 		a.logCall(identity, summary, r.Method, endpoint, model, start, "failed", protocolErrorHTTPStatus(err), err.Error(), urls)
 		fmt.Fprintf(w, "data: %s\n\n", jsonString(openAIErrorForStream(err)))
 	} else {
-		if !hasImageData {
+		if charge != nil && !inlineImages.hasAny(urls, hasImageData) {
 			a.refundImageCredits(charge)
 			message := "image generation stream returned no image data"
 			a.logCall(identity, summary, r.Method, endpoint, model, start, "failed", http.StatusBadGateway, message, urls)

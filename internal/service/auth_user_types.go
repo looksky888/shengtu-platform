@@ -102,8 +102,8 @@ func AuthKeyPublicFromRecord(item AuthKey) AuthKeyPublic {
 		CreatedAt:      item.CreatedAt,
 		ExpiresAt:      item.ExpiresAt,
 		LastUsedAt:     item.LastUsedAt,
-		MenuPaths:      append([]string(nil), item.permissions().MenuPaths...),
-		APIPermissions: append([]string(nil), item.permissions().APIPermissions...),
+		MenuPaths:      cloneNonNilStringSlice(item.permissions().MenuPaths),
+		APIPermissions: cloneNonNilStringSlice(item.permissions().APIPermissions),
 	}
 }
 

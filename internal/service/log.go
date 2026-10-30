@@ -78,6 +78,9 @@ func NewLogService(dataDir string, backend ...storage.Backend) *LogService {
 }
 
 func (s *LogService) Add(summary string, detail map[string]any) error {
+	if s == nil {
+		return nil
+	}
 	if detail == nil {
 		detail = map[string]any{}
 	}

@@ -133,8 +133,8 @@ func (k AuthKey) toMap() map[string]any {
 		"key_hash":        k.KeyHash,
 		"enabled":         k.Enabled,
 		"created_at":      k.CreatedAt,
-		"menu_paths":      append([]string(nil), k.MenuPaths...),
-		"api_permissions": append([]string(nil), k.APIPermissions...),
+		"menu_paths":      cloneNonNilStringSlice(k.MenuPaths),
+		"api_permissions": cloneNonNilStringSlice(k.APIPermissions),
 	}
 	if k.RememberMe {
 		out["remember_me"] = true

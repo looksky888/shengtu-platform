@@ -1,4 +1,4 @@
-import { Coins, LoaderCircle, RefreshCw, Search, SlidersHorizontal, X } from "lucide-react";
+import { Coins, LoaderCircle, RefreshCw, Search, X } from "lucide-react";
 
 import { CreditsTablePagination } from "@/app/credits-admin/credits-table-pagination";
 import {

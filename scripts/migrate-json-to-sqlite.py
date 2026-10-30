@@ -59,6 +59,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="allow migration when no JSON input files exist",
     )
+    parser.add_argument(
+        "--force-overwrite-relational",
+        action="store_true",
+        help="allow overwriting an existing SQLite database that already contains modern relational rows",
+    )
     return parser.parse_args()
 
 
@@ -142,12 +147,44 @@ def collect_json_documents(data_dir: Path) -> list[tuple[str, Any]]:
     if not data_dir.exists():
         return []
     docs: list[tuple[str, Any]] = []
+    skipped_top_level = {"accounts.json", "auth_keys.json"}
     for path in sorted(data_dir.rglob("*.json")):
         if not path.is_file():
             continue
         rel = path.relative_to(data_dir).as_posix()
+        if rel in skipped_top_level:
+            continue
         docs.append((rel, read_json(path, None)))
     return docs
+
+
+def check_existing_relational_data(db_path: Path) -> list[str]:
+    if not db_path.exists() or db_path.is_dir():
+        return []
+    populated: list[str] = []
+    protected_tables = (
+        "payment_orders",
+        "user_entitlements",
+        "media_assets",
+        "credit_ledger",
+        "user_usage_daily",
+    )
+    conn = sqlite3.connect(str(db_path))
+    try:
+        existing_tables = {
+            row[0]
+            for row in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ).fetchall()
+        }
+        for table in protected_tables:
+            if table in existing_tables:
+                count = int(conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0])
+                if count > 0:
+                    populated.append(f"{table}({count})")
+    finally:
+        conn.close()
+    return populated
 
 
 def configure_sqlite(conn: sqlite3.Connection) -> None:
@@ -306,6 +343,15 @@ def migrate(args: argparse.Namespace) -> None:
         )
         return
 
+    if db_path.exists() and not args.dry_run and not getattr(args, "force_overwrite_relational", False):
+        populated_tables = check_existing_relational_data(db_path)
+        if populated_tables:
+            temp_path.unlink(missing_ok=True)
+            raise MigrationError(
+                f"refusing to overwrite {db_path} because relational tables already contain data: "
+                f"{', '.join(populated_tables)} (pass --force-overwrite-relational to force)"
+            )
+
     backup = None
     if db_path.exists():
         if db_path.is_dir():
@@ -314,6 +360,10 @@ def migrate(args: argparse.Namespace) -> None:
         backup = backup_path(db_path)
         shutil.copy2(db_path, backup)
     os.replace(temp_path, db_path)
+    # Remove stale WAL/SHM sidecar files from the replaced database so SQLite
+    # never replays old WAL frames onto the newly replaced database file.
+    for suffix in ("-wal", "-shm"):
+        Path(f"{db_path}{suffix}").unlink(missing_ok=True)
     os.chmod(db_path, 0o644)
 
     print(f"Migrated accounts: {counts['accounts']}")

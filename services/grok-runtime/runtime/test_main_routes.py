@@ -1,7 +1,7 @@
 import httpx
 import pytest
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 
 from runtime.main import app
 
@@ -176,6 +176,37 @@ async def test_chat_sets_provider_route_context(monkeypatch, model: str, provide
 
     assert response.status_code == 200
     assert response.json() == {"provider": provider, "capability": "text", "quota": quota}
+
+
+@pytest.mark.asyncio
+async def test_chat_streaming_preserves_sse_chunks_and_provider_route(monkeypatch) -> None:
+    from runtime.provider_accounts.runtime_context import current_provider_route
+
+    _enable_dispatch_routes(monkeypatch)
+
+    async def dispatch(_payload):
+        async def _stream():
+            route = current_provider_route()
+            assert route is not None
+            assert (route.provider, route.capability, route.quota_capability) == ("web", "text", "fast")
+            yield b'data: {"choices":[{"delta":{"content":"hi"}}]}\n\n'
+            yield b"data: [DONE]\n\n"
+
+        return StreamingResponse(_stream(), media_type="text/event-stream")
+
+    monkeypatch.setattr("api.grok.dispatch_chat_completion", dispatch)
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/internal/v1/chat/completions",
+            json={"model": "grok-4.20-fast", "stream": True, "messages": [{"role": "user", "content": "hi"}]},
+            headers=INTERNAL_HEADERS,
+        )
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/event-stream")
+    assert 'data: {"choices":[{"delta":{"content":"hi"}}]}' in response.text
+    assert "data: [DONE]" in response.text
 
 
 @pytest.mark.asyncio

@@ -110,12 +110,9 @@ func (p *registerICloudMailProvider) CreateMailbox(username string) (map[string]
 	if email == "" {
 		return nil, fmt.Errorf("iCloud 领取响应缺少 email")
 	}
-	if apiURL == "" {
-		// Reconstruct from base + email if key present in path style.
-		apiURL = fmt.Sprintf("%s/api/v1/mailboxes/%s/code", p.apiBase, url.PathEscape(email))
-		if tok := util.Clean(item["api_token"]); tok != "" {
-			apiURL += "?key=" + url.QueryEscape(tok)
-		}
+	apiURL, err = resolveICloudMailboxCodeURL(p.apiBase, apiURL, email, util.Clean(item["api_token"]))
+	if err != nil {
+		return nil, err
 	}
 	if item["api_active"] == false {
 		return nil, fmt.Errorf("iCloud Privacy Mail 返回的邮箱 API 已停用")
@@ -136,14 +133,65 @@ func (p *registerICloudMailProvider) CreateMailbox(username string) (map[string]
 		"_icloud_claim_project":       p.project,
 		"_icloud_claim_base":          p.apiBase,
 		"_icloud_claim_internal":      p.internal,
+		"_icloud_claim_api_key":       p.apiKey,
 		"_icloud_keyword":             p.keyword,
 	}, nil
+}
+
+func resolveICloudMailboxCodeURL(apiBase, rawAPIURL, email, apiToken string) (string, error) {
+	baseParsed, err := url.Parse(strings.TrimRight(strings.TrimSpace(apiBase), "/"))
+	if err != nil || baseParsed.Scheme == "" || baseParsed.Host == "" {
+		return "", fmt.Errorf("iCloud 服务地址无效")
+	}
+	fallbackURL := fmt.Sprintf("%s/api/v1/mailboxes/%s/code", strings.TrimRight(apiBase, "/"), url.PathEscape(email))
+	if apiToken != "" {
+		fallbackURL += "?key=" + url.QueryEscape(apiToken)
+	}
+	rawAPIURL = strings.TrimSpace(rawAPIURL)
+	if rawAPIURL == "" {
+		return fallbackURL, nil
+	}
+	parsed, err := url.Parse(rawAPIURL)
+	if err != nil {
+		return fallbackURL, nil
+	}
+	// Internal X-Internal-Token requests receive a frontend proxy-relative path:
+	// "/api/icloud/public/v1/mailboxes/<email>/code?key=...".
+	// Rewrite to sidecar "/api/v1/..." on p.apiBase and prevent cross-host auth header leaks.
+	if parsed.Scheme == "" || parsed.Host == "" {
+		rewrittenPath := parsed.Path
+		if strings.HasPrefix(rewrittenPath, "/api/icloud/public/v1/") {
+			rewrittenPath = "/api/v1/" + strings.TrimPrefix(rewrittenPath, "/api/icloud/public/v1/")
+		} else if !strings.HasPrefix(rewrittenPath, "/") {
+			rewrittenPath = "/" + rewrittenPath
+		}
+		target := *baseParsed
+		target.Path = strings.TrimRight(baseParsed.Path, "/") + rewrittenPath
+		target.RawQuery = parsed.RawQuery
+		return target.String(), nil
+	}
+	if !strings.EqualFold(parsed.Host, baseParsed.Host) {
+		// Never forward X-Internal-Token or Bearer api_key to an untrusted foreign host.
+		if key := parsed.Query().Get("key"); key != "" && apiToken == "" {
+			return fmt.Sprintf("%s/api/v1/mailboxes/%s/code?key=%s", strings.TrimRight(apiBase, "/"), url.PathEscape(email), url.QueryEscape(key)), nil
+		}
+		return fallbackURL, nil
+	}
+	if strings.HasPrefix(parsed.Path, "/api/icloud/public/v1/") {
+		parsed.Path = "/api/v1/" + strings.TrimPrefix(parsed.Path, "/api/icloud/public/v1/")
+	}
+	return parsed.String(), nil
 }
 
 func (p *registerICloudMailProvider) FetchLatestMessage(mailbox map[string]any) (map[string]any, error) {
 	codeURL := util.Clean(mailbox["api_url"])
 	if codeURL == "" {
 		return nil, fmt.Errorf("iCloud 邮箱缺少 api_url")
+	}
+	if p.apiBase != "" {
+		if normalizedURL, err := resolveICloudMailboxCodeURL(p.apiBase, codeURL, firstNonEmpty(util.Clean(mailbox["address"]), util.Clean(mailbox["email"])), ""); err == nil {
+			codeURL = normalizedURL
+		}
 	}
 	keyword := firstNonEmpty(util.Clean(mailbox["_icloud_keyword"]), p.keyword, "OpenAI")
 	waitMS := p.waitMS
@@ -153,6 +201,11 @@ func (p *registerICloudMailProvider) FetchLatestMessage(mailbox map[string]any) 
 	u, err := url.Parse(codeURL)
 	if err != nil || u.Scheme == "" || u.Host == "" {
 		return nil, fmt.Errorf("iCloud api_url 无效")
+	}
+	if p.apiBase != "" {
+		if baseParsed, baseErr := url.Parse(p.apiBase); baseErr == nil && baseParsed.Host != "" && !strings.EqualFold(u.Host, baseParsed.Host) {
+			return nil, fmt.Errorf("iCloud api_url 与配置的服务地址不同源")
+		}
 	}
 	q := u.Query()
 	if keyword != "" {
@@ -236,9 +289,11 @@ func (p *registerICloudMailProvider) FetchLatestMessage(mailbox map[string]any) 
 
 func (p *registerICloudMailProvider) Close() {}
 
-// UpdateICloudClaim marks mailbox used/released on the sidecar (internal only).
+// UpdateICloudClaim marks mailbox used/released on the sidecar or external iCloud service.
 func UpdateICloudClaim(mailbox map[string]any, claimed bool) error {
-	if !util.ToBool(mailbox["_icloud_claim_internal"]) {
+	internalMode := util.ToBool(mailbox["_icloud_claim_internal"])
+	apiKey := strings.TrimSpace(util.Clean(mailbox["_icloud_claim_api_key"]))
+	if !internalMode && apiKey == "" {
 		return nil
 	}
 	base := firstNonEmpty(util.Clean(mailbox["_icloud_claim_base"]), os.Getenv("ICLOUD_PRIVACY_MAIL_BASE_URL"))
@@ -249,11 +304,12 @@ func UpdateICloudClaim(mailbox map[string]any, claimed bool) error {
 	}
 	p := &registerICloudMailProvider{
 		apiBase:       strings.TrimRight(base, "/"),
+		apiKey:        apiKey,
 		internalToken: strings.TrimSpace(os.Getenv("INTERNAL_SERVICE_TOKEN")),
-		internal:      true,
+		internal:      internalMode,
 		project:       project,
 	}
-	if p.internalToken == "" {
+	if internalMode && p.internalToken == "" {
 		return fmt.Errorf("iCloud Privacy Mail 缺少 INTERNAL_SERVICE_TOKEN")
 	}
 	_, status, err := p.doJSON(http.MethodPost, "/api/v1/mailboxes/claim-status", map[string]any{

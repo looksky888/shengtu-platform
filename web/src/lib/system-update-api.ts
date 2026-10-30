@@ -92,6 +92,6 @@ export function startHostUpdaterPreflight() {
 export function startHostUpdaterUpdate(taskId: string) {
   return httpRequest<HostUpdaterUpdate>("/api/admin/system/update-apply", {
     method: "POST",
-    body: JSON.stringify({ task_id: taskId }),
+    body: { task_id: taskId },
   });
 }

@@ -221,7 +221,7 @@ func (b *DatabaseBackend) QueryPaymentReconciliationItems(runID string, filter P
 }
 
 func (b *DatabaseBackend) ListSucceededPaymentOrdersForReconciliation(channelID, paidStart, paidEnd string) ([]PaymentOrderRecord, error) {
-	rows, err := b.db.Query(paymentOrderSelect+`channel_id = `+b.placeholder(1)+` AND status = `+b.placeholder(2)+` AND paid_at >= `+b.placeholder(3)+` AND paid_at < `+b.placeholder(4)+` ORDER BY paid_at ASC, id ASC`, strings.TrimSpace(channelID), PaymentOrderStatusSucceeded, strings.TrimSpace(paidStart), strings.TrimSpace(paidEnd))
+	rows, err := b.db.Query(paymentOrderSelect+`channel_id = `+b.placeholder(1)+` AND status = `+b.placeholder(2)+` AND paid_at >= `+b.placeholder(3)+` AND paid_at < `+b.placeholder(4)+` ORDER BY `+b.utcSortableExpr("paid_at")+` ASC, id ASC`, strings.TrimSpace(channelID), PaymentOrderStatusSucceeded, normalizeUTCZeroNanoBoundString(paidStart), normalizeUTCZeroNanoBoundString(paidEnd))
 	if err != nil {
 		return nil, err
 	}

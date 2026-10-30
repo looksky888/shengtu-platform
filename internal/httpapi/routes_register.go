@@ -194,12 +194,16 @@ func (a *App) streamRegisterEvents(w http.ResponseWriter, r *http.Request) {
 			if usePython && client != nil {
 				status, data, err := client.DoJSON(r.Context(), http.MethodGet, "/api/register", nil)
 				if err != nil || status < 200 || status >= 300 {
-					// Soft-fail: keep last snapshot; emit error envelope occasionally.
+					// Emit named event instead of a partial {"register":...} data frame
+					// so transient sidecar hiccups never wipe client-side form state.
 					if last == "" {
-						payload = `{"register":{"enabled":false,"backend":"python","error":"register sidecar unavailable"}}`
-					} else {
-						continue
+						last = "__sidecar_unavailable__"
+						fmt.Fprintf(w, "event: sidecar_error\ndata: {\"error\":\"register sidecar unavailable\"}\n\n")
+						if flusher != nil {
+							flusher.Flush()
+						}
 					}
+					continue
 				} else {
 					// Forward full body as SSE data (already {"register":...}).
 					payload = strings.TrimSpace(string(data))

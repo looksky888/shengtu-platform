@@ -45,6 +45,7 @@ export type RegisterConfig = {
   /** 3.5: openai | grok when backend=python */
   target?: "openai" | "grok" | string;
   backend?: string;
+  error?: string;
   mail: {
     request_timeout: number;
     wait_timeout: number;
@@ -61,6 +62,9 @@ export type RegisterConfig = {
   check_interval: number;
   /** Grok captcha / oauth block from python register_service */
   grok?: Record<string, unknown>;
+  checkout?: Record<string, unknown>;
+  sub2api_sync?: Record<string, unknown>;
+  outlook_pool?: OutlookPoolStats;
   stats: {
     job_id?: string;
     success: number;

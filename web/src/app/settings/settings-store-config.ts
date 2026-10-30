@@ -104,6 +104,7 @@ export type ConfigSlice = Pick<
   | "saveConfigSection"
   | "saveLoginPageVisual"
   | "stageLoginPageImageFile"
+  | "discardPendingLoginPageImage"
   | "resetConfigSection"
   | "fetchImageProxyModelOptions"
   | "setRefreshAccountIntervalMinute"
@@ -347,6 +348,15 @@ export const createConfigSlice: StateCreator<
             }
           : state.config,
       }));
+    },
+
+    discardPendingLoginPageImage: () => {
+      revokeObjectUrlSafely(get().pendingLoginImagePreviewUrl);
+      set({
+        pendingLoginImageFile: null,
+        pendingLoginImagePreviewUrl: "",
+      });
+      get().resetConfigSection(LOGIN_VISUAL_CONFIG_KEYS);
     },
 
     saveConfigSection: async (keys, options: SaveConfigSectionOptions = {}) => {

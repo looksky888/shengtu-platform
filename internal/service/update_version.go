@@ -72,7 +72,7 @@ func cloneUpdateInfo(info *UpdateInfo) *UpdateInfo {
 	out := *info
 	if info.ReleaseInfo != nil {
 		release := *info.ReleaseInfo
-		release.Assets = append([]Asset(nil), info.ReleaseInfo.Assets...)
+		release.Assets = cloneNonNilSlice(info.ReleaseInfo.Assets)
 		out.ReleaseInfo = &release
 	}
 	return &out

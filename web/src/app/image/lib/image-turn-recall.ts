@@ -19,12 +19,14 @@ export type ComposerRecallState = {
 export function buildComposerRecallState(turn: ImageTurn, fallbackImageModel: ImageModel, fallbackTextModel: ImageModel): ComposerRecallState {
   const isChat = turn.mode === "chat";
   const sizeSelection = recalledSizeSelection(isChat ? undefined : turn.sizeSelection, turn.size);
+  const rawCount = Math.floor(Number(turn.count || turn.images.length || 1));
+  const safeCount = Number.isFinite(rawCount) && rawCount >= 1 ? Math.min(15, rawCount) : 1;
   return {
     prompt: turn.prompt,
     composerMode: isChat ? "chat" : "image",
     model: turn.model || (isChat ? fallbackTextModel : fallbackImageModel),
     channelModelId: isChat ? "" : turn.channelModelId || "",
-    count: isChat ? "1" : String(Math.max(1, Math.min(10, Number(turn.count || turn.images.length || 1) || 1))),
+    count: isChat ? "1" : String(safeCount),
     sizeSelection,
     quality: turn.quality || "high",
     outputFormat: turn.outputFormat || "png",

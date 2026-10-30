@@ -149,6 +149,14 @@ func (s *Server) handleLookupMailboxes(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleExportRuntimeData(w http.ResponseWriter, r *http.Request) {
 	ownerID := scopedOwnerID(r, s.store)
 	state := s.scopedState(r)
+	accounts := state.Accounts
+	if accounts == nil {
+		accounts = []Account{}
+	}
+	mailboxes := state.Mailboxes
+	if mailboxes == nil {
+		mailboxes = []Mailbox{}
+	}
 	payload := struct {
 		ExportedAt      string          `json:"exported_at"`
 		Scope           string          `json:"scope"`
@@ -166,8 +174,8 @@ func (s *Server) handleExportRuntimeData(w http.ResponseWriter, r *http.Request)
 		ExportedAt:      formatTime(time.Now()),
 		Scope:           "all",
 		NextID:          state.NextID,
-		Accounts:        state.Accounts,
-		Mailboxes:       state.Mailboxes,
+		Accounts:        accounts,
+		Mailboxes:       mailboxes,
 		ICloudSession:   state.ICloudSession,
 		ICloudSessions:  state.ICloudSessions,
 		MessageCount:    len(state.Messages),

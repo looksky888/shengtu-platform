@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check } from "lucide-react";
+import { Check, Film } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -11,9 +11,11 @@ import type {
   ImageChannelModel,
   ImageChannelModelInput,
 } from "@/lib/image-channel-api";
+import { isVideoChannelModelId } from "@/lib/model-catalog-normalizers";
 import { cn } from "@/lib/utils";
 
 import {
+  SettingsNotice,
   SettingsSwitchRow,
   SettingsUnitInput,
   settingsDialogInputClassName,
@@ -53,20 +55,35 @@ const defaultModelInput: ImageChannelModelInput = {
 
 function fromModel(model: ImageChannelModel | null): ImageChannelModelInput {
   if (!model) return defaultModelInput;
+  const safeCapabilities = Array.isArray(model.capabilities)
+    ? [...model.capabilities]
+    : [];
+  const safeResolutions = Array.isArray(model.resolutions)
+    ? [...model.resolutions]
+    : [];
+  const safeFormats = Array.isArray(model.formats) ? [...model.formats] : [];
+  const videoOnly =
+    safeCapabilities.length === 0 && isVideoChannelModelId(model.upstream_model);
+
   return {
     display_name: model.display_name,
     upstream_model: model.upstream_model,
-    capabilities:
-      model.capabilities.length > 0 ? [...model.capabilities] : ["generate"],
-    resolutions:
-      model.resolutions && model.resolutions.length > 0
-        ? [...model.resolutions]
+    capabilities: videoOnly
+      ? []
+      : safeCapabilities.length > 0
+        ? safeCapabilities
+        : ["generate"],
+    resolutions: videoOnly
+      ? safeResolutions
+      : safeResolutions.length > 0
+        ? safeResolutions
         : ["1k"],
-    formats:
-      model.formats && model.formats.length > 0
-        ? [...model.formats]
+    formats: videoOnly
+      ? safeFormats
+      : safeFormats.length > 0
+        ? safeFormats
         : ["png"],
-    credit_cost: model.credit_cost,
+    credit_cost: Math.max(1, Number(model.credit_cost) || 1),
     credit_costs: { ...(model.credit_costs || {}) },
     enabled: model.enabled,
     sort: model.sort,
@@ -167,12 +184,16 @@ export function ImageChannelModelForm({
     value: ImageChannelModelInput[K]
   ) => setInput((current) => ({ ...current, [key]: value }));
 
+  const isVideoModel =
+    isVideoChannelModelId(input.upstream_model) &&
+    input.capabilities.length === 0;
+
   const handleSubmit = () => {
     if (!input.upstream_model.trim()) {
       toast.error("请填写上游模型 ID");
       return;
     }
-    if (input.capabilities.length === 0) {
+    if (input.capabilities.length === 0 && !isVideoChannelModelId(input.upstream_model)) {
       toast.error("请至少保留 1 项支持能力");
       return;
     }
@@ -183,12 +204,29 @@ export function ImageChannelModelForm({
     <div className="space-y-4 rounded-xl border border-border/80 bg-surface-subtle/55 p-4">
       <div className="flex items-center justify-between border-b border-border/60 pb-2.5">
         <span className="text-sm font-semibold text-foreground">
-          {model ? `编辑模型 · ${model.display_name}` : "配置新渠道模型"}
+          {model
+            ? `编辑模型 · ${model.display_name || model.upstream_model}`
+            : "配置新渠道模型"}
         </span>
         <span className="text-[11px] text-muted-foreground">
-          保存后立即同步至图片创作台
+          {isVideoModel
+            ? "视频模型在视频创作台按秒计费调度"
+            : "保存后立即同步至图片创作台"}
         </span>
       </div>
+
+      {isVideoModel ? (
+        <SettingsNotice className="flex items-start gap-2.5 py-2.5">
+          <Film className="mt-0.5 size-4 shrink-0 text-foreground" />
+          <div>
+            <strong className="font-semibold text-foreground">
+              视频生成模型兼容条目：
+            </strong>
+            该条目用于管理视频模型（<code className="font-mono">{input.upstream_model}</code>
+            ）的显示名称、排序与启停状态，不会混入图片创作台模型列表；视频按秒积分单价统一在下方「全局回退单价 · 视频每秒单价」中配置。
+          </div>
+        </SettingsNotice>
+      ) : null}
 
       <div className="grid gap-3.5 sm:grid-cols-2">
         <div className="space-y-1.5">
@@ -204,7 +242,7 @@ export function ImageChannelModelForm({
             value={input.upstream_model}
             onChange={(event) => set("upstream_model", event.target.value)}
             className={cn(settingsDialogInputClassName, "font-mono text-xs")}
-            placeholder="例如：gpt-image-1 或 flux-kontext-pro"
+            placeholder="例如：gpt-image-1 或 grok-imagine-image"
           />
           <datalist id="channel-model-suggestions">
             {suggestions.map((item) => (
@@ -229,18 +267,20 @@ export function ImageChannelModelForm({
           />
         </div>
 
-        <SettingsUnitInput
-          id="channel-model-cost"
-          label="基础单张计费"
-          unit="积分/张"
-          min={1}
-          max={1000000}
-          rangeHint="≥ 1"
-          value={input.credit_cost}
-          onChange={(value) =>
-            set("credit_cost", Math.max(1, Number(value) || 1))
-          }
-        />
+        {!isVideoModel ? (
+          <SettingsUnitInput
+            id="channel-model-cost"
+            label="基础单张计费"
+            unit="积分/张"
+            min={1}
+            max={1000000}
+            rangeHint="≥ 1"
+            value={input.credit_cost}
+            onChange={(value) =>
+              set("credit_cost", Math.max(1, Number(value) || 1))
+            }
+          />
+        ) : null}
 
         <SettingsUnitInput
           id="channel-model-sort"
@@ -251,7 +291,7 @@ export function ImageChannelModelForm({
         />
       </div>
 
-      {(input.resolutions || []).length > 0 ? (
+      {!isVideoModel && (input.resolutions || []).length > 0 ? (
         <div className="grid gap-3 sm:grid-cols-3">
           {(input.resolutions || []).map((resolution) => (
             <SettingsUnitInput
@@ -273,33 +313,35 @@ export function ImageChannelModelForm({
         </div>
       ) : null}
 
-      <div className="grid gap-4 border-t border-border/60 pt-3.5 lg:grid-cols-3">
-        <PillMultiSelect
-          label="支持创作能力"
-          hint="至少保留 1 项"
-          options={CAPABILITY_OPTIONS}
-          selected={input.capabilities}
-          minSelected={1}
-          minWarning="模型至少需要保留 1 项创作能力"
-          onChange={(values) => set("capabilities", values)}
-        />
-        <PillMultiSelect
-          label="可选输出分辨率"
-          options={RESOLUTION_OPTIONS}
-          selected={input.resolutions || []}
-          minSelected={1}
-          minWarning="请至少保留 1 档可选分辨率"
-          onChange={(values) => set("resolutions", values)}
-        />
-        <PillMultiSelect
-          label="可选图像格式"
-          options={FORMAT_OPTIONS}
-          selected={input.formats || []}
-          minSelected={1}
-          minWarning="请至少保留 1 种输出图像格式"
-          onChange={(values) => set("formats", values)}
-        />
-      </div>
+      {!isVideoModel ? (
+        <div className="grid gap-4 border-t border-border/60 pt-3.5 lg:grid-cols-3">
+          <PillMultiSelect
+            label="支持创作能力"
+            hint={isVideoChannelModelId(input.upstream_model) ? "可全部取消切换为纯视频条目" : "至少保留 1 项"}
+            options={CAPABILITY_OPTIONS}
+            selected={input.capabilities}
+            minSelected={isVideoChannelModelId(input.upstream_model) ? 0 : 1}
+            minWarning="图片模型至少需要保留 1 项创作能力"
+            onChange={(values) => set("capabilities", values)}
+          />
+          <PillMultiSelect
+            label="可选输出分辨率"
+            options={RESOLUTION_OPTIONS}
+            selected={input.resolutions || []}
+            minSelected={1}
+            minWarning="请至少保留 1 档可选分辨率"
+            onChange={(values) => set("resolutions", values)}
+          />
+          <PillMultiSelect
+            label="可选图像格式"
+            options={FORMAT_OPTIONS}
+            selected={input.formats || []}
+            minSelected={1}
+            minWarning="请至少保留 1 种输出图像格式"
+            onChange={(values) => set("formats", values)}
+          />
+        </div>
+      ) : null}
 
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-3.5">
         <SettingsSwitchRow

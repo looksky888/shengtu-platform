@@ -83,6 +83,7 @@ type App struct {
 	updateAdmission   *updateAdmissionGate
 	shutdownRequested chan struct{}
 	shutdownOnce      sync.Once
+	cleanupWG         sync.WaitGroup
 	cancel            context.CancelFunc
 	rootCtx           context.Context
 	closeTasks        func(context.Context) error
@@ -301,8 +302,10 @@ func (a *App) startMediaCleanup(ctx context.Context, interval time.Duration) {
 			a.logger.Info("scheduled video cleanup completed", "removed", removed)
 		}
 	}
-	cleanup()
+	a.cleanupWG.Add(1)
 	go func() {
+		defer a.cleanupWG.Done()
+		cleanup()
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 		for {
@@ -340,8 +343,10 @@ func (a *App) startLogCleanup(ctx context.Context, interval time.Duration) {
 			a.logger.Info("scheduled log cleanup completed", "deleted", result.Deleted, "retention_days", result.RetentionDays)
 		}
 	}
-	cleanup()
+	a.cleanupWG.Add(1)
 	go func() {
+		defer a.cleanupWG.Done()
+		cleanup()
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 		for {

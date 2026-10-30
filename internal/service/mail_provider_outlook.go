@@ -299,7 +299,12 @@ func outlookGraphSender(message map[string]any) string {
 }
 
 func markRegisterMailboxResult(mailbox map[string]any, success bool, err error) error {
-	if util.Clean(mailbox["provider"]) != "outlook_token" {
+	provider := util.Clean(mailbox["provider"])
+	if provider == "icloud_api" || provider == "icloud_local" {
+		_ = UpdateICloudClaim(mailbox, success)
+		return nil
+	}
+	if provider != "outlook_token" {
 		return nil
 	}
 	address := util.Clean(mailbox["address"])
@@ -320,7 +325,12 @@ func markRegisterMailboxResult(mailbox map[string]any, success bool, err error) 
 }
 
 func releaseRegisterMailbox(mailbox map[string]any) error {
-	if util.Clean(mailbox["provider"]) != "outlook_token" {
+	provider := util.Clean(mailbox["provider"])
+	if provider == "icloud_api" || provider == "icloud_local" {
+		_ = UpdateICloudClaim(mailbox, false)
+		return nil
+	}
+	if provider != "outlook_token" {
 		return nil
 	}
 	return releaseOutlookTokenState(util.Clean(mailbox["address"]))

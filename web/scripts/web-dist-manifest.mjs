@@ -111,11 +111,14 @@ async function verifyManifest() {
     embedded.schemaVersion !== current.schemaVersion ||
     embedded.algorithm !== current.algorithm ||
     !sameFiles ||
-    embedded.sourceHash !== current.sourceHash
+    embedded.sourceHash !== current.sourceHash ||
+    embedded.appVersion !== current.appVersion
   ) {
-    throw new Error(
-      `frontend dist is stale: expected ${current.sourceHash}, found ${embedded.sourceHash || "missing"}`,
-    );
+    const mismatchDetail =
+      embedded.sourceHash !== current.sourceHash || !sameFiles
+        ? `expected ${current.sourceHash}, found ${embedded.sourceHash || "missing"}`
+        : `expected appVersion ${current.appVersion}, found ${embedded.appVersion || "missing"}`;
+    throw new Error(`frontend dist is stale: ${mismatchDetail}`);
   }
   console.log(`Verified frontend dist source hash ${current.sourceHash}`);
 }

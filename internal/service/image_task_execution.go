@@ -36,6 +36,8 @@ func (s *ImageTaskService) recoverTaskPanic(key string) {
 }
 
 func (s *ImageTaskService) runTask(ctx context.Context, key, mode string, identity Identity, payload map[string]any) {
+	s.setTaskWorkerActive(key, true)
+	defer s.setTaskWorkerActive(key, false)
 	defer s.removeTaskCancel(key)
 	startedAt := util.NowLocal()
 	bridge := &taskProgressBridge{service: s, key: key}

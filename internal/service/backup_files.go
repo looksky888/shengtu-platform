@@ -60,6 +60,7 @@ func (s *BackupService) pruneBackupsLocked(dir string, keep int) int {
 // cookie secret so disaster recovery restores the same operational state.
 // (Walk still picks up other .json/.db files under dataDir.)
 var backupCriticalDataFiles = []string{
+	"settings.env",
 	"accounts.json",
 	"auth_keys.json",
 	"account_quarantine.json",
@@ -71,15 +72,20 @@ var backupCriticalDataFiles = []string{
 	"chatgpt2api.db-shm",
 }
 
+func effectiveBackupIncludes(cfg BackupConfig) map[string]bool {
+	includes := stringSet(cfg.Include)
+	if len(includes) == 0 {
+		includes = stringSet([]string{"config", "data", "images"})
+	}
+	return includes
+}
+
 func (s *BackupService) collectFiles(cfg BackupConfig) ([]backupFile, error) {
 	return s.collectFilesExcluding(cfg, nil)
 }
 
 func (s *BackupService) collectFilesExcluding(cfg BackupConfig, excludedPaths []string) ([]backupFile, error) {
-	includes := stringSet(cfg.Include)
-	if len(includes) == 0 {
-		includes = stringSet([]string{"config", "data", "images"})
-	}
+	includes := effectiveBackupIncludes(cfg)
 	var files []backupFile
 	seen := map[string]struct{}{}
 	excluded := map[string]struct{}{}
@@ -120,6 +126,14 @@ func (s *BackupService) collectFilesExcluding(cfg BackupConfig, excludedPaths []
 	if includes["config"] {
 		for _, item := range []string{".env", "config.json"} {
 			if err := addFile(filepath.Join(s.rootDir, item)); err != nil {
+				return nil, err
+			}
+		}
+		if err := addFile(filepath.Join(s.dataDir, "settings.env")); err != nil {
+			return nil, err
+		}
+		if envFile := strings.TrimSpace(os.Getenv("CHATGPT2API_SETTINGS_ENV_FILE")); envFile != "" {
+			if err := addFile(envFile); err != nil {
 				return nil, err
 			}
 		}
@@ -179,9 +193,9 @@ func (s *BackupService) collectFilesExcluding(cfg BackupConfig, excludedPaths []
 
 func backupDataFileAllowed(path string) bool {
 	name := strings.ToLower(filepath.Base(path))
-	// Non-json secrets / cabin files that must ride with account-pool backups.
+	// Non-json secrets / cabin / runtime settings files that must ride with account-pool backups.
 	switch name {
-	case "device_id.secret", "email_settings.secret", "account_quarantine.json", "registration_quota.json":
+	case "settings.env", "device_id.secret", "email_settings.secret", "account_quarantine.json", "registration_quota.json":
 		return true
 	}
 	ext := strings.ToLower(filepath.Ext(name))
@@ -254,6 +268,10 @@ func writeBackupZipEntries(ctx context.Context, out io.Writer, files []backupFil
 		}
 		in, err := os.Open(file.Path)
 		if err != nil {
+			lowerPath := strings.ToLower(file.Path)
+			if os.IsNotExist(err) && (strings.HasSuffix(lowerPath, "-wal") || strings.HasSuffix(lowerPath, "-shm") || strings.HasSuffix(lowerPath, ".tmp")) {
+				continue
+			}
 			return errors.Join(err, zw.Close())
 		}
 		w, err := zw.Create(filepath.ToSlash(file.Name))

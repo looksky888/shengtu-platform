@@ -144,7 +144,11 @@ func (m *Manager) saveLocked() error {
 }
 
 func cloneState(state State) State {
-	state.Checks = append([]Check(nil), state.Checks...)
+	if len(state.Checks) == 0 {
+		state.Checks = []Check{}
+	} else {
+		state.Checks = append([]Check(nil), state.Checks...)
+	}
 	if state.Target != nil {
 		target := *state.Target
 		state.Target = &target

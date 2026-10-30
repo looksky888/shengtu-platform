@@ -72,8 +72,8 @@ func managedUserPublicFromAccount(account PasswordAccount, roles []ManagedRole) 
 		CreatedAt:      account.CreatedAt,
 		LastUsedAt:     account.LastLoginAt,
 		UpdatedAt:      account.UpdatedAt,
-		MenuPaths:      append([]string(nil), permissions.MenuPaths...),
-		APIPermissions: append([]string(nil), permissions.APIPermissions...),
+		MenuPaths:      cloneNonNilStringSlice(permissions.MenuPaths),
+		APIPermissions: cloneNonNilStringSlice(permissions.APIPermissions),
 	}
 }
 
@@ -124,10 +124,10 @@ func mergeManagedUserPublic(user *ManagedUserPublic, item AuthKey) {
 	}
 	permissions := item.permissions()
 	if len(permissions.MenuPaths) > 0 || len(user.MenuPaths) == 0 {
-		user.MenuPaths = append([]string(nil), permissions.MenuPaths...)
+		user.MenuPaths = cloneNonNilStringSlice(permissions.MenuPaths)
 	}
 	if len(permissions.APIPermissions) > 0 || len(user.APIPermissions) == 0 {
-		user.APIPermissions = append([]string(nil), permissions.APIPermissions...)
+		user.APIPermissions = cloneNonNilStringSlice(permissions.APIPermissions)
 	}
 	user.CredentialCount++
 	if created := util.Clean(item.CreatedAt); created != "" {

@@ -1,6 +1,6 @@
 import { httpRequest } from "@/lib/request";
 import { assertCursorPage } from "@/lib/api-contract";
-import type { ImageProxyHealth, ImageVisibility, ManagedImage, MediaLocalCleanupStatus, MediaMigrationStatus, MediaStorageHealth, SettingsConfig } from "@/lib/api-types";
+import type { ImageVisibility, ManagedImage, MediaLocalCleanupStatus, MediaMigrationStatus, MediaStorageHealth, SettingsConfig } from "@/lib/api-types";
 
 export async function fetchSettingsConfig(options: { signal?: AbortSignal } = {}) {
   return httpRequest<{ config: SettingsConfig }>("/api/settings", { signal: options.signal });
@@ -46,10 +46,6 @@ export async function fetchImageProxyModels(settings: { base_url: string; api_ke
     method: "POST",
     body: settings,
   });
-}
-
-export async function fetchImageProxyHealth() {
-  return httpRequest<{ health: ImageProxyHealth }>("/api/settings/image-proxy/health");
 }
 
 export async function fetchMediaStorageOverview(options: { signal?: AbortSignal } = {}) {

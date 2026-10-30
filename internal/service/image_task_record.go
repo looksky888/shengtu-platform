@@ -63,6 +63,7 @@ type ImageTask struct {
 	logCountSet           bool      `json:"-"`
 	accountSwitchCountSet bool      `json:"-"`
 	durationSecondsSet    bool      `json:"-"`
+	workerActive          bool      `json:"-"`
 	activeStage           string    `json:"-"`
 	activeStageStartedAt  time.Time `json:"-"`
 	upstreamHTTPStatusSet bool      `json:"-"`

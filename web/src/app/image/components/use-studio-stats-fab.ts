@@ -1,62 +1,27 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { useMotionValue, useReducedMotion, useSpring } from "motion/react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { getTaskQueueItems, useImageConversationsForQueue } from "@/components/image-task-queue-utils";
 import { getPageVisibilitySnapshot } from "@/lib/page-visibility";
 
-import {
-  clampFabPosition,
-  defaultFabPosition,
-  formatBallCount,
-  formatPercent,
-  isElevatedFailRate,
-  loadFabPosition,
-  saveFabPosition,
-  snapFabToEdge,
-  type FabPosition,
-} from "./studio-stats-fab-utils";
+import { formatPercent, isElevatedFailRate } from "./studio-stats-fab-utils";
 import { fetchSharedStudioStats, useSharedStudioTelemetry } from "./studio-stats-store";
 
-const BALL = 64;
-const PANEL_W = 340;
 const TERMINAL_REFRESH_DEBOUNCE_MS = 900;
 
 export function useStudioStatsFab() {
-  const reduceMotion = useReducedMotion();
   const conversations = useImageConversationsForQueue();
   const [open, setOpen] = useState(false);
   const { stats, onlineAccounts, loading, error, refreshTelemetry } = useSharedStudioTelemetry(open);
-  const [pos, setPos] = useState<FabPosition>(() => defaultFabPosition(BALL, 24));
-  const [ready, setReady] = useState(false);
-  const [bump, setBump] = useState(0);
-  const [panelHeight, setPanelHeight] = useState(0);
-  const wrapRef = useRef<HTMLDivElement>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
-  const dragRef = useRef({ active: false, moved: false, startX: 0, startY: 0, originX: 0, originY: 0 });
   const busyKeysRef = useRef<Set<string>>(new Set());
   const terminalRefreshTimerRef = useRef<number | null>(null);
   const terminalRefreshFollowUpRef = useRef<number | null>(null);
-  const prevSuccessRef = useRef<number | null>(null);
   const mountedRef = useRef(true);
-
-  const x = useMotionValue(pos.x);
-  const y = useMotionValue(pos.y);
-  const springX = useSpring(x, { stiffness: 420, damping: 36, mass: 0.7 });
-  const springY = useSpring(y, { stiffness: 420, damping: 36, mass: 0.7 });
 
   const rateText = formatPercent(stats.successRate);
   const hasData = stats.successImages + stats.failedImages > 0;
   const elevatedFail = isElevatedFailRate(stats.successImages, stats.failedImages);
-  const ballCountText = formatBallCount(stats.successImages);
-
-  useEffect(() => {
-    if (prevSuccessRef.current !== null && stats.successImages > prevSuccessRef.current) {
-      setBump((n) => n + 1);
-    }
-    prevSuccessRef.current = stats.successImages;
-  }, [stats.successImages]);
 
   const clearTerminalRefreshTimers = useCallback(() => {
     if (terminalRefreshTimerRef.current != null) {
@@ -83,17 +48,11 @@ export function useStudioStatsFab() {
 
   useEffect(() => {
     mountedRef.current = true;
-    const saved = loadFabPosition();
-    const next = clampFabPosition(saved ?? defaultFabPosition(BALL, 24), BALL, 8);
-    setPos(next);
-    x.set(next.x);
-    y.set(next.y);
-    setReady(true);
     return () => {
       mountedRef.current = false;
       clearTerminalRefreshTimers();
     };
-  }, [clearTerminalRefreshTimers, x, y]);
+  }, [clearTerminalRefreshTimers]);
 
   useEffect(() => {
     const busy = new Set(
@@ -107,120 +66,6 @@ export function useStudioStatsFab() {
     busyKeysRef.current = busy;
   }, [conversations, scheduleTerminalRefresh]);
 
-  useEffect(() => {
-    const onResize = () => {
-      setPos((current) => {
-        const next = clampFabPosition(current, BALL, 8);
-        x.set(next.x);
-        y.set(next.y);
-        return next;
-      });
-    };
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, [x, y]);
-
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open]);
-
-  useLayoutEffect(() => {
-    const panel = panelRef.current;
-    if (!open || !panel) {
-      return;
-    }
-    const measure = () => setPanelHeight(panel.offsetHeight);
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(panel);
-    return () => observer.disconnect();
-  }, [open]);
-
-  const commitPos = useCallback(
-    (next: FabPosition, snap = false) => {
-      const clamped = clampFabPosition(snap ? snapFabToEdge(next, BALL, 16) : next, BALL, 8);
-      setPos(clamped);
-      x.set(clamped.x);
-      y.set(clamped.y);
-      saveFabPosition(clamped);
-      return clamped;
-    },
-    [x, y],
-  );
-
-  const panelStyle = useMemo(() => {
-    if (typeof window === "undefined") return { left: 0, top: 0, transformOrigin: "100% 100%", width: PANEL_W };
-    const pw = Math.min(PANEL_W, window.innerWidth - 24);
-    const ph = panelHeight || 360;
-    const gap = 14;
-    const ballCx = pos.x + BALL / 2;
-    const ballCy = pos.y + BALL / 2;
-    let left = ballCx - pw / 2;
-    let top = pos.y - ph - gap;
-    if (top < 12) top = Math.min(pos.y + BALL + gap, window.innerHeight - ph - 12);
-    left = Math.min(window.innerWidth - pw - 12, Math.max(12, left));
-    top = Math.min(window.innerHeight - ph - 12, Math.max(12, top));
-    const ox = ((ballCx - left) / pw) * 100;
-    const oy = ((ballCy - top) / ph) * 100;
-    return {
-      left,
-      top,
-      width: pw,
-      transformOrigin: `${Math.min(100, Math.max(0, ox))}% ${Math.min(100, Math.max(0, oy))}%`,
-    };
-  }, [panelHeight, pos.x, pos.y]);
-
-  const onPointerDown = (event: ReactPointerEvent<HTMLButtonElement>) => {
-    if (event.button !== 0) return;
-    dragRef.current = {
-      active: true,
-      moved: false,
-      startX: event.clientX,
-      startY: event.clientY,
-      originX: pos.x,
-      originY: pos.y,
-    };
-    event.currentTarget.setPointerCapture(event.pointerId);
-  };
-
-  const onPointerMove = (event: ReactPointerEvent<HTMLButtonElement>) => {
-    const drag = dragRef.current;
-    if (!drag.active) return;
-    const dx = event.clientX - drag.startX;
-    const dy = event.clientY - drag.startY;
-    if (Math.hypot(dx, dy) > 4) drag.moved = true;
-    if (!drag.moved) return;
-    const next = clampFabPosition({ x: drag.originX + dx, y: drag.originY + dy }, BALL, 8);
-    setPos(next);
-    x.set(next.x);
-    y.set(next.y);
-  };
-
-  const onPointerUp = (event: ReactPointerEvent<HTMLButtonElement>) => {
-    const drag = dragRef.current;
-    if (!drag.active) return;
-    drag.active = false;
-    try {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    } catch {
-      /* ignore */
-    }
-    if (!drag.moved) {
-      setOpen((v) => !v);
-      return;
-    }
-    commitPos(pos, true);
-  };
-
-  const onDoubleClick = () => {
-    commitPos(defaultFabPosition(BALL, 24), false);
-  };
-
   const setRefreshToken = useCallback(
     (_updater?: number | ((value: number) => number)) => {
       refreshTelemetry(false);
@@ -229,10 +74,8 @@ export function useStudioStatsFab() {
   );
 
   return {
-    ready,
     open,
     setOpen,
-    reduceMotion,
     stats,
     onlineAccounts,
     loading,
@@ -240,18 +83,6 @@ export function useStudioStatsFab() {
     elevatedFail,
     hasData,
     rateText,
-    ballCountText,
-    bump,
-    wrapRef,
-    panelRef,
-    panelStyle,
-    springX,
-    springY,
-    pos,
-    onPointerDown,
-    onPointerMove,
-    onPointerUp,
-    onDoubleClick,
     setRefreshToken,
   };
 }

@@ -33,13 +33,13 @@ func (a *App) deductImageCredits(identity service.Identity, payload map[string]a
 		return nil, fmt.Errorf("图片积分功能需要绑定用户账号")
 	}
 	amount := a.imageCreditAmount(payload)
-	// Align with imageTaskCount / OpenAI-style n (1–4); unbounded n would inflate charges or refund math.
+	// Align with imageTaskCount / OpenAI-style n (1–15); unbounded n would inflate charges or refund math.
 	n := util.ToInt(payload["n"], 1)
-	if n < 1 {
-		n = 1
+	if n < protocol.MinImageCount {
+		n = protocol.MinImageCount
 	}
-	if n > 4 {
-		n = 4
+	if n > protocol.MaxImageCount {
+		n = protocol.MaxImageCount
 	}
 	// Prefer stable client_task_id so retries / FE resubmits do not double-charge.
 	clientTaskID := firstNonEmpty(util.Clean(payload["client_task_id"]), util.Clean(payload["task_id"]))
@@ -186,11 +186,11 @@ func imageCreditUserID(identity service.Identity) string {
 func (a *App) imageCreditAmount(payload map[string]any) int {
 	base := a.imageCreditBaseAmount(payload)
 	count := util.ToInt(payload["n"], 1)
-	if count < 1 {
-		count = 1
+	if count < protocol.MinImageCount {
+		count = protocol.MinImageCount
 	}
-	if count > 4 {
-		count = 4
+	if count > protocol.MaxImageCount {
+		count = protocol.MaxImageCount
 	}
 	return base * count
 }

@@ -9,11 +9,13 @@ import {
   imageOutputCompressionForFormat,
   imageQualityForModel,
   isInvalidCustomRatioSelection,
+  mapGrokImageSize,
   normalizeRequestedImageCount,
   usesReferenceImages,
 } from "@/app/image/lib/image-turn-utils";
 import { serializeImageSizeSelection } from "@/app/image/lib/image-storage-utils";
 import { buildConversationTitle, createId } from "@/app/image/lib/reference-image-utils";
+import { isGrokImageModel } from "@/lib/api";
 import { isTurnBusy } from "@/lib/image-turn-state";
 import type { ImageConversation } from "@/store/image-conversations";
 
@@ -70,7 +72,7 @@ export function useSaveEditingTurn({
         toast.error("请输入有效的自定义比例，例如 5:4 或 2.39:1");
         return;
       }
-      const draftImageSize =
+      const rawDraftImageSize =
         mode === "chat"
           ? ""
           : buildImageSize({
@@ -81,6 +83,16 @@ export function useSaveEditingTurn({
               customWidth: draft.customWidth,
               customHeight: draft.customHeight,
             });
+      if (mode !== "chat" && draft.sizeMode === "custom" && !rawDraftImageSize) {
+        toast.error("请填写有效的宽度和高度");
+        return;
+      }
+      const effectiveSize =
+        mode === "chat"
+          ? ""
+          : isGrokImageModel(draft.model)
+            ? mapGrokImageSize(rawDraftImageSize || "1080p")
+            : rawDraftImageSize;
       const draftSizeSelection = serializeImageSizeSelection({
         mode: draft.sizeMode,
         aspectRatio: draft.aspectRatio,
@@ -89,10 +101,6 @@ export function useSaveEditingTurn({
         customWidth: draft.customWidth,
         customHeight: draft.customHeight,
       });
-      if (mode !== "chat" && draft.sizeMode === "custom" && !draftImageSize) {
-        toast.error("请填写有效的宽度和高度");
-        return;
-      }
       const draftOutputCompression = imageOutputCompressionForFormat(draft.outputFormat, draft.outputCompression);
       const now = new Date().toISOString();
       const regenerationId = createId();
@@ -108,16 +116,24 @@ export function useSaveEditingTurn({
               return turn;
             }
 
+            const resolvedModelLabel =
+              mode === "chat"
+                ? undefined
+                : draft.modelLabel ||
+                  (draft.model === turn.model ? turn.modelLabel : undefined) ||
+                  draft.model;
+
             const baseTurn = {
               ...turn,
               prompt,
               model: draft.model,
+              modelLabel: resolvedModelLabel,
               channelModelId: mode === "chat" ? undefined : draft.channelModelId,
               channelName: mode === "chat" ? undefined : draft.channelName,
               mode,
               referenceImages,
               count: imageCount,
-              size: draftImageSize,
+              size: effectiveSize,
               sizeSelection: mode === "chat" ? undefined : draftSizeSelection,
               quality: mode === "chat" ? undefined : imageQualityForModel(draft.model, draft.quality),
               outputFormat: mode === "chat" ? undefined : draft.outputFormat,

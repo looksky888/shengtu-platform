@@ -303,13 +303,20 @@ func TestStreamTextResponseEventsPropagatesUpstreamError(t *testing.T) {
 
 func TestHandleImageGenerationsValidatesPromptAndCount(t *testing.T) {
 	engine := &Engine{}
+	for _, validCount := range []int{1, 8, 15} {
+		got, err := ParseImageCount(validCount)
+		if err != nil || got != validCount {
+			t.Fatalf("ParseImageCount(%d) = %d, %v; want %d, nil", validCount, got, err, validCount)
+		}
+	}
 	for _, tc := range []struct {
 		name string
 		body map[string]any
 		want string
 	}{
 		{name: "empty prompt", body: map[string]any{"n": 1}, want: "prompt is required"},
-		{name: "too many images", body: map[string]any{"prompt": "draw", "n": 5}, want: "n must be between 1 and 4"},
+		{name: "zero images", body: map[string]any{"prompt": "draw", "n": 0}, want: "n must be between 1 and 15"},
+		{name: "too many images", body: map[string]any{"prompt": "draw", "n": 16}, want: "n must be between 1 and 15"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			_, _, err := engine.HandleImageGenerations(context.Background(), tc.body)

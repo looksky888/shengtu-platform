@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Boxes, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { Boxes, Film, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { SectionErrorBoundary } from "@/components/section-error-boundary";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CopyButton } from "@/components/ui/copy-button";
@@ -34,16 +35,23 @@ import {
   type ImageChannelModel,
   type ImageChannelModelInput,
 } from "@/lib/image-channel-api";
+import { isVideoChannelModelId } from "@/lib/model-catalog-normalizers";
 import { resetPublicModelChannelCache } from "@/lib/use-public-model-channel";
 import { cn } from "@/lib/utils";
 
-import {
-  ImageChannelModelForm,
-} from "./image-channel-model-form";
+import { ImageChannelModelForm } from "./image-channel-model-form";
 import { CAPABILITY_LABELS } from "./image-channel-model-labels";
 import { SettingsEmptyState } from "./settings-ui";
 
-function modelPrice(model: ImageChannelModel) {
+function isVideoOnlyModel(model: ImageChannelModel): boolean {
+  const caps = model.capabilities ?? [];
+  return caps.length === 0 && isVideoChannelModelId(model.upstream_model);
+}
+
+function modelPrice(model: ImageChannelModel): string {
+  if (isVideoOnlyModel(model)) {
+    return "按秒计费 · 遵循全局视频单价";
+  }
   const tiers = Object.entries(model.credit_costs || {});
   if (!tiers.length) return `${model.credit_cost} 积分/张`;
   return tiers
@@ -165,215 +173,241 @@ export function ImageChannelModelsDialog({
             {channel?.name || "渠道"} · 模型与单价管理
           </DialogTitle>
           <DialogDescription className="text-xs text-muted-foreground">
-            管理该渠道对外暴露的生图/修图模型、分辨率规格与单张积分价格
+            管理该渠道对外暴露的生图/修图及关联视频模型、分辨率规格与积分价格
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              type="button"
-              size="sm"
-              onClick={() => {
-                setSuggestionForForm("");
-                setEditing(null);
-              }}
-              className="h-8 gap-1.5 px-3 text-xs"
-            >
-              <Plus className="size-3.5" />
-              <span>新增模型</span>
-            </Button>
-            {channel?.type === "openai_compatible" ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                loading={discovering}
-                disabled={discovering}
-                onClick={() => void discover()}
-                className="h-8 gap-1.5 px-3 text-xs"
-              >
-                <RefreshCw className="size-3.5" />
-                <span>从上游拉取模型</span>
-              </Button>
-            ) : null}
-          </div>
-          <Badge
-            variant="outline"
-            className="h-5 gap-1.5 border-border/75 bg-surface-subtle px-2 text-[11px] tabular-nums text-muted-foreground"
-          >
-            <span
-              className={cn(
-                "size-1.5 rounded-full",
-                enabledModelsCount > 0
-                  ? "bg-status-success"
-                  : "bg-muted-foreground/55"
-              )}
-            />
-            {enabledModelsCount} / {models.length} 个模型已启用
-          </Badge>
-        </div>
-
-        {suggestions.length > 0 ? (
-          <div className="space-y-2 rounded-xl border border-dashed border-border/80 bg-surface-subtle/45 p-3">
-            <div className="text-xs font-medium text-muted-foreground">
-              已发现 {suggestions.length} 个上游模型（点击一键填入下方配置表单）：
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {suggestions.map((suggestion) => (
+        <SectionErrorBoundary
+          compact
+          resetKey={`${channel?.id ?? "none"}:${open}:${editing === undefined ? "list" : editing?.id ?? "new"}`}
+          title="渠道模型管理渲染异常"
+        >
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-2">
                 <Button
-                  key={suggestion}
                   type="button"
                   size="sm"
-                  variant={
-                    suggestionForForm === suggestion ? "default" : "outline"
-                  }
                   onClick={() => {
-                    setSuggestionForForm(suggestion);
+                    setSuggestionForForm("");
                     setEditing(null);
                   }}
-                  className="h-7 px-2.5 font-mono text-xs"
+                  className="h-8 gap-1.5 px-3 text-xs"
                 >
-                  {suggestion}
+                  <Plus className="size-3.5" />
+                  <span>新增模型</span>
                 </Button>
-              ))}
+                {channel?.type === "openai_compatible" ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    loading={discovering}
+                    disabled={discovering}
+                    onClick={() => void discover()}
+                    className="h-8 gap-1.5 px-3 text-xs"
+                  >
+                    <RefreshCw className="size-3.5" />
+                    <span>从上游拉取模型</span>
+                  </Button>
+                ) : null}
+              </div>
+              <Badge
+                variant="outline"
+                className="h-5 gap-1.5 border-border/75 bg-surface-subtle px-2 text-[11px] tabular-nums text-muted-foreground"
+              >
+                <span
+                  className={cn(
+                    "size-1.5 rounded-full",
+                    enabledModelsCount > 0
+                      ? "bg-status-success"
+                      : "bg-muted-foreground/55"
+                  )}
+                />
+                {enabledModelsCount} / {models.length} 个模型已启用
+              </Badge>
             </div>
-          </div>
-        ) : null}
 
-        {editing !== undefined ? (
-          <ImageChannelModelForm
-            model={editing}
-            saving={saving}
-            suggestions={suggestions}
-            initialUpstreamModel={suggestionForForm}
-            onCancel={() => {
-              setSuggestionForForm("");
-              setEditing(undefined);
-            }}
-            onSave={save}
-          />
-        ) : null}
+            {suggestions.length > 0 ? (
+              <div className="space-y-2 rounded-xl border border-dashed border-border/80 bg-surface-subtle/45 p-3">
+                <div className="text-xs font-medium text-muted-foreground">
+                  已发现 {suggestions.length} 个上游模型（点击一键填入下方配置表单）：
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {suggestions.map((suggestion) => (
+                    <Button
+                      key={suggestion}
+                      type="button"
+                      size="sm"
+                      variant={
+                        suggestionForForm === suggestion ? "default" : "outline"
+                      }
+                      onClick={() => {
+                        setSuggestionForForm(suggestion);
+                        setEditing(null);
+                      }}
+                      className="h-7 px-2.5 font-mono text-xs"
+                    >
+                      {suggestion}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
 
-        {loading ? (
-          <div className="space-y-2 py-2">
-            <Skeleton className="h-12 w-full" />
-            <Skeleton className="h-12 w-full" />
-            <Skeleton className="h-12 w-full" />
+            {editing !== undefined ? (
+              <ImageChannelModelForm
+                model={editing}
+                saving={saving}
+                suggestions={suggestions}
+                initialUpstreamModel={suggestionForForm}
+                onCancel={() => {
+                  setSuggestionForForm("");
+                  setEditing(undefined);
+                }}
+                onSave={save}
+              />
+            ) : null}
+
+            {loading ? (
+              <div className="space-y-2 py-2">
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
+              </div>
+            ) : models.length === 0 ? (
+              <SettingsEmptyState
+                icon={Boxes}
+                title="当前渠道尚未挂载模型"
+                description="点击上方「新增模型」或「从上游拉取模型」后，模型即可出现在图片创作台中。"
+              />
+            ) : (
+              <div className="overflow-x-auto rounded-xl border border-border/75 bg-surface">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-surface-subtle/55">
+                      <TableHead>模型名称 / 上游 ID</TableHead>
+                      <TableHead>支持能力</TableHead>
+                      <TableHead>积分定价</TableHead>
+                      <TableHead>状态</TableHead>
+                      <TableHead className="text-right">操作</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {models.map((model) => {
+                      const capabilities = model.capabilities ?? [];
+                      const videoOnly = isVideoOnlyModel(model);
+                      return (
+                        <TableRow key={model.id}>
+                          <TableCell>
+                            <div className="font-medium text-foreground">
+                              {model.display_name || model.upstream_model}
+                            </div>
+                            <div className="mt-0.5 flex items-center gap-1">
+                              <code className="rounded bg-surface-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
+                                {model.upstream_model}
+                              </code>
+                              <CopyButton
+                                value={model.upstream_model}
+                                title="复制上游模型 ID"
+                                toastMessage="已复制模型 ID"
+                                className="size-6 rounded text-muted-foreground hover:text-foreground"
+                              />
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-wrap gap-1">
+                              {capabilities.length > 0 ? (
+                                capabilities.map((cap) => (
+                                  <Badge
+                                    key={cap}
+                                    variant="secondary"
+                                    className="h-5 px-1.5 text-[11px] font-normal"
+                                  >
+                                    {CAPABILITY_LABELS[cap] || cap}
+                                  </Badge>
+                                ))
+                              ) : videoOnly ? (
+                                <Badge
+                                  variant="outline"
+                                  className="h-5 gap-1 border-border/80 bg-surface-subtle px-2 text-[11px] font-normal text-foreground"
+                                >
+                                  <Film className="size-3 text-muted-foreground" />
+                                  <span>视频生成</span>
+                                </Badge>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">
+                                  未配置图片能力
+                                </span>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="tabular-nums text-xs text-muted-foreground">
+                            {modelPrice(model)}
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                "h-5 gap-1.5 px-2 text-[11px]",
+                                model.enabled
+                                  ? "border-status-success/25 bg-status-success-soft font-medium text-status-success"
+                                  : "border-border/75 bg-surface-subtle text-muted-foreground"
+                              )}
+                            >
+                              <span
+                                className={cn(
+                                  "size-1.5 rounded-full",
+                                  model.enabled
+                                    ? "bg-status-success"
+                                    : "bg-muted-foreground/55"
+                                )}
+                              />
+                              {model.enabled ? "已启用" : "已停用"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex justify-end gap-1">
+                              <Button
+                                type="button"
+                                size="icon-sm"
+                                variant="ghost"
+                                aria-label="编辑模型"
+                                title="编辑模型"
+                                onClick={() => setEditing(model)}
+                                className="size-7.5 text-muted-foreground hover:text-foreground"
+                              >
+                                <Pencil className="size-3.5" />
+                              </Button>
+                              <Button
+                                type="button"
+                                size="icon-sm"
+                                variant="ghost"
+                                aria-label="删除模型"
+                                title="删除模型"
+                                onClick={() => setDeletingModel(model)}
+                                className="size-7.5 text-muted-foreground hover:bg-status-danger-soft hover:text-status-danger"
+                              >
+                                <Trash2 className="size-3.5" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
           </div>
-        ) : models.length === 0 ? (
-          <SettingsEmptyState
-            icon={Boxes}
-            title="当前渠道尚未挂载模型"
-            description="点击上方「新增模型」或「从上游拉取模型」后，模型即可出现在图片创作台中。"
-          />
-        ) : (
-          <div className="overflow-x-auto rounded-xl border border-border/75 bg-surface">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-surface-subtle/55">
-                  <TableHead>模型名称 / 上游 ID</TableHead>
-                  <TableHead>支持能力</TableHead>
-                  <TableHead>积分定价</TableHead>
-                  <TableHead>状态</TableHead>
-                  <TableHead className="text-right">操作</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {models.map((model) => (
-                  <TableRow key={model.id}>
-                    <TableCell>
-                      <div className="font-medium text-foreground">
-                        {model.display_name}
-                      </div>
-                      <div className="mt-0.5 flex items-center gap-1">
-                        <code className="rounded bg-surface-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
-                          {model.upstream_model}
-                        </code>
-                        <CopyButton
-                          value={model.upstream_model}
-                          title="复制上游模型 ID"
-                          toastMessage="已复制模型 ID"
-                          className="size-6 rounded text-muted-foreground hover:text-foreground"
-                        />
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex flex-wrap gap-1">
-                        {model.capabilities.map((cap) => (
-                          <Badge
-                            key={cap}
-                            variant="secondary"
-                            className="h-5 px-1.5 text-[11px] font-normal"
-                          >
-                            {CAPABILITY_LABELS[cap] || cap}
-                          </Badge>
-                        ))}
-                      </div>
-                    </TableCell>
-                    <TableCell className="tabular-nums text-xs text-muted-foreground">
-                      {modelPrice(model)}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant="outline"
-                        className={cn(
-                          "h-5 gap-1.5 px-2 text-[11px]",
-                          model.enabled
-                            ? "border-status-success/25 bg-status-success-soft font-medium text-status-success"
-                            : "border-border/75 bg-surface-subtle text-muted-foreground"
-                        )}
-                      >
-                        <span
-                          className={cn(
-                            "size-1.5 rounded-full",
-                            model.enabled
-                              ? "bg-status-success"
-                              : "bg-muted-foreground/55"
-                          )}
-                        />
-                        {model.enabled ? "已启用" : "已停用"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex justify-end gap-1">
-                        <Button
-                          type="button"
-                          size="icon-sm"
-                          variant="ghost"
-                          aria-label="编辑模型"
-                          title="编辑模型"
-                          onClick={() => setEditing(model)}
-                          className="size-7.5 text-muted-foreground hover:text-foreground"
-                        >
-                          <Pencil className="size-3.5" />
-                        </Button>
-                        <Button
-                          type="button"
-                          size="icon-sm"
-                          variant="ghost"
-                          aria-label="删除模型"
-                          title="删除模型"
-                          onClick={() => setDeletingModel(model)}
-                          className="size-7.5 text-muted-foreground hover:bg-status-danger-soft hover:text-status-danger"
-                        >
-                          <Trash2 className="size-3.5" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
+        </SectionErrorBoundary>
 
         <ConfirmDialog
           open={Boolean(deletingModel)}
           title="确认移除该渠道模型？"
           description={
             deletingModel
-              ? `即将从渠道「${channel?.name ?? ""}」中移除模型「${deletingModel.display_name}」，创作台将不再展示该选项。`
+              ? `即将从渠道「${channel?.name ?? ""}」中移除模型「${deletingModel.display_name || deletingModel.upstream_model}」，创作台将不再展示该选项。`
               : ""
           }
           confirmLabel="确认删除"

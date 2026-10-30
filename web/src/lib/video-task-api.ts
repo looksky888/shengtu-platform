@@ -74,17 +74,6 @@ export type ProtocolVideoList = {
   next_cursor?: string;
 };
 
-export async function listProtocolVideos(options: { signal?: AbortSignal; after?: string; limit?: number; status?: ProtocolVideo["status"] } = {}) {
-  const params = new URLSearchParams({ limit: String(options.limit || 20) });
-  if (options.after) params.set("after", options.after);
-  if (options.status) params.set("status", options.status);
-  return httpRequest<ProtocolVideoList>(`/v1/videos?${params}`, { signal: options.signal });
-}
-
-export async function cancelProtocolVideo(id: string) {
-  return httpRequest<ProtocolVideo>(`/v1/videos/${encodeURIComponent(id)}`, { method: "DELETE" });
-}
-
 export async function submitVideoGeneration(payload: VideoGenerationRequest) {
   return httpRequest<CreationTask>("/api/creation-tasks/video-generations", {
     method: "POST",

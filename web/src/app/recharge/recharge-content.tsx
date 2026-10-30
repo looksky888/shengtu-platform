@@ -9,11 +9,18 @@ import {
 } from "@/app/recharge/recharge-panels";
 import { RechargeReadyView } from "@/app/recharge/recharge-ready-view";
 import { useRechargeOrder } from "@/app/recharge/use-recharge-order";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import webConfig from "@/constants/common-env";
 import { fetchProfileCredits } from "@/lib/api";
+import {
+  cancelPaymentOnLeave,
+  shouldWarnBeforeLeavingPendingOrder,
+} from "@/lib/payment-order-leave";
 import { createRequestId } from "@/lib/request-id";
+import { useUnsavedRouteGuard } from "@/lib/use-unsaved-route-guard";
 import {
   createCustomCreditsOrder,
   createPaymentOrder,
@@ -45,6 +52,26 @@ export function RechargeContent({
   const [custom, setCustom] = useState(100);
   const payment = useRechargeOrder(sessionKey);
   const { order, querying, cancelling } = payment;
+  const hasPendingPaymentOrder = shouldWarnBeforeLeavingPendingOrder(order);
+  const leaveGuard = useUnsavedRouteGuard({
+    when: hasPendingPaymentOrder,
+    onSave: () => true,
+    onDiscard: async () => {
+      if (!order) return true;
+      try {
+        await cancelPaymentOnLeave(webConfig.apiUrl, sessionKey, order.id);
+        payment.replaceOrder(null);
+        toast.success("未支付订单已取消");
+      } catch (reason) {
+        toast.warning(
+          reason instanceof Error
+            ? reason.message
+            : "离开页面时关单未确认，请稍后返回查询",
+        );
+      }
+      return true;
+    },
+  });
   const submitPending = useRef(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -244,30 +271,51 @@ export function RechargeContent({
     );
 
   return (
-    <RechargeReadyView
-      products={products}
-      channels={channels}
-      settings={settings}
-      storageEntitlement={storageEntitlement}
-      creditBalance={creditBalance}
-      recentOrders={recentOrders}
-      loadingRecentOrders={loadingRecentOrders}
-      isAdmin={isAdmin}
-      selectedChannelID={selectedChannelID}
-      custom={custom}
-      order={order}
-      submitting={submitting}
-      querying={querying}
-      cancelling={cancelling}
-      error={error || payment.error}
-      onChannelChange={setSelectedChannelID}
-      onCustomChange={setCustom}
-      onSubmit={(product) => void submit(product)}
-      onCancel={() => void payment.cancel()}
-      onReset={() => payment.replaceOrder(null)}
-      onRefresh={() => void payment.refresh({ manual: true })}
-      onReloadRecentOrders={() => void loadRecentOrders()}
-      onResumeOrder={(selected) => payment.replaceOrder(selected)}
-    />
+    <>
+      <RechargeReadyView
+        products={products}
+        channels={channels}
+        settings={settings}
+        storageEntitlement={storageEntitlement}
+        creditBalance={creditBalance}
+        recentOrders={recentOrders}
+        loadingRecentOrders={loadingRecentOrders}
+        isAdmin={isAdmin}
+        selectedChannelID={selectedChannelID}
+        custom={custom}
+        order={order}
+        submitting={submitting}
+        querying={querying}
+        cancelling={cancelling}
+        error={error || payment.error}
+        onChannelChange={setSelectedChannelID}
+        onCustomChange={setCustom}
+        onSubmit={(product) => void submit(product)}
+        onCancel={() => void payment.cancel()}
+        onReset={() => payment.replaceOrder(null)}
+        onRefresh={() => void payment.refresh({ manual: true })}
+        onReloadRecentOrders={() => void loadRecentOrders()}
+        onResumeOrder={(selected) => payment.replaceOrder(selected)}
+      />
+      <ConfirmDialog
+        open={leaveGuard.isOpen}
+        tone="warning"
+        title="当前有待扫码支付的订单"
+        description="离开充值中心不会中断已扫码的入账，你也可以选择直接取消当前未支付订单后再离开。"
+        cancelLabel="继续扫码支付"
+        secondaryAction={{
+          label: "取消订单并离开",
+          variant: "destructive",
+          pending: leaveGuard.isDiscarding,
+          pendingLabel: "正在取消…",
+          onClick: () => void leaveGuard.confirmDiscardAndLeave(),
+        }}
+        confirmLabel="保留订单并离开"
+        pendingLabel="正在跳转…"
+        pending={leaveGuard.isSaving}
+        onClose={leaveGuard.cancelLeave}
+        onConfirm={() => void leaveGuard.confirmSaveAndLeave()}
+      />
+    </>
   );
 }
