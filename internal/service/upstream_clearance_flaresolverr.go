@@ -91,6 +91,11 @@ func fetchFlareSolverrUpstreamClearance(ctx context.Context, flaresolverrURL, ta
 		if name == "" || value == "" {
 			continue
 		}
+		// Never cache or replay OpenAI session/device cookies (e.g. oai-sc, oai-did)
+		// from an anonymous FlareSolverr solve across authenticated pool accounts.
+		if strings.HasPrefix(strings.ToLower(name), "oai-") {
+			continue
+		}
 		domain := strings.TrimSpace(cookie.Domain)
 		if domain != "" && host != "" {
 			d := strings.Trim(strings.ToLower(strings.TrimPrefix(domain, ".")), ".")

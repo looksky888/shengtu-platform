@@ -27,9 +27,36 @@ type sentinelContext struct {
 	ProxyHash string            `json:"proxy_hash"`
 }
 
+// SentinelSolverError represents a failure in the local private sentinel-solver
+// sidecar so account-pool scheduling and task error classification never confuse
+// it with an upstream chatgpt.com HTTP 5xx failure.
+type SentinelSolverError struct {
+	StatusCode int
+	Message    string
+}
+
+func (e *SentinelSolverError) Error() string {
+	if e == nil {
+		return ""
+	}
+	return e.Message
+}
+
+func (e *SentinelSolverError) ImageTaskErrorCode() string {
+	return "sentinel_solver_unavailable"
+}
+
+// ProxyURL returns the resolved egress proxy URL bound to this client.
+func (c *Client) ProxyURL() string {
+	if c == nil {
+		return ""
+	}
+	return c.proxyURL
+}
+
 // This private client never uses the upstream proxy/cookie jar or follows redirects.
 var sentinelHTTPClient = &http.Client{
-	Timeout:       45 * time.Second,
+	Timeout:       60 * time.Second,
 	Transport:     &http.Transport{MaxIdleConns: 8, MaxIdleConnsPerHost: 8, IdleConnTimeout: 90 * time.Second},
 	CheckRedirect: func(_ *http.Request, _ []*http.Request) error { return http.ErrUseLastResponse },
 }
@@ -39,15 +66,15 @@ func callSentinelSolver(ctx context.Context, path string, body, result any) erro
 	key := strings.TrimSpace(os.Getenv("CHATGPT2API_SENTINEL_SOLVER_KEY"))
 	parsed, err := url.Parse(base)
 	if err != nil || parsed.Hostname() == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" || parsed.Path != "" || (parsed.Scheme != "http" && parsed.Scheme != "https") || len(key) < 32 {
-		return fmt.Errorf("private sentinel solver URL and strong key are required")
+		return &SentinelSolverError{Message: "private sentinel solver URL and strong key are required"}
 	}
 	data, err := json.Marshal(body)
 	if err != nil {
-		return fmt.Errorf("encode solver request: %w", err)
+		return &SentinelSolverError{Message: fmt.Sprintf("private sentinel solver encode request: %v", err)}
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, base+path, bytes.NewReader(data))
 	if err != nil {
-		return fmt.Errorf("invalid solver request")
+		return &SentinelSolverError{Message: "private sentinel solver invalid request"}
 	}
 	req.Header.Set("Authorization", "Bearer "+key)
 	req.Header.Set("Content-Type", "application/json")
@@ -56,18 +83,21 @@ func callSentinelSolver(ctx context.Context, path string, body, result any) erro
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		return fmt.Errorf("private sentinel solver connection failed")
+		return &SentinelSolverError{Message: "private sentinel solver connection failed"}
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("private sentinel solver failed: HTTP %d", resp.StatusCode)
+		return &SentinelSolverError{
+			StatusCode: resp.StatusCode,
+			Message:    fmt.Sprintf("private sentinel solver failed (solver_status=%d)", resp.StatusCode),
+		}
 	}
 	raw, err := io.ReadAll(io.LimitReader(resp.Body, (1<<20)+1))
 	if err != nil || len(raw) > 1<<20 {
-		return fmt.Errorf("invalid solver response size")
+		return &SentinelSolverError{Message: "invalid solver response size"}
 	}
 	if err := json.Unmarshal(raw, result); err != nil {
-		return fmt.Errorf("invalid solver response JSON")
+		return &SentinelSolverError{Message: "invalid solver response JSON"}
 	}
 	return nil
 }
@@ -80,24 +110,24 @@ func (c *Client) prepareSentinelContext(ctx context.Context) error {
 	}
 	fields, err := decodeRequirementsConfig(profile.P)
 	if err != nil {
-		return err
+		return &SentinelSolverError{Message: fmt.Sprintf("invalid solver response p: %v", err)}
 	}
 	if profile.ID == "" || profile.UserAgent == "" || fields[4] != profile.UserAgent || profile.Language == "" || fields[7] != profile.Language || profile.Offset < -840 || profile.Offset > 840 {
-		return fmt.Errorf("inconsistent solver browser profile")
+		return &SentinelSolverError{Message: "inconsistent solver browser profile"}
 	}
 	location, err := time.LoadLocation(profile.Timezone)
 	if err != nil || profile.Timezone == "" {
-		return fmt.Errorf("invalid solver timezone")
+		return &SentinelSolverError{Message: "invalid solver timezone"}
 	}
 	_, offset := time.Now().In(location).Zone()
 	if profile.Offset != -offset/60 {
-		return fmt.Errorf("solver timezone offset mismatch")
+		return &SentinelSolverError{Message: "solver timezone offset mismatch"}
 	}
 	if profile.ProxyHash != service.ProxyURLHash(c.proxyURL) {
-		return fmt.Errorf("solver and main upstream proxy configurations differ")
+		return &SentinelSolverError{Message: "solver and main upstream proxy configurations differ"}
 	}
 	if c.proxyTimezone != "" && profile.Timezone != c.proxyTimezone {
-		return fmt.Errorf("solver and account proxy timezones differ")
+		return &SentinelSolverError{Message: "solver and account proxy timezones differ"}
 	}
 	c.sentinel = &profile
 	c.userAgent = profile.UserAgent

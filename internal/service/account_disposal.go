@@ -50,7 +50,7 @@ const defaultUnknownCooldown = 2 * time.Minute
 // Phrase tables live in upstream_signals.go (upstreamSignalRules).
 func ClassifyAccountFailure(event, message string) DisposalGrade {
 	message = strings.TrimSpace(message)
-	if message == "" || isBootstrapErrorMessage(message) {
+	if message == "" || isBootstrapErrorMessage(message) || IsSentinelSolverSignal(message) {
 		return DisposalNone
 	}
 	if IsDeadTokenSignal(message) {

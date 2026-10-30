@@ -44,6 +44,15 @@ func imageStreamErrorMessage(message string) string {
 	return text
 }
 
+func newSentinelSolverGenerationError(message string) *ImageGenerationError {
+	return &ImageGenerationError{
+		Message:    firstNonEmpty(strings.TrimSpace(message), "private sentinel solver unavailable"),
+		StatusCode: http.StatusServiceUnavailable,
+		Type:       "server_error",
+		Code:       "sentinel_solver_unavailable",
+	}
+}
+
 func newImageStreamGenerationError(message string) *ImageGenerationError {
 	metadata := service.ImageTaskUpstreamMetadataFromError(errors.New(message))
 	return &ImageGenerationError{

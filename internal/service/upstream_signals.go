@@ -164,6 +164,9 @@ var upstreamSignalRules = []upstreamSignalRule{
 }
 
 func matchSignalKind(message string, kind upstreamSignalKind) bool {
+	if IsSentinelSolverSignal(message) {
+		return false
+	}
 	text := signalText(message)
 	if text == "" {
 		return false
@@ -177,6 +180,25 @@ func matchSignalKind(message string, kind upstreamSignalKind) bool {
 		}
 	}
 	return false
+}
+
+// IsSentinelSolverSignal identifies failures originating from the local
+// private sentinel-solver sidecar rather than upstream ChatGPT / account state.
+func IsSentinelSolverSignal(message string) bool {
+	text := signalText(message)
+	if text == "" {
+		return false
+	}
+	return containsAny(text,
+		"private sentinel solver",
+		"sentinel_solver_unavailable",
+		"inconsistent solver browser profile",
+		"invalid solver timezone",
+		"solver timezone offset mismatch",
+		"solver and main upstream proxy configurations differ",
+		"solver and account proxy timezones differ",
+		"invalid solver response",
+	)
 }
 
 func matchAnySignalKind(message string, kinds ...upstreamSignalKind) bool {

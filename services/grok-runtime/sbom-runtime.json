@@ -6,7 +6,7 @@
     "component": {
       "type": "application",
       "name": "shengtu-grok-runtime",
-      "version": "5.2.0-20261030-fullstack-audit-polish"
+      "version": "5.2.1-20261030-sentinel-clearance-fix"
     },
     "source": "requirements.lock"
   },

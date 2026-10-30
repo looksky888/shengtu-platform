@@ -36,6 +36,9 @@ func upstreamHTTPErrorWithResponse(context string, resp *http.Response, body []b
 			break
 		}
 	}
+	if strings.EqualFold(strings.TrimSpace(resp.Header.Get("CF-Mitigated")), "challenge") && !strings.Contains(strings.ToLower(err.Error()), "cloudflare challenge") {
+		evidence = append(evidence, "cf-chl=challenge")
+	}
 	if value := strings.TrimSpace(resp.Header.Get("CF-Ray")); value != "" {
 		evidence = append(evidence, "cf-ray="+value)
 	}

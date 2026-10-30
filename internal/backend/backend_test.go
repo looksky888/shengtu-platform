@@ -195,6 +195,12 @@ func TestCloudflareBootstrapClassifierRequiresChallengeEvidence(t *testing.T) {
 	if !isCloudflareBootstrapError(errString("bootstrap failed: status=403, upstream returned Cloudflare challenge page")) {
 		t.Fatal("explicit challenge summary should trigger clearance refresh")
 	}
+	// Real Cloudflare Managed Challenge HTML pages exceed 4 KiB (~6-18 KiB).
+	largeChallengeHTML := `<!doctype html><html><head><title>Just a moment...</title><style>` + strings.Repeat("body{margin:0;}", 500) + `</style></head><body><script src="/cdn-cgi/challenge-platform/scripts/jsd/main.js"></script></body></html>`
+	err := upstreamHTTPError("bootstrap", http.StatusForbidden, []byte(largeChallengeHTML))
+	if !isCloudflareBootstrapError(err) {
+		t.Fatalf("large Cloudflare challenge HTML was not recognized: %v", err)
+	}
 }
 
 func TestUpstreamTransportErrorSummarizesSurfHandshakeFailure(t *testing.T) {

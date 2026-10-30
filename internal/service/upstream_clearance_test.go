@@ -195,3 +195,40 @@ func TestChallengeRefreshReusesRecentFailure(t *testing.T) {
 		t.Fatalf("FlareSolverr requests = %d, want 1", got)
 	}
 }
+
+func TestGetUpstreamClearanceStripsOpenAISessionCookiesAndIsolatesProxies(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"status":"ok","solution":{"userAgent":"TestUA/1.0","cookies":[
+			{"name":"cf_clearance","value":"cf-ok","domain":".chatgpt.com","path":"/"},
+			{"name":"__cf_bm","value":"bm-ok","domain":".chatgpt.com","path":"/"},
+			{"name":"oai-sc","value":"restricted","domain":".chatgpt.com","path":"/"},
+			{"name":"oai-did","value":"shared-device","domain":".chatgpt.com","path":"/"}
+		]}}`))
+	}))
+	defer server.Close()
+	t.Setenv("CHATGPT2API_UPSTREAM_CLEARANCE_ENABLED", "true")
+	t.Setenv("CHATGPT2API_UPSTREAM_CLEARANCE_MODE", "flaresolverr")
+	t.Setenv("CHATGPT2API_FLARESOLVERR_URL", server.URL)
+	t.Setenv("CHATGPT2API_UPSTREAM_CLEARANCE_TIMEOUT_SEC", "10")
+	InvalidateUpstreamClearance()
+	t.Cleanup(InvalidateUpstreamClearance)
+
+	bundleA, err := GetUpstreamClearanceForProxy(context.Background(), "http://proxy-a:8118", true)
+	if err != nil || bundleA == nil {
+		t.Fatalf("bundleA=%v err=%v", bundleA, err)
+	}
+	headers := ApplyUpstreamClearanceToHeaders(map[string]string{}, bundleA)
+	if strings.Contains(headers["Cookie"], "oai-sc") || strings.Contains(headers["Cookie"], "oai-did") {
+		t.Fatalf("OpenAI session/device cookie leaked into clearance headers: %q", headers["Cookie"])
+	}
+	if !strings.Contains(headers["Cookie"], "cf_clearance=cf-ok") || !strings.Contains(headers["Cookie"], "__cf_bm=bm-ok") {
+		t.Fatalf("expected Cloudflare cookies missing: %q", headers["Cookie"])
+	}
+	if CachedUpstreamClearanceForProxy("http://proxy-a:8118") == nil {
+		t.Fatal("expected cached clearance for proxy-a")
+	}
+	if CachedUpstreamClearanceForProxy("http://proxy-b:8118") != nil {
+		t.Fatal("proxy-a clearance must not bleed into proxy-b")
+	}
+}

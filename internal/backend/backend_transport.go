@@ -60,7 +60,7 @@ func (c *Client) headersContext(ctx context.Context, path string, extra map[stri
 	for key, value := range extra {
 		headers[key] = value
 	}
-	if bundle := service.CachedUpstreamClearance(); bundle != nil {
+	if bundle := service.CachedUpstreamClearanceForProxy(c.proxyURL); bundle != nil {
 		headers = service.ApplyUpstreamClearanceToHeaders(headers, bundle)
 		if ua := strings.TrimSpace(headers["User-Agent"]); ua != "" && c.sentinel == nil {
 			c.userAgent = ua
@@ -88,7 +88,7 @@ func (c *Client) bootstrapHeadersContext(ctx context.Context) map[string]string 
 		"Sec-Fetch-User":            "?1",
 		"Upgrade-Insecure-Requests": "1",
 	}
-	if bundle := service.CachedUpstreamClearance(); bundle != nil {
+	if bundle := service.CachedUpstreamClearanceForProxy(c.proxyURL); bundle != nil {
 		headers = service.ApplyUpstreamClearanceToHeaders(headers, bundle)
 	}
 	c.applySentinelHeaders(headers)
@@ -103,7 +103,7 @@ func (c *Client) bootstrap(ctx context.Context) error {
 	if !isCloudflareBootstrapError(err) || !service.UpstreamClearanceEnabled() {
 		return err
 	}
-	if _, refreshErr := service.RefreshUpstreamClearanceForChallenge(ctx); refreshErr != nil {
+	if _, refreshErr := service.RefreshUpstreamClearanceForChallengeWithProxy(ctx, c.proxyURL); refreshErr != nil {
 		return err
 	}
 	return c.doBootstrap(ctx)

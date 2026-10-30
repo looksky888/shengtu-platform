@@ -205,3 +205,150 @@ def test_idle_lru_session_evicted_when_capacity_reached(monkeypatch):
         assert len(solver.sessions) == 2
 
     asyncio.run(run())
+
+
+def test_flaresolverr_cookie_and_ua_normalization():
+    cookies = BrowserSolver._normalize_flaresolverr_cookies([
+        {"name": "cf_clearance", "value": "cf-val", "domain": ".chatgpt.com", "path": "/", "sameSite": "no_restriction", "secure": False, "httpOnly": True},
+        {"name": "__cf_bm", "value": "bm-val", "domain": "chatgpt.com", "path": "/", "sameSite": "Lax"},
+        {"name": "oai-sc", "value": "must-not-leak", "domain": ".chatgpt.com", "path": "/"},
+        {"name": "oai-did", "value": "must-not-leak-did", "domain": ".chatgpt.com", "path": "/"},
+        {"name": "evil", "value": "x", "domain": ".evil.example", "path": "/"},
+    ])
+    names = [c["name"] for c in cookies]
+    assert names == ["cf_clearance", "__cf_bm"]
+    assert cookies[0]["sameSite"] == "None"
+    assert cookies[0]["secure"] is True
+    assert cookies[0]["httpOnly"] is True
+    assert cookies[1]["sameSite"] == "Lax"
+
+    parsed = BrowserSolver._user_agent_metadata(
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+    )
+    assert parsed is not None
+    nav_platform, meta = parsed
+    assert nav_platform == "Linux x86_64"
+    assert meta["platform"] == "Linux"
+    assert meta["brands"][0] == {"brand": "Chromium", "version": "142"}
+    assert meta["fullVersion"] == "142.0.0.0"
+
+
+def test_open_session_recovers_from_cloudflare_challenge_via_flaresolverr(monkeypatch):
+    monkeypatch.setenv("SENTINEL_SOLVER_TIMEZONE", "America/Los_Angeles")
+    monkeypatch.setenv("SENTINEL_SOLVER_FLARESOLVERR_URL", "http://flaresolverr:8191")
+
+    flare_calls: list[tuple[str, str]] = []
+    cdp_overrides: list[dict] = []
+    added_cookies: list[list[dict]] = []
+
+    def fake_fetch(flaresolverr_url: str, proxy_url: str, timeout_seconds: int):
+        from browser import ClearanceBundle
+        flare_calls.append((flaresolverr_url, proxy_url))
+        return ClearanceBundle(
+            user_agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
+            cookies=[{"name": "cf_clearance", "value": f"clear-{len(flare_calls)}", "domain": ".chatgpt.com", "path": "/", "secure": True, "httpOnly": True}],
+            expires_at=__import__("time").monotonic() + 1500,
+        )
+
+    class FakeResponse:
+        def __init__(self, status: int, headers: dict[str, str]):
+            self.status = status
+            self.headers = headers
+
+    class FakeCDP:
+        async def send(self, method: str, params: dict):
+            if method == "Emulation.setUserAgentOverride":
+                cdp_overrides.append(params)
+
+    class FakePage:
+        def __init__(self, ctx):
+            self.ctx = ctx
+
+        def is_closed(self):
+            return False
+
+        async def goto(self, url: str, **kwargs):
+            has_valid = any(c["name"] == "cf_clearance" and c["value"] != "stale" for c in self.ctx.cookies)
+            if not has_valid:
+                return FakeResponse(403, {"cf-mitigated": "challenge", "server": "cloudflare"})
+            return FakeResponse(200, {"server": "cloudflare"})
+
+        async def title(self):
+            return "ChatGPT"
+
+        async def wait_for_function(self, expr: str, timeout: int = 5000):
+            return None
+
+    class FakeContext:
+        def __init__(self, options: dict):
+            self.options = options
+            self.cookies: list[dict] = []
+            self.closed = False
+
+        async def route(self, pattern: str, handler):
+            return None
+
+        async def route_web_socket(self, pattern: str, handler):
+            return None
+
+        async def add_init_script(self, **kwargs):
+            return None
+
+        async def add_cookies(self, cookies: list[dict]):
+            self.cookies.extend(cookies)
+            added_cookies.append(list(cookies))
+
+        async def new_page(self):
+            return FakePage(self)
+
+        async def new_cdp_session(self, page):
+            return FakeCDP()
+
+        async def close(self):
+            self.closed = True
+
+    class FakeBrowser:
+        def is_connected(self):
+            return True
+
+        async def new_context(self, **options):
+            return FakeContext(options)
+
+    class FakeStealth:
+        async def apply_stealth_async(self, context):
+            return None
+
+    import browser as browser_mod
+    monkeypatch.setattr(BrowserSolver, "_fetch_flaresolverr_clearance_sync", staticmethod(fake_fetch))
+    monkeypatch.setattr(browser_mod, "Stealth", FakeStealth)
+
+    async def run():
+        from browser import ClearanceBundle
+        solver = BrowserSolver()
+        solver.browser = FakeBrowser()
+
+        # 1. Cold proxy hits 403 challenge -> fetches FlareSolverr -> succeeds with clearance.
+        s1 = await solver._get_or_create_session("http://privoxy:8118", "America/Los_Angeles")
+        assert s1.proxy_url == "http://privoxy:8118"
+        assert flare_calls == [("http://flaresolverr:8191", "http://privoxy:8118")]
+        assert len(added_cookies) == 1
+        assert added_cookies[0][0]["value"] == "clear-1"
+        assert cdp_overrides[-1]["userAgentMetadata"]["brands"][0]["version"] == "142"
+
+        # 2. Second timezone on same proxy reuses cached clearance without re-calling FlareSolverr.
+        s2 = await solver._get_or_create_session("http://privoxy:8118", "UTC")
+        assert s2.timezone == "UTC"
+        assert len(flare_calls) == 1
+
+        # 3. Stale cached clearance triggers 403 -> auto-invalidates and refreshes once.
+        solver.clearance_cache["http://privoxy:8118"] = ClearanceBundle(
+            user_agent="Mozilla/5.0 Chrome/142.0.0.0",
+            cookies=[{"name": "cf_clearance", "value": "stale", "domain": ".chatgpt.com", "path": "/", "secure": True, "httpOnly": True}],
+            expires_at=__import__("time").monotonic() + 1500,
+        )
+        s3 = await solver._get_or_create_session("http://privoxy:8118", "Asia/Tokyo")
+        assert s3.timezone == "Asia/Tokyo"
+        assert len(flare_calls) == 2
+        assert added_cookies[-1][0]["value"] == "clear-2"
+
+    asyncio.run(run())

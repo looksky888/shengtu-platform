@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"chatgpt2api/internal/backend"
@@ -42,6 +43,7 @@ func (e *Engine) streamImageOutputsWithPool(ctx context.Context, request Convers
 			streamRetryCount := 0
 			attemptCount := 0
 			attemptedTokens := map[string]struct{}{}
+			failedSolverProxies := map[string]int{}
 			fixedUpstreamModel := ""
 			attemptTimeout := imageAttemptTimeout()
 			for {
@@ -208,6 +210,28 @@ func (e *Engine) streamImageOutputsWithPool(ctx context.Context, request Convers
 						continue
 					}
 					errCh <- newImageStreamGenerationError(lastError)
+					return
+				}
+				if !returnedResult && service.IsSentinelSolverSignal(err.Error()) {
+					e.Accounts.ReleaseImageReservation(token)
+					lastError = err.Error()
+					proxyKey := service.ProxyURLHash(client.ProxyURL())
+					failedSolverProxies[proxyKey]++
+					if strings.TrimSpace(client.ProxyURL()) == "" {
+						delete(attemptedTokens, token)
+					}
+					if failedSolverProxies[proxyKey] <= 1 && streamRetryCount < maxImageStreamTransientRetries && ctx.Err() == nil {
+						streamRetryCount++
+						if e.Logger != nil {
+							e.Logger.Warning("sentinel solver unavailable, releasing account without penalty and retrying once", "attempt_id", attemptID, "retry", streamRetryCount, "proxy_hash", proxyKey, "error", lastError)
+						}
+						if !waitImageRetry(ctx, streamRetryCount) {
+							errCh <- ctx.Err()
+							return
+						}
+						continue
+					}
+					errCh <- newSentinelSolverGenerationError(lastError)
 					return
 				}
 				e.Accounts.MarkImageResult(token, false)

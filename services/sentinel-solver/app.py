@@ -94,7 +94,7 @@ def create_app(solver=None, key: str | None = None) -> FastAPI:
 
     @app.post("/v1/context", dependencies=[Depends(require_key)])
     async def browser_context(body: ContextBody):
-        return await execute(lambda: solver.new_context(body.proxy_url, body.timezone))
+        return await execute(lambda: solver.new_context(body.proxy_url, body.timezone), timeout_seconds=55.0)
 
     @app.post("/v1/turnstile", dependencies=[Depends(require_key)])
     async def turnstile(body: TurnstileBody):

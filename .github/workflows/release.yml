@@ -118,6 +118,19 @@ jobs:
           cache-from: type=gha,scope=shengtu-icloud-amd64
           cache-to: type=gha,mode=max,scope=shengtu-icloud-amd64
 
+      - name: Build and push immutable sentinel-solver image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: ./services/sentinel-solver
+          file: ./services/sentinel-solver/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ steps.version.outputs.image }}-sentinel-solver:${{ steps.version.outputs.version }}
+            ${{ steps.version.outputs.channel == 'stable' && format('{0}-sentinel-solver:latest', steps.version.outputs.image) || '' }}
+          cache-from: type=gha,scope=shengtu-sentinel-amd64
+          cache-to: type=gha,mode=max,scope=shengtu-sentinel-amd64
+
       - name: Build release manifest
         env:
           VERSION: ${{ steps.version.outputs.version }}

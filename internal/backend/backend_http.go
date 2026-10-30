@@ -44,7 +44,7 @@ func (c *Client) doUpstreamRequest(ctx context.Context, client *http.Client, met
 		}
 		if attempt == 0 && shouldRefreshCloudflare(resp) && service.UpstreamClearanceEnabled() {
 			c.logCloudflareChallenge(contextName, resp, attempt)
-			if bundle, refreshErr := service.RefreshUpstreamClearanceForChallenge(ctx); refreshErr == nil && bundle != nil {
+			if bundle, refreshErr := service.RefreshUpstreamClearanceForChallengeWithProxy(ctx, c.proxyURL); refreshErr == nil && bundle != nil {
 				headers = service.ApplyUpstreamClearanceToHeaders(headers, bundle)
 				c.applySentinelHeaders(headers)
 				if c.logger != nil {
@@ -127,6 +127,9 @@ func cloudflareBodySummary(resp *http.Response) string {
 func shouldRefreshCloudflare(resp *http.Response) bool {
 	if resp == nil || resp.StatusCode != http.StatusForbidden {
 		return false
+	}
+	if strings.EqualFold(strings.TrimSpace(resp.Header.Get("CF-Mitigated")), "challenge") {
+		return true
 	}
 	contentType := strings.ToLower(resp.Header.Get("Content-Type"))
 	if resp.Body == nil {
@@ -244,8 +247,8 @@ func summarizeUpstreamErrorBody(body []byte) string {
 }
 
 func isCloudflareChallengeBody(lower string) bool {
-	if len(lower) > 4096 {
-		return false
+	if len(lower) > 32768 {
+		lower = lower[:32768]
 	}
 	return strings.Contains(lower, "cf_chl") ||
 		strings.Contains(lower, "challenge-platform") ||

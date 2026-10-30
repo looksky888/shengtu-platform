@@ -2,12 +2,13 @@ services:
   sentinel-solver:
     build:
       context: ./services/sentinel-solver
-    image: shengtu/sentinel-solver:4.6-20261015
+    image: ${SENTINEL_SOLVER_IMAGE:-shengtu/sentinel-solver:5.2.1-20261030-sentinel-clearance-fix}
     restart: unless-stopped
     environment:
       SENTINEL_SOLVER_KEY: ${CHATGPT2API_SENTINEL_SOLVER_KEY:?set a random solver key of at least 32 characters}
       SENTINEL_SOLVER_TIMEZONE: ${SENTINEL_SOLVER_TIMEZONE:?set timezone matching the verified upstream exit}
       SENTINEL_SOLVER_PROXY: ${CHATGPT2API_PROXY:-}
+      SENTINEL_SOLVER_FLARESOLVERR_URL: ${CHATGPT2API_FLARESOLVERR_URL:-http://flaresolverr:8191}
     expose:
       - "8080"
     init: true
@@ -54,7 +55,7 @@ services:
     build:
       context: .
       dockerfile: deploy/icloud-privacy-mail/Dockerfile
-    image: ${ICLOUD_PRIVACY_MAIL_IMAGE:-shengtu/icloud-privacy-mail:5.2.0-20261030-fullstack-audit-polish}
+    image: ${ICLOUD_PRIVACY_MAIL_IMAGE:-shengtu/icloud-privacy-mail:5.2.1-20261030-sentinel-clearance-fix}
     container_name: shengtu39-icloud-privacy-mail
     restart: unless-stopped
     environment:
@@ -130,8 +131,8 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        VERSION: "${CHATGPT2API_VERSION:-5.2.0-20261030-fullstack-audit-polish}"
-    image: ${CHATGPT2API_IMAGE:-shengtu:5.2.0-20261030-fullstack-audit-polish}
+        VERSION: "${CHATGPT2API_VERSION:-5.2.1-20261030-sentinel-clearance-fix}"
+    image: ${CHATGPT2API_IMAGE:-shengtu:5.2.1-20261030-sentinel-clearance-fix}
     container_name: shengtu39-app
     restart: unless-stopped
     depends_on:

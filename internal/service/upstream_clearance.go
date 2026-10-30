@@ -85,6 +85,13 @@ func upstreamClearanceProxyURL() string {
 	return strings.TrimSpace(os.Getenv("CHATGPT2API_PROXY"))
 }
 
+func resolveUpstreamClearanceProxyURL(proxyURL string) string {
+	if trimmed := strings.TrimSpace(proxyURL); trimmed != "" {
+		return trimmed
+	}
+	return upstreamClearanceProxyURL()
+}
+
 func upstreamHostFromURL(target string) string {
 	candidate := strings.TrimSpace(target)
 	if candidate == "" {
@@ -124,6 +131,11 @@ func (b *UpstreamClearanceBundle) validFor(host, proxy string, now time.Time) bo
 
 // GetUpstreamClearance returns a cached or freshly fetched clearance bundle.
 func GetUpstreamClearance(ctx context.Context, force bool) (*UpstreamClearanceBundle, error) {
+	return GetUpstreamClearanceForProxy(ctx, "", force)
+}
+
+// GetUpstreamClearanceForProxy returns a cached or freshly fetched clearance bundle for a specific egress proxy.
+func GetUpstreamClearanceForProxy(ctx context.Context, proxyOverride string, force bool) (*UpstreamClearanceBundle, error) {
 	if !UpstreamClearanceEnabled() || upstreamClearanceMode() != "flaresolverr" {
 		return nil, nil
 	}
@@ -133,7 +145,7 @@ func GetUpstreamClearance(ctx context.Context, force bool) (*UpstreamClearanceBu
 	}
 	target := defaultUpstreamClearanceTarget
 	host := upstreamHostFromURL(target)
-	proxyURL := upstreamClearanceProxyURL()
+	proxyURL := resolveUpstreamClearanceProxyURL(proxyOverride)
 	key := upstreamClearanceCacheKey(host, proxyURL)
 	now := time.Now()
 
@@ -173,11 +185,16 @@ func GetUpstreamClearance(ctx context.Context, force bool) (*UpstreamClearanceBu
 // FlareSolverr request. Request construction must stay non-blocking; a refresh
 // is only justified after the upstream actually returns a Cloudflare challenge.
 func CachedUpstreamClearance() *UpstreamClearanceBundle {
+	return CachedUpstreamClearanceForProxy("")
+}
+
+// CachedUpstreamClearanceForProxy returns a valid cached clearance bundle for proxyOverride without blocking.
+func CachedUpstreamClearanceForProxy(proxyOverride string) *UpstreamClearanceBundle {
 	if !UpstreamClearanceEnabled() || upstreamClearanceMode() != "flaresolverr" {
 		return nil
 	}
 	host := upstreamHostFromURL(defaultUpstreamClearanceTarget)
-	proxyURL := upstreamClearanceProxyURL()
+	proxyURL := resolveUpstreamClearanceProxyURL(proxyOverride)
 	key := upstreamClearanceCacheKey(host, proxyURL)
 	now := time.Now()
 
@@ -194,11 +211,16 @@ func CachedUpstreamClearance() *UpstreamClearanceBundle {
 // Cloudflare challenge. A recent failure is reused briefly so one blocked
 // egress does not make every account wait for the same FlareSolverr timeout.
 func RefreshUpstreamClearanceForChallenge(ctx context.Context) (*UpstreamClearanceBundle, error) {
+	return RefreshUpstreamClearanceForChallengeWithProxy(ctx, "")
+}
+
+// RefreshUpstreamClearanceForChallengeWithProxy refreshes clearance for a specific egress proxy.
+func RefreshUpstreamClearanceForChallengeWithProxy(ctx context.Context, proxyOverride string) (*UpstreamClearanceBundle, error) {
 	if !UpstreamClearanceEnabled() || upstreamClearanceMode() != "flaresolverr" {
 		return nil, nil
 	}
 	host := upstreamHostFromURL(defaultUpstreamClearanceTarget)
-	proxyURL := upstreamClearanceProxyURL()
+	proxyURL := resolveUpstreamClearanceProxyURL(proxyOverride)
 	key := upstreamClearanceCacheKey(host, proxyURL)
 	now := time.Now()
 
@@ -209,7 +231,7 @@ func RefreshUpstreamClearanceForChallenge(ctx context.Context) (*UpstreamClearan
 	}
 	upstreamClearanceMu.Unlock()
 
-	bundle, err := GetUpstreamClearance(ctx, true)
+	bundle, err := GetUpstreamClearanceForProxy(ctx, proxyURL, true)
 	upstreamClearanceMu.Lock()
 	if err != nil {
 		upstreamClearanceFailures[key] = upstreamClearanceFailureState{err: err, failedAt: time.Now()}

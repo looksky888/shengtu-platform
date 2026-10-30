@@ -60,7 +60,7 @@ func imageTaskUpstreamMetadataFromError(err error) ImageTaskUpstreamMetadata {
 		metadata = provider.ImageTaskUpstreamMetadata()
 	}
 	message := err.Error()
-	if metadata.HTTPStatus <= 0 {
+	if metadata.HTTPStatus <= 0 && !IsSentinelSolverSignal(message) {
 		metadata.HTTPStatus = extractUpstreamHTTPStatus(message)
 	}
 	if metadata.RequestID == "" {

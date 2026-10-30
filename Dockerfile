@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 
-ARG VERSION=5.2.0-20261030-fullstack-audit-polish
+ARG VERSION=5.2.1-20261030-sentinel-clearance-fix
 ARG COMMIT=unknown
 ARG BUILD_DATE=unknown
 
@@ -16,7 +16,7 @@ FROM web-deps AS web-build
 
 COPY VERSION.txt /app/VERSION.txt
 COPY web ./
-ARG VERSION=5.2.0-20261030-fullstack-audit-polish
+ARG VERSION=5.2.1-20261030-sentinel-clearance-fix
 ENV VITE_APP_VERSION=${VERSION}
 RUN npm run build && npm run verify:dist
 
@@ -33,7 +33,7 @@ COPY internal ./internal
 COPY --from=web-build /app/internal/web/dist ./internal/web/dist
 ARG TARGETOS
 ARG TARGETARCH
-ARG VERSION=5.2.0-20261030-fullstack-audit-polish
+ARG VERSION=5.2.1-20261030-sentinel-clearance-fix
 ARG COMMIT=unknown
 ARG BUILD_DATE=unknown
 # Keep cold builds inside the memory envelope of small production hosts.

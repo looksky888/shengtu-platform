@@ -22,6 +22,14 @@ type imageErrorRule struct {
 // imageTaskErrorRules is ordered: more specific / higher priority first.
 var imageTaskErrorRules = []imageErrorRule{
 	{
+		code:            "sentinel_solver_unavailable",
+		message:         "本地过盾与指纹服务（sentinel-solver）受阻或暂不可用，本次未消耗账号额度。请稍后重试，或联系管理员检查过盾服务与出口代理。",
+		troubleshooting: "管理员请检查 sentinel-solver 与 flaresolverr 容器日志、SENTINEL_SOLVER_FLARESOLVERR_URL 是否连通，以及 CHATGPT2API_PROXY 出口是否触发 Cloudflare 403 Challenge。",
+		match: func(ctx imageErrorMatchCtx) bool {
+			return ctx.code == "sentinel_solver_unavailable" || IsSentinelSolverSignal(ctx.message)
+		},
+	},
+	{
 		code:            "video_generation_failed",
 		message:         "视频上游生成失败，请检查视频额度、参考图和时长后重试。",
 		troubleshooting: "检查 Grok Console 视频账号、剩余额度、参考图格式和 6–15 秒时长限制。",

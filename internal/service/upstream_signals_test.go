@@ -148,3 +148,39 @@ func TestAccountRateLimitedUsesSignalTable(t *testing.T) {
 		t.Fatal("bootstrap failures must not count as account rate-limit")
 	}
 }
+
+func TestSentinelSolverFailuresAreIsolatedFromUpstreamFlakyAndAccountDisposal(t *testing.T) {
+	messages := []string{
+		"private sentinel solver failed (solver_status=503)",
+		"private sentinel solver failed: HTTP 503",
+		"private sentinel solver connection failed",
+		"inconsistent solver browser profile",
+	}
+	for _, msg := range messages {
+		if !IsSentinelSolverSignal(msg) {
+			t.Fatalf("IsSentinelSolverSignal(%q) = false, want true", msg)
+		}
+		if IsNetworkFlakySignal(msg) || IsUpstreamGatewaySignal(msg) {
+			t.Fatalf("solver error %q misclassified as upstream network/gateway failure", msg)
+		}
+		if got := ClassifyAccountFailure("image_stream", msg); got != DisposalNone {
+			t.Fatalf("ClassifyAccountFailure(%q) = %q, want %q", msg, got, DisposalNone)
+		}
+		if meta := ImageTaskUpstreamMetadataFromError(errFromText(msg)); meta.HTTPStatus != 0 {
+			t.Fatalf("ImageTaskUpstreamMetadataFromError(%q).HTTPStatus = %d, want 0", msg, meta.HTTPStatus)
+		}
+		info := classifyImageTaskError(errFromText(msg))
+		if info.Code != "sentinel_solver_unavailable" {
+			t.Fatalf("classifyImageTaskError(%q).Code = %q, want sentinel_solver_unavailable", msg, info.Code)
+		}
+		if info.Message == "上游网络波动" {
+			t.Fatalf("classifyImageTaskError(%q) mislabeled as 上游网络波动", msg)
+		}
+	}
+}
+
+type plainTextErr string
+
+func (e plainTextErr) Error() string { return string(e) }
+
+func errFromText(msg string) error { return plainTextErr(msg) }

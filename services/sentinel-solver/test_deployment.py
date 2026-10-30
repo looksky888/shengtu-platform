@@ -21,6 +21,12 @@ def test_private_solver_in_every_compose():
         assert app["depends_on"]["sentinel-solver"]["condition"] == "service_started"
 
 
+
+    for filename in ("docker-compose.yml", "docker-compose.warp.yml"):
+        services = yaml.safe_load((ROOT / filename).read_text(encoding="utf-8"))["services"]
+        assert "SENTINEL_SOLVER_FLARESOLVERR_URL" in services["sentinel-solver"]["environment"]
+
+
 def test_existing_production_project_and_egress_network_are_fixed():
     config = yaml.safe_load((ROOT / "deploy/production-v46.override.yml").read_text(encoding="utf-8"))
     assert config["name"] == "shengtu39prod"

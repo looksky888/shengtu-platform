@@ -8,6 +8,7 @@ services:
       SENTINEL_SOLVER_KEY: ${CHATGPT2API_SENTINEL_SOLVER_KEY:?set a random solver key of at least 32 characters}
       SENTINEL_SOLVER_TIMEZONE: ${SENTINEL_SOLVER_TIMEZONE:?set timezone matching the verified upstream exit}
       SENTINEL_SOLVER_PROXY: ${CHATGPT2API_PROXY:-}
+      SENTINEL_SOLVER_FLARESOLVERR_URL: ${CHATGPT2API_FLARESOLVERR_URL:-}
     expose:
       - "8080"
     init: true
