@@ -31,12 +31,14 @@ def _env_positive_int(name: str, default: int) -> int:
         return default
 
 
-MAX_SESSIONS = _env_positive_int("SENTINEL_SOLVER_MAX_SESSIONS", 6)
+MAX_SESSIONS = _env_positive_int("SENTINEL_SOLVER_MAX_SESSIONS", 8)
 SESSION_TTL_SECONDS = 1800
 PROOF_TTL_SECONDS = 120
+IDLE_EVICTION_GRACE_SECONDS = 5.0
 
 _PINNED_TURNSTILE_ASSET = "/unauth-mweb/assets/turnstile-DykPLDEM.js"
 _DISCOVER_TURNSTILE_ASSET = (SCRIPTS / "discover_module.js").read_text(encoding="utf-8")
+_PROFILE_SCRIPT = (SCRIPTS / "profile.js").read_text(encoding="utf-8")
 _SOLVE_VIA_PAGE_MODULE = r"""
 async ([requirements, p, asset]) => {
   try {
@@ -187,8 +189,11 @@ class BrowserSolver:
             await page.wait_for_function("location.hostname === 'chatgpt.com' && !!window.__sentinelVM", timeout=5000)
             now = time.monotonic()
             return BrowserSession(key, proxy_url, timezone, context, page, uuid.uuid4().hex, now, now)
-        except Exception:
-            await context.close()
+        except BaseException:
+            try:
+                await context.close()
+            except Exception:
+                pass
             raise
 
     def _drop_session_locked(self, key: str) -> BrowserSession | None:
@@ -196,6 +201,23 @@ class BrowserSolver:
         if session is not None:
             self.context_index.pop(session.epoch, None)
         return session
+
+    def _evict_oldest_idle_session_locked(self, now: float) -> BrowserSession | None:
+        oldest_key = ""
+        oldest_used_at = float("inf")
+        for candidate_key, candidate in self.sessions.items():
+            if candidate.lock.locked():
+                continue
+            if now - candidate.last_used_at < IDLE_EVICTION_GRACE_SECONDS:
+                continue
+            if any(expiry > now for expiry in candidate.issued.values()):
+                continue
+            if candidate.last_used_at < oldest_used_at:
+                oldest_used_at = candidate.last_used_at
+                oldest_key = candidate_key
+        if not oldest_key:
+            return None
+        return self._drop_session_locked(oldest_key)
 
     async def _get_or_create_session(self, proxy_url: str, timezone: str) -> BrowserSession:
         proxy_url = proxy_url.strip() or self.default_proxy
@@ -230,22 +252,32 @@ class BrowserSolver:
         assert key_lock is not None
         try:
             async with key_lock:
-                closed_prev: BrowserSession | None = None
+                to_close: list[BrowserSession] = []
                 async with self.pool_lock:
+                    now = time.monotonic()
                     current = self.sessions.get(key)
                     if current is not None and not current.page.is_closed():
-                        current.last_used_at = time.monotonic()
+                        current.last_used_at = now
                         return current
                     if current is not None:
-                        closed_prev = self._drop_session_locked(key)
+                        dropped = self._drop_session_locked(key)
+                        if dropped is not None:
+                            to_close.append(dropped)
+                    while len(self.sessions) + len(self.opening_in_flight) >= self.max_sessions:
+                        evicted = self._evict_oldest_idle_session_locked(now)
+                        if evicted is None:
+                            break
+                        to_close.append(evicted)
                     if len(self.sessions) + len(self.opening_in_flight) >= self.max_sessions:
+                        for item in to_close:
+                            await item.context.close()
                         raise RuntimeError("browser context capacity exhausted")
                     self.opening_in_flight.add(key)
-                if closed_prev is not None:
-                    await closed_prev.context.close()
+                for item in to_close:
+                    await item.context.close()
                 try:
                     session = await self._open_session(key, proxy_url, timezone)
-                except Exception:
+                except BaseException:
                     async with self.pool_lock:
                         self.opening_in_flight.discard(key)
                     raise
@@ -273,7 +305,7 @@ class BrowserSolver:
     async def new_context(self, proxy_url: str = "", timezone: str = "") -> dict:
         session = await self._get_or_create_session(proxy_url, timezone)
         async with session.lock:
-            profile = await session.page.evaluate((SCRIPTS / "profile.js").read_text(encoding="utf-8"))
+            profile = await session.page.evaluate(_PROFILE_SCRIPT)
             profile["context_id"] = session.epoch
             profile["proxy_hash"] = hashlib.sha256(session.proxy_url.encode()).hexdigest()[:12] if session.proxy_url else ""
             now = time.monotonic()

@@ -231,7 +231,7 @@ func (s *ImageTaskService) FailedBillingCandidates() []CreationBillingCandidate 
 	s.mu.RLock()
 	out := make([]CreationBillingCandidate, 0)
 	for _, task := range s.tasks {
-		if task == nil || (task.Status != TaskStatusError && task.Status != TaskStatusCancelled) {
+		if task == nil || task.BillingReconciled || (task.Status != TaskStatusError && task.Status != TaskStatusCancelled) {
 			continue
 		}
 		_, reason, refID := BillingRefForTask(task)
@@ -250,6 +250,26 @@ func (s *ImageTaskService) FailedBillingCandidates() []CreationBillingCandidate 
 	}
 	s.mu.RUnlock()
 	return out
+}
+
+// MarkBillingReconciled records that a terminal failed/cancelled task has completed
+// credit reconciliation so future background ticks do not re-query the ledger.
+func (s *ImageTaskService) MarkBillingReconciled(ownerID, id string) {
+	if s == nil {
+		return
+	}
+	key := taskKey(strings.TrimSpace(ownerID), strings.TrimSpace(id))
+	if key == ":" {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	task := s.tasks[key]
+	if task == nil || task.BillingReconciled {
+		return
+	}
+	task.BillingReconciled = true
+	s.scheduleSaveLocked(key)
 }
 
 // ImageTaskLogListFromPayload converts ListTaskLogs map payload to typed response.

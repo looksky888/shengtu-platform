@@ -9,6 +9,7 @@ import { ImageTaskQueue } from "@/components/image-task-queue";
 import { Button } from "@/components/ui/button";
 import webConfig from "@/constants/common-env";
 import { fetchProfileCredits, logout } from "@/lib/api";
+import { QUOTA_REFRESH_EVENT } from "@/lib/quota-events";
 import { DEFAULT_APP_TITLE } from "@/lib/app-meta";
 import { withCanvasNav } from "@/lib/canvas-link";
 import {
@@ -276,6 +277,7 @@ function watchCreditBalance(
   setCreditBalance: (value: string | ((current: string) => string)) => void
 ) {
   let active = true;
+  let debounceTimer: number | undefined;
   const loadCredits = async () => {
     try {
       const data = await fetchProfileCredits();
@@ -287,12 +289,25 @@ function watchCreditBalance(
         );
     }
   };
-  const handleRefresh = () => void loadCredits();
+  const handleRefresh = () => {
+    if (debounceTimer !== undefined) {
+      window.clearTimeout(debounceTimer);
+    }
+    debounceTimer = window.setTimeout(() => {
+      debounceTimer = undefined;
+      void loadCredits();
+    }, 220);
+  };
   void loadCredits();
   window.addEventListener("focus", handleRefresh);
+  window.addEventListener(QUOTA_REFRESH_EVENT, handleRefresh);
   return () => {
     active = false;
+    if (debounceTimer !== undefined) {
+      window.clearTimeout(debounceTimer);
+    }
     window.removeEventListener("focus", handleRefresh);
+    window.removeEventListener(QUOTA_REFRESH_EVENT, handleRefresh);
   };
 }
 

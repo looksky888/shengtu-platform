@@ -102,6 +102,13 @@ type JSONDocumentBackend interface {
 	DeleteJSONDocument(name string) error
 }
 
+// JSONDocumentPrefixBackend optionally supports listing and batch-deleting
+// document keys under a directory prefix without loading payload blobs.
+type JSONDocumentPrefixBackend interface {
+	ListJSONDocumentNamesByPrefix(prefix string) ([]string, error)
+	DeleteJSONDocumentsBatch(names []string) (int, error)
+}
+
 // MediaAssetBackend stores row-oriented media metadata. Object bytes live in
 // an object store; this interface is the queryable source of truth for access,
 // pagination, migration, and deletion state.

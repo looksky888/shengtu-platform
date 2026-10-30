@@ -2,7 +2,11 @@ import axios, { AxiosError, AxiosHeaders, type AxiosRequestConfig } from "axios"
 
 import webConfig from "@/constants/common-env";
 import {type ErrorPayload, resolveRequestErrorDetails} from "@/lib/request-error-message";
-import {redirectAndRejectUnauthorized, shouldRedirectUnauthorized} from "@/lib/request-unauthorized";
+import {
+    buildLoginRedirectUrl,
+    redirectAndRejectUnauthorized,
+    shouldRedirectUnauthorized,
+} from "@/lib/request-unauthorized";
 import {clearStoredAuthSession, getStoredSessionToken} from "@/store/auth";
 
 type RequestConfig = AxiosRequestConfig & {
@@ -48,7 +52,12 @@ request.interceptors.response.use(
         ) {
             return redirectAndRejectUnauthorized(
                 clearStoredAuthSession,
-                () => window.location.replace("/login"),
+                () =>
+                    window.location.replace(
+                        buildLoginRedirectUrl(
+                            `${window.location.pathname}${window.location.search}${window.location.hash}`,
+                        ),
+                    ),
             );
         }
 

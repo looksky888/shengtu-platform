@@ -34,6 +34,13 @@ export async function updateSettingsConfig(settings: Partial<SettingsConfig>) {
   });
 }
 
+export async function saveLoginPageImageSettings(formData: FormData) {
+  return httpRequest<{ config: SettingsConfig }>("/api/settings/login-page-image", {
+    method: "POST",
+    body: formData,
+  });
+}
+
 export async function fetchImageProxyModels(settings: { base_url: string; api_key: string }) {
   return httpRequest<{ models: string[] }>("/api/settings/image-proxy/models", {
     method: "POST",
@@ -95,7 +102,6 @@ export async function triggerMediaLocalCleanup(mode: "verify" | "delete", confir
     body: { mode, confirmation_token: confirmationToken },
   });
 }
-
 
 export type ManagedImageListFilters = {
   start_date?: string;

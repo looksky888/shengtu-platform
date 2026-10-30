@@ -2,7 +2,7 @@ import type { ImageAspectRatio, ImageResolution, ImageSizeMode } from "@/app/ima
 import type { ImageModel, ImageOutputFormat, ImageQuality, ImageVisibility } from "@/lib/api";
 import type { ImageConversationMode, StoredReferenceImage } from "@/store/image-conversations";
 
-export const QUOTA_REFRESH_EVENT = "chatgpt2api:quota-refresh";
+export { dispatchQuotaRefresh, QUOTA_REFRESH_EVENT } from "@/lib/quota-events";
 export const DEFAULT_IMAGE_QUALITY: ImageQuality = "high";
 export const DEFAULT_IMAGE_OUTPUT_FORMAT: ImageOutputFormat = "png";
 export const activeConversationQueueIds = new Set<string>();

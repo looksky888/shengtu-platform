@@ -35,6 +35,8 @@ export type SettingsStore = {
   loadedAt: Partial<Record<SettingsDataKey, number>>;
   config: SettingsConfig | null;
   savedConfigSnapshot: string;
+  pendingLoginImageFile: File | null;
+  pendingLoginImagePreviewUrl: string;
   isLoadingConfig: boolean;
   isSavingConfig: boolean;
   savingSectionKey: string | null;
@@ -78,6 +80,8 @@ export type SettingsStore = {
     keys: readonly (keyof SettingsConfig)[],
     options?: SaveConfigSectionOptions
   ) => Promise<SaveConfigReceipt | null>;
+  saveLoginPageVisual: (options?: SaveConfigSectionOptions) => Promise<boolean>;
+  stageLoginPageImageFile: (file: File | null) => void;
   resetConfigSection: (keys: readonly (keyof SettingsConfig)[]) => void;
   fetchImageProxyModelOptions: () => Promise<void>;
   setRefreshAccountIntervalMinute: (value: string) => void;

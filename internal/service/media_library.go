@@ -49,6 +49,7 @@ type MediaLibrary struct {
 	cleanup    mediaLocalCleanupRuntime
 	assetLocks mediaAssetLockSet
 	capacity   storage.StorageCapacityBackend
+	documents  storage.JSONDocumentBackend
 	// Keep expensive media work from consuming every image task worker when a
 	// burst produces many outputs. These limits are local process safeguards;
 	// R2 retries still go through the same upload gate.
@@ -109,6 +110,7 @@ func NewR2MediaLibrary(ctx context.Context, cfg MediaStorageConfig, backend stor
 		uploadQueue:  make(chan storage.MediaAssetRecord, defaultMediaUploadQueueCapacity),
 	}
 	library.capacity, _ = backend.(storage.StorageCapacityBackend)
+	library.documents, _ = backend.(storage.JSONDocumentBackend)
 	return library, nil
 }
 

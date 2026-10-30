@@ -57,6 +57,75 @@ func (b *DatabaseBackend) DeleteJSONDocument(name string) error {
 	return err
 }
 
+func (b *DatabaseBackend) ListJSONDocumentNamesByPrefix(prefix string) ([]string, error) {
+	trimmed := strings.TrimSuffix(strings.TrimSpace(prefix), "/")
+	rel, err := cleanDocumentName(trimmed)
+	if err != nil {
+		return nil, err
+	}
+	dirPrefix := rel + "/"
+	// '/' is 0x2F and '0' is 0x30, giving an exact ASCII B-tree upper bound without LIKE '_' wildcard hazards.
+	upperBound := rel + "0"
+	query := "SELECT name FROM json_documents WHERE name >= " + b.placeholder(1) + " AND name < " + b.placeholder(2) + " ORDER BY name ASC"
+	rows, err := b.reader().Query(query, dirPrefix, upperBound)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]string, 0)
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+		if strings.HasPrefix(name, dirPrefix) {
+			out = append(out, name)
+		}
+	}
+	return out, rows.Err()
+}
+
+func (b *DatabaseBackend) DeleteJSONDocumentsBatch(names []string) (int, error) {
+	if len(names) == 0 {
+		return 0, nil
+	}
+	cleaned := make([]string, 0, len(names))
+	for _, raw := range names {
+		rel, err := cleanDocumentName(raw)
+		if err != nil {
+			continue
+		}
+		cleaned = append(cleaned, rel)
+	}
+	if len(cleaned) == 0 {
+		return 0, nil
+	}
+	const chunkSize = 400
+	removed := 0
+	for start := 0; start < len(cleaned); start += chunkSize {
+		end := start + chunkSize
+		if end > len(cleaned) {
+			end = len(cleaned)
+		}
+		chunk := cleaned[start:end]
+		placeholders := make([]string, len(chunk))
+		args := make([]any, len(chunk))
+		for i, name := range chunk {
+			placeholders[i] = b.placeholder(i + 1)
+			args[i] = name
+		}
+		stmt := "DELETE FROM json_documents WHERE name IN (" + strings.Join(placeholders, ", ") + ")"
+		res, err := b.db.Exec(stmt, args...)
+		if err != nil {
+			return removed, err
+		}
+		if n, affectedErr := res.RowsAffected(); affectedErr == nil {
+			removed += int(n)
+		}
+	}
+	return removed, nil
+}
+
 func (b *DatabaseBackend) AppendLog(item map[string]any) error {
 	record, err := newDatabaseLogRecord(item)
 	if err != nil {

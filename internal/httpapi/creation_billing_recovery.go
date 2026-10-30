@@ -62,6 +62,7 @@ func (a *App) reconcileCreationBilling() {
 			}
 			continue
 		}
+		a.tasks.MarkBillingReconciled(candidate.OwnerID, candidate.TaskID)
 		if refunded {
 			health.Refunded++
 			if a.logger != nil {

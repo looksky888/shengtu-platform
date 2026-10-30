@@ -13,6 +13,7 @@ import {
   type GeneratedCreditCard,
 } from "@/lib/api";
 import { copyText } from "@/lib/clipboard";
+import { dispatchQuotaRefresh } from "@/lib/quota-events";
 
 type CreditsAdminActionsOptions = {
   canManageCredits: boolean;
@@ -164,6 +165,7 @@ export function useCreditsAdminActions(options: CreditsAdminActionsOptions) {
     try {
       await adjustUserCredits(targetUserId, signedDelta, adjustReason.trim() || undefined);
       resetAdjustDialog();
+      dispatchQuotaRefresh();
       toast.success(signedDelta > 0 ? "积分已增加" : "积分已扣减");
       void loadUsers();
       setLedgerPage(1);

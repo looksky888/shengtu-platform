@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { formatCreditNumber } from "@/app/profile/profile-utils";
+import { dispatchQuotaRefresh } from "@/lib/quota-events";
 import {
   fetchProfileCreditLedger,
   fetchProfileCredits,
@@ -102,6 +103,7 @@ export function useProfileCredits() {
         checked_in_today: true,
       });
       setLatestCreditEntry(data.entry);
+      dispatchQuotaRefresh();
       if (data.awarded) {
         toast.success(`签到成功，已领取 ${formatCreditNumber(data.entry.delta)} 积分`);
         setCreditLedgerPage(1);
@@ -131,6 +133,7 @@ export function useProfileCredits() {
         checked_in_today: current?.checked_in_today ?? false,
       }));
       setLatestCreditEntry(data.entry);
+      dispatchQuotaRefresh();
       setRedeemKey("");
       toast.success(`兑换成功，已到账 ${formatCreditNumber(data.card.amount)} 积分`);
       setCreditLedgerPage(1);

@@ -1,5 +1,6 @@
 import { useState, type Dispatch, type SetStateAction } from "react";
 import { toast } from "sonner";
+import { dispatchQuotaRefresh } from "@/lib/quota-events";
 
 import {
   createEmptyUserForm,
@@ -225,6 +226,7 @@ export function useUsersManagementActions(options: UserActionsOptions) {
         ),
       );
       closeAdjustCreditsDialog();
+      dispatchQuotaRefresh();
       toast.success(signedDelta > 0 ? "积分已增加" : "积分已扣减");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "调整积分失败");

@@ -123,10 +123,17 @@ func (m *MediaLibrary) runLocalCleanup(ctx context.Context, mode string) {
 				status.ReclaimableBytes += copy.size
 			}
 		})
-		if verifyErr != nil || len(copies) == 0 || mode != "delete" {
+		if verifyErr != nil || mode != "delete" {
+			continue
+		}
+		if len(copies) == 0 {
+			m.deleteLocalImageDocuments(asset.Path)
 			continue
 		}
 		removed, freed, removeErr := removeLocalMediaCopies(copies)
+		if removeErr == nil {
+			m.deleteLocalImageDocuments(asset.Path)
+		}
 		m.updateLocalCleanup(func(status *MediaLocalCleanupStatus) {
 			status.RemovedFiles += removed
 			status.FreedBytes += freed
@@ -266,6 +273,21 @@ func removeLocalMediaCopies(copies []localMediaCopy) (int, int64, error) {
 		freed += copy.size
 	}
 	return removed, freed, nil
+}
+
+func (m *MediaLibrary) deleteLocalImageDocuments(assetPath string) {
+	if m == nil || m.documents == nil {
+		return
+	}
+	rel, err := cleanImageRelativePath(assetPath)
+	if err != nil {
+		return
+	}
+	if _, statErr := os.Stat(filepath.Join(m.config.ImagesDir(), filepath.FromSlash(rel))); !errors.Is(statErr, os.ErrNotExist) {
+		return
+	}
+	_ = m.documents.DeleteJSONDocument(imageOwnerDocumentName(rel))
+	_ = m.documents.DeleteJSONDocument(thumbnailMetadataDocumentName(rel))
 }
 
 func (m *MediaLibrary) updateLocalCleanup(update func(*MediaLocalCleanupStatus)) {

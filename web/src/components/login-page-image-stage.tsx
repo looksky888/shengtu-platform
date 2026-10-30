@@ -46,6 +46,10 @@ export function LoginPageImageStage({
   const resolvedSrc = resolveLoginPageImageSrc(src);
   const fallbackSrc = resolveLoginPageImageSrc(DEFAULT_LOGIN_PAGE_IMAGE);
   const currentSrc = fallbackActive ? fallbackSrc : resolvedSrc;
+
+  useEffect(() => {
+    setFallbackActive(false);
+  }, [src]);
   const transform = useMemo(
     () => normalizeLoginPageImageTransform({ zoom, positionX, positionY }),
     [positionX, positionY, zoom],
@@ -125,8 +129,8 @@ export function LoginPageImageStage({
       <div
         ref={frameRef}
         className={cn(
-          "flex w-full items-center justify-center overflow-hidden rounded-[1.8rem]",
-          fillParent ? "relative h-full w-full min-h-0 rounded-none" : "aspect-[16/10]",
+          "relative flex w-full items-center justify-center overflow-hidden rounded-[1.8rem]",
+          fillParent ? "h-full w-full min-h-0 rounded-none" : "aspect-[16/10]",
           frameClassName,
         )}
       >

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 
 import webConfig from "@/constants/common-env";
-import { redirectAndRejectUnauthorized } from "@/lib/request-unauthorized";
+import { buildLoginRedirectUrl, redirectAndRejectUnauthorized } from "@/lib/request-unauthorized";
 import { clearStoredAuthSession, getStoredSessionToken } from "@/store/auth";
 
 import { startAuthenticatedSSE } from "./sse-client";
@@ -21,7 +21,12 @@ export function useAuthenticatedSSE(path: string, onData: (data: string) => void
         if (typeof window === "undefined" || window.location.pathname.startsWith("/login")) return;
         return redirectAndRejectUnauthorized(
           clearStoredAuthSession,
-          () => window.location.replace("/login"),
+          () =>
+            window.location.replace(
+              buildLoginRedirectUrl(
+                `${window.location.pathname}${window.location.search}${window.location.hash}`,
+              ),
+            ),
         );
       },
     });

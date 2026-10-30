@@ -43,6 +43,8 @@ const LOGIN_VISUAL_KEYS = [
   "login_page_image_position_y",
 ] as const;
 
+const MAX_LOGIN_POSTER_BYTES = 10 * 1024 * 1024;
+
 const PRESET_GALLERY_ITEMS = [
   {
     label: "默认暗房三联画",
@@ -78,12 +80,21 @@ export function LoginVisualCard() {
   const savedConfigSnapshot = useSettingsStore(
     (state) => state.savedConfigSnapshot
   );
+  const pendingFile = useSettingsStore(
+    (state) => state.pendingLoginImageFile
+  );
+  const pendingPreviewUrl = useSettingsStore(
+    (state) => state.pendingLoginImagePreviewUrl
+  );
   const savingSectionKey = useSettingsStore((state) => state.savingSectionKey);
   const isSavingAll = useSettingsStore(
     (state) => state.isSavingConfig && state.savingSectionKey === "__all__"
   );
-  const saveConfigSection = useSettingsStore(
-    (state) => state.saveConfigSection
+  const saveLoginPageVisual = useSettingsStore(
+    (state) => state.saveLoginPageVisual
+  );
+  const stageLoginPageImageFile = useSettingsStore(
+    (state) => state.stageLoginPageImageFile
   );
   const resetConfigSection = useSettingsStore(
     (state) => state.resetConfigSection
@@ -93,6 +104,7 @@ export function LoginVisualCard() {
   );
 
   const imageUrl = String(config?.login_page_image_url || "").trim();
+  const effectiveImageUrl = pendingPreviewUrl || imageUrl;
   const mode = normalizeLoginPageImageMode(config?.login_page_image_mode);
   const zoom = Number(config?.login_page_image_zoom) || 1;
   const posX = Number(config?.login_page_image_position_x ?? 50);
@@ -100,11 +112,9 @@ export function LoginVisualCard() {
 
   const [expanded, setExpanded] = useState<boolean>(() => Boolean(imageUrl));
 
-  const isDirty = isConfigKeysDirty(
-    config,
-    savedConfigSnapshot,
-    LOGIN_VISUAL_KEYS
-  );
+  const isDirty =
+    Boolean(pendingFile) ||
+    isConfigKeysDirty(config, savedConfigSnapshot, LOGIN_VISUAL_KEYS);
   const isSaving = savingSectionKey === "login_visual" || isSavingAll;
 
   useRegisterSettingsDirty({
@@ -124,22 +134,12 @@ export function LoginVisualCard() {
       toast.error("请选择 JPG、PNG、WEBP 或 GIF 格式的图片");
       return;
     }
-    if (file.size > 1.5 * 1024 * 1024) {
-      toast.error("自定义海报建议不超过 1.5MB，大图请填写外部 CDN/R2 链接");
+    if (file.size > MAX_LOGIN_POSTER_BYTES) {
+      toast.error("自定义海报不能超过 10MB，超大图请填写外部 CDN/R2 链接");
       return;
     }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = typeof reader.result === "string" ? reader.result : "";
-      if (result) {
-        setLoginPageVisualField({
-          login_page_image_url: result,
-          login_page_image_mode: "cover",
-        });
-        setExpanded(true);
-      }
-    };
-    reader.readAsDataURL(file);
+    stageLoginPageImageFile(file);
+    setExpanded(true);
   };
 
   const restoreDefaultGallery = () => {
@@ -153,17 +153,21 @@ export function LoginVisualCard() {
   };
 
   const handleSave = async () => {
-    await saveConfigSection(LOGIN_VISUAL_KEYS, { sectionKey: "login_visual" });
+    await saveLoginPageVisual({ sectionKey: "login_visual" });
   };
 
   return (
     <SettingsCard
       icon={ImageIcon}
       title="登录页画廊海报配置"
-      description="配置登录页左侧视觉展板：留空使用内置暗房三联画廊，或指定自定义典藏海报并微调构图。"
+      description="配置登录页左侧视觉展板：留空使用内置暗房三联画廊，或上传最高 10MB 自定义典藏海报（自动存盘至静态目录）并微调构图。"
       meta={
         <Badge variant="outline" className="rounded-md font-normal">
-          {imageUrl ? "自定义海报" : "默认暗房三联画"}
+          {pendingFile
+            ? "待保存本地海报"
+            : effectiveImageUrl
+              ? "自定义海报"
+              : "默认暗房三联画"}
         </Badge>
       }
       action={
@@ -187,7 +191,7 @@ export function LoginVisualCard() {
           <SettingsCardSaveFooter
             dirty={isDirty}
             saving={isSaving}
-            hint="保存后登录页视觉立即更新，无需重启服务"
+            hint="保存后自动落盘静态文件并更新登录页视觉，无需重启服务"
             onReset={() => resetConfigSection(LOGIN_VISUAL_KEYS)}
             onSave={() => void handleSave()}
           />
@@ -200,7 +204,7 @@ export function LoginVisualCard() {
             快捷画廊预设：
           </span>
           {PRESET_GALLERY_ITEMS.map((preset) => {
-            const selected = imageUrl === preset.url;
+            const selected = !pendingFile && imageUrl === preset.url;
             return (
               <button
                 key={preset.label}
@@ -237,23 +241,25 @@ export function LoginVisualCard() {
                   htmlFor="login-page-image-url-input"
                   className="text-xs font-medium text-foreground sm:text-[13px]"
                 >
-                  自定义海报地址（留空使用默认暗房三联画）
+                  自定义海报地址（支持上传 ≤10MB 本地图片，留空恢复默认暗房三联画）
                 </label>
                 <div className="flex flex-wrap gap-2">
                   <Input
                     id="login-page-image-url-input"
                     value={
-                      imageUrl.startsWith("data:")
-                        ? "[已载入本地上传图片数据]"
-                        : imageUrl
+                      pendingFile
+                        ? `[待上传文件] ${pendingFile.name} (${(pendingFile.size / 1024).toFixed(0)} KB)`
+                        : imageUrl.startsWith("data:")
+                          ? "[历史内联图片，建议重新上传或恢复默认]"
+                          : imageUrl
                     }
-                    readOnly={imageUrl.startsWith("data:")}
+                    readOnly={Boolean(pendingFile) || imageUrl.startsWith("data:")}
                     onChange={(event) =>
                       setLoginPageVisualField({
                         login_page_image_url: event.target.value,
                       })
                     }
-                    placeholder="https://example.com/poster.webp 或留空"
+                    placeholder="https://example.com/poster.webp 或点击右侧上传本地图片"
                     className={`min-w-[200px] flex-1 ${settingsInputClassName}`}
                   />
                   <input
@@ -273,7 +279,7 @@ export function LoginVisualCard() {
                     <Upload className="size-3.5" />
                     <span>上传本地图片</span>
                   </Button>
-                  {imageUrl ? (
+                  {effectiveImageUrl ? (
                     <Button
                       type="button"
                       variant="ghost"
@@ -288,7 +294,7 @@ export function LoginVisualCard() {
                 </div>
               </div>
 
-              {imageUrl ? (
+              {effectiveImageUrl ? (
                 <div className="space-y-3 rounded-xl border border-border/70 bg-surface-subtle/45 p-3.5">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="text-xs font-medium text-foreground">
@@ -316,7 +322,7 @@ export function LoginVisualCard() {
                       <input
                         type="range"
                         min={1}
-                        max={2.5}
+                        max={3}
                         step={0.05}
                         value={zoom}
                         onChange={(event) =>
@@ -386,22 +392,26 @@ export function LoginVisualCard() {
             <div className="flex flex-col justify-between rounded-xl border border-zinc-800/80 bg-[#0c0c0e] p-3 text-zinc-200">
               <div className="mb-2 flex items-center justify-between text-[11px] text-zinc-400">
                 <span className="font-mono uppercase tracking-wider">
-                  LOGIN STAGE PREVIEW
+                  LOGIN STAGE PREVIEW (4:5)
                 </span>
-                <span>{imageUrl ? `${mode.toUpperCase()} · ${zoom.toFixed(1)}x` : "DEFAULT GALLERY"}</span>
+                <span>
+                  {effectiveImageUrl
+                    ? `${mode.toUpperCase()} · ${zoom.toFixed(1)}x`
+                    : "DEFAULT GALLERY"}
+                </span>
               </div>
-              {imageUrl ? (
+              {effectiveImageUrl ? (
                 <LoginPageImageStage
-                  src={imageUrl}
+                  src={effectiveImageUrl}
                   mode={mode}
                   zoom={zoom}
                   positionX={posX}
                   positionY={posY}
-                  className="max-w-none"
-                  frameClassName="rounded-lg border border-white/10 bg-black/50"
+                  className="mx-auto max-w-[270px]"
+                  frameClassName="aspect-[4/5] rounded-lg border border-white/10 bg-black/50"
                 />
               ) : (
-                <div className="grid aspect-[16/10] grid-cols-3 gap-1.5 overflow-hidden rounded-lg border border-white/10 bg-zinc-950 p-1.5">
+                <div className="mx-auto grid aspect-[4/5] w-full max-w-[270px] grid-cols-3 gap-1.5 overflow-hidden rounded-lg border border-white/10 bg-zinc-950 p-1.5">
                   <img
                     src="/presets/editorial-fashion.webp"
                     alt=""

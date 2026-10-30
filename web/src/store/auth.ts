@@ -1,10 +1,25 @@
 "use client";
 
 import localforage from "localforage";
+import { resolvePostAuthDestination } from "@/lib/request-unauthorized";
+import { canAccessPath, getDefaultRouteForSession, hasAPIPermission } from "@/store/auth-permissions";
 import type { AuthMenuItem, SetStoredAuthSessionOptions, StoredAuthSession } from "@/store/auth-types";
 
 export type { AuthMenuItem, AuthRole, SetStoredAuthSessionOptions, StoredAuthSession } from "@/store/auth-types";
-export { canAccessPath, getDefaultRouteForSession, hasAPIPermission } from "@/store/auth-permissions";
+export { canAccessPath, getDefaultRouteForSession, hasAPIPermission };
+
+export function resolvePostAuthRoute(
+  session: StoredAuthSession,
+  returnTo?: string | null,
+  pendingPrompt?: string | null,
+): string {
+  return resolvePostAuthDestination({
+    returnTo,
+    pendingPrompt,
+    canAccess: (pathname) => canAccessPath(session, pathname),
+    defaultRoute: getDefaultRouteForSession(session),
+  });
+}
 
 export const AUTH_SESSION_STORAGE_KEY = "chatgpt2api_auth_session";
 /** "1" = persist across browser restarts; "0" = sessionStorage only (until tab closes). */

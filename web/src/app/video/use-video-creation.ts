@@ -33,6 +33,7 @@ import {
 import type { VideoPreview } from "@/components/video-preview-dialog";
 import type { StoredAuthSession } from "@/store/auth";
 import { createRequestId } from "@/lib/request-id";
+import { dispatchQuotaRefresh } from "@/lib/quota-events";
 
 const TERMINAL_STATUSES = new Set<CreationTask["status"]>(["success", "error", "cancelled"]);
 
@@ -261,6 +262,9 @@ export function useVideoCreation(session: StoredAuthSession | null | undefined) 
           setSelectedTakeId(current.id);
         }
         setPollError("");
+        if (TERMINAL_STATUSES.has(current.status) && observedActiveTaskRef.current) {
+          dispatchQuotaRefresh();
+        }
         if (!TERMINAL_STATUSES.has(current.status)) {
           timer = window.setTimeout(sync, 2000);
         }
@@ -452,6 +456,7 @@ export function useVideoCreation(session: StoredAuthSession | null | undefined) 
         return next;
       });
       toast.success("视频任务已提交");
+      dispatchQuotaRefresh();
       if (typeof window !== "undefined" && window.innerWidth < 1024) {
         window.requestAnimationFrame(() => {
           document.getElementById("video-stage-preview")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -480,6 +485,7 @@ export function useVideoCreation(session: StoredAuthSession | null | undefined) 
         return next;
       });
       toast.success("视频任务已取消");
+      dispatchQuotaRefresh();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "取消视频任务失败");
     }

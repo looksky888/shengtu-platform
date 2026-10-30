@@ -12,10 +12,14 @@ class FakeSolver:
     def __init__(self):
         self.context_args = None
         self.requirements = None
+        self.invalidated: list[str] = []
 
     async def start(self): pass
     async def stop(self): pass
     def ready(self): return True
+
+    async def invalidate(self, context_id: str = ""):
+        self.invalidated.append(context_id)
 
     async def new_context(self, proxy_url="", timezone=""):
         self.context_args = (proxy_url, timezone)
@@ -69,3 +73,27 @@ def test_unavailable_does_not_return_success():
         response = client.post("/v1/context", json={}, headers={"Authorization": "Bearer " + KEY})
         assert response.status_code == 503
         assert "SENSITIVE" not in response.text
+
+
+def test_context_timeout_does_not_wipe_global_session_pool():
+    class TimeoutSolver(FakeSolver):
+        async def new_context(self, proxy_url="", timezone=""):
+            raise TimeoutError("proxy slow")
+
+        async def turnstile(self, context_id, dx, p, requirements=None):
+            raise TimeoutError("page stuck")
+
+    solver = TimeoutSolver()
+    headers = {"Authorization": "Bearer " + KEY}
+    with TestClient(create_app(solver, KEY)) as client:
+        res_ctx = client.post("/v1/context", json={}, headers=headers)
+        assert res_ctx.status_code == 504
+        assert solver.invalidated == []
+
+        res_ts = client.post(
+            "/v1/turnstile",
+            json={"context_id": "ctx-stuck", "dx": "challenge", "p": "gAAAAACfixture"},
+            headers=headers,
+        )
+        assert res_ts.status_code == 504
+        assert solver.invalidated == ["ctx-stuck"]

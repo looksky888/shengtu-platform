@@ -276,6 +276,11 @@ func (a *App) startMediaCleanup(ctx context.Context, interval time.Duration) {
 		if removed := a.config.CleanupOldImages(); removed > 0 && a.logger != nil {
 			a.logger.Info("scheduled image cleanup completed", "removed", removed)
 		}
+		if a.images != nil {
+			if swept := a.images.SweepOrphanedImageDocuments(); swept > 0 && a.logger != nil {
+				a.logger.Info("swept orphaned local image documents", "removed", swept)
+			}
+		}
 		paymentSettings, paymentSettingsErr := a.paymentOrders.Settings()
 		if paymentSettingsErr == nil && paymentSettings.CloudStorageEnabled && paymentSettings.CloudStoragePolicyStartedAt != "" && a.media != nil && a.config.MediaStorageProvider() == "r2" {
 			if removed, err := a.media.CleanupExpiredRemoteMedia(ctx, a.config.ImageRetentionDays(), paymentSettings.CloudStoragePolicyStartedAt); err != nil {

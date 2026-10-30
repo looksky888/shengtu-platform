@@ -7,14 +7,14 @@ import { useLoginRegistrationMode } from "@/app/login/use-login-registration-mod
 import { usePasswordReset } from "@/app/login/use-password-reset";
 import { isRegistrationEmailValid, useRegistrationEmail } from "@/app/login/use-registration-email";
 import { login, registerAccount } from "@/lib/api";
+import { extractReturnToFromSearch } from "@/lib/request-unauthorized";
 import { setVerifiedAuthSession } from "@/lib/session";
 import { applyColorTheme, getPreferredColorTheme, saveColorTheme, type ColorTheme } from "@/lib/theme";
 import { useRedirectIfAuthenticated } from "@/lib/use-auth-guard";
 import {
-  canAccessPath,
   getAuthPersistPreference,
-  getDefaultRouteForSession,
   getRememberedUsername,
+  resolvePostAuthRoute,
   setRememberedUsername,
 } from "@/store/auth";
 
@@ -73,7 +73,6 @@ export function useLoginPage() {
   const setRegisterMode = (next: boolean) => {
     mode.setRegisterMode(next);
     setShowPassword(false);
-
     setErrorMessage(null);
   };
 
@@ -136,11 +135,8 @@ export function useLoginPage() {
           // Ignore storage restrictions.
         }
       }
-      if (pendingPrompt && canAccessPath(session, "/image")) {
-        navigate(`/image?prompt=${encodeURIComponent(pendingPrompt)}`, { replace: true });
-        return;
-      }
-      navigate(getDefaultRouteForSession(session), { replace: true });
+      const returnTo = extractReturnToFromSearch(mode.searchParams);
+      navigate(resolvePostAuthRoute(session, returnTo, pendingPrompt), { replace: true });
     } catch (error) {
       const message = error instanceof Error ? error.message : mode.isRegisterMode ? "注册失败，请重试" : "登录失败，请检查账号或密码";
       setErrorMessage(message);

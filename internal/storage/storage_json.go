@@ -230,6 +230,60 @@ func (b *JSONBackend) DeleteJSONDocument(name string) error {
 	return nil
 }
 
+func (b *JSONBackend) ListJSONDocumentNamesByPrefix(prefix string) ([]string, error) {
+	trimmed := strings.TrimSuffix(strings.TrimSpace(prefix), "/")
+	dirPath, err := b.documentPath(trimmed)
+	if err != nil {
+		return nil, err
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if _, statErr := os.Stat(dirPath); errors.Is(statErr, os.ErrNotExist) {
+		return []string{}, nil
+	} else if statErr != nil {
+		return nil, statErr
+	}
+	rootAbs, err := filepath.Abs(b.dataDir)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]string, 0)
+	walkErr := filepath.WalkDir(dirPath, func(path string, d os.DirEntry, walkErr error) error {
+		if walkErr != nil || d.IsDir() {
+			return nil
+		}
+		rel, relErr := filepath.Rel(rootAbs, path)
+		if relErr != nil {
+			return nil
+		}
+		out = append(out, filepath.ToSlash(rel))
+		return nil
+	})
+	return out, walkErr
+}
+
+func (b *JSONBackend) DeleteJSONDocumentsBatch(names []string) (int, error) {
+	if len(names) == 0 {
+		return 0, nil
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	removed := 0
+	for _, name := range names {
+		full, err := b.documentPath(name)
+		if err != nil {
+			continue
+		}
+		if err := os.Remove(full); err == nil {
+			removed++
+			removeEmptyParentDirs(b.dataDir, filepath.Dir(full))
+		} else if !errors.Is(err, os.ErrNotExist) {
+			return removed, err
+		}
+	}
+	return removed, nil
+}
+
 func (b *JSONBackend) AppendLog(item map[string]any) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()

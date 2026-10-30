@@ -13,6 +13,7 @@ import {
 import { LoaderCircle } from "lucide-react";
 
 import { appRoutes } from "@/app/route-config";
+import { buildLoginRedirectUrl } from "@/lib/request-unauthorized";
 import {
   AUTH_SESSION_CHANGE_EVENT,
   getCachedAuthSession,
@@ -30,6 +31,7 @@ const reducedRouteTransition: Transition = {
 };
 
 function PermissionRoute({ requiredPath, children }: { requiredPath?: string; children: ReactNode }) {
+  const location = useLocation();
   const [session, setSession] = useState<StoredAuthSession | null | undefined>(() => getCachedAuthSession());
 
   useEffect(() => {
@@ -67,8 +69,7 @@ function PermissionRoute({ requiredPath, children }: { requiredPath?: string; ch
     );
   }
   if (!session) {
-    // Brand Hero is the pre-login home; login form is an explicit CTA destination.
-    return <Navigate to="/" replace />;
+    return <Navigate to={buildLoginRedirectUrl(`${location.pathname}${location.search}${location.hash}`)} replace />;
   }
   if (!canAccessPath(session, requiredPath)) {
     return <Navigate to={getDefaultRouteForSession(session)} replace />;

@@ -1,14 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import {
   canAccessPath,
   getDefaultRouteForSession,
+  resolvePostAuthRoute,
   type AuthRole,
   type StoredAuthSession,
 } from "@/store/auth";
+import { buildLoginRedirectUrl, extractReturnToFromSearch } from "@/lib/request-unauthorized";
 import { getCachedAuthSession, getVerifiedAuthSession } from "@/lib/session";
 
 type UseAuthGuardResult = {
@@ -18,9 +20,11 @@ type UseAuthGuardResult = {
 
 export function useAuthGuard(allowedRoles?: AuthRole[], requiredPath?: string): UseAuthGuardResult {
   const navigate = useNavigate();
+  const location = useLocation();
   const [session, setSession] = useState<StoredAuthSession | null>(() => getCachedAuthSession() ?? null);
   const [isCheckingAuth, setIsCheckingAuth] = useState(() => getCachedAuthSession() === undefined);
   const allowedRolesKey = (allowedRoles || []).join(",");
+  const currentLocation = `${location.pathname}${location.search}${location.hash}`;
 
   useEffect(() => {
     let active = true;
@@ -35,8 +39,7 @@ export function useAuthGuard(allowedRoles?: AuthRole[], requiredPath?: string): 
       if (!storedSession) {
         setSession(null);
         setIsCheckingAuth(false);
-        // Unauthenticated guests land on the full-screen brand Hero, not the form.
-        navigate("/", { replace: true });
+        navigate(buildLoginRedirectUrl(currentLocation), { replace: true });
         return;
       }
 
@@ -62,13 +65,14 @@ export function useAuthGuard(allowedRoles?: AuthRole[], requiredPath?: string): 
     return () => {
       active = false;
     };
-  }, [allowedRolesKey, navigate, requiredPath]);
+  }, [allowedRolesKey, currentLocation, navigate, requiredPath]);
 
   return { isCheckingAuth, session };
 }
 
 export function useRedirectIfAuthenticated() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [isCheckingAuth, setIsCheckingAuth] = useState(() => getCachedAuthSession() !== null);
 
   useEffect(() => {
@@ -81,7 +85,8 @@ export function useRedirectIfAuthenticated() {
       }
 
       if (storedSession) {
-        navigate(getDefaultRouteForSession(storedSession), { replace: true });
+        const returnTo = extractReturnToFromSearch(location.search);
+        navigate(resolvePostAuthRoute(storedSession, returnTo), { replace: true });
         return;
       }
 
@@ -92,7 +97,7 @@ export function useRedirectIfAuthenticated() {
     return () => {
       active = false;
     };
-  }, [navigate]);
+  }, [location.search, navigate]);
 
   return { isCheckingAuth };
 }

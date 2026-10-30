@@ -2,6 +2,7 @@
 
 import { verifySession, type LoginResponse } from "@/lib/api";
 import { AUTH_SESSION_CHANGE_EVENT } from "@/lib/auth-session-events";
+import { isSessionInvalidError } from "@/lib/request-unauthorized";
 import {
   clearStoredAuthSession,
   getStoredAuthSession,
@@ -84,11 +85,6 @@ export async function clearVerifiedAuthSession() {
   emitAuthSessionChange();
 }
 
-function isUnauthorizedAuthError(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error || "");
-  return /登录已失效|未授权|无权限|401|unauthorized|forbidden|凭证|令牌无效|token/i.test(message);
-}
-
 async function verifyStoredAuthSession(): Promise<StoredAuthSession | null> {
   const storedSession = await getStoredAuthSession();
   if (!storedSession) {
@@ -99,9 +95,9 @@ async function verifyStoredAuthSession(): Promise<StoredAuthSession | null> {
     const data = await verifySession(storedSession.key);
     return authSessionFromLoginResponse(data, storedSession.key);
   } catch (error) {
-    // Only clear session on explicit auth failure. Network / 5xx keep stored session
-    // so brief outages do not force a full re-login.
-    if (isUnauthorizedAuthError(error)) {
+    // Only clear session on explicit 401 auth failure. Network / 5xx / HTML gateway errors
+    // keep stored session so brief outages do not force a full re-login.
+    if (isSessionInvalidError(error)) {
       return null;
     }
     return storedSession;

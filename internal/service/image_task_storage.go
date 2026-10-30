@@ -77,6 +77,9 @@ func (s *ImageTaskService) loadShardedLocked() (map[string]*ImageTask, bool) {
 					return map[string]*ImageTask{}, false
 				}
 			}
+			if legacyName != "" && legacyName != name {
+				_ = s.store.DeleteJSONDocument(legacyName)
+			}
 			tasks[taskKey(task.OwnerID, task.ID)] = task
 		}
 		return tasks, true

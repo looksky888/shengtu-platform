@@ -161,3 +161,47 @@ def test_page_turnstile_module_is_preferred(monkeypatch):
             await solver.stop()
 
     asyncio.run(run())
+
+
+
+def test_idle_lru_session_evicted_when_capacity_reached(monkeypatch):
+    monkeypatch.setenv("SENTINEL_SOLVER_TIMEZONE", "UTC")
+    monkeypatch.setenv("SENTINEL_SOLVER_MAX_SESSIONS", "2")
+
+    class DummyPage:
+        def is_closed(self):
+            return False
+
+    closed_timezones: list[str] = []
+
+    class DummyContext:
+        def __init__(self, tz: str):
+            self.tz = tz
+
+        async def close(self):
+            closed_timezones.append(self.tz)
+
+    async def run():
+        import time as _time
+        from browser import BrowserSession, IDLE_EVICTION_GRACE_SECONDS
+
+        solver = BrowserSolver()
+        solver.browser = type("DummyBrowser", (), {"is_connected": lambda self: True})()
+
+        async def fake_open(key: str, proxy_url: str, timezone: str):
+            ts = _time.monotonic()
+            return BrowserSession(key, proxy_url, timezone, DummyContext(timezone), DummyPage(), f"epoch-{timezone}", ts, ts)
+
+        monkeypatch.setattr(solver, "_open_session", fake_open)
+
+        s_utc = await solver._get_or_create_session("", "UTC")
+        s_tokyo = await solver._get_or_create_session("", "Asia/Tokyo")
+        s_utc.last_used_at = _time.monotonic() - (IDLE_EVICTION_GRACE_SECONDS + 2.0)
+        s_tokyo.last_used_at = _time.monotonic() - (IDLE_EVICTION_GRACE_SECONDS + 1.0)
+
+        s_ny = await solver._get_or_create_session("", "America/New_York")
+        assert s_ny.epoch == "epoch-America/New_York"
+        assert closed_timezones == ["UTC"]
+        assert len(solver.sessions) == 2
+
+    asyncio.run(run())

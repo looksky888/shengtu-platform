@@ -6,6 +6,7 @@ import {
   syncActiveRechargeOrderStorage,
 } from "@/app/recharge/recharge-order-storage";
 import { cancelPaymentOrder, queryPaymentOrder, type PaymentOrder } from "@/lib/user-payment-api";
+import { dispatchQuotaRefresh } from "@/lib/quota-events";
 
 export function useRechargeOrder(sessionKey: string) {
   const [order, setOrder] = useState<PaymentOrder | null>(() => loadActiveRechargeOrder(sessionKey));
@@ -159,6 +160,7 @@ export function useRechargeOrder(sessionKey: string) {
     if (order?.status !== "succeeded" || notified.current === order.id) return;
     notified.current = order.id;
     toast.success(order.product_type === "cloud_storage" ? "云存储权益已到账" : "积分已到账");
+    dispatchQuotaRefresh();
   }, [order]);
 
   return { order, error, querying, cancelling, replaceOrder, refresh, cancel };

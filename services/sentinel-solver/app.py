@@ -67,21 +67,22 @@ def create_app(solver=None, key: str | None = None) -> FastAPI:
     async def validation_error(_request, _exc):
         return JSONResponse({"detail": "invalid challenge parameters"}, status_code=422)
 
-    async def execute(operation, context_id: str = ""):
+    async def execute(operation, context_id: str = "", timeout_seconds: float = 40.0):
         if gate.locked():
             raise HTTPException(503, "solver busy")
         async with gate:
             try:
-                async with asyncio.timeout(40):
+                async with asyncio.timeout(timeout_seconds):
                     return await operation()
             except ValueError:
                 raise HTTPException(409, "expired browser context") from None
             except TimeoutError:
-                try:
-                    async with asyncio.timeout(5):
-                        await solver.invalidate(context_id)
-                except TimeoutError:
-                    pass  # Readiness was invalidated before closing the context.
+                if context_id:
+                    try:
+                        async with asyncio.timeout(5):
+                            await solver.invalidate(context_id)
+                    except TimeoutError:
+                        pass  # Readiness was invalidated before closing the context.
                 raise HTTPException(504, "solver timeout") from None
             except Exception:
                 raise HTTPException(503, "solver unavailable") from None

@@ -56,6 +56,7 @@ type ImageTask struct {
 	DurationSeconds    float64          `json:"duration_seconds"`
 	Events             []map[string]any `json:"events,omitempty"`
 	StageDurationsMS   map[string]int64 `json:"stage_durations_ms,omitempty"`
+	BillingReconciled  bool             `json:"billing_reconciled,omitempty"`
 
 	// Optional numeric presence (load path only emits when original JSON had the key).
 	progressSet           bool      `json:"-"`
@@ -137,6 +138,7 @@ func imageTaskFromMap(raw map[string]any) *ImageTask {
 		AccountTokenHash:   util.Clean(raw["account_token_hash"]),
 		StartedAt:          util.Clean(raw["started_at"]),
 		FinishedAt:         util.Clean(raw["finished_at"]),
+		BillingReconciled:  util.ToBool(raw["billing_reconciled"]),
 	}
 	if compression, ok := normalizedImageOutputCompressionValue(raw["output_compression"]); ok {
 		task.OutputCompression = &compression
@@ -322,6 +324,9 @@ func (t *ImageTask) toMap() map[string]any {
 	}
 	if len(t.StageDurationsMS) > 0 {
 		out["stage_durations_ms"] = t.StageDurationsMS
+	}
+	if t.BillingReconciled {
+		out["billing_reconciled"] = true
 	}
 	return out
 }
