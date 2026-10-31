@@ -1,25 +1,8 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import {
-  AlertTriangle,
-  ArchiveRestore,
-  CornerDownRight,
-  Database,
-  FolderInput,
-  Globe,
-  Image,
-  Mail,
-  Megaphone,
-  RefreshCw,
-  RotateCcw,
-  Save,
-  SlidersHorizontal,
-  Wrench,
-  type LucideIcon,
-} from "lucide-react";
-import { motion, useReducedMotion } from "motion/react";
+import { AlertTriangle, RotateCcw, Save } from "lucide-react";
 import { toast } from "sonner";
 
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -29,6 +12,7 @@ import { useUnsavedRouteGuard } from "@/lib/use-unsaved-route-guard";
 import { cn } from "@/lib/utils";
 
 import { SettingsHeader } from "./components/settings-header";
+import { SettingsSecondaryNav } from "./components/settings-secondary-nav";
 import { SettingsDataController } from "./settings-data-controller";
 import {
   configSnapshot,
@@ -41,7 +25,6 @@ import { SettingsTabContent } from "./settings-tab-content";
 import {
   getSettingsTabMeta,
   parseSettingsTab,
-  SETTINGS_DOMAIN_GROUPS,
   SETTINGS_NAVIGATE_TAB_EVENT,
   SETTINGS_TABS,
   type SettingsTabKey,
@@ -50,24 +33,14 @@ import { useSettingsStore } from "./store";
 
 export const SETTINGS_TAB_REFRESH_EVENT = "shengtu:settings-tab-refresh";
 
-const TAB_ICON_MAP: Record<SettingsTabKey, LucideIcon> = {
-  base: SlidersHorizontal,
-  image: Image,
-  storage: Database,
-  email: Mail,
-  register: Globe,
-  imports: FolderInput,
-  announcement: Megaphone,
-  backup: ArchiveRestore,
-  maintenance: Wrench,
-  "system-update": RefreshCw,
-};
-
 const TAB_LABEL_MAP: Record<SettingsTabKey, string> = Object.fromEntries(
   SETTINGS_TABS.map((item) => [item.key, item.label]),
 ) as Record<SettingsTabKey, string>;
 
-const TAB_CONFIG_KEYS: Record<SettingsTabKey, readonly (keyof SettingsConfig)[]> = {
+const TAB_CONFIG_KEYS: Record<
+  SettingsTabKey,
+  readonly (keyof SettingsConfig)[]
+> = {
   base: [
     "base_url",
     "canvas_url",
@@ -177,7 +150,6 @@ function SettingsTabsInner({
 }: {
   canManageSystem: boolean;
 }) {
-  const prefersReducedMotion = useReducedMotion();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = parseSettingsTab(searchParams.get("tab"));
   const activeTabMeta = getSettingsTabMeta(activeTab);
@@ -191,8 +163,6 @@ function SettingsTabsInner({
   const [isDiscarding, setIsDiscarding] = useState(false);
   const [isSavingExternal, setIsSavingExternal] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
-
-  const tabButtonRefs = useRef<Partial<Record<SettingsTabKey, HTMLButtonElement | null>>>({});
 
   const registry = useSettingsDirtyRegistry();
   const externalEntries = useMemo(
@@ -208,19 +178,27 @@ function SettingsTabsInner({
   const loadConfig = useSettingsStore((state) => state.loadConfig);
   const loadRegister = useSettingsStore((state) => state.loadRegister);
   const loadPools = useSettingsStore((state) => state.loadPools);
-  const loadLogGovernance = useSettingsStore((state) => state.loadLogGovernance);
+  const loadLogGovernance = useSettingsStore(
+    (state) => state.loadLogGovernance,
+  );
   const saveConfig = useSettingsStore((state) => state.saveConfig);
   const saveRegister = useSettingsStore((state) => state.saveRegister);
   const isSavingConfig = useSettingsStore((state) => state.isSavingConfig);
   const isSavingRegister = useSettingsStore((state) => state.isSavingRegister);
 
   const config = useSettingsStore((state) => state.config);
-  const savedConfigSnapshot = useSettingsStore((state) => state.savedConfigSnapshot);
+  const savedConfigSnapshot = useSettingsStore(
+    (state) => state.savedConfigSnapshot,
+  );
   const registerConfig = useSettingsStore((state) => state.registerConfig);
-  const savedRegisterSnapshot = useSettingsStore((state) => state.savedRegisterSnapshot);
+  const savedRegisterSnapshot = useSettingsStore(
+    (state) => state.savedRegisterSnapshot,
+  );
 
   const isConfigDirty = Boolean(
-    config && savedConfigSnapshot && configSnapshot(config) !== savedConfigSnapshot,
+    config &&
+      savedConfigSnapshot &&
+      configSnapshot(config) !== savedConfigSnapshot,
   );
   const isRegisterDirty = Boolean(
     registerConfig &&
@@ -234,7 +212,10 @@ function SettingsTabsInner({
       let matchedSpecificTab = false;
       for (const tab of SETTINGS_TABS) {
         const keys = TAB_CONFIG_KEYS[tab.key];
-        if (keys.length > 0 && isConfigKeysDirty(config, savedConfigSnapshot, keys)) {
+        if (
+          keys.length > 0 &&
+          isConfigKeysDirty(config, savedConfigSnapshot, keys)
+        ) {
           next.add(tab.key);
           matchedSpecificTab = true;
         }
@@ -280,7 +261,10 @@ function SettingsTabsInner({
       let addedConfigTab = false;
       for (const tab of SETTINGS_TABS) {
         const keys = TAB_CONFIG_KEYS[tab.key];
-        if (keys.length > 0 && isConfigKeysDirty(config, savedConfigSnapshot, keys)) {
+        if (
+          keys.length > 0 &&
+          isConfigKeysDirty(config, savedConfigSnapshot, keys)
+        ) {
           pushLabel(tab.label);
           addedConfigTab = true;
         }
@@ -309,11 +293,8 @@ function SettingsTabsInner({
   useEffect(() => {
     void loadTabData(activeTab);
     setActiveSectionId(getSettingsTabMeta(activeTab).sections[0]?.id ?? "");
-    const activeButton = tabButtonRefs.current[activeTab];
-    activeButton?.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
   }, [activeTab, loadTabData]);
 
-  // Execute queued section scroll (waiting for lazy Suspense cards to mount if needed)
   useEffect(() => {
     if (!queuedSectionId) return;
     let attempts = 0;
@@ -337,13 +318,12 @@ function SettingsTabsInner({
     };
   }, [activeTab, queuedSectionId]);
 
-  // Live ScrollSpy for multi-section tabs
   useEffect(() => {
     const sections = activeTabMeta.sections;
     if (sections.length <= 1 || typeof window === "undefined") return;
 
     const updateActiveFromScroll = () => {
-      const probeY = 175;
+      const probeY = 140;
       let currentId: string = sections[0]?.id ?? "";
       for (const section of sections) {
         const node = document.getElementById(section.id);
@@ -357,7 +337,9 @@ function SettingsTabsInner({
       }
     };
 
-    window.addEventListener("scroll", updateActiveFromScroll, { passive: true });
+    window.addEventListener("scroll", updateActiveFromScroll, {
+      passive: true,
+    });
     const rafId = window.requestAnimationFrame(updateActiveFromScroll);
     return () => {
       window.removeEventListener("scroll", updateActiveFromScroll);
@@ -399,15 +381,20 @@ function SettingsTabsInner({
     [activeTab, commitTab, hasUnsavedChanges],
   );
 
-  // Listen for navigation events from AdminConsoleSidebar while already on /settings
   useEffect(() => {
     const handleSidebarNavigate = (event: Event) => {
-      const detail = (event as CustomEvent<{ tab?: string; sectionId?: string }>).detail;
+      const detail = (
+        event as CustomEvent<{ tab?: string; sectionId?: string }>
+      ).detail;
       if (!detail?.tab) return;
       navigateToTabAndSection(parseSettingsTab(detail.tab), detail.sectionId);
     };
     window.addEventListener(SETTINGS_NAVIGATE_TAB_EVENT, handleSidebarNavigate);
-    return () => window.removeEventListener(SETTINGS_NAVIGATE_TAB_EVENT, handleSidebarNavigate);
+    return () =>
+      window.removeEventListener(
+        SETTINGS_NAVIGATE_TAB_EVENT,
+        handleSidebarNavigate,
+      );
   }, [navigateToTabAndSection]);
 
   const reloadDirtyModules = useCallback(async () => {
@@ -420,7 +407,13 @@ function SettingsTabsInner({
       }
     }
     return !results.some((result) => !result);
-  }, [dirtyExternalEntries, isConfigDirty, isRegisterDirty, loadConfig, loadRegister]);
+  }, [
+    dirtyExternalEntries,
+    isConfigDirty,
+    isRegisterDirty,
+    loadConfig,
+    loadRegister,
+  ]);
 
   const handleSaveAllDirty = useCallback(async (): Promise<boolean> => {
     for (const entry of externalEntries) {
@@ -561,154 +554,62 @@ function SettingsTabsInner({
   };
 
   const isSavingAny = isSavingConfig || isSavingRegister || isSavingExternal;
-  const showSectionAnchors = canManageSystem && activeTabMeta.sections.length > 1;
 
   return (
     <div
       className={cn(
-        "flex w-full min-w-0 flex-col gap-5",
+        "w-full min-w-0",
         hasUnsavedChanges ? "pb-28" : "pb-12",
       )}
     >
       <SettingsDataController />
-      <SettingsHeader
-        activeTab={activeTab}
-        dirtyModules={dirtyModules}
-        isRefreshing={isRefreshing}
-        onRefresh={() => void handleRefreshCurrentTab()}
-        onNavigateToMatch={navigateToTabAndSection}
-      />
 
-      {/* Single-Layer Flat Grouped Secondary Nav + Intra-Tab Section Anchor Rail */}
-      <div className="sticky top-14 z-30 overflow-hidden rounded-2xl border border-border/80 bg-surface/92 shadow-2xs backdrop-blur-md">
-        <div
-          role="tablist"
-          aria-label="系统设置模块导航"
-          className="thin-scrollbar flex items-center gap-0.5 overflow-x-auto px-2 py-1.5"
-        >
-          {SETTINGS_DOMAIN_GROUPS.map((group, groupIdx) => (
-            <Fragment key={group.id}>
-              {groupIdx > 0 ? (
-                <span
-                  aria-hidden="true"
-                  className="mx-1 h-4 w-px shrink-0 bg-border/75"
-                />
-              ) : null}
-              {group.tabs.map((tabKey) => {
-                const Icon = TAB_ICON_MAP[tabKey];
-                const active = tabKey === activeTab;
-                const isTabDirty = dirtyTabSet.has(tabKey);
-                return (
-                  <button
-                    key={tabKey}
-                    ref={(node) => {
-                      tabButtonRefs.current[tabKey] = node;
-                    }}
-                    type="button"
-                    role="tab"
-                    aria-selected={active}
-                    aria-controls={`settings-panel-${tabKey}`}
-                    onClick={() => navigateToTabAndSection(tabKey)}
-                    className={cn(
-                      "relative isolate inline-flex h-8 shrink-0 items-center gap-1.5 rounded-xl px-2.5 text-xs transition-colors outline-none focus-visible:ring-2 focus-visible:ring-foreground/20",
-                      active
-                        ? "font-semibold text-foreground"
-                        : "font-medium text-muted-foreground hover:bg-surface-hover/70 hover:text-foreground",
-                    )}
-                  >
-                    {active ? (
-                      <motion.span
-                        layoutId="settings-primary-tab-pill"
-                        transition={
-                          prefersReducedMotion
-                            ? { duration: 0.01 }
-                            : {
-                                type: "spring",
-                                mass: 0.14,
-                                stiffness: 300,
-                                damping: 24,
-                              }
-                        }
-                        className="absolute inset-0 -z-10 rounded-xl bg-surface-muted/95 shadow-2xs ring-1 ring-border/85 dark:bg-zinc-800/90"
-                      />
-                    ) : null}
-                    <Icon
-                      className={cn(
-                        "size-3.5 shrink-0",
-                        active ? "text-foreground" : "text-muted-foreground",
-                      )}
-                    />
-                    <span className="whitespace-nowrap">{TAB_LABEL_MAP[tabKey]}</span>
-                    {isTabDirty ? (
-                      <span
-                        title="存在未保存修改"
-                        aria-label="存在未保存修改"
-                        className="size-1.5 shrink-0 rounded-full bg-status-warning"
-                      />
-                    ) : null}
-                  </button>
-                );
-              })}
-            </Fragment>
-          ))}
-        </div>
+      <div className="flex min-w-0 flex-col gap-5 md:grid md:grid-cols-[204px_minmax(0,1fr)] md:items-start md:gap-6">
+        <SettingsSecondaryNav
+          activeTab={activeTab}
+          activeSectionId={activeSectionId}
+          canManageSystem={canManageSystem}
+          dirtyTabSet={dirtyTabSet}
+          isRefreshing={isRefreshing}
+          onRefresh={() => void handleRefreshCurrentTab()}
+          onSelectTab={navigateToTabAndSection}
+          onSelectSection={(sectionId) => {
+            setActiveSectionId(sectionId);
+            scrollAndHighlightSection(sectionId);
+          }}
+        />
 
-        {showSectionAnchors ? (
-          <div
-            aria-label="当前设置页区块定位"
-            className="thin-scrollbar flex items-center gap-1.5 overflow-x-auto border-t border-border/55 bg-surface-subtle/45 px-3 py-1.5"
-          >
-            <span className="inline-flex shrink-0 items-center gap-1 text-[11px] font-medium text-muted-foreground">
-              <CornerDownRight className="size-3 opacity-75" />
-              <span>本页区块：</span>
-            </span>
-            {activeTabMeta.sections.map((section) => {
-              const isSectionActive = activeSectionId === section.id;
+        <div className="flex min-w-0 flex-col gap-5">
+          <SettingsHeader
+            activeTab={activeTab}
+            dirtyModules={dirtyModules}
+            isRefreshing={isRefreshing}
+            onRefresh={() => void handleRefreshCurrentTab()}
+          />
+
+          <div className="min-w-0">
+            {mountedTabs.map((tab) => {
+              const active = tab === activeTab;
               return (
-                <button
-                  key={section.id}
-                  type="button"
-                  onClick={() => {
-                    setActiveSectionId(section.id);
-                    scrollAndHighlightSection(section.id);
-                  }}
-                  className={cn(
-                    "inline-flex h-6 shrink-0 items-center rounded-lg px-2 text-[11.5px] transition-colors",
-                    isSectionActive
-                      ? "bg-surface font-semibold text-foreground shadow-2xs ring-1 ring-border/75"
-                      : "font-medium text-muted-foreground hover:bg-surface/70 hover:text-foreground",
-                  )}
+                <div
+                  key={tab}
+                  id={`settings-panel-${tab}`}
+                  role="tabpanel"
+                  aria-hidden={!active}
+                  hidden={!active}
                 >
-                  {section.label}
-                </button>
+                  <SettingsTabContent
+                    active={active}
+                    canManageSystem={canManageSystem}
+                    tab={tab}
+                  />
+                </div>
               );
             })}
           </div>
-        ) : null}
+        </div>
       </div>
 
-      <div className="min-w-0">
-        {mountedTabs.map((tab) => {
-          const active = tab === activeTab;
-          return (
-            <div
-              key={tab}
-              id={`settings-panel-${tab}`}
-              role="tabpanel"
-              aria-hidden={!active}
-              hidden={!active}
-            >
-              <SettingsTabContent
-                active={active}
-                canManageSystem={canManageSystem}
-                tab={tab}
-              />
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Sticky Bottom Unsaved Changes Bar */}
       {hasUnsavedChanges ? (
         <div className="fixed inset-x-0 bottom-4 z-40 mx-auto flex w-[min(42rem,calc(100vw-1.5rem))] items-center justify-between gap-3 rounded-xl border border-status-warning/35 bg-surface/95 px-4 py-3 shadow-xl backdrop-blur-xl">
           <div className="flex min-w-0 items-center gap-2.5 text-xs font-medium text-foreground sm:text-sm">

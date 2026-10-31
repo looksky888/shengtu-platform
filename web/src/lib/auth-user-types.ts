@@ -79,6 +79,8 @@ export type Announcement = {
   enabled?: boolean;
   show_login: boolean;
   show_image: boolean;
+  popup_version?: number;
+  last_broadcast_at?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
 };

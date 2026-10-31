@@ -6,7 +6,7 @@
     "component": {
       "type": "application",
       "name": "shengtu-grok-runtime",
-      "version": "5.2.2-20261030-audit-and-studio-upgrade"
+      "version": "5.2.3-20261031-ui-broadcast-and-icloud-fix"
     },
     "source": "requirements.lock"
   },

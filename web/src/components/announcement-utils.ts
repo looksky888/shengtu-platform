@@ -1,14 +1,39 @@
 import type { Announcement } from "@/lib/api";
 import { chinaTodayKey, formatDateTime } from "@/lib/datetime";
 
-const ANNOUNCEMENT_MUTE_PREFIX = "chatgpt2api:announcement:mute:";
+import {
+  hasUnseenBroadcast,
+  isAnnouncementMutedToday as isAnnouncementMutedForDay,
+  legacyMuteStorageKey,
+  markBroadcastSeen,
+  muteStorageKey,
+  normalizePopupVersion,
+  seenBroadcastStorageKey,
+} from "./announcement-popup-state";
+
+export {
+  hasUnseenBroadcast,
+  legacyMuteStorageKey,
+  markBroadcastSeen,
+  muteStorageKey,
+  normalizePopupVersion,
+  seenBroadcastStorageKey,
+};
 
 export function todayKey() {
   return chinaTodayKey();
 }
 
-export function muteStorageKey(announcementId: string) {
-  return `${ANNOUNCEMENT_MUTE_PREFIX}${announcementId}`;
+export function isAnnouncementMutedToday(
+  announcement: Pick<
+    Announcement,
+    "id" | "popup_version" | "last_broadcast_at"
+  >,
+  today = todayKey(),
+  storage: Pick<Storage, "getItem"> | null =
+    typeof window !== "undefined" ? window.localStorage : null,
+): boolean {
+  return isAnnouncementMutedForDay(announcement, today, storage);
 }
 
 export function formatAnnouncementDate(value?: string | null) {
@@ -17,7 +42,10 @@ export function formatAnnouncementDate(value?: string | null) {
   return text === "—" ? "最新公告" : text;
 }
 
-export function getAnnouncementTitle(announcement: Announcement, index?: number) {
+export function getAnnouncementTitle(
+  announcement: Announcement,
+  index?: number,
+) {
   const fallback = typeof index === "number" ? `公告 ${index + 1}` : "公告";
   return announcement.title.trim() || fallback;
 }

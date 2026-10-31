@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { Eye, ImagePlus, Save, Trash2, Upload } from "lucide-react";
+import { BellRing, Eye, ImagePlus, Save, Trash2, Upload } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -35,6 +35,7 @@ export function AnnouncementFormDialog({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const imageUrl = state.form.image_url.trim();
   const isBusy = state.isSaving || state.isUploadingImage;
+  const broadcastActive = Boolean(state.form.enabled && state.form.broadcast_now);
 
   return (
     <Dialog
@@ -52,7 +53,7 @@ export function AnnouncementFormDialog({
             {state.editingItem ? "编辑站内公告" : "发布站内公告"}
           </DialogTitle>
           <DialogDescription className="text-xs leading-5 sm:text-sm">
-            配置弹窗标题、正文与配图，保存后将按所选触达页面向访客或创作者展示。
+            配置弹窗标题、正文与配图，支持保存后实时向所有当前在线的用户页面发起全员弹窗。
           </DialogDescription>
         </DialogHeader>
 
@@ -66,7 +67,7 @@ export function AnnouncementFormDialog({
               onChange={(event) =>
                 state.updateForm({ title: event.target.value })
               }
-              placeholder="例如：v5.0 创作工作台升级通知"
+              placeholder="例如：v5.2 创作工作台升级通知"
               className={cn("h-9", settingsDialogInputClassName)}
             />
           </Field>
@@ -102,7 +103,9 @@ export function AnnouncementFormDialog({
               ) : (
                 <div className="flex min-h-28 flex-col items-center justify-center gap-1.5 rounded-lg bg-surface text-xs text-muted-foreground ring-1 ring-border/70">
                   <ImagePlus className="size-5 text-muted-foreground/70" />
-                  <span>暂未上传配图（预览比例与前台弹窗一致，完整显示不裁切）</span>
+                  <span>
+                    暂未上传配图（预览比例与前台弹窗一致，完整显示不裁切）
+                  </span>
                 </div>
               )}
 
@@ -164,7 +167,7 @@ export function AnnouncementFormDialog({
             <SettingsSwitchRow
               size="sm"
               title="立即启用公告"
-              description="开启后前台将立即按下方勾选的页面位置弹出此通知"
+              description="开启后前台将按下方勾选的页面位置展示此通知"
               checked={state.form.enabled}
               disabled={state.isSaving}
               onCheckedChange={(checked) =>
@@ -175,7 +178,7 @@ export function AnnouncementFormDialog({
               <SettingsSwitchRow
                 size="sm"
                 title="登录页展示"
-                description="访客打开登录或注册页面时弹出"
+                description="访客打开登录或注册页面时触达"
                 checked={state.form.show_login}
                 disabled={state.isSaving}
                 onCheckedChange={(checked) =>
@@ -184,8 +187,8 @@ export function AnnouncementFormDialog({
               />
               <SettingsSwitchRow
                 size="sm"
-                title="创作台展示"
-                description="用户进入生图与视频工作台时弹出"
+                title="创作工作台展示"
+                description="已登录用户在生图、视频、画廊等工作台触达"
                 checked={state.form.show_image}
                 disabled={state.isSaving}
                 onCheckedChange={(checked) =>
@@ -193,6 +196,25 @@ export function AnnouncementFormDialog({
                 }
               />
             </div>
+
+            <SettingsSwitchRow
+              size="sm"
+              title="保存后立即向所有在线用户发起弹窗"
+              description={
+                state.form.enabled
+                  ? "开启后将通过实时通道秒级唤醒所有在线页面弹出此公告，并忽略旧版本的「今日不再提醒」"
+                  : "需先开启「立即启用公告」后方可使用实时全员弹窗推送"
+              }
+              checked={broadcastActive}
+              disabled={state.isSaving || !state.form.enabled}
+              onCheckedChange={(checked) =>
+                state.updateForm({ broadcast_now: checked })
+              }
+              className={cn(
+                broadcastActive &&
+                  "border-amber-500/35 bg-amber-500/8 dark:border-amber-400/30 dark:bg-amber-400/8",
+              )}
+            />
           </div>
         </FieldGroup>
 
@@ -222,8 +244,20 @@ export function AnnouncementFormDialog({
               disabled={state.isUploadingImage}
               onClick={() => void state.handleSave()}
             >
-              {!state.isSaving ? <Save className="size-4" /> : null}
-              {state.editingItem ? "保存修改" : "发布公告"}
+              {!state.isSaving ? (
+                broadcastActive ? (
+                  <BellRing className="size-4" />
+                ) : (
+                  <Save className="size-4" />
+                )
+              ) : null}
+              {state.editingItem
+                ? broadcastActive
+                  ? "保存并全员弹窗"
+                  : "保存修改"
+                : broadcastActive
+                  ? "发布并全员弹窗"
+                  : "发布公告"}
             </Button>
           </div>
         </DialogFooter>

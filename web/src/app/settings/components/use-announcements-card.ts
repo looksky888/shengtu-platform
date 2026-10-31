@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import {
+  broadcastAnnouncement,
   createAnnouncement,
   deleteAnnouncement,
   fetchAdminAnnouncements,
@@ -21,7 +22,9 @@ import {
 } from "./announcements-utils";
 import { isSettingsRasterImage } from "./settings-raster-image";
 
-function safeAnnouncementList(items: Announcement[] | null | undefined): Announcement[] {
+function safeAnnouncementList(
+  items: Announcement[] | null | undefined,
+): Announcement[] {
   return Array.isArray(items) ? items : [];
 }
 
@@ -34,6 +37,9 @@ export function useAnnouncementsCard() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Announcement | null>(null);
   const [deletingItem, setDeletingItem] = useState<Announcement | null>(null);
+  const [broadcastingItem, setBroadcastingItem] = useState<Announcement | null>(
+    null,
+  );
   const [previewItem, setPreviewItem] = useState<Announcement | null>(null);
   const [form, setForm] = useState<AnnouncementForm>(emptyAnnouncementForm);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
@@ -121,6 +127,7 @@ export function useAnnouncementsCard() {
   };
 
   const handleSave = async () => {
+    const shouldBroadcast = Boolean(form.enabled && form.broadcast_now);
     const payload = {
       title: form.title.trim(),
       content: form.content.trim(),
@@ -128,6 +135,7 @@ export function useAnnouncementsCard() {
       enabled: form.enabled,
       show_login: form.show_login,
       show_image: form.show_image,
+      broadcast_now: shouldBroadcast,
     };
     if (!payload.content) {
       toast.error("请输入公告内容");
@@ -147,11 +155,39 @@ export function useAnnouncementsCard() {
       setDialogOpen(false);
       setEditingItem(null);
       setForm(emptyAnnouncementForm);
-      toast.success(editingItem ? "公告已更新" : "公告已创建");
+      if (shouldBroadcast) {
+        toast.success(
+          editingItem
+            ? "公告已更新并立即向所有在线用户发起弹窗"
+            : "公告已发布并立即向所有在线用户发起弹窗",
+        );
+      } else {
+        toast.success(editingItem ? "公告已更新" : "公告已创建");
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "保存公告失败");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleBroadcast = async () => {
+    if (!broadcastingItem) return;
+    const item = broadcastingItem;
+    setItemPending(item.id, true);
+    try {
+      const data = await broadcastAnnouncement(item.id);
+      setItems(safeAnnouncementList(data?.items));
+      setBroadcastingItem(null);
+      toast.success(
+        `已向所有在线用户发起「${item.title || "站内公告"}」全员弹窗推送`,
+      );
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "发起全员弹窗推送失败",
+      );
+    } finally {
+      setItemPending(item.id, false);
     }
   };
 
@@ -209,11 +245,13 @@ export function useAnnouncementsCard() {
     dialogOpen,
     editingItem,
     deletingItem,
+    broadcastingItem,
     previewItem,
     form,
     isUploadingImage,
     setDialogOpen,
     setDeletingItem,
+    setBroadcastingItem,
     setPreviewItem,
     openDraftPreview,
     updateForm,
@@ -221,6 +259,7 @@ export function useAnnouncementsCard() {
     openEditDialog,
     handleImageUpload,
     handleSave,
+    handleBroadcast,
     handleToggleEnabled,
     handleDelete,
     setQuery,

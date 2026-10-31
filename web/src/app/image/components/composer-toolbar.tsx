@@ -1,4 +1,4 @@
-import { ArrowUp, ImagePlus } from "lucide-react";
+import { ArrowUp, Coins, ImagePlus } from "lucide-react";
 
 import { ComposerModeSwitch } from "@/app/image/components/composer-mode-switch";
 import { ComposerModelMenu } from "@/app/image/components/composer-model-menu";
@@ -70,9 +70,15 @@ export function ComposerToolbar() {
   const referenceImageCount = composerProps.referenceImages.length;
 
   const selectedOption =
-    composerProps.imageModelOptions.find((option) => option.id === composerProps.imageModelOptionId) ||
-    composerProps.imageModelOptions.find((option) => option.value === composerProps.imageModel);
-  const imageModelLabel = selectedOption ? selectedOption.label : composerProps.imageModel;
+    composerProps.imageModelOptions.find(
+      (option) => option.id === composerProps.imageModelOptionId,
+    ) ||
+    composerProps.imageModelOptions.find(
+      (option) => option.value === composerProps.imageModel,
+    );
+  const imageModelLabel = selectedOption
+    ? selectedOption.label
+    : composerProps.imageModel;
   const submitLabel =
     composerProps.composerMode === "chat"
       ? "发送对话"
@@ -135,14 +141,22 @@ export function ComposerToolbar() {
           ) : null}
         </button>
       </div>
-      <div className="flex shrink-0 items-center gap-2.5">
-        {composerProps.composerMode === "image" && composerProps.estimatedCreditCost > 0 ? (
+      <div className="flex shrink-0 items-center gap-2">
+        {composerProps.composerMode === "image" &&
+        composerProps.estimatedCreditCost > 0 ? (
           <span
-            className="inline-flex items-center px-1 text-[11px] text-muted-foreground tabular-nums sm:text-xs"
+            className="inline-flex h-7.5 items-center gap-1 whitespace-nowrap rounded-lg border border-amber-500/35 bg-amber-500/12 px-2.5 text-[11px] font-medium text-amber-800 shadow-2xs tabular-nums sm:text-xs dark:border-amber-400/30 dark:bg-amber-400/12 dark:text-amber-300"
             title={composerProps.estimatedCreditCostDetail}
           >
-            <span className="hidden sm:inline">预计消耗&nbsp;</span>
-            {composerProps.estimatedCreditCost} 积分
+            <Coins
+              className="size-3.5 shrink-0 text-amber-600 dark:text-amber-400"
+              aria-hidden="true"
+            />
+            <span className="hidden opacity-90 sm:inline">扣除</span>
+            <strong className="font-mono font-bold text-amber-700 dark:text-amber-200">
+              {composerProps.estimatedCreditCost}
+            </strong>
+            <span>积分</span>
           </span>
         ) : null}
         <button

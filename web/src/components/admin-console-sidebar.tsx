@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type MouseEvent } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowLeft,
   ChevronRight,
@@ -13,13 +13,6 @@ import { motion, useReducedMotion } from "motion/react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 
 import { preloadRoute } from "@/app/route-prefetch";
-import {
-  getSettingsDomainForTab,
-  parseSettingsTab,
-  SETTINGS_DOMAIN_GROUPS,
-  SETTINGS_NAVIGATE_TAB_EVENT,
-  type SettingsTabKey,
-} from "@/app/settings/settings-tab-types";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -74,21 +67,11 @@ function getItemDisplayLabel(item: NavItem): string {
   return item.href === "/settings" ? "系统设置" : item.label;
 }
 
-function buildSettingsDomainHref(defaultTab: SettingsTabKey): string {
-  return defaultTab === "base" ? "/settings" : `/settings?tab=${defaultTab}`;
-}
-
 export function AdminConsoleSidebar() {
   const location = useLocation();
   const prefersReducedMotion = useReducedMotion();
   const pathname = location.pathname.replace(/\/+$/, "") || "/";
   const isConsoleRoute = isAdminConsolePath(pathname);
-  const onSettingsPage = pathname === "/settings";
-  const activeSettingsDomainId = onSettingsPage
-    ? getSettingsDomainForTab(
-        parseSettingsTab(new URLSearchParams(location.search).get("tab")),
-      )
-    : null;
 
   const [session, setSession] = useState<
     StoredAuthSession | null | undefined
@@ -103,7 +86,9 @@ export function AdminConsoleSidebar() {
       return false;
     }
   });
-  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+  const [collapsedGroups, setCollapsedGroups] = useState<
+    Record<string, boolean>
+  >({});
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
 
   useEffect(() => {
@@ -128,7 +113,6 @@ export function AdminConsoleSidebar() {
       );
   }, []);
 
-  // Auto-expand the group containing the currently active route and close mobile drawer on navigation
   useEffect(() => {
     setMobileDrawerOpen(false);
     const activeGroup = ADMIN_SIDEBAR_GROUPS.find((g) =>
@@ -202,26 +186,8 @@ export function AdminConsoleSidebar() {
     }));
   };
 
-  const handleSettingsDomainClick = (
-    event: MouseEvent<HTMLAnchorElement>,
-    defaultTab: SettingsTabKey,
-  ) => {
-    setMobileDrawerOpen(false);
-    if (!onSettingsPage) return;
-    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) {
-      return;
-    }
-    event.preventDefault();
-    window.dispatchEvent(
-      new CustomEvent(SETTINGS_NAVIGATE_TAB_EVENT, {
-        detail: { tab: defaultTab },
-      }),
-    );
-  };
-
   return (
     <>
-      {/* Mobile / Tablet (< 1024px) Console Bar & Slide-out Drawer */}
       <div className="studio-stage-frame flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2 lg:hidden">
         <button
           type="button"
@@ -298,63 +264,33 @@ export function AdminConsoleSidebar() {
                       const active = isActivePath(pathname, item.href);
                       const displayLabel = getItemDisplayLabel(item);
                       return (
-                        <div key={item.href}>
-                          <NavLink
-                            to={item.href}
-                            onClick={() => setMobileDrawerOpen(false)}
-                            onMouseEnter={() => preloadRoute(item.href)}
-                            onFocus={() => preloadRoute(item.href)}
+                        <NavLink
+                          key={item.href}
+                          to={item.href}
+                          onClick={() => setMobileDrawerOpen(false)}
+                          onMouseEnter={() => preloadRoute(item.href)}
+                          onFocus={() => preloadRoute(item.href)}
+                          className={cn(
+                            "flex h-9.5 items-center gap-2.5 rounded-xl px-3 text-[13px] font-medium transition-colors",
+                            active
+                              ? "bg-surface font-semibold text-foreground shadow-2xs ring-1 ring-border/85 dark:bg-surface-muted"
+                              : "text-muted-foreground hover:bg-surface-hover hover:text-foreground",
+                          )}
+                        >
+                          <Icon
                             className={cn(
-                              "flex h-9.5 items-center gap-2.5 rounded-xl px-3 text-[13px] font-medium transition-colors",
-                              active
-                                ? "bg-surface font-semibold text-foreground shadow-2xs ring-1 ring-border/85 dark:bg-surface-muted"
-                                : "text-muted-foreground hover:bg-surface-hover hover:text-foreground",
+                              "size-4 shrink-0 stroke-[1.75]",
+                              active ? "text-foreground" : "text-muted-foreground",
                             )}
-                          >
-                            <Icon
-                              className={cn(
-                                "size-4 shrink-0 stroke-[1.75]",
-                                active ? "text-foreground" : "text-muted-foreground",
-                              )}
+                          />
+                          <span className="truncate">{displayLabel}</span>
+                          {active ? (
+                            <span
+                              aria-hidden="true"
+                              className="ml-auto size-1.5 shrink-0 rounded-full bg-foreground"
                             />
-                            <span className="truncate">{displayLabel}</span>
-                            {active ? (
-                              <span
-                                aria-hidden="true"
-                                className="ml-auto size-1.5 shrink-0 rounded-full bg-foreground"
-                              />
-                            ) : null}
-                          </NavLink>
-
-                          {item.href === "/settings" ? (
-                            <div className="mt-1 ml-5 space-y-0.5 border-l border-border/75 pl-2.5">
-                              {SETTINGS_DOMAIN_GROUPS.map((domain) => {
-                                const domainActive = activeSettingsDomainId === domain.id;
-                                return (
-                                  <Link
-                                    key={domain.id}
-                                    to={buildSettingsDomainHref(domain.defaultTab)}
-                                    onMouseEnter={() => preloadRoute("/settings")}
-                                    onClick={(event) =>
-                                      handleSettingsDomainClick(event, domain.defaultTab)
-                                    }
-                                    className={cn(
-                                      "flex h-7.5 items-center justify-between rounded-lg px-2.5 text-xs transition-colors",
-                                      domainActive
-                                        ? "bg-surface-muted font-semibold text-foreground"
-                                        : "font-medium text-muted-foreground hover:bg-surface-hover hover:text-foreground",
-                                    )}
-                                  >
-                                    <span className="truncate">{domain.label}</span>
-                                    <span className="font-mono text-[10px] text-muted-foreground/80">
-                                      {domain.tabs.length}
-                                    </span>
-                                  </Link>
-                                );
-                              })}
-                            </div>
                           ) : null}
-                        </div>
+                        </NavLink>
                       );
                     })}
                   </div>
@@ -377,7 +313,6 @@ export function AdminConsoleSidebar() {
         </DialogContent>
       </Dialog>
 
-      {/* Desktop (>= 1024px) Sticky Collapsible Sidebar */}
       <aside
         aria-label="管理控制台导航"
         className={cn(
@@ -426,9 +361,13 @@ export function AdminConsoleSidebar() {
             </Button>
           </div>
 
-          <nav aria-label="管理模块列表" className={cn(collapsed ? "space-y-1.5" : "space-y-3")}>
+          <nav
+            aria-label="管理模块列表"
+            className={cn(collapsed ? "space-y-1.5" : "space-y-3")}
+          >
             {visibleGroups.map((group, groupIndex) => {
-              const isGroupCollapsed = !collapsed && Boolean(collapsedGroups[group.id]);
+              const isGroupCollapsed =
+                !collapsed && Boolean(collapsedGroups[group.id]);
               return (
                 <div key={group.id} className="space-y-1">
                   {collapsed && groupIndex > 0 ? (
@@ -461,109 +400,83 @@ export function AdminConsoleSidebar() {
                         : "grid-rows-[1fr] opacity-100",
                     )}
                   >
-                    <div className={cn("min-h-0 space-y-0.5", collapsed ? "overflow-visible" : "overflow-hidden")}>
+                    <div
+                      className={cn(
+                        "min-h-0 space-y-0.5",
+                        collapsed ? "overflow-visible" : "overflow-hidden",
+                      )}
+                    >
                       {group.items.map((item) => {
                         const Icon = getNavItemIcon(item);
                         const active = isActivePath(pathname, item.href);
                         const displayLabel = getItemDisplayLabel(item);
                         return (
-                          <div key={item.href}>
-                            <NavLink
-                              to={item.href}
-                              onMouseEnter={() => preloadRoute(item.href)}
-                              onFocus={() => preloadRoute(item.href)}
-                              title={collapsed ? undefined : item.description}
-                              aria-label={displayLabel}
-                              className={cn(
-                                "group relative isolate flex h-9 items-center rounded-[11px] text-[13px] font-medium transition-colors motion-safe:active:scale-[0.985]",
-                                collapsed
-                                  ? "justify-center px-0"
-                                  : "gap-2.5 px-2.5",
-                                active
-                                  ? "font-semibold text-foreground"
-                                  : "text-muted-foreground hover:bg-surface-hover hover:text-foreground",
-                              )}
-                            >
-                              {active ? (
-                                <motion.span
-                                  layoutId={SIDEBAR_ACTIVE_LAYOUT_ID}
-                                  transition={
-                                    prefersReducedMotion
-                                      ? { duration: 0.01 }
-                                      : {
-                                          type: "spring",
-                                          mass: 0.12,
-                                          stiffness: 260,
-                                          damping: 20,
-                                        }
-                                  }
-                                  className="absolute inset-0 -z-10 rounded-[11px] bg-surface shadow-[0_1px_3px_rgba(0,0,0,0.06)] ring-1 ring-border/85 dark:bg-surface-muted"
-                                />
-                              ) : null}
-                              {active && collapsed ? (
-                                <span
-                                  aria-hidden="true"
-                                  className="absolute top-2 bottom-2 left-0.5 z-10 w-0.5 rounded-full bg-foreground"
-                                />
-                              ) : null}
-                              <Icon
-                                className={cn(
-                                  "relative z-10 size-4 shrink-0 stroke-[1.75] transition-[color,transform] duration-150",
-                                  active
-                                    ? "text-foreground"
-                                    : "text-muted-foreground group-hover:-translate-y-px group-hover:text-foreground",
-                                )}
-                              />
-                              {collapsed ? (
-                                <span
-                                  role="tooltip"
-                                  className="pointer-events-none invisible absolute top-1/2 left-[calc(100%+10px)] z-50 -translate-x-1 -translate-y-1/2 whitespace-nowrap rounded-lg border border-border/85 bg-surface-raised px-2.5 py-1 text-xs font-medium text-foreground opacity-0 shadow-md transition-all duration-100 group-hover:visible group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:visible group-focus-visible:translate-x-0 group-focus-visible:opacity-100"
-                                >
-                                  {displayLabel}
-                                </span>
-                              ) : (
-                                <span className="relative z-10 truncate">
-                                  {displayLabel}
-                                </span>
-                              )}
-                              {active && !collapsed ? (
-                                <span
-                                  aria-hidden="true"
-                                  className="relative z-10 ml-auto size-1.5 shrink-0 rounded-full bg-foreground"
-                                />
-                              ) : null}
-                            </NavLink>
-
-                            {/* Expandable Settings Domain Quick Links when sidebar is expanded */}
-                            {item.href === "/settings" && !collapsed ? (
-                              <div className="mt-1 ml-4 space-y-0.5 border-l border-border/75 pl-2.5">
-                                {SETTINGS_DOMAIN_GROUPS.map((domain) => {
-                                  const domainActive = activeSettingsDomainId === domain.id;
-                                  return (
-                                    <Link
-                                      key={domain.id}
-                                      to={buildSettingsDomainHref(domain.defaultTab)}
-                                      onMouseEnter={() => preloadRoute("/settings")}
-                                      onClick={(event) =>
-                                        handleSettingsDomainClick(event, domain.defaultTab)
+                          <NavLink
+                            key={item.href}
+                            to={item.href}
+                            onMouseEnter={() => preloadRoute(item.href)}
+                            onFocus={() => preloadRoute(item.href)}
+                            title={collapsed ? undefined : item.description}
+                            aria-label={displayLabel}
+                            className={cn(
+                              "group relative isolate flex h-9 items-center rounded-[11px] text-[13px] font-medium transition-colors motion-safe:active:scale-[0.985]",
+                              collapsed
+                                ? "justify-center px-0"
+                                : "gap-2.5 px-2.5",
+                              active
+                                ? "font-semibold text-foreground"
+                                : "text-muted-foreground hover:bg-surface-hover hover:text-foreground",
+                            )}
+                          >
+                            {active ? (
+                              <motion.span
+                                layoutId={SIDEBAR_ACTIVE_LAYOUT_ID}
+                                transition={
+                                  prefersReducedMotion
+                                    ? { duration: 0.01 }
+                                    : {
+                                        type: "spring",
+                                        mass: 0.12,
+                                        stiffness: 260,
+                                        damping: 20,
                                       }
-                                      className={cn(
-                                        "flex h-7 items-center justify-between rounded-lg px-2 text-xs transition-colors",
-                                        domainActive
-                                          ? "bg-surface-muted/85 font-semibold text-foreground"
-                                          : "font-medium text-muted-foreground hover:bg-surface-hover/70 hover:text-foreground",
-                                      )}
-                                    >
-                                      <span className="truncate">{domain.label}</span>
-                                      <span className="font-mono text-[10px] text-muted-foreground/75 tabular-nums">
-                                        {domain.tabs.length}
-                                      </span>
-                                    </Link>
-                                  );
-                                })}
-                              </div>
+                                }
+                                className="absolute inset-0 -z-10 rounded-[11px] bg-surface shadow-[0_1px_3px_rgba(0,0,0,0.06)] ring-1 ring-border/85 dark:bg-surface-muted"
+                              />
                             ) : null}
-                          </div>
+                            {active && collapsed ? (
+                              <span
+                                aria-hidden="true"
+                                className="absolute top-2 bottom-2 left-0.5 z-10 w-0.5 rounded-full bg-foreground"
+                              />
+                            ) : null}
+                            <Icon
+                              className={cn(
+                                "relative z-10 size-4 shrink-0 stroke-[1.75] transition-[color,transform] duration-150",
+                                active
+                                  ? "text-foreground"
+                                  : "text-muted-foreground group-hover:-translate-y-px group-hover:text-foreground",
+                              )}
+                            />
+                            {collapsed ? (
+                              <span
+                                role="tooltip"
+                                className="pointer-events-none invisible absolute top-1/2 left-[calc(100%+10px)] z-50 -translate-x-1 -translate-y-1/2 whitespace-nowrap rounded-lg border border-border/85 bg-surface-raised px-2.5 py-1 text-xs font-medium text-foreground opacity-0 shadow-md transition-all duration-100 group-hover:visible group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:visible group-focus-visible:translate-x-0 group-focus-visible:opacity-100"
+                              >
+                                {displayLabel}
+                              </span>
+                            ) : (
+                              <span className="relative z-10 truncate">
+                                {displayLabel}
+                              </span>
+                            )}
+                            {active && !collapsed ? (
+                              <span
+                                aria-hidden="true"
+                                className="relative z-10 ml-auto size-1.5 shrink-0 rounded-full bg-foreground"
+                              />
+                            ) : null}
+                          </NavLink>
                         );
                       })}
                     </div>
@@ -586,7 +499,9 @@ export function AdminConsoleSidebar() {
             )}
           >
             <ArrowLeft className="size-3.5 shrink-0 transition-transform duration-150 group-hover:-translate-x-0.5" />
-            {!collapsed ? <span className="truncate">返回创作工作台</span> : null}
+            {!collapsed ? (
+              <span className="truncate">返回创作工作台</span>
+            ) : null}
           </Link>
         </div>
       </aside>

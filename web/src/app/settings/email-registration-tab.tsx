@@ -14,7 +14,7 @@ import {
 import { SETTINGS_TAB_REFRESH_EVENT } from "./settings-tabs";
 
 const ANCHOR_WRAPPER_CLASS =
-  "min-w-0 scroll-mt-32 rounded-[14px] transition-shadow duration-300 data-[anchor-flash='1']:ring-2 data-[anchor-flash='1']:ring-foreground/35";
+  "min-w-0 scroll-mt-20 rounded-[14px] transition-shadow duration-300 data-[anchor-flash='1']:ring-2 data-[anchor-flash='1']:ring-foreground/35";
 
 export function EmailRegistrationTab({
   canManageSystem,

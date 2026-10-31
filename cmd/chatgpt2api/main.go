@@ -84,6 +84,7 @@ func main() {
 	serverFailures := make(chan serverFailure, len(servers))
 	for _, item := range servers {
 		item := item
+		item.server.RegisterOnShutdown(app.NotifyServerShutdown)
 		go func() {
 			logger.Info("starting server", "name", item.name, "addr", item.server.Addr)
 			if err := item.server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {

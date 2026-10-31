@@ -1,4 +1,5 @@
 import {
+  BellRing,
   Edit3,
   Eye,
   Image as ImageIcon,
@@ -16,6 +17,7 @@ import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 
 import {
+  formatAnnouncementDateTime,
   formatAnnouncementScheduleRange,
   getAnnouncementDisplayModeLabel,
   getAnnouncementStatusMeta,
@@ -28,7 +30,11 @@ import {
 } from "./settings-ui";
 import type { AnnouncementsCardState } from "./use-announcements-card";
 
-export function AnnouncementsList({ state }: { state: AnnouncementsCardState }) {
+export function AnnouncementsList({
+  state,
+}: {
+  state: AnnouncementsCardState;
+}) {
   if (state.isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -42,7 +48,7 @@ export function AnnouncementsList({ state }: { state: AnnouncementsCardState }) 
       <SettingsEmptyState
         icon={Megaphone}
         title="暂无站内公告"
-        description="点击右上角「发布公告」可创建图文弹窗通知，指定在登录页、创作台或双端同步触达。"
+        description="点击右上角「发布公告」可创建图文弹窗通知，支持指定登录页、创作台并向在线用户实时弹窗推送。"
         action={
           <Button size="sm" variant="outline" onClick={state.openCreateDialog}>
             <Plus className="size-3.5" />
@@ -55,7 +61,6 @@ export function AnnouncementsList({ state }: { state: AnnouncementsCardState }) 
 
   return (
     <div className="flex flex-col gap-3.5">
-      {/* Toolbar */}
       <div className="flex flex-col gap-2.5 rounded-xl border border-border/75 bg-surface-subtle/45 p-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="relative min-w-0 flex-1">
           <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -107,7 +112,7 @@ export function AnnouncementsList({ state }: { state: AnnouncementsCardState }) 
                 key={item.id}
                 className={cn(
                   "flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between",
-                  settingsListItemClassName
+                  settingsListItemClassName,
                 )}
               >
                 <div className="min-w-0 flex-1 space-y-2">
@@ -120,6 +125,11 @@ export function AnnouncementsList({ state }: { state: AnnouncementsCardState }) 
                     </Badge>
                     <Badge variant="outline">{typeLabel}</Badge>
                     <Badge variant="info">{displayModeLabel}</Badge>
+                    {item.popup_version && item.popup_version > 1 ? (
+                      <Badge variant="warning" className="tabular-nums">
+                        弹窗 v{item.popup_version}
+                      </Badge>
+                    ) : null}
                   </div>
 
                   <p className="line-clamp-2 whitespace-pre-wrap break-words text-xs leading-5 text-muted-foreground sm:text-[13px]">
@@ -128,6 +138,15 @@ export function AnnouncementsList({ state }: { state: AnnouncementsCardState }) 
 
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] tabular-nums text-muted-foreground">
                     <span className="font-mono">{scheduleText}</span>
+                    {item.last_broadcast_at ? (
+                      <span className="inline-flex items-center gap-1 text-amber-700 dark:text-amber-300">
+                        <BellRing className="size-3" />
+                        <span>
+                          最近全员推送：
+                          {formatAnnouncementDateTime(item.last_broadcast_at)}
+                        </span>
+                      </span>
+                    ) : null}
                     {item.image_url ? (
                       <span className="inline-flex items-center gap-1 text-foreground/80">
                         <ImageIcon className="size-3.5" />
@@ -137,9 +156,8 @@ export function AnnouncementsList({ state }: { state: AnnouncementsCardState }) 
                   </div>
                 </div>
 
-                {/* Inline Switch + Preview / Edit / Delete Controls */}
                 <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-border/55 pt-3 lg:border-t-0 lg:pt-0">
-                  <label className="mr-1 inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border/75 bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground">
+                  <label className="mr-1 inline-flex cursor-pointer items-center gap-2 whitespace-nowrap rounded-lg border border-border/75 bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground">
                     <Switch
                       size="sm"
                       checked={Boolean(item.enabled)}
@@ -149,7 +167,7 @@ export function AnnouncementsList({ state }: { state: AnnouncementsCardState }) 
                         void state.handleToggleEnabled(item)
                       }
                     />
-                    <span className="min-w-[2.5rem] text-center">
+                    <span className="min-w-[2.5rem] text-center whitespace-nowrap">
                       {isPending
                         ? "处理中"
                         : item.enabled
@@ -159,6 +177,19 @@ export function AnnouncementsList({ state }: { state: AnnouncementsCardState }) 
                   </label>
 
                   <div className="flex flex-wrap items-center gap-1.5">
+                    {item.enabled ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => state.setBroadcastingItem(item)}
+                        disabled={isPending}
+                        className="border-amber-500/35 bg-amber-500/8 text-amber-800 hover:bg-amber-500/15 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-200 dark:hover:bg-amber-400/18"
+                      >
+                        <BellRing className="size-3.5" />
+                        立即全员弹窗
+                      </Button>
+                    ) : null}
                     <Button
                       type="button"
                       variant="outline"
@@ -167,7 +198,7 @@ export function AnnouncementsList({ state }: { state: AnnouncementsCardState }) 
                       disabled={isPending}
                     >
                       <Eye className="size-3.5" />
-                      预览效果
+                      预览
                     </Button>
                     <Button
                       type="button"

@@ -31,7 +31,7 @@ func (c *ICloudClient) KeepAliveAppleAccountManageState(ctx context.Context, log
 }
 
 func (c *ICloudClient) keepAliveAppleAccountManageStateUnlocked(ctx context.Context, loginState LoginState) (LoginState, error) {
-	if strings.TrimSpace(loginState.Scnt) == "" {
+	if strings.TrimSpace(loginState.Scnt) == "" && len(loginState.Cookies) == 0 {
 		return loginState, errCode("apple_account_session_missing", "当前登录态缺少 Apple Account 管理态，请重新协议登录", true)
 	}
 	loginState, err := c.refreshAppleAccountManageStateUnlocked(ctx, loginState)
@@ -82,59 +82,104 @@ func appleAccountKeepAliveDue(loginState LoginState, now time.Time, interval tim
 	return !now.Before(loginState.LastCheckedAt.Add(interval))
 }
 
+func preserveAppleAccountScnt(loginState *LoginState, fallbackScnt string) {
+	if loginState == nil {
+		return
+	}
+	if strings.TrimSpace(loginState.Scnt) == "" && strings.TrimSpace(fallbackScnt) != "" {
+		loginState.Scnt = strings.TrimSpace(fallbackScnt)
+	}
+}
+
 func (c *ICloudClient) refreshAppleAccountManageStateUnlocked(ctx context.Context, loginState LoginState) (LoginState, error) {
-	if strings.TrimSpace(loginState.Scnt) == "" {
+	prevScnt := strings.TrimSpace(loginState.Scnt)
+	if prevScnt == "" && len(loginState.Cookies) == 0 {
 		return loginState, errCode("apple_account_session_missing", "当前登录态缺少 Apple Account 管理态，请重新协议登录", true)
 	}
 	var token struct {
 		TimeOutInterval int `json:"timeOutInterval"`
 	}
-	if err := c.callAppleAccount(ctx, &loginState, "", http.MethodGet, "/account/manage/gs/ws/token", nil, &token); err != nil {
-		return loginState, err
-	}
-	markAppleAccountManageTokenTTL(&loginState, token.TimeOutInterval, time.Now())
-	if token.TimeOutInterval <= 0 {
-		if err := c.warmAppleAccountPortal(ctx, &loginState); err == nil {
-			token = struct {
-				TimeOutInterval int `json:"timeOutInterval"`
-			}{}
-			withoutScnt := loginState
-			withoutScnt.Scnt = ""
-			if err := c.callAppleAccount(ctx, &withoutScnt, "", http.MethodGet, "/account/manage/gs/ws/token", nil, &token); err == nil {
-				loginState = withoutScnt
-				markAppleAccountManageTokenTTL(&loginState, token.TimeOutInterval, time.Now())
-			} else if err := c.callAppleAccount(ctx, &loginState, "", http.MethodGet, "/account/manage/gs/ws/token", nil, &token); err == nil {
-				markAppleAccountManageTokenTTL(&loginState, token.TimeOutInterval, time.Now())
+	tokenScnt := prevScnt
+	initialTokenAuthFailed := false
+
+	if prevScnt != "" {
+		if err := c.callAppleAccount(ctx, &loginState, "", http.MethodGet, "/account/manage/gs/ws/token", nil, &token); err != nil {
+			if !isCodedError(err, "apple_account_auth_failed") || len(loginState.Cookies) == 0 {
+				return loginState, err
+			}
+			// Stale scnt rejected with 401/440, but portal cookies remain: clear the rejected scnt
+			// and attempt portal warmup + cookie-backed token recovery below.
+			initialTokenAuthFailed = true
+			loginState.Scnt = ""
+			tokenScnt = ""
+		} else {
+			markAppleAccountManageTokenTTL(&loginState, token.TimeOutInterval, time.Now())
+			tokenScnt = firstNonEmpty(strings.TrimSpace(loginState.Scnt), prevScnt)
+			if token.TimeOutInterval <= 0 {
+				if err := c.warmAppleAccountPortal(ctx, &loginState); err == nil {
+					tokenScnt = firstNonEmpty(strings.TrimSpace(loginState.Scnt), tokenScnt)
+					token = struct {
+						TimeOutInterval int `json:"timeOutInterval"`
+					}{}
+					withoutScnt := loginState
+					withoutScnt.Scnt = ""
+					if err := c.callAppleAccount(ctx, &withoutScnt, "", http.MethodGet, "/account/manage/gs/ws/token", nil, &token); err == nil {
+						preserveAppleAccountScnt(&withoutScnt, tokenScnt)
+						loginState = withoutScnt
+						markAppleAccountManageTokenTTL(&loginState, token.TimeOutInterval, time.Now())
+					} else if err := c.callAppleAccount(ctx, &loginState, "", http.MethodGet, "/account/manage/gs/ws/token", nil, &token); err == nil {
+						preserveAppleAccountScnt(&loginState, tokenScnt)
+						markAppleAccountManageTokenTTL(&loginState, token.TimeOutInterval, time.Now())
+					}
+				}
+			}
+			tokenScnt = firstNonEmpty(strings.TrimSpace(loginState.Scnt), tokenScnt)
+			if err := c.loadAppleAccountManageAPIKey(ctx, &loginState); err == nil {
+				preserveAppleAccountScnt(&loginState, tokenScnt)
+				markAppleAccountManageOK(&loginState)
+				return loginState, nil
 			}
 		}
 	}
-	tokenScnt := strings.TrimSpace(loginState.Scnt)
-	if err := c.loadAppleAccountManageAPIKey(ctx, &loginState); err == nil {
-		markAppleAccountManageOK(&loginState)
-		return loginState, nil
-	}
+
 	if err := c.warmAppleAccountPortal(ctx, &loginState); err != nil {
 		return loginState, err
 	}
+	if !initialTokenAuthFailed {
+		tokenScnt = firstNonEmpty(strings.TrimSpace(loginState.Scnt), tokenScnt)
+	} else {
+		tokenScnt = strings.TrimSpace(loginState.Scnt)
+	}
+	token = struct {
+		TimeOutInterval int `json:"timeOutInterval"`
+	}{}
 	withoutScnt := loginState
 	withoutScnt.Scnt = ""
 	if err := c.callAppleAccount(ctx, &withoutScnt, "", http.MethodGet, "/account/manage/gs/ws/token", nil, &token); err == nil {
 		markAppleAccountManageTokenTTL(&withoutScnt, token.TimeOutInterval, time.Now())
-		loginState = withoutScnt
-	} else if err := c.callAppleAccount(ctx, &loginState, "", http.MethodGet, "/account/manage/gs/ws/token", nil, &token); err != nil {
-		if tokenScnt == "" {
-			return loginState, err
+		if !initialTokenAuthFailed {
+			preserveAppleAccountScnt(&withoutScnt, tokenScnt)
 		}
-		loginState.Scnt = tokenScnt
-		if retryErr := c.callAppleAccount(ctx, &loginState, "", http.MethodGet, "/account/manage/gs/ws/token", nil, &token); retryErr != nil {
-			return loginState, err
+		loginState = withoutScnt
+	} else if strings.TrimSpace(loginState.Scnt) != "" {
+		if err := c.callAppleAccount(ctx, &loginState, "", http.MethodGet, "/account/manage/gs/ws/token", nil, &token); err != nil {
+			if tokenScnt == "" {
+				return loginState, err
+			}
+			loginState.Scnt = tokenScnt
+			if retryErr := c.callAppleAccount(ctx, &loginState, "", http.MethodGet, "/account/manage/gs/ws/token", nil, &token); retryErr != nil {
+				return loginState, err
+			}
 		}
 		markAppleAccountManageTokenTTL(&loginState, token.TimeOutInterval, time.Now())
 	} else {
-		markAppleAccountManageTokenTTL(&loginState, token.TimeOutInterval, time.Now())
+		return loginState, err
 	}
 	if err := c.loadAppleAccountManageAPIKey(ctx, &loginState); err != nil {
 		return loginState, err
+	}
+	if !initialTokenAuthFailed {
+		preserveAppleAccountScnt(&loginState, tokenScnt)
 	}
 	markAppleAccountManageOK(&loginState)
 	return loginState, nil

@@ -215,6 +215,14 @@ func publicSessionWithKeepAliveInterval(session *ICloudSession, keepAliveInterva
 		icloudWebStateName = loginChannelError
 		icloudWebStatus = "登录态不完整，请重新登录"
 	}
+	appleAccountStateName := loginChannelState(appleAccountLoginSaved, appleAccountState)
+	appleAccountStatus := loginStatePublicStatus(appleAccountLoginSaved, appleAccountState)
+	if appleAccountLoginSaved && !appleAccountState.LastCheckedAt.IsZero() && !appleAccountState.LastCheckOK {
+		if strings.Contains(appleAccountState.LastStatusMessage, "已过期") || strings.Contains(appleAccountState.LastStatusMessage, "已失效") {
+			appleAccountStateName = loginChannelExpired
+			appleAccountStatus = "登录态已过期，请重新登录"
+		}
+	}
 	return publicICloudSession{
 		Saved:                       true,
 		AccountID:                   session.AccountID,
@@ -238,8 +246,8 @@ func publicSessionWithKeepAliveInterval(session *ICloudSession, keepAliveInterva
 		AppleAccountLoginSaved:      appleAccountLoginSaved,
 		AppleAccountLoginChecked:    !appleAccountState.LastCheckedAt.IsZero(),
 		AppleAccountLoginOK:         appleAccountState.LastCheckOK,
-		AppleAccountLoginState:      loginChannelState(appleAccountLoginSaved, appleAccountState),
-		AppleAccountLoginStatus:     loginStatePublicStatus(appleAccountLoginSaved, appleAccountState),
+		AppleAccountLoginState:      appleAccountStateName,
+		AppleAccountLoginStatus:     appleAccountStatus,
 		AppleAccountNextRefreshAt:   formatTime(appleAccountNextRefreshAt),
 		AppleAccountManageExpiresAt: formatTime(appleAccountState.ManageExpiresAt),
 		AppleAccountManageReady:     appleAccountManageReady(*session),

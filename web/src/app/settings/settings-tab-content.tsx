@@ -30,7 +30,7 @@ import {
 import type { SettingsTabKey } from "./settings-tab-types";
 
 const ANCHOR_WRAPPER_CLASS =
-  "min-w-0 scroll-mt-32 rounded-[14px] transition-shadow duration-300 data-[anchor-flash='1']:ring-2 data-[anchor-flash='1']:ring-foreground/35";
+  "min-w-0 scroll-mt-20 rounded-[14px] transition-shadow duration-300 data-[anchor-flash='1']:ring-2 data-[anchor-flash='1']:ring-foreground/35";
 
 function SectionAnchor({
   id,

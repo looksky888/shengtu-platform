@@ -94,7 +94,7 @@ export function ImageChannelDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[88dvh] w-[min(94vw,720px)] overflow-y-auto rounded-2xl p-6">
+      <DialogContent className="max-h-[88dvh] w-[min(94vw,720px)] max-w-[720px] overflow-y-auto rounded-2xl p-6">
         <DialogHeader className="gap-1">
           <DialogTitle className="text-base font-semibold">
             {channel ? `编辑渠道 · ${channel.name}` : "新增生图供给渠道"}

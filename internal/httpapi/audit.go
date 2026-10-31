@@ -115,7 +115,9 @@ func skipRoutinePollingAuditLog(r *http.Request, status int) bool {
 	case "/api/creation-tasks",
 		"/api/image-task-stats/today",
 		"/api/payment/orders",
+		"/api/announcements",
 		"/api/announcements/active",
+		"/api/announcements/events",
 		"/api/app-meta",
 		"/api/creation-pricing",
 		"/api/system/update/status":

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ChevronDown, Minus, Plus, RotateCcw, SlidersHorizontal, X } from "lucide-react";
+import { ChevronDown, Coins, Minus, Plus, RotateCcw, SlidersHorizontal, X } from "lucide-react";
 
 import type { ComposerSettingsPopoverProps } from "@/app/image/components/composer-settings-types";
 import {
@@ -748,8 +748,9 @@ export function ComposerSettingsPopover(props: ComposerSettingsPopoverProps) {
             <span className="min-w-0 truncate font-mono font-medium">
               {telemetryLeftText}
             </span>
-            <span className="shrink-0 font-mono font-semibold text-foreground">
-              预计消耗 {estimatedCreditCost} 积分
+            <span className="inline-flex shrink-0 items-center gap-1 rounded-md border border-amber-500/30 bg-amber-500/12 px-2 py-0.5 font-mono font-semibold text-amber-800 dark:border-amber-400/25 dark:bg-amber-400/12 dark:text-amber-300">
+              <Coins className="size-3 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+              扣除 {estimatedCreditCost} 积分
             </span>
           </div>
         </div>

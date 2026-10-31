@@ -26,7 +26,7 @@ from runtime.request_body import read_json_object
 logger = logging.getLogger(__name__)
 
 SERVICE = "grok-runtime"
-VERSION = os.getenv("GROK_RUNTIME_VERSION", "5.2.2-20261030-audit-and-studio-upgrade")
+VERSION = os.getenv("GROK_RUNTIME_VERSION", "5.2.3-20261031-ui-broadcast-and-icloud-fix")
 
 _UPSTREAM = Path(__file__).resolve().parents[1] / "upstream"
 # Always put vendored reverse stack first so `import app.products` resolves to

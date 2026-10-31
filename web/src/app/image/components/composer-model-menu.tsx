@@ -89,8 +89,8 @@ export function ComposerModelMenu({
                 >
                   <span className="min-w-0 break-words">{option.label}</span>
                   {option.creditCost !== undefined ? (
-                    <span className="inline-flex shrink-0 items-center gap-1 font-mono text-[11px] font-medium text-muted-foreground tabular-nums">
-                      <Coins className="size-3.5" aria-hidden="true" />
+                    <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-amber-500/25 bg-amber-500/10 px-1.5 py-0.5 font-mono text-[11px] font-semibold text-amber-800 tabular-nums dark:border-amber-400/25 dark:bg-amber-400/10 dark:text-amber-300">
+                      <Coins className="size-3 text-amber-600 dark:text-amber-400" aria-hidden="true" />
                       {option.creditCost} 积分/张
                     </span>
                   ) : null}

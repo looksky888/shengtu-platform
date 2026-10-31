@@ -123,10 +123,10 @@ func (s *Server) keepAliveAppleAccountRound(ctx context.Context) {
 		release()
 		cancel()
 		if err != nil {
-			if isCodedError(err, "apple_account_auth_failed") {
+			if isCodedError(err, "apple_account_auth_failed") || isCodedError(err, "apple_account_session_missing") {
 				state.LastCheckedAt = time.Now()
 				state.LastCheckOK = false
-				state.LastStatusMessage = "新接口登录态异常：" + err.Error()
+				state.LastStatusMessage = "新接口登录态已过期：" + err.Error()
 				session = withAppleAccountLoginState(session, state)
 				if saveErr := s.store.SaveICloudSessionForOwner(session.OwnerID, session); saveErr != nil && s.logger != nil {
 					s.logger.Warn("apple account keepalive save failed", "owner", s.ownerName(session.OwnerID), "account_id", session.AccountID, "err", saveErr)

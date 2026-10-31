@@ -7,7 +7,14 @@ import (
 	"time"
 )
 
+func (a *App) NotifyServerShutdown() {
+	if a != nil && a.announce != nil {
+		a.announce.Close()
+	}
+}
+
 func (a *App) Close() error {
+	a.NotifyServerShutdown()
 	if a.updateAdmission != nil {
 		a.updateAdmission.beginDrain("服务正在关闭")
 	}

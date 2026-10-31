@@ -56,6 +56,7 @@ func (a *App) routes() []appRoute {
 			util.WriteJSON(w, http.StatusOK, versionResponse{Version: version.Get()})
 		}),
 		exact("", "/api/announcements", a.handlePublicAnnouncements),
+		exact(http.MethodGet, "/api/announcements/events", a.handlePublicAnnouncementEvents),
 		subtree("/api/admin/system", a.handleAdminSystem),
 		exact(http.MethodPost, "/api/admin/announcements/upload-image", a.handleAnnouncementImageUpload),
 		subtree("/api/admin/announcements", a.handleAdminAnnouncements),

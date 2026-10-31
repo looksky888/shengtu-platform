@@ -2,7 +2,7 @@ services:
   sentinel-solver:
     build:
       context: ./services/sentinel-solver
-    image: shengtu/sentinel-solver:5.2.2-20261030-audit-and-studio-upgrade
+    image: shengtu/sentinel-solver:5.2.3-20261031-ui-broadcast-and-icloud-fix
     restart: unless-stopped
     environment:
       SENTINEL_SOLVER_KEY: ${CHATGPT2API_SENTINEL_SOLVER_KEY:?set a random solver key of at least 32 characters}
@@ -33,7 +33,7 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        VERSION: ${CHATGPT2API_VERSION:-5.2.2-20261030-audit-and-studio-upgrade}
+        VERSION: ${CHATGPT2API_VERSION:-5.2.3-20261031-ui-broadcast-and-icloud-fix}
     image: chatgpt2api:local
     container_name: chatgpt2api-local
     ports:

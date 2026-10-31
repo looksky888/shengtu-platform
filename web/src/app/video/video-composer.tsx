@@ -12,6 +12,7 @@ import {
   Check,
   ChevronDown,
   Clock3,
+  Coins,
   Film,
   ImageIcon,
   ImagePlus,
@@ -713,7 +714,8 @@ export function VideoComposer({ controller }: { controller: VideoCreationControl
                               {item.detail}
                             </span>
                           </div>
-                          <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
+                          <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-amber-500/25 bg-amber-500/10 px-1.5 py-0.5 font-mono text-[11px] font-semibold text-amber-800 tabular-nums dark:border-amber-400/25 dark:bg-amber-400/10 dark:text-amber-300">
+                            <Coins className="size-3 text-amber-600 dark:text-amber-400" aria-hidden="true" />
                             {cost} 积分
                           </span>
                         </button>
@@ -770,11 +772,18 @@ export function VideoComposer({ controller }: { controller: VideoCreationControl
             {/* Right Submit / Cancel Cluster */}
             <div className="ml-auto flex shrink-0 items-center gap-2">
               <span
-                className="inline-flex items-center px-1 text-[11px] text-muted-foreground tabular-nums sm:text-xs"
+                className="inline-flex h-7.5 items-center gap-1 whitespace-nowrap rounded-lg border border-amber-500/35 bg-amber-500/12 px-2.5 text-[11px] font-medium text-amber-800 shadow-2xs tabular-nums sm:text-xs dark:border-amber-400/30 dark:bg-amber-400/12 dark:text-amber-300"
                 title={`按秒计费：${controller.creditCostPerSecond} 积分/秒 × ${controller.seconds} 秒`}
               >
-                <span className="hidden sm:inline">预计消耗&nbsp;</span>
-                {estimatedCredits} 积分
+                <Coins
+                  className="size-3.5 shrink-0 text-amber-600 dark:text-amber-400"
+                  aria-hidden="true"
+                />
+                <span className="hidden opacity-90 sm:inline">扣除</span>
+                <strong className="font-mono font-bold text-amber-700 dark:text-amber-200">
+                  {estimatedCredits}
+                </strong>
+                <span>积分</span>
               </span>
 
               {active ? (

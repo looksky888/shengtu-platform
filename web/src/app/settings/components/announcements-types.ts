@@ -5,6 +5,7 @@ export type AnnouncementForm = {
   enabled: boolean;
   show_login: boolean;
   show_image: boolean;
+  broadcast_now: boolean;
 };
 
 export type AnnouncementStatusKey =

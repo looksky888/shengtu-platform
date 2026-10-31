@@ -135,6 +135,7 @@ export async function createAnnouncement(announcement: {
   show_login: boolean;
   show_image: boolean;
   image_url?: string;
+  broadcast_now?: boolean;
 }) {
   return httpRequest<{ item: Announcement; items: Announcement[] }>("/api/admin/announcements", {
     method: "POST",
@@ -144,18 +145,36 @@ export async function createAnnouncement(announcement: {
 
 export async function updateAnnouncement(
   announcementId: string,
-  updates: Partial<Pick<Announcement, "title" | "content" | "image_url" | "enabled" | "show_login" | "show_image">>,
+  updates: Partial<Pick<Announcement, "title" | "content" | "image_url" | "enabled" | "show_login" | "show_image">> & {
+    broadcast_now?: boolean;
+  },
 ) {
-  return httpRequest<{ item: Announcement; items: Announcement[] }>(`/api/admin/announcements/${announcementId}`, {
-    method: "POST",
-    body: updates,
-  });
+  return httpRequest<{ item: Announcement; items: Announcement[] }>(
+    `/api/admin/announcements/${encodeURIComponent(announcementId)}`,
+    {
+      method: "POST",
+      body: updates,
+    },
+  );
+}
+
+export async function broadcastAnnouncement(announcementId: string) {
+  return httpRequest<{ item: Announcement; items: Announcement[] }>(
+    `/api/admin/announcements/${encodeURIComponent(announcementId)}/broadcast`,
+    {
+      method: "POST",
+      body: {},
+    },
+  );
 }
 
 export async function deleteAnnouncement(announcementId: string) {
-  return httpRequest<{ items: Announcement[] }>(`/api/admin/announcements/${announcementId}`, {
-    method: "DELETE",
-  });
+  return httpRequest<{ items: Announcement[] }>(
+    `/api/admin/announcements/${encodeURIComponent(announcementId)}`,
+    {
+      method: "DELETE",
+    },
+  );
 }
 
 export async function uploadAnnouncementImage(file: File) {

@@ -11,7 +11,8 @@ export const emptyAnnouncementForm: AnnouncementForm = {
   image_url: "",
   enabled: true,
   show_login: true,
-  show_image: false,
+  show_image: true,
+  broadcast_now: true,
 };
 
 export function formatAnnouncementDateTime(value?: string | null) {
@@ -36,12 +37,13 @@ export function formFromAnnouncement(item: Announcement): AnnouncementForm {
     enabled: Boolean(item.enabled),
     show_login: Boolean(item.show_login),
     show_image: Boolean(item.show_image),
+    broadcast_now: false,
   };
 }
 
 function readOptionalDateField(
   item: Announcement,
-  keys: readonly string[]
+  keys: readonly string[],
 ): string | null {
   const record = item as unknown as Record<string, unknown>;
   for (const key of keys) {
@@ -55,7 +57,7 @@ function readOptionalDateField(
 
 export function getAnnouncementStatusMeta(
   item: Announcement,
-  nowMs = Date.now()
+  nowMs = Date.now(),
 ): AnnouncementStatusMeta {
   if (!item.enabled) {
     return { key: "disabled", label: "已停用", variant: "secondary" };
@@ -113,13 +115,13 @@ export function formatAnnouncementScheduleRange(item: Announcement): string {
     return `${left} → ${right}`;
   }
   return `长期有效 · 更新于 ${formatAnnouncementDateTime(
-    item.updated_at || item.created_at
+    item.updated_at || item.created_at,
   )}`;
 }
 
 export function buildDraftPreviewAnnouncement(
   form: AnnouncementForm,
-  editingItem?: Announcement | null
+  editingItem?: Announcement | null,
 ): Announcement {
   const nowIso = new Date().toISOString();
   return {
@@ -130,6 +132,7 @@ export function buildDraftPreviewAnnouncement(
     enabled: form.enabled,
     show_login: form.show_login,
     show_image: form.show_image,
+    popup_version: editingItem?.popup_version ?? 1,
     created_at: editingItem?.created_at ?? nowIso,
     updated_at: nowIso,
   };

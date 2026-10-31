@@ -4,40 +4,50 @@ import "chatgpt2api/internal/util"
 
 // Announcement is the persisted announcement record (storage + service memory).
 type Announcement struct {
-	ID        string `json:"id"`
-	Title     string `json:"title"`
-	Content   string `json:"content"`
-	ImageURL  string `json:"image_url"`
-	Enabled   bool   `json:"enabled"`
-	ShowLogin bool   `json:"show_login"`
-	ShowImage bool   `json:"show_image"`
-	CreatedAt string `json:"created_at"`
-	UpdatedAt string `json:"updated_at"`
+	ID              string `json:"id"`
+	Title           string `json:"title"`
+	Content         string `json:"content"`
+	ImageURL        string `json:"image_url"`
+	Enabled         bool   `json:"enabled"`
+	ShowLogin       bool   `json:"show_login"`
+	ShowImage       bool   `json:"show_image"`
+	PopupVersion    int    `json:"popup_version"`
+	LastBroadcastAt string `json:"last_broadcast_at,omitempty"`
+	CreatedAt       string `json:"created_at"`
+	UpdatedAt       string `json:"updated_at"`
 }
 
 // AnnouncementPublic is the API-facing announcement view.
 type AnnouncementPublic struct {
-	ID        string `json:"id,omitempty"`
-	Title     string `json:"title,omitempty"`
-	Content   string `json:"content,omitempty"`
-	ImageURL  string `json:"image_url,omitempty"`
-	Enabled   *bool  `json:"enabled,omitempty"`
-	ShowLogin bool   `json:"show_login"`
-	ShowImage bool   `json:"show_image"`
-	CreatedAt string `json:"created_at,omitempty"`
-	UpdatedAt string `json:"updated_at,omitempty"`
+	ID              string `json:"id,omitempty"`
+	Title           string `json:"title,omitempty"`
+	Content         string `json:"content,omitempty"`
+	ImageURL        string `json:"image_url,omitempty"`
+	Enabled         *bool  `json:"enabled,omitempty"`
+	ShowLogin       bool   `json:"show_login"`
+	ShowImage       bool   `json:"show_image"`
+	PopupVersion    int    `json:"popup_version,omitempty"`
+	LastBroadcastAt string `json:"last_broadcast_at,omitempty"`
+	CreatedAt       string `json:"created_at,omitempty"`
+	UpdatedAt       string `json:"updated_at,omitempty"`
 }
 
 // AnnouncementPublicFromRecord converts a stored announcement for API responses.
 // When includeAdminMeta is true, enabled/created_at/updated_at are included (admin list).
 func AnnouncementPublicFromRecord(item Announcement, includeAdminMeta bool) AnnouncementPublic {
+	popupVersion := item.PopupVersion
+	if popupVersion < 1 {
+		popupVersion = 1
+	}
 	out := AnnouncementPublic{
-		ID:        item.ID,
-		Title:     item.Title,
-		Content:   item.Content,
-		ImageURL:  item.ImageURL,
-		ShowLogin: item.ShowLogin,
-		ShowImage: item.ShowImage,
+		ID:              item.ID,
+		Title:           item.Title,
+		Content:         item.Content,
+		ImageURL:        item.ImageURL,
+		ShowLogin:       item.ShowLogin,
+		ShowImage:       item.ShowImage,
+		PopupVersion:    popupVersion,
+		LastBroadcastAt: item.LastBroadcastAt,
 	}
 	if includeAdminMeta {
 		enabled := item.Enabled
@@ -113,30 +123,42 @@ func announcementFromMap(raw map[string]any) Announcement {
 	if title == "" {
 		title = "公告"
 	}
+	popupVersion := util.ToInt(raw["popup_version"], 1)
+	if popupVersion < 1 {
+		popupVersion = 1
+	}
 	return Announcement{
-		ID:        id,
-		Title:     title,
-		Content:   util.Clean(raw["content"]),
-		ImageURL:  util.Clean(raw["image_url"]),
-		Enabled:   util.ToBool(util.ValueOr(raw["enabled"], true)),
-		ShowLogin: util.ToBool(raw["show_login"]),
-		ShowImage: util.ToBool(raw["show_image"]),
-		CreatedAt: createdAt,
-		UpdatedAt: updatedAt,
+		ID:              id,
+		Title:           title,
+		Content:         util.Clean(raw["content"]),
+		ImageURL:        util.Clean(raw["image_url"]),
+		Enabled:         util.ToBool(util.ValueOr(raw["enabled"], true)),
+		ShowLogin:       util.ToBool(raw["show_login"]),
+		ShowImage:       util.ToBool(raw["show_image"]),
+		PopupVersion:    popupVersion,
+		LastBroadcastAt: util.Clean(raw["last_broadcast_at"]),
+		CreatedAt:       createdAt,
+		UpdatedAt:       updatedAt,
 	}
 }
 
 func (a Announcement) toMap() map[string]any {
+	popupVersion := a.PopupVersion
+	if popupVersion < 1 {
+		popupVersion = 1
+	}
 	return map[string]any{
-		"id":         a.ID,
-		"title":      a.Title,
-		"content":    a.Content,
-		"image_url":  a.ImageURL,
-		"enabled":    a.Enabled,
-		"show_login": a.ShowLogin,
-		"show_image": a.ShowImage,
-		"created_at": a.CreatedAt,
-		"updated_at": a.UpdatedAt,
+		"id":                a.ID,
+		"title":             a.Title,
+		"content":           a.Content,
+		"image_url":         a.ImageURL,
+		"enabled":           a.Enabled,
+		"show_login":        a.ShowLogin,
+		"show_image":        a.ShowImage,
+		"popup_version":     popupVersion,
+		"last_broadcast_at": a.LastBroadcastAt,
+		"created_at":        a.CreatedAt,
+		"updated_at":        a.UpdatedAt,
 	}
 }
 

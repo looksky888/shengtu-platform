@@ -108,12 +108,18 @@ func appleAccountPortalBaseForState(state LoginState) string {
 	return strings.TrimRight(firstNonEmpty(state.Origin, appleAccountManageOriginForHost(state.Host), appleAccountManageOrigin), "/")
 }
 
+func appleAccountStateHasSavedMaterial(state LoginState) bool {
+	return strings.TrimSpace(state.Scnt) != "" ||
+		strings.TrimSpace(state.APIKey) != "" ||
+		len(state.Cookies) > 0
+}
+
 func appleAccountLoginState(session ICloudSession) (LoginState, bool) {
 	for _, state := range session.LoginStates {
 		if state.Kind != LoginStateAppleAccount {
 			continue
 		}
-		if strings.TrimSpace(state.Scnt) == "" {
+		if !appleAccountStateHasSavedMaterial(state) {
 			continue
 		}
 		return state, true
@@ -131,7 +137,7 @@ func appleAccountManageNeedsCreateRefresh(loginState LoginState, now time.Time) 
 }
 
 func appleAccountManageRecentStateUsable(loginState LoginState, now time.Time) bool {
-	if strings.TrimSpace(loginState.Scnt) == "" {
+	if strings.TrimSpace(loginState.Scnt) == "" && len(loginState.Cookies) == 0 {
 		return false
 	}
 	if strings.TrimSpace(loginState.APIKey) == "" {
