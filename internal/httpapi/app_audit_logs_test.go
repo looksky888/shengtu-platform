@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestModelsCallLogIncludesUserKeyName(t *testing.T) {
@@ -139,21 +140,24 @@ func TestAPIAuditLogOmitsAccountTokenExportResponseBody(t *testing.T) {
 }
 
 func TestLogGovernanceEndpointCleansOldLogs(t *testing.T) {
+	t.Setenv("CHATGPT2API_LOG_RETENTION_DAYS", "30")
 	app := newTestApp(t)
 	defer app.Close()
+	authHeader := adminAuthHeader(t, app)
 
 	logDir := filepath.Join(app.config.DataDir, "logs")
 	if err := os.MkdirAll(logDir, 0o755); err != nil {
 		t.Fatalf("mkdir logs: %v", err)
 	}
-	logData := []byte(`{"time":"2000-01-01 00:00:00","type":"event","summary":"log-entry","detail":{"status":"success"}}` + "\n" +
+	threeDaysAgo := time.Now().UTC().Add(-72 * time.Hour).Format("2006-01-02 15:04:05")
+	logData := []byte(`{"time":"` + threeDaysAgo + `","type":"event","summary":"log-entry","detail":{"status":"success"}}` + "\n" +
 		`{"time":"` + util.NowLocal() + `","type":"event","summary":"log-entry","detail":{"status":200}}` + "\n")
 	if err := os.WriteFile(filepath.Join(logDir, "events.jsonl"), logData, 0o644); err != nil {
 		t.Fatalf("write log data: %v", err)
 	}
 
 	req := httptest.NewRequest(http.MethodGet, "/api/logs/governance", nil)
-	req.Header.Set("Authorization", adminAuthHeader(t, app))
+	req.Header.Set("Authorization", authHeader)
 	res := httptest.NewRecorder()
 	app.Handler().ServeHTTP(res, req)
 	if res.Code != http.StatusOK {
