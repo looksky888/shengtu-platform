@@ -8,6 +8,7 @@ import { LoginTopActions } from "@/app/login/login-top-actions";
 import { loginBackgroundClass, loginCardClass } from "@/app/login/login-utils";
 import { LoginMobileVisualBanner, LoginVisualPanel } from "@/app/login/login-visual-panel";
 import { useLoginPage } from "@/app/login/use-login-page";
+import { BannerAnnouncementsBar } from "@/components/banner-announcements-bar";
 import { useAppMeta } from "@/lib/use-app-meta";
 import { cn } from "@/lib/utils";
 
@@ -28,8 +29,10 @@ export default function LoginPage() {
 
   return (
     <div
-      className={`${loginBackgroundClass} fixed inset-0 z-50 flex min-h-svh w-screen flex-col overflow-y-auto px-4 py-4 font-login sm:px-6 sm:py-6 lg:px-8`}
+      className={`${loginBackgroundClass} fixed inset-0 z-50 flex h-svh w-screen flex-col overflow-hidden p-0 font-login`}
     >
+      <BannerAnnouncementsBar target="login" className="shrink-0" />
+
       {/* Subtle radial vignette softening the perimeter of the 32px hairline grid */}
       <div
         className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_at_center,transparent_38%,var(--background)_100%)]"
@@ -43,21 +46,23 @@ export default function LoginPage() {
         跳到{modeLabel}表单
       </a>
 
-      <LoginTopActions state={state} />
+      <div className="relative flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
+        <LoginTopActions state={state} />
 
-      <div className="my-auto flex w-full justify-center">
-        <div
-          className={cn(
-            loginCardClass,
-            "transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
-            entered ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0",
-          )}
-          role="main"
-          aria-label={modeLabel}
-        >
-          <LoginMobileVisualBanner appMeta={appMeta} />
-          <LoginVisualPanel appMeta={appMeta} isRegisterMode={state.isRegisterMode} />
-          <LoginFormPanel appMeta={appMeta} state={state} />
+        <div className="my-auto flex w-full justify-center">
+          <div
+            className={cn(
+              loginCardClass,
+              "transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+              entered ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0",
+            )}
+            role="main"
+            aria-label={modeLabel}
+          >
+            <LoginMobileVisualBanner appMeta={appMeta} />
+            <LoginVisualPanel appMeta={appMeta} isRegisterMode={state.isRegisterMode} />
+            <LoginFormPanel appMeta={appMeta} state={state} />
+          </div>
         </div>
       </div>
     </div>

@@ -21,6 +21,19 @@ import {
 import { formatDateTime } from "@/lib/datetime";
 import type { AdminPaymentOrder, PaymentChannel } from "@/lib/payment-admin-api";
 
+function formatOrderEntitlement(item: AdminPaymentOrder): string {
+  if (item.product_type === "cloud_storage") {
+    const days = item.storage_days || 30;
+    const bytes = Number(item.storage_bytes) || 0;
+    const capacity =
+      bytes <= 0
+        ? "不限容量"
+        : `${(bytes / 1024 ** 3).toFixed(bytes % 1024 ** 3 === 0 ? 0 : 1)} GB`;
+    return `云存储 VIP · ${days} 天 · ${capacity}`;
+  }
+  return `${item.credits} 积分`;
+}
+
 export function PaymentOrdersTable({
   items,
   channels,
@@ -136,7 +149,7 @@ function OrderRow({
       </TableCell>
       <TableCell>
         <div className="font-semibold tabular-nums">{formatPaymentAmount(item.amount_fen)}</div>
-        <div className="text-xs text-muted-foreground tabular-nums">{item.credits} 积分</div>
+        <div className="text-xs text-muted-foreground tabular-nums">{formatOrderEntitlement(item)}</div>
       </TableCell>
       <TableCell>
         <span className="inline-flex items-center gap-1.5 text-sm">

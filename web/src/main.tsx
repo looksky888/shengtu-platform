@@ -4,6 +4,8 @@ import { BrowserRouter } from "react-router-dom";
 
 import App from "@/App";
 import "@/app/globals.css";
+import "@/styles/admin-tokens.css";
+import "@/styles/admin-chrome.css";
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { tryReloadForStaleAsset } from "@/lib/lazy-with-retry";
 import { applyColorTheme, getPreferredColorTheme } from "@/lib/theme";

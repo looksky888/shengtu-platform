@@ -153,7 +153,7 @@ export function AccountImportDialog({ disabled, trigger, onImported }: AccountIm
             onRemoteCpa={() => {
               setOpen(false);
               resetState();
-              navigate("/settings?tab=imports");
+              navigate("/admin/accounts?tab=cpa");
             }}
           />
           <AccountImportFooter

@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -11,6 +12,7 @@ import (
 	"testing"
 
 	"chatgpt2api/internal/service"
+	"chatgpt2api/internal/storage"
 )
 
 func TestStreamImageDownloadReturnsSameOriginAttachment(t *testing.T) {
@@ -340,5 +342,103 @@ func TestManagedImageFilesRequireOwnerOrPublicAccess(t *testing.T) {
 	app.Handler().ServeHTTP(res, req)
 	if res.Code != http.StatusOK {
 		t.Fatalf("anonymous public image status = %d body = %q", res.Code, res.Body.String())
+	}
+}
+
+
+func TestRemoteR2ImageFileSupportsInlineProxyRedirectAndDownload(t *testing.T) {
+	resetAuthRateLimiterForTest()
+	root := t.TempDir()
+	t.Setenv("CHATGPT2API_ROOT", root)
+	t.Setenv("CHATGPT2API_ADMIN_USERNAME", testAdminUsername)
+	t.Setenv("CHATGPT2API_ADMIN_PASSWORD", testAdminPassword)
+	t.Setenv("STORAGE_BACKEND", "sqlite")
+	t.Setenv("DATABASE_URL", "sqlite:///"+filepath.ToSlash(filepath.Join(root, "data", "r2-proxy-test.db")))
+	app, err := NewApp()
+	if err != nil {
+		t.Fatalf("NewApp() error = %v", err)
+	}
+	t.Cleanup(func() { _ = app.Close() })
+
+	payload := []byte("remote-r2-inline-png-bytes")
+	r2Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && r.URL.Path == "/test-bucket/images/owner/sample.png" {
+			w.Header().Set("Content-Type", "image/png")
+			_, _ = w.Write(payload)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer r2Server.Close()
+
+	configureR2AfterAppStart(t, app)
+	backend, err := app.config.StorageBackend()
+	if err != nil {
+		t.Fatalf("StorageBackend() error = %v", err)
+	}
+	media, err := service.NewR2MediaLibraryWithEndpoint(context.Background(), app.config, backend, app.logger, r2Server.URL, r2Server.Client())
+	if err != nil {
+		t.Fatalf("NewR2MediaLibraryWithEndpoint() error = %v", err)
+	}
+	app.images.BindMediaLibrary(media)
+
+	owner := service.AuthOwner{ID: "user:alice", Name: "alice", Provider: service.AuthProviderLocal}
+	_, aliceKey, err := app.auth.CreateAPIKey(service.AuthRoleUser, "alice", owner)
+	if err != nil {
+		t.Fatalf("CreateAPIKey() error = %v", err)
+	}
+	rel := "2026/08/30/sample.png"
+	repo, ok := backend.(storage.MediaAssetBackend)
+	if !ok {
+		t.Fatal("sqlite backend does not implement MediaAssetBackend")
+	}
+	if err := repo.SaveMediaAsset(storage.MediaAssetRecord{
+		ID: "asset-r2-1", Path: rel, OwnerID: owner.ID, OwnerName: owner.Name, MediaType: "image",
+		ObjectKey: "images/owner/sample.png", ContentType: "image/png", SizeBytes: int64(len(payload)),
+		SHA256: "deadbeef", Width: 64, Height: 64, Visibility: service.ImageVisibilityPrivate,
+		Status: "ready", OutputFormat: "png", CreatedAt: "2026-08-30T00:00:00Z", UpdatedAt: "2026-08-30T00:00:00Z",
+	}); err != nil {
+		t.Fatalf("SaveMediaAsset() error = %v", err)
+	}
+
+	// 1. Inline proxy (?proxy=1) streams same-origin 200 OK without Content-Disposition or redirect
+	for _, query := range []string{"?proxy=1", "?proxy=true", "?inline=1"} {
+		req := httptest.NewRequest(http.MethodGet, "/images/"+rel+query, nil)
+		req.Header.Set("Authorization", "Bearer "+aliceKey)
+		res := httptest.NewRecorder()
+		app.Handler().ServeHTTP(res, req)
+		if res.Code != http.StatusOK || !bytes.Equal(res.Body.Bytes(), payload) {
+			t.Fatalf("GET %s status=%d body=%q", query, res.Code, res.Body.Bytes())
+		}
+		if got := res.Header().Get("Location"); got != "" {
+			t.Fatalf("GET %s unexpectedly redirected to %q", query, got)
+		}
+		if got := res.Header().Get("Content-Disposition"); got != "" {
+			t.Fatalf("GET %s unexpectedly set Content-Disposition=%q", query, got)
+		}
+		if got := res.Header().Get("Cache-Control"); got != "private, max-age=300" {
+			t.Fatalf("GET %s Cache-Control=%q, want private, max-age=300", query, got)
+		}
+		if got := res.Header().Get("Content-Type"); got != "image/png" {
+			t.Fatalf("GET %s Content-Type=%q, want image/png", query, got)
+		}
+	}
+
+	// 2. Default GET /images/<rel> redirects (302 Found) to presigned R2 URL
+	req := httptest.NewRequest(http.MethodGet, "/images/"+rel, nil)
+	req.Header.Set("Authorization", "Bearer "+aliceKey)
+	res := httptest.NewRecorder()
+	app.Handler().ServeHTTP(res, req)
+	if res.Code != http.StatusFound || !strings.Contains(res.Header().Get("Location"), r2Server.URL) {
+		t.Fatalf("default GET status=%d Location=%q", res.Code, res.Header().Get("Location"))
+	}
+
+	// 3. Download (?download=1) streams attachment even if proxy=1 is also present
+	req = httptest.NewRequest(http.MethodGet, "/images/"+rel+"?download=1&proxy=1", nil)
+	req.Header.Set("Authorization", "Bearer "+aliceKey)
+	res = httptest.NewRecorder()
+	app.Handler().ServeHTTP(res, req)
+	if res.Code != http.StatusOK || !strings.HasPrefix(res.Header().Get("Content-Disposition"), "attachment") {
+		t.Fatalf("download GET status=%d Content-Disposition=%q", res.Code, res.Header().Get("Content-Disposition"))
 	}
 }

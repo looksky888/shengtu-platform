@@ -14,6 +14,7 @@ import (
 	_ "time/tzdata"
 
 	"chatgpt2api/internal/service"
+	"chatgpt2api/internal/util"
 )
 
 type sentinelContext struct {
@@ -61,6 +62,24 @@ var sentinelHTTPClient = &http.Client{
 	CheckRedirect: func(_ *http.Request, _ []*http.Request) error { return http.ErrUseLastResponse },
 }
 
+func sentinelSolverMode() string {
+	mode := strings.ToLower(strings.TrimSpace(os.Getenv("CHATGPT2API_SENTINEL_SOLVER_MODE")))
+	if mode == "external" {
+		return "external"
+	}
+	return "native"
+}
+
+func isExternalSentinelSolverConfigured() bool {
+	base := strings.TrimRight(strings.TrimSpace(os.Getenv("CHATGPT2API_SENTINEL_SOLVER_URL")), "/")
+	key := strings.TrimSpace(os.Getenv("CHATGPT2API_SENTINEL_SOLVER_KEY"))
+	parsed, err := url.Parse(base)
+	if err != nil || parsed.Hostname() == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" || parsed.Path != "" || (parsed.Scheme != "http" && parsed.Scheme != "https") || len(key) < 32 {
+		return false
+	}
+	return true
+}
+
 func callSentinelSolver(ctx context.Context, path string, body, result any) error {
 	base := strings.TrimRight(strings.TrimSpace(os.Getenv("CHATGPT2API_SENTINEL_SOLVER_URL")), "/")
 	key := strings.TrimSpace(os.Getenv("CHATGPT2API_SENTINEL_SOLVER_KEY"))
@@ -102,7 +121,78 @@ func callSentinelSolver(ctx context.Context, path string, body, result any) erro
 	return nil
 }
 
-func (c *Client) prepareSentinelContext(ctx context.Context) error {
+func (c *Client) syncClearanceFingerprint() {
+	if c == nil {
+		return
+	}
+	bundle := service.CachedUpstreamClearanceForProxy(c.proxyURL)
+	if bundle == nil {
+		return
+	}
+	ua := strings.TrimSpace(bundle.UserAgent)
+	if ua == "" {
+		return
+	}
+	c.userAgent = ua
+	if c.fp == nil {
+		c.fp = map[string]string{}
+	}
+	if c.fp["user-agent"] != ua {
+		c.fp["user-agent"] = ua
+		delete(c.fp, "sec-ch-ua")
+		delete(c.fp, "sec-ch-ua-full-version")
+		delete(c.fp, "sec-ch-ua-full-version-list")
+	}
+	c.applyBrowserFingerprint()
+}
+
+func (c *Client) buildNativeSentinelContext() error {
+	c.syncClearanceFingerprint()
+	if c.fp == nil {
+		c.fp = map[string]string{}
+	}
+	if strings.TrimSpace(c.userAgent) == "" {
+		c.applyBrowserFingerprint()
+	}
+	tzName := strings.TrimSpace(c.proxyTimezone)
+	if tzName == "" {
+		tzName = "Asia/Shanghai"
+	}
+	offsetMin := -480
+	if loc, err := time.LoadLocation(tzName); err == nil {
+		_, tzOffsetSec := time.Now().In(loc).Zone()
+		offsetMin = -tzOffsetSec / 60
+	} else {
+		tzName = "Asia/Shanghai"
+	}
+	const language = "en-US"
+	p, err := buildLegacyRequirementsToken(c.userAgent, c.powSources, c.powDataBuild, language)
+	if err != nil {
+		return err
+	}
+	c.sentinel = &sentinelContext{
+		ID:        "native-" + util.NewUUID(),
+		P:         p,
+		UserAgent: c.userAgent,
+		Timezone:  tzName,
+		Offset:    offsetMin,
+		Language:  language,
+		Headers: map[string]string{
+			"sec-ch-ua":                   c.fp["sec-ch-ua"],
+			"sec-ch-ua-mobile":            c.fp["sec-ch-ua-mobile"],
+			"sec-ch-ua-platform":          c.fp["sec-ch-ua-platform"],
+			"sec-ch-ua-arch":              c.fp["sec-ch-ua-arch"],
+			"sec-ch-ua-bitness":           c.fp["sec-ch-ua-bitness"],
+			"sec-ch-ua-full-version":      c.fp["sec-ch-ua-full-version"],
+			"sec-ch-ua-full-version-list": c.fp["sec-ch-ua-full-version-list"],
+			"sec-ch-ua-platform-version":  c.fp["sec-ch-ua-platform-version"],
+		},
+		ProxyHash: service.ProxyURLHash(c.proxyURL),
+	}
+	return nil
+}
+
+func (c *Client) prepareExternalSentinelContext(ctx context.Context) error {
 	var profile sentinelContext
 	request := map[string]string{"proxy_url": c.proxyURL, "timezone": c.proxyTimezone}
 	if err := callSentinelSolver(ctx, "/v1/context", request, &profile); err != nil {
@@ -130,20 +220,57 @@ func (c *Client) prepareSentinelContext(ctx context.Context) error {
 		return &SentinelSolverError{Message: "solver and account proxy timezones differ"}
 	}
 	c.sentinel = &profile
-	c.userAgent = profile.UserAgent
+	if bundle := service.CachedUpstreamClearanceForProxy(c.proxyURL); bundle == nil || strings.TrimSpace(bundle.UserAgent) == "" {
+		c.userAgent = profile.UserAgent
+	}
 	platform := strings.ToLower(strings.Trim(profile.Headers["sec-ch-ua-platform"], "\""))
 	c.fp["impersonate"] = "chrome-" + platform
+	previousJar := c.cookieJar()
 	c.httpClient = service.BrowserHTTPClientForProxyWithProfile(c.proxyURL, c.fp["impersonate"], 300*time.Second)
+	if previousJar != nil && c.httpClient != nil && c.httpClient.Jar != nil {
+		if base, parseErr := url.Parse(c.BaseURL); parseErr == nil && base.Host != "" {
+			if cookies := previousJar.Cookies(base); len(cookies) > 0 {
+				c.httpClient.Jar.SetCookies(base, cookies)
+			}
+		}
+	}
 	return nil
+}
+
+func (c *Client) cookieJar() http.CookieJar {
+	if c == nil || c.httpClient == nil {
+		return nil
+	}
+	return c.httpClient.Jar
+}
+
+func (c *Client) prepareSentinelContext(ctx context.Context) error {
+	if sentinelSolverMode() == "external" {
+		err := c.prepareExternalSentinelContext(ctx)
+		if err == nil {
+			return nil
+		}
+		if strings.EqualFold(strings.TrimSpace(os.Getenv("CHATGPT2API_SENTINEL_SOLVER_FALLBACK")), "false") {
+			return err
+		}
+		return c.buildNativeSentinelContext()
+	}
+	return c.buildNativeSentinelContext()
 }
 
 func (c *Client) applySentinelHeaders(headers map[string]string) {
 	if c.sentinel == nil {
 		return
 	}
-	headers["User-Agent"] = c.sentinel.UserAgent
 	headers["Accept-Language"] = c.sentinel.Language
 	headers["OAI-Language"] = c.sentinel.Language
+	// Never overwrite a cf_clearance-bound User-Agent with a different sentinel User-Agent.
+	if bundle := service.CachedUpstreamClearanceForProxy(c.proxyURL); bundle != nil && strings.TrimSpace(bundle.UserAgent) != "" {
+		if c.sentinel.UserAgent != strings.TrimSpace(bundle.UserAgent) {
+			return
+		}
+	}
+	headers["User-Agent"] = c.sentinel.UserAgent
 	for _, key := range []string{"sec-ch-ua", "sec-ch-ua-mobile", "sec-ch-ua-platform", "sec-ch-ua-arch", "sec-ch-ua-bitness", "sec-ch-ua-full-version", "sec-ch-ua-full-version-list", "sec-ch-ua-platform-version"} {
 		// Remove case variants before installing the actual browser client hints.
 		for present := range headers {

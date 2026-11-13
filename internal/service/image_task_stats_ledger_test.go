@@ -4,7 +4,12 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 )
+
+func utilNowForLedgerTest() time.Time {
+	return time.Date(2026, 11, 13, 12, 0, 0, 0, imageTaskStatsLocation())
+}
 
 type imageTaskStatsTestStore struct {
 	failStatsLoad bool
@@ -189,6 +194,69 @@ func TestImageTaskRemovalWaitsForStatsPersistence(t *testing.T) {
 	}
 	if store.deletes != 1 || svc.statsLedger.Recorded[key] {
 		t.Fatalf("post-delete state: deletes=%d recorded=%#v", store.deletes, svc.statsLedger.Recorded)
+	}
+	if svc.statsLedgerSaveTimer != nil {
+		svc.statsLedgerSaveTimer.Stop()
+	}
+}
+
+func TestRecordExternalImageOutcomeIdempotentAndExcludesVideo(t *testing.T) {
+	store := &imageTaskStatsTestStore{}
+	svc := &ImageTaskService{
+		store:       store,
+		storeReady:  true,
+		tasks:       map[string]*ImageTask{},
+		statsLedger: emptyImageTaskStatsLedger(),
+	}
+	now := utilNowForLedgerTest()
+
+	if ok := svc.RecordExternalImageOutcome(ExternalImageOutcome{
+		RecordKey:      "protocol:req-1",
+		Mode:           "generate",
+		Status:         TaskStatusSuccess,
+		RequestedCount: 2,
+		SuccessImages:  2,
+		FinishedAt:     now,
+	}); !ok {
+		t.Fatal("first RecordExternalImageOutcome() = false, want true")
+	}
+	// Duplicate key must be idempotent.
+	if ok := svc.RecordExternalImageOutcome(ExternalImageOutcome{
+		RecordKey:      "protocol:req-1",
+		Mode:           "generate",
+		Status:         TaskStatusSuccess,
+		RequestedCount: 2,
+		SuccessImages:  2,
+		FinishedAt:     now,
+	}); ok {
+		t.Fatal("duplicate RecordExternalImageOutcome() = true, want false")
+	}
+	// Failed request adds failed tasks/images.
+	if ok := svc.RecordExternalImageOutcome(ExternalImageOutcome{
+		RecordKey:      "protocol:req-2",
+		Mode:           "edit",
+		Status:         TaskStatusError,
+		RequestedCount: 3,
+		SuccessImages:  1,
+		FinishedAt:     now,
+	}); !ok {
+		t.Fatal("failed RecordExternalImageOutcome() = false, want true")
+	}
+	// Video outcomes must not be counted in image stats.
+	if ok := svc.RecordExternalImageOutcome(ExternalImageOutcome{
+		RecordKey:      "protocol:req-video",
+		Mode:           "video",
+		Status:         TaskStatusSuccess,
+		RequestedCount: 1,
+		SuccessImages:  1,
+		FinishedAt:     now,
+	}); ok {
+		t.Fatal("video RecordExternalImageOutcome() = true, want false")
+	}
+
+	stats := svc.TodayStats(now)
+	if stats.SuccessTasks != 1 || stats.FailedTasks != 1 || stats.SuccessImages != 3 || stats.FailedImages != 2 {
+		t.Fatalf("TodayStats() = %+v, want success_tasks=1 failed_tasks=1 success_images=3 failed_images=2", stats)
 	}
 	if svc.statsLedgerSaveTimer != nil {
 		svc.statsLedgerSaveTimer.Stop()

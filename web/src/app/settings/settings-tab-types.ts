@@ -90,19 +90,13 @@ export const SETTINGS_TABS = [
   {
     key: "register",
     label: "代理与清障",
-    description: "分别治理生图/视频上游号池出站代理、WARP 清障以及自动化注册机 Cloudflare 预热。",
+    description: "治理生图与视频上游号池出站代理、WARP 清障以及挑战冷却策略。",
     sections: [
       {
         id: "settings-section-register-upstream",
         label: "上游代理与 WARP",
         summary: "生图与视频上游号池出站代理、Cloudflare Clearance 模式与挑战冷却",
         keywords: ["proxy", "代理", "warp", "cloudflare", "cf", "清障", "flaresolverr", "冷却"],
-      },
-      {
-        id: "settings-section-register-bot",
-        label: "自动注册机清障",
-        summary: "自动化注册机独立代理、清障超时与启动预热策略",
-        keywords: ["注册机", "clearance", "预热", "验证码清障"],
       },
     ],
   },

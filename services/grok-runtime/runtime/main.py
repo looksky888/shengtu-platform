@@ -1,7 +1,6 @@
 """shengtu 4.5 grok-runtime sidecar.
 
 - Grok native image via EmbeddedGrokRuntime (account directory + reverse stack)
-- Register OpenAI+Grok via vendored register_service (Phase E)
 """
 
 from __future__ import annotations
@@ -46,10 +45,8 @@ if _UPSTREAM.is_dir():
 
 _native_importable = False
 _native_error = ""
-_register_ready = False
 _oauth_ready = False
 _embedded_ready = False
-_register_router_mounted = False
 
 
 def _try_import_native() -> tuple[bool, str]:
@@ -61,16 +58,6 @@ def _try_import_native() -> tuple[bool, str]:
     except Exception as exc:  # pragma: no cover
         logger.warning("grok native stack import failed", exc_info=True)
         return False, f"{type(exc).__name__}: {exc}"
-
-
-def _try_import_register() -> bool:
-    try:
-        from services.register_service import register_service  # type: ignore  # noqa: F401
-
-        return True
-    except Exception:  # pragma: no cover
-        logger.warning("register bridge import failed", exc_info=True)
-        return False
 
 
 def _try_import_oauth() -> bool:
@@ -168,35 +155,14 @@ def _ensure_provider_credential_key(data_dir: Path) -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Start register bridge + EmbeddedGrokRuntime (account directory)."""
-    global _native_importable, _native_error, _register_ready, _oauth_ready
-    global _embedded_ready, _register_router_mounted
-
-    register_service_instance = None
-    previous_provider_sink = None
+    """Start EmbeddedGrokRuntime (account directory)."""
+    global _native_importable, _native_error, _oauth_ready, _embedded_ready
 
     require_startup_token()
     data_dir = _prepare_data_dirs()
     _ensure_provider_credential_key(data_dir)
     _native_importable, _native_error = _try_import_native()
-    _register_ready = _try_import_register()
     _oauth_ready = _try_import_oauth()
-
-    if _register_ready:
-        try:
-            from runtime.register_bridge import create_register_router
-            from runtime.provider_accounts.registration_sink import ProviderRegistrationSink
-            from services.register_service import register_service
-
-            register_service_instance = register_service
-            previous_provider_sink = register_service._provider_account_sink
-            register_service._provider_account_sink = ProviderRegistrationSink()
-            if not _register_router_mounted:
-                app.include_router(create_register_router())
-                _register_router_mounted = True
-        except Exception:  # pragma: no cover
-            logger.warning("register router mount failed", exc_info=True)
-            _register_ready = False
 
     try:
         if not _native_importable:
@@ -218,11 +184,7 @@ async def lifespan(app: FastAPI):
         logger.warning("embedded grok runtime lifespan failed", exc_info=True)
         _native_error = f"lifespan: {type(exc).__name__}: {exc}"
         _embedded_ready = False
-        # Register may still work without native image pool.
         yield
-    finally:
-        if register_service_instance is not None:
-            register_service_instance._provider_account_sink = previous_provider_sink
 
 
 app = FastAPI(title="shengtu grok-runtime", version=VERSION, lifespan=lifespan)
@@ -259,8 +221,6 @@ def health() -> JSONResponse:
             "image_generations": generation_ready,
             "image_edits": generation_ready,
             "video_generations": generation_ready,
-            "register_openai": _register_ready,
-            "register_grok": _register_ready,
             "xai_cli_oauth": _oauth_ready,
             "accounts": True,
             "embedded_runtime": embedded,

@@ -24,9 +24,16 @@ const TASK_QUEUE_TABS = [
   { value: "history" as const, label: "任务历史", icon: History },
 ] as const;
 
-export function TaskQueueContent({ session }: { session: StoredAuthSession }) {
+export function TaskQueueContent({
+  session,
+  embedded = false,
+}: {
+  session: StoredAuthSession;
+  embedded?: boolean;
+}) {
   const [searchParams, setSearchParams] = useSearchParams();
-  const tab = searchParams.get("tab") === "history" ? "history" : "live";
+  const paramKey = embedded ? "view" : "tab";
+  const tab = searchParams.get(paramKey) === "history" ? "history" : "live";
   const live = useTaskQueueLive(tab === "live", session);
   const [historyReloadKey, setHistoryReloadKey] = useState(0);
   const [confirmClearScope, setConfirmClearScope] = useState<
@@ -35,8 +42,8 @@ export function TaskQueueContent({ session }: { session: StoredAuthSession }) {
 
   const setTab = (next: "live" | "history") => {
     const params = new URLSearchParams(searchParams);
-    if (next === "history") params.set("tab", "history");
-    else params.delete("tab");
+    if (next === "history") params.set(paramKey, "history");
+    else params.delete(paramKey);
     setSearchParams(params, { replace: true });
   };
 
@@ -49,86 +56,100 @@ export function TaskQueueContent({ session }: { session: StoredAuthSession }) {
     }
   };
 
-  return (
-    <section className="min-w-0 space-y-4">
-      <PageHeader
-        eyebrow="资产与任务"
-        title="任务中心"
-        badge={
-          tab === "live" ? (
-            <LiveStatusBadge
-              state="live"
-              label="SSE 实时监听"
-              refreshing={live.isLoading}
-            />
-          ) : undefined
+  const actionControls = (
+    <div className="flex flex-wrap items-center gap-2">
+      {embedded && tab === "live" ? (
+        <LiveStatusBadge
+          state="live"
+          label="SSE 实时监听"
+          refreshing={live.isLoading}
+        />
+      ) : null}
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={() =>
+          tab === "live"
+            ? void live.load()
+            : setHistoryReloadKey((value) => value + 1)
         }
-        description="实时监控生成队列、Worker 并发负载与异常处置；历史页用于筛选、排错与归档清理。"
-        actions={
-          <div className="flex flex-wrap items-center gap-2">
+        disabled={tab === "live" && live.isLoading}
+      >
+        <RefreshCw
+          className={cn(
+            "size-3.5",
+            tab === "live" && live.isLoading ? "animate-spin" : "",
+          )}
+        />
+        刷新
+      </Button>
+      {tab === "live" && live.canManageTasks ? (
+        <>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            title="删除成功/失败/已取消的任务记录，不影响运行中"
+            disabled={live.clearing}
+            onClick={() => setConfirmClearScope("finished")}
+          >
+            清理已完成
+          </Button>
+          <Button
+            type="button"
+            variant="destructive-outline"
+            size="sm"
+            disabled={live.clearing}
+            onClick={() => setConfirmClearScope("failed")}
+          >
+            清理失败
+          </Button>
+          {live.selectedIds.length > 0 ? (
             <Button
               type="button"
               variant="outline"
               size="sm"
-              onClick={() =>
-                tab === "live"
-                  ? void live.load()
-                  : setHistoryReloadKey((value) => value + 1)
-              }
-              disabled={tab === "live" && live.isLoading}
+              onClick={() => void live.cancelSelected()}
             >
-              <RefreshCw
-                className={cn(
-                  "size-3.5",
-                  tab === "live" && live.isLoading ? "animate-spin" : ""
-                )}
-              />
-              刷新
+              批量取消 ({live.selectedIds.length})
             </Button>
-            {tab === "live" && live.canManageTasks ? (
-              <>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  title="删除成功/失败/已取消的任务记录，不影响运行中"
-                  disabled={live.clearing}
-                  onClick={() => setConfirmClearScope("finished")}
-                >
-                  清理已完成
-                </Button>
-                <Button
-                  type="button"
-                  variant="destructive-outline"
-                  size="sm"
-                  disabled={live.clearing}
-                  onClick={() => setConfirmClearScope("failed")}
-                >
-                  清理失败
-                </Button>
-                {live.selectedIds.length > 0 ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => void live.cancelSelected()}
-                  >
-                    批量取消 ({live.selectedIds.length})
-                  </Button>
-                ) : null}
-              </>
-            ) : null}
-          </div>
-        }
-      />
+          ) : null}
+        </>
+      ) : null}
+    </div>
+  );
 
-      <SubNav
-        ariaLabel="任务中心分组"
-        items={TASK_QUEUE_TABS}
-        value={tab}
-        onValueChange={setTab}
-        layoutId="task-queue-subnav"
-      />
+  return (
+    <section className="min-w-0 space-y-4">
+      {!embedded ? (
+        <PageHeader
+          eyebrow="资产与任务"
+          title="任务中心"
+          badge={
+            tab === "live" ? (
+              <LiveStatusBadge
+                state="live"
+                label="SSE 实时监听"
+                refreshing={live.isLoading}
+              />
+            ) : undefined
+          }
+          description="实时监控生成队列、Worker 并发负载与异常处置；历史页用于筛选、排错与归档清理。"
+          actions={actionControls}
+        />
+      ) : null}
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <SubNav
+          ariaLabel="任务中心分组"
+          items={TASK_QUEUE_TABS}
+          value={tab}
+          onValueChange={setTab}
+          layoutId="task-queue-subnav"
+        />
+        {embedded ? actionControls : null}
+      </div>
 
       {tab === "history" ? (
         <TaskHistoryPanel embedded reloadKey={historyReloadKey} />

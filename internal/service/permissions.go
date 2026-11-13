@@ -35,7 +35,6 @@ var fullMenuPermissions = []MenuPermission{
 	{ID: "recharge", Label: "积分充值", Path: "/recharge", Icon: "wallet-cards", Order: 35},
 	{ID: "accounts", Label: "号池管理", Path: "/accounts", Icon: "wallet-cards", Order: 40},
 	{ID: "icloud", Label: "iCloud 邮箱", Path: "/icloud", Icon: "mail", Order: 45},
-	{ID: "register", Label: "注册机", Path: "/register", Icon: "user-plus", Order: 50},
 	{ID: "users", Label: "用户管理", Path: "/users", Icon: "users", Order: 60},
 	{ID: "credits-admin", Label: "积分管理", Path: "/credits-admin", Icon: "coins", Order: 65},
 	{ID: "payment-admin", Label: "支付管理", Path: "/payment-admin", Icon: "credit-card", Order: 67},
@@ -86,8 +85,6 @@ var apiPermissionCatalog = []APIPermission{
 	apiPermission("GET", "/api/icloud", "查看 iCloud 邮箱", "iCloud 邮箱", true),
 	apiPermission("POST", "/api/icloud", "管理 iCloud 邮箱", "iCloud 邮箱", true),
 	apiPermission("DELETE", "/api/icloud", "删除 iCloud 资源", "iCloud 邮箱", true),
-	apiPermission("GET", "/api/register", "查看注册机", "注册机", true),
-	apiPermission("POST", "/api/register", "控制注册机", "注册机", true),
 	apiPermission("GET", "/api/logs", "查看日志", "日志管理", false),
 	apiPermission("GET", "/api/logs/governance", "查看日志治理", "日志管理", false),
 	apiPermission("POST", "/api/logs/governance", "清理日志数据", "日志管理", false),
@@ -288,6 +285,12 @@ func APIPermissionKey(method, path string) string {
 func MatchAPIPermissionKey(method, path string) (string, bool) {
 	method = strings.ToUpper(strings.TrimSpace(method))
 	path = normalizePermissionPath(path)
+	if path == "/api/admin/payments/settings" || strings.HasPrefix(path, "/api/admin/payments/settings/") {
+		path = "/api/admin/payment-settings"
+	}
+	if method == "GET" && path == "/api/payment/config" {
+		path = "/api/payment/settings"
+	}
 	for _, permission := range apiPermissionCatalog {
 		if permission.Method != method {
 			continue
@@ -309,6 +312,15 @@ func MatchAPIPermissionKey(method, path string) (string, bool) {
 }
 
 func HasAPIPermission(set PermissionSet, method, path string) bool {
+	if strings.EqualFold(strings.TrimSpace(method), "GET") && normalizePermissionPath(path) == "/api/payment/config" {
+		return hasDirectAPIPermission(set, "GET", "/api/payment/settings") ||
+			hasDirectAPIPermission(set, "GET", "/api/payment/storage-entitlement") ||
+			hasDirectAPIPermission(set, "GET", "/api/images")
+	}
+	return hasDirectAPIPermission(set, method, path)
+}
+
+func hasDirectAPIPermission(set PermissionSet, method, path string) bool {
 	key, ok := MatchAPIPermissionKey(method, path)
 	if !ok {
 		return false
@@ -358,6 +370,10 @@ func migrateAPIPermissionKey(key string) string {
 		return APIPermissionKey("GET", "/api/creation-tasks")
 	case APIPermissionKey("POST", "/api/image-tasks"):
 		return APIPermissionKey("POST", "/api/creation-tasks")
+	case APIPermissionKey("GET", "/api/admin/payments/settings"):
+		return APIPermissionKey("GET", "/api/admin/payment-settings")
+	case APIPermissionKey("PUT", "/api/admin/payments/settings"):
+		return APIPermissionKey("PUT", "/api/admin/payment-settings")
 	default:
 		return key
 	}

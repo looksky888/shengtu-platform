@@ -14,8 +14,6 @@ EXPECTED_FEATURES = {
     "image_generations",
     "image_edits",
     "video_generations",
-    "register_openai",
-    "register_grok",
     "xai_cli_oauth",
     "accounts",
     "embedded_runtime",
@@ -27,7 +25,6 @@ async def test_health_exposes_only_boolean_capabilities(monkeypatch) -> None:
     monkeypatch.setattr("runtime.main._native_importable", False)
     monkeypatch.setattr("runtime.main._embedded_ready", False)
     monkeypatch.setattr("runtime.main._native_error", "ValueError: token=super-secret")
-    monkeypatch.setattr("runtime.main._register_ready", False)
     monkeypatch.setattr("runtime.main._oauth_ready", False)
 
     transport = httpx.ASGITransport(app=app)
@@ -40,7 +37,6 @@ async def test_health_exposes_only_boolean_capabilities(monkeypatch) -> None:
     assert set(features) == EXPECTED_FEATURES
     assert not any(key.endswith("_error") for key in features)
     assert features["image_generations"] is False
-    assert features["register_openai"] is False
     assert features["xai_cli_oauth"] is False
 
 

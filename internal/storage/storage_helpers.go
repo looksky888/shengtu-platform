@@ -134,6 +134,11 @@ func logDay(value string) string {
 }
 
 func removeEmptyParentDirs(root, start string) {
+	RemoveEmptyParentDirs(root, start)
+}
+
+// RemoveEmptyParentDirs walks up from start toward root removing empty directories without leaving root.
+func RemoveEmptyParentDirs(root, start string) {
 	rootAbs, err := filepath.Abs(root)
 	if err != nil {
 		return

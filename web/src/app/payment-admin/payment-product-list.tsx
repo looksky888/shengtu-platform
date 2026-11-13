@@ -3,6 +3,7 @@ import { PackageOpen, Pencil, Plus, Trash2 } from "lucide-react";
 import { PaymentSectionState } from "@/app/payment-admin/payment-section-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { formatStorageQuota as formatStorage } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { AdminRechargeProduct } from "@/lib/payment-admin-api";
 
@@ -68,7 +69,3 @@ export function PaymentProductList({ items, loading, loadError, selectedID, onRe
   ));
 }
 
-function formatStorage(bytes: number) {
-  const gb = bytes / 1024 ** 3;
-  return `${Number.isInteger(gb) ? gb : gb.toFixed(1)} GB`;
-}

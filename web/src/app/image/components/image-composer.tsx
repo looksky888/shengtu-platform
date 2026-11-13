@@ -22,6 +22,7 @@ export function ImageComposer(props: ImageComposerProps) {
     onComposerModeChange,
     onReferenceImageChange,
     onRemoveReferenceImage,
+    onClearReferenceImages,
   } = props;
 
   const menus = useImageComposerMenus({
@@ -52,11 +53,18 @@ export function ImageComposer(props: ImageComposerProps) {
           onChange={input.handleFileInputChange}
         />
         <ImageReferenceStrip
-          visible={composerMode === "image"}
+          visible={composerMode === "image" && referenceImages.length > 1}
           referenceImages={referenceImages}
           onRemoveReferenceImage={onRemoveReferenceImage}
+          onClearReferenceImages={onClearReferenceImages}
         />
-        <ComposerPromptPanel>
+        <ComposerPromptPanel
+          onRemoveFirstReference={
+            referenceImages.length > 0
+              ? () => onRemoveReferenceImage(0)
+              : undefined
+          }
+        >
           <ComposerToolbar />
         </ComposerPromptPanel>
       </ImageComposerDock>

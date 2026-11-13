@@ -92,12 +92,10 @@ func (a *App) handleHealth(w http.ResponseWriter, r *http.Request) {
 	// 3.5 feature / sidecar flags (for ops probes).
 	if a.config != nil {
 		payload.FeaturesV35 = &healthFeaturesV35{
-			ICloud:          a.config.FeatureICloud(),
-			GrokNative:      true, // Grok 仅号池+runtime，无中转双轨
-			GrokRegister:    a.config.FeatureGrokRegister(),
-			RegisterBackend: a.config.FeatureRegisterBackend(),
-			ICloudBaseURL:   a.config.ICloudPrivacyMailBaseURL(),
-			GrokRuntimeURL:  a.config.GrokRuntimeBaseURL(),
+			ICloud:         a.config.FeatureICloud(),
+			GrokNative:     true, // Grok 仅号池+runtime，无中转双轨
+			ICloudBaseURL:  a.config.ICloudPrivacyMailBaseURL(),
+			GrokRuntimeURL: a.config.GrokRuntimeBaseURL(),
 		}
 	}
 	// Always HTTP 200 so Docker/k8s liveness does not thrash on soft degradation;

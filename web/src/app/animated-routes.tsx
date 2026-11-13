@@ -13,6 +13,7 @@ import {
 import { LoaderCircle } from "lucide-react";
 
 import { appRoutes } from "@/app/route-config";
+import { isStudioWorkspaceRoute } from "@/components/workspace/workspace-navigation";
 import { buildLoginRedirectUrl } from "@/lib/request-unauthorized";
 import {
   AUTH_SESSION_CHANGE_EVENT,
@@ -86,13 +87,15 @@ export function AnimatedRoutes() {
   const location = useLocation();
   const prefersReducedMotion = useReducedMotion();
 
+  const isStudio = isStudioWorkspaceRoute(location.pathname);
+
   return (
     <motion.div
       key={location.pathname}
       initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0, y: 3 }}
       animate={{ opacity: 1, y: 0 }}
       transition={prefersReducedMotion ? reducedRouteTransition : routeTransition}
-      className="min-w-0"
+      className={isStudio ? "flex h-full min-h-0 min-w-0 flex-1 flex-col" : "min-w-0"}
     >
       <Routes location={location}>
         {appRoutes.map((route) => (

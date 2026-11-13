@@ -1,6 +1,9 @@
 import type { CreditLedgerEntry, UserKey } from "@/lib/api";
 import { formatDateTime as formatBizDateTime } from "@/lib/datetime";
+import { formatCreditNumber } from "@/lib/format";
 import type { StoredAuthSession } from "@/store/auth";
+
+export { formatCreditNumber };
 
 export function normalizeProfileKeys(items: UserKey[] | null | undefined) {
   return Array.isArray(items) ? items : [];
@@ -8,13 +11,6 @@ export function normalizeProfileKeys(items: UserKey[] | null | undefined) {
 
 export function formatDateTime(value?: string | null) {
   return formatBizDateTime(value, { withSeconds: false });
-}
-
-export function formatCreditNumber(value?: number | null) {
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    return "0";
-  }
-  return new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 2 }).format(value);
 }
 
 export function formatCreditBalance(value?: number | null) {

@@ -169,15 +169,26 @@ func GetUpstreamClearanceForProxy(ctx context.Context, proxyOverride string, for
 	upstreamClearanceFlight[key] = flight
 	upstreamClearanceMu.Unlock()
 
-	bundle, err := fetchFlareSolverrUpstreamClearance(ctx, flareURL, target, proxyURL, upstreamClearanceTimeout(), upstreamClearanceRefreshInterval())
+	timeout := upstreamClearanceTimeout()
+	fetchBase := context.Background()
+	if ctx != nil {
+		fetchBase = context.WithoutCancel(ctx)
+	}
+	fetchCtx, cancelFetch := context.WithTimeout(fetchBase, timeout+5*time.Second)
+	bundle, err := fetchFlareSolverrUpstreamClearance(fetchCtx, flareURL, target, proxyURL, timeout, upstreamClearanceRefreshInterval())
+	cancelFetch()
 	upstreamClearanceMu.Lock()
 	flight.bundle, flight.err = bundle, err
 	if err == nil && flight.generation == upstreamClearanceGeneration {
+		pruneUpstreamClearanceMapsLocked(time.Now())
 		upstreamClearanceCache[key] = bundle
 	}
 	delete(upstreamClearanceFlight, key)
 	close(flight.done)
 	upstreamClearanceMu.Unlock()
+	if ctx != nil && ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
 	return bundle, err
 }
 
@@ -234,12 +245,47 @@ func RefreshUpstreamClearanceForChallengeWithProxy(ctx context.Context, proxyOve
 	bundle, err := GetUpstreamClearanceForProxy(ctx, proxyURL, true)
 	upstreamClearanceMu.Lock()
 	if err != nil {
-		upstreamClearanceFailures[key] = upstreamClearanceFailureState{err: err, failedAt: time.Now()}
+		// Do not poison global failure backoff cache when only the caller canceled its own context.
+		if ctx == nil || ctx.Err() == nil {
+			pruneUpstreamClearanceMapsLocked(time.Now())
+			upstreamClearanceFailures[key] = upstreamClearanceFailureState{err: err, failedAt: time.Now()}
+		}
 	} else {
 		delete(upstreamClearanceFailures, key)
 	}
 	upstreamClearanceMu.Unlock()
 	return bundle, err
+}
+
+const maxUpstreamClearanceCacheEntries = 256
+
+func pruneUpstreamClearanceMapsLocked(now time.Time) {
+	if len(upstreamClearanceCache) >= maxUpstreamClearanceCacheEntries {
+		for k, b := range upstreamClearanceCache {
+			if b == nil || !b.ExpiresAt.IsZero() && !now.Before(b.ExpiresAt) {
+				delete(upstreamClearanceCache, k)
+			}
+		}
+		for k := range upstreamClearanceCache {
+			if len(upstreamClearanceCache) < maxUpstreamClearanceCacheEntries {
+				break
+			}
+			delete(upstreamClearanceCache, k)
+		}
+	}
+	if len(upstreamClearanceFailures) >= maxUpstreamClearanceCacheEntries {
+		for k, f := range upstreamClearanceFailures {
+			if now.Sub(f.failedAt) >= upstreamClearanceFailureBackoff {
+				delete(upstreamClearanceFailures, k)
+			}
+		}
+		for k := range upstreamClearanceFailures {
+			if len(upstreamClearanceFailures) < maxUpstreamClearanceCacheEntries {
+				break
+			}
+			delete(upstreamClearanceFailures, k)
+		}
+	}
 }
 
 // InvalidateUpstreamClearance drops cache so next call re-fetches.
@@ -255,6 +301,15 @@ func InvalidateUpstreamClearance() {
 	}
 }
 
+func findHeaderCaseInsensitive(headers map[string]string, name string) (string, string) {
+	for k, v := range headers {
+		if strings.EqualFold(k, name) {
+			return k, v
+		}
+	}
+	return "", ""
+}
+
 // ApplyUpstreamClearanceToHeaders merges Cookie / optional User-Agent from clearance.
 func ApplyUpstreamClearanceToHeaders(headers map[string]string, bundle *UpstreamClearanceBundle) map[string]string {
 	if headers == nil {
@@ -264,11 +319,10 @@ func ApplyUpstreamClearanceToHeaders(headers map[string]string, bundle *Upstream
 		return headers
 	}
 	// Clearance cookies are bound to the browser fingerprint that obtained them.
-	// Keep the account's existing User-Agent when present; replacing it with
-	// FlareSolverr's UA while retaining the account Sec-CH headers invalidates
-	// the clearance on ChatGPT's edge. This matches the reference proxy runtime:
+	// Keep the account's existing User-Agent when present (regardless of header key casing);
 	// inject a UA only when the request has none.
-	if ua := strings.TrimSpace(bundle.UserAgent); ua != "" && strings.TrimSpace(headers["User-Agent"]) == "" {
+	_, existingUA := findHeaderCaseInsensitive(headers, "User-Agent")
+	if ua := strings.TrimSpace(bundle.UserAgent); ua != "" && strings.TrimSpace(existingUA) == "" {
 		headers["User-Agent"] = ua
 	}
 	parts := make([]string, 0, len(bundle.Cookies))
@@ -284,7 +338,11 @@ func ApplyUpstreamClearanceToHeaders(headers map[string]string, bundle *Upstream
 		return headers
 	}
 	cookieVal := strings.Join(parts, "; ")
-	if existing := strings.TrimSpace(headers["Cookie"]); existing != "" {
+	cookieKey, existing := findHeaderCaseInsensitive(headers, "Cookie")
+	if cookieKey != "" && cookieKey != "Cookie" {
+		delete(headers, cookieKey)
+	}
+	if existing := strings.TrimSpace(existing); existing != "" {
 		// A forced refresh must replace stale clearance cookies while retaining
 		// unrelated account/session cookies.
 		clearanceNames := map[string]struct{}{}

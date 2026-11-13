@@ -101,7 +101,12 @@ func (a *App) handleImageGenerations(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 	result, stream, err := a.handleImageGenerationsWithChannel(r.Context(), body, model)
-	a.writeProtocol(w, r, result, stream, err, "openai", "/v1/images/generations", model, identity, "文生图", visibility, charge)
+	imageStats := protocolImageStatsSpec{
+		Enabled:        true,
+		Mode:           "generate",
+		RequestedCount: max(1, util.ToInt(body["n"], 1)),
+	}
+	a.writeProtocolWithImageStats(w, r, result, stream, err, "openai", "/v1/images/generations", model, identity, "文生图", visibility, charge, imageStats)
 }
 
 func (a *App) handleImageEdits(w http.ResponseWriter, r *http.Request) {
@@ -149,7 +154,12 @@ func (a *App) handleImageEdits(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 	result, stream, err := a.handleImageEditsWithChannel(r.Context(), body, images, model)
-	a.writeProtocol(w, r, result, stream, err, "openai", "/v1/images/edits", model, identity, "图生图", visibility, charge)
+	imageStats := protocolImageStatsSpec{
+		Enabled:        true,
+		Mode:           "edit",
+		RequestedCount: max(1, util.ToInt(body["n"], 1)),
+	}
+	a.writeProtocolWithImageStats(w, r, result, stream, err, "openai", "/v1/images/edits", model, identity, "图生图", visibility, charge, imageStats)
 }
 
 func (a *App) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
@@ -177,12 +187,18 @@ func (a *App) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 	}()
 	var result map[string]any
 	var stream *protocol.StreamResult
+	var imageStats protocolImageStatsSpec
 	if protocol.IsImageChatRequest(body) {
 		if n := util.ToInt(body["n"], 1); n < protocol.MinImageCount || n > protocol.MaxImageCount {
 			util.WriteError(w, http.StatusBadRequest, fmt.Sprintf("生成数量 n 须在 %d–%d 之间", protocol.MinImageCount, protocol.MaxImageCount))
 			return
 		}
 		summary = "文生图"
+		imageStats = protocolImageStatsSpec{
+			Enabled:        true,
+			Mode:           "chat-image",
+			RequestedCount: max(1, util.ToInt(body["n"], 1)),
+		}
 		metadata, sizeErr := a.imageTaskRequestMetadata(body, model, service.ImageCapabilityGenerate)
 		if sizeErr != nil {
 			util.WriteError(w, http.StatusBadRequest, sizeErr.Error())
@@ -206,7 +222,7 @@ func (a *App) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 	} else {
 		result, stream, err = a.engine.HandleChatCompletions(r.Context(), body)
 	}
-	a.writeProtocol(w, r, result, stream, err, "openai", "/v1/chat/completions", model, identity, summary, service.ImageVisibilityPrivate, charge)
+	a.writeProtocolWithImageStats(w, r, result, stream, err, "openai", "/v1/chat/completions", model, identity, summary, service.ImageVisibilityPrivate, charge, imageStats)
 }
 
 func (a *App) handleResponses(w http.ResponseWriter, r *http.Request) {
@@ -232,6 +248,7 @@ func (a *App) handleResponses(w http.ResponseWriter, r *http.Request) {
 			panic(value)
 		}
 	}()
+	var imageStats protocolImageStatsSpec
 	if protocol.HasResponseImageGenerationTool(body) {
 		if n := util.ToInt(body["n"], 1); n < protocol.MinImageCount || n > protocol.MaxImageCount {
 			util.WriteError(w, http.StatusBadRequest, fmt.Sprintf("生成数量 n 须在 %d–%d 之间", protocol.MinImageCount, protocol.MaxImageCount))
@@ -246,6 +263,11 @@ func (a *App) handleResponses(w http.ResponseWriter, r *http.Request) {
 		if toolModel != "" && !util.IsResponsesImageToolModel(toolModel) {
 			util.WriteError(w, http.StatusBadRequest, "unsupported image_generation model: "+toolModel)
 			return
+		}
+		imageStats = protocolImageStatsSpec{
+			Enabled:        true,
+			Mode:           "response-image",
+			RequestedCount: max(1, util.ToInt(body["n"], 1)),
 		}
 		billingBody := util.CopyMap(body)
 		effectiveModel := firstNonEmpty(toolModel, model)
@@ -278,7 +300,7 @@ func (a *App) handleResponses(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	result, stream, err := a.engine.HandleResponsesScoped(r.Context(), body, identityScope(identity))
-	a.writeProtocol(w, r, result, stream, err, "openai", "/v1/responses", model, identity, summary, service.ImageVisibilityPrivate, charge)
+	a.writeProtocolWithImageStats(w, r, result, stream, err, "openai", "/v1/responses", model, identity, summary, service.ImageVisibilityPrivate, charge, imageStats)
 }
 
 func (a *App) handleMessages(w http.ResponseWriter, r *http.Request) {

@@ -75,8 +75,14 @@ func (a *App) handleSettings(w http.ResponseWriter, r *http.Request) {
 		hotApplyUpstreamClearanceEnv(a.config)
 		// Optional warm-up after save when enabled (best-effort, non-blocking for response).
 		if a.config.UpstreamClearanceWarmUpOnStart() && a.config.UpstreamClearanceEnabled() {
+			warmCtx := a.rootCtx
+			if warmCtx == nil {
+				warmCtx = context.Background()
+			}
+			a.cleanupWG.Add(1)
 			go func() {
-				_, _ = service.WarmUpUpstreamClearance(context.Background())
+				defer a.cleanupWG.Done()
+				_, _ = service.WarmUpUpstreamClearance(warmCtx)
 			}()
 		}
 		util.WriteJSON(w, http.StatusOK, configResponse[config.SettingsConfigPublic]{Config: a.settingsConfigPublic(updated)})
@@ -316,11 +322,10 @@ func (a *App) handleProxy(w http.ResponseWriter, r *http.Request) {
 		}
 		hotApplyUpstreamClearanceEnv(a.config)
 		result, err := service.WarmUpUpstreamClearance(r.Context())
-		response := clearanceWarmUpResponse{Result: result, Status: service.UpstreamClearanceStatus()}
-		if err != nil {
-			util.WriteJSON(w, http.StatusOK, response)
-			return
+		if err != nil && result.Error == "" {
+			result.Error = err.Error()
 		}
+		response := clearanceWarmUpResponse{Result: result, Status: service.UpstreamClearanceStatus()}
 		util.WriteJSON(w, http.StatusOK, response)
 		return
 	}

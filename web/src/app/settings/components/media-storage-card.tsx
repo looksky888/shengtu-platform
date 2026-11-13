@@ -32,9 +32,11 @@ import {
 } from "./settings-ui";
 import { useMediaStorage } from "./use-media-storage";
 
-const STORAGE_CONFIG_KEYS: readonly (keyof SettingsConfig)[] = [
+export const STORAGE_CONFIG_KEYS: readonly (keyof SettingsConfig)[] = [
   "media_storage_provider",
   "media_auto_cleanup_enabled",
+  "image_retention_days",
+  "video_retention_days",
   "media_r2_account_id",
   "media_r2_access_key_id",
   "media_r2_secret_access_key",
@@ -58,6 +60,12 @@ export function MediaStorageCard() {
     (state) => state.resetConfigSection,
   );
   const setField = useSettingsStore((state) => state.setMediaStorageField);
+  const setImageRetentionDays = useSettingsStore(
+    (state) => state.setImageRetentionDays,
+  );
+  const setVideoRetentionDays = useSettingsStore(
+    (state) => state.setVideoRetentionDays,
+  );
 
   const storage = useMediaStorage(config);
   const [r2PreconfigExpanded, setR2PreconfigExpanded] = useState(false);
@@ -70,6 +78,16 @@ export function MediaStorageCard() {
 
   const validateStorage = useCallback(() => {
     if (!config) return true;
+    const imgDays = Number(config.image_retention_days);
+    if (!Number.isFinite(imgDays) || !Number.isInteger(imgDays) || imgDays < 1 || imgDays > 3650) {
+      toast.error("图片默认保留天数需为 1 - 3650 之间的整数");
+      return false;
+    }
+    const vidDays = Number(config.video_retention_days);
+    if (!Number.isFinite(vidDays) || !Number.isInteger(vidDays) || vidDays < 1 || vidDays > 3650) {
+      toast.error("视频默认保留天数需为 1 - 3650 之间的整数");
+      return false;
+    }
     const currentProvider =
       config.media_storage_provider === "r2" ? "r2" : "local";
     if (currentProvider === "r2") {
@@ -87,20 +105,37 @@ export function MediaStorageCard() {
         return false;
       }
       const ttl = Number(config.media_r2_presign_ttl_seconds);
-      if (!Number.isFinite(ttl) || ttl < 60 || ttl > 604800) {
-        toast.error("R2 预签名访问有效期需在 60 - 604800 秒之间");
+      if (!Number.isFinite(ttl) || ttl < 60 || ttl > 3600) {
+        toast.error("R2 预签名访问有效期需在 60 - 3600 秒之间");
         return false;
       }
     }
     return true;
   }, [config]);
 
+  const handleSave = useCallback(async () => {
+    if (!validateStorage()) return false;
+    const receipt = await saveConfigSection(STORAGE_CONFIG_KEYS, {
+      sectionKey: "media_storage",
+    });
+    if (receipt) {
+      void storage.reloadOverview({ silent: true });
+      return true;
+    }
+    return false;
+  }, [saveConfigSection, storage, validateStorage]);
+
   useRegisterSettingsDirty({
-    id: "media-storage-validator",
+    id: "media-storage",
     tab: "storage",
     label: "媒体存储",
-    isDirty: false,
+    isDirty,
     validate: validateStorage,
+    save: handleSave,
+    discard: () => {
+      resetConfigSection(STORAGE_CONFIG_KEYS);
+      return true;
+    },
   });
 
   if (isLoadingConfig || !config || storage.isLoading) {
@@ -157,16 +192,6 @@ export function MediaStorageCard() {
     1,
     Number(config.video_retention_days) || 30,
   );
-
-  const handleSave = async () => {
-    if (!validateStorage()) return;
-    const receipt = await saveConfigSection(STORAGE_CONFIG_KEYS, {
-      sectionKey: "media_storage",
-    });
-    if (receipt) {
-      void storage.reloadOverview({ silent: true });
-    }
-  };
 
   return (
     <SettingsCard
@@ -247,24 +272,54 @@ export function MediaStorageCard() {
           </SettingsSection>
 
           <SettingsSection
-            title="本地空间回收策略"
-            description="按保留周期自动清理过期的本地媒体文件"
+            title="本地空间回收与默认保留周期"
+            description="配置图片与视频的基础保留天数；仅在开启「到期自动清理」时定时回收本地磁盘文件，启用云存储 VIP 模式时则与 VIP 阶梯留存策略协同生效"
           >
-            <SettingsSwitchRow
-              id="media-auto-cleanup"
-              title="到期自动清理过期媒体文件"
-              description={`依据「基础与品牌」配置的保留期（当前图片 ${imageRetentionDays} 天 / 视频 ${videoRetentionDays} 天）定时回收服务器本地文件，不会删除 R2 云端对象。`}
-              badge={
-                provider === "r2" ? (
-                  <Badge variant="secondary">R2 模式下默认关闭</Badge>
-                ) : undefined
-              }
-              checked={Boolean(config.media_auto_cleanup_enabled)}
-              disabled={running || cleanupRunning}
-              onCheckedChange={(checked) =>
-                setField({ media_auto_cleanup_enabled: checked })
-              }
-            />
+            <div className="space-y-3">
+              <SettingsSwitchRow
+                id="media-auto-cleanup"
+                title="到期自动清理过期媒体文件"
+                description={`开启后按下方设定的保留周期（当前图片 ${imageRetentionDays} 天 / 视频 ${videoRetentionDays} 天）定时回收服务器本地文件，不会删除 R2 云端对象。`}
+                badge={
+                  provider === "r2" ? (
+                    <Badge variant="secondary">R2 模式下默认关闭</Badge>
+                  ) : undefined
+                }
+                checked={Boolean(config.media_auto_cleanup_enabled)}
+                disabled={running || cleanupRunning}
+                onCheckedChange={(checked) =>
+                  setField({ media_auto_cleanup_enabled: checked })
+                }
+              />
+
+              <div className="grid gap-3 rounded-xl border border-border/75 bg-surface-subtle/45 p-3.5 sm:grid-cols-2">
+                <SettingsUnitInput
+                  id="media-image-retention-days"
+                  label="图片默认保留天数"
+                  unit="天"
+                  min={1}
+                  max={3650}
+                  rangeHint="1 - 3650"
+                  value={String(config.image_retention_days ?? 30)}
+                  disabled={running || cleanupRunning}
+                  onChange={setImageRetentionDays}
+                />
+                <SettingsUnitInput
+                  id="media-video-retention-days"
+                  label="视频默认保留天数"
+                  unit="天"
+                  min={1}
+                  max={3650}
+                  rangeHint="1 - 3650"
+                  value={String(config.video_retention_days ?? 30)}
+                  disabled={running || cleanupRunning}
+                  onChange={setVideoRetentionDays}
+                />
+                <p className="text-[11px] leading-4.5 text-muted-foreground sm:col-span-2">
+                  说明：仅当开启「到期自动清理过期媒体文件」或启用上方「云存储付费会员制（VIP 留存策略）」时，过期回收才会按对应周期执行；关闭自动清理且关闭 VIP 模式时，媒体文件永久留存。
+                </p>
+              </div>
+            </div>
           </SettingsSection>
 
           <SettingsSection
@@ -412,8 +467,8 @@ export function MediaStorageCard() {
                   label="预签名访问有效期"
                   unit="秒"
                   min={60}
-                  max={604800}
-                  rangeHint="60 - 604800"
+                  max={3600}
+                  rangeHint="60 - 3600"
                   value={String(config.media_r2_presign_ttl_seconds ?? 300)}
                   disabled={running || cleanupRunning}
                   onChange={(value) =>

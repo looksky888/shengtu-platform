@@ -8,12 +8,25 @@ import (
 
 func (b *DatabaseBackend) LoadPaymentSettings() (PaymentSettingsRecord, error) {
 	var item PaymentSettingsRecord
-	var rechargeEnabled, customEnabled, cloudStorageEnabled bool
+	var rechargeEnabled, customEnabled, cloudStorageEnabled int
 	err := b.db.QueryRow(`SELECT recharge_enabled, custom_credits_enabled, credit_unit_price_fen,
-		cloud_storage_enabled, cloud_storage_policy_started_at, min_custom_credits, max_custom_credits, updated_by, updated_at FROM payment_settings WHERE id = 1`).
+		cloud_storage_enabled, cloud_storage_policy_started_at, free_retention_days, vip_grace_days, historical_grace_days,
+		min_custom_credits, max_custom_credits, updated_by, updated_at FROM payment_settings WHERE id = 1`).
 		Scan(&rechargeEnabled, &customEnabled, &item.CreditUnitPriceFen, &cloudStorageEnabled,
-			&item.CloudStoragePolicyStartedAt, &item.MinCustomCredits, &item.MaxCustomCredits, &item.UpdatedBy, &item.UpdatedAt)
-	item.RechargeEnabled, item.CustomCreditsEnabled, item.CloudStorageEnabled = rechargeEnabled, customEnabled, cloudStorageEnabled
+			&item.CloudStoragePolicyStartedAt, &item.FreeRetentionDays, &item.VIPGraceDays, &item.HistoricalGraceDays,
+			&item.MinCustomCredits, &item.MaxCustomCredits, &item.UpdatedBy, &item.UpdatedAt)
+	item.RechargeEnabled = rechargeEnabled != 0
+	item.CustomCreditsEnabled = customEnabled != 0
+	item.CloudStorageEnabled = cloudStorageEnabled != 0
+	if item.FreeRetentionDays <= 0 {
+		item.FreeRetentionDays = DefaultFreeRetentionDays
+	}
+	if item.VIPGraceDays <= 0 {
+		item.VIPGraceDays = DefaultVIPGraceDays
+	}
+	if item.HistoricalGraceDays <= 0 {
+		item.HistoricalGraceDays = DefaultHistoricalGraceDays
+	}
 	return item, err
 }
 
@@ -21,7 +34,39 @@ func (b *DatabaseBackend) SavePaymentSettings(item PaymentSettingsRecord) (Payme
 	if item.CreditUnitPriceFen <= 0 || item.MinCustomCredits <= 0 || item.MaxCustomCredits < item.MinCustomCredits || strings.TrimSpace(item.UpdatedAt) == "" {
 		return PaymentSettingsRecord{}, errors.New("payment settings 字段无效")
 	}
-	result, err := b.db.Exec(`UPDATE payment_settings SET recharge_enabled = `+b.placeholder(1)+`, custom_credits_enabled = `+b.placeholder(2)+`, cloud_storage_policy_started_at = CASE WHEN cloud_storage_enabled = FALSE AND `+b.placeholder(3)+` = TRUE THEN `+b.placeholder(4)+` ELSE cloud_storage_policy_started_at END, cloud_storage_enabled = `+b.placeholder(5)+`, credit_unit_price_fen = `+b.placeholder(6)+`, min_custom_credits = `+b.placeholder(7)+`, max_custom_credits = `+b.placeholder(8)+`, updated_by = `+b.placeholder(9)+`, updated_at = `+b.placeholder(10)+` WHERE id = 1`, item.RechargeEnabled, item.CustomCreditsEnabled, item.CloudStorageEnabled, strings.TrimSpace(item.UpdatedAt), item.CloudStorageEnabled, item.CreditUnitPriceFen, item.MinCustomCredits, item.MaxCustomCredits, strings.TrimSpace(item.UpdatedBy), strings.TrimSpace(item.UpdatedAt))
+	if item.FreeRetentionDays < 0 || item.FreeRetentionDays > MaxPaymentRetentionDays ||
+		item.VIPGraceDays < 0 || item.VIPGraceDays > MaxPaymentRetentionDays ||
+		item.HistoricalGraceDays < 0 || item.HistoricalGraceDays > MaxPaymentRetentionDays {
+		return PaymentSettingsRecord{}, errors.New("payment settings 字段无效")
+	}
+	cloudStorageFlag := boolInt(item.CloudStorageEnabled)
+	result, err := b.db.Exec(
+		`UPDATE payment_settings SET recharge_enabled = `+b.placeholder(1)+
+			`, custom_credits_enabled = `+b.placeholder(2)+
+			`, cloud_storage_policy_started_at = CASE WHEN cloud_storage_enabled = 0 AND `+b.placeholder(3)+` <> 0 THEN `+b.placeholder(4)+` ELSE cloud_storage_policy_started_at END`+
+			`, cloud_storage_enabled = `+b.placeholder(5)+
+			`, free_retention_days = CASE WHEN `+b.placeholder(6)+` > 0 THEN `+b.placeholder(7)+` WHEN free_retention_days > 0 THEN free_retention_days ELSE `+b.placeholder(8)+` END`+
+			`, vip_grace_days = CASE WHEN `+b.placeholder(9)+` > 0 THEN `+b.placeholder(10)+` WHEN vip_grace_days > 0 THEN vip_grace_days ELSE `+b.placeholder(11)+` END`+
+			`, historical_grace_days = CASE WHEN `+b.placeholder(12)+` > 0 THEN `+b.placeholder(13)+` WHEN historical_grace_days > 0 THEN historical_grace_days ELSE `+b.placeholder(14)+` END`+
+			`, credit_unit_price_fen = `+b.placeholder(15)+
+			`, min_custom_credits = `+b.placeholder(16)+
+			`, max_custom_credits = `+b.placeholder(17)+
+			`, updated_by = `+b.placeholder(18)+
+			`, updated_at = `+b.placeholder(19)+` WHERE id = 1`,
+		boolInt(item.RechargeEnabled),
+		boolInt(item.CustomCreditsEnabled),
+		cloudStorageFlag,
+		strings.TrimSpace(item.UpdatedAt),
+		cloudStorageFlag,
+		item.FreeRetentionDays, item.FreeRetentionDays, DefaultFreeRetentionDays,
+		item.VIPGraceDays, item.VIPGraceDays, DefaultVIPGraceDays,
+		item.HistoricalGraceDays, item.HistoricalGraceDays, DefaultHistoricalGraceDays,
+		item.CreditUnitPriceFen,
+		item.MinCustomCredits,
+		item.MaxCustomCredits,
+		strings.TrimSpace(item.UpdatedBy),
+		strings.TrimSpace(item.UpdatedAt),
+	)
 	if err != nil {
 		return PaymentSettingsRecord{}, err
 	}

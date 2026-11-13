@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -16,7 +17,6 @@ from app.platform.errors import UpstreamError
 from app.platform.request_context import get_grok_log_trace, get_media_base_url
 import services.grok_runtime as grok_runtime_module
 from services.grok_runtime import EmbeddedGrokRuntime
-from services.register.grok_account_store import GrokAccountStore
 
 
 class _Repository:
@@ -158,7 +158,7 @@ class EmbeddedGrokRuntimeTest(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(get_grok_log_trace())
         self.assertEqual(get_media_base_url(), "")
 
-    async def test_runtime_snapshot_is_mirrored_to_host_archive(self) -> None:
+    async def test_runtime_snapshot_sync_returns_runtime_count(self) -> None:
         runtime = EmbeddedGrokRuntime()
         payload = {
             "tokens": [
@@ -173,18 +173,10 @@ class EmbeddedGrokRuntimeTest(unittest.IsolatedAsyncioTestCase):
                 }
             ]
         }
-        with tempfile.TemporaryDirectory() as temp_dir:
-            store = GrokAccountStore(Path(temp_dir) / "grok_accounts.json")
-            with patch.object(runtime, "list_accounts", AsyncMock(return_value=payload)), patch.object(
-                grok_runtime_module, "grok_account_store", store
-            ):
-                result = await runtime.sync_host_accounts_from_runtime()
+        with patch.object(runtime, "list_accounts", AsyncMock(return_value=payload)):
+            result = await runtime.sync_host_accounts_from_runtime()
 
-            self.assertEqual(result, {"added": 1, "updated": 0, "missing": 0, "count": 1})
-            account = store.list_accounts(redacted=False)[0]
-            self.assertEqual(account["source_type"], "runtime")
-            self.assertEqual(account["runtime"]["pool"], "heavy")
-            self.assertEqual(account["runtime"]["status"], "disabled")
+        self.assertEqual(result, {"added": 0, "updated": 0, "missing": 0, "count": 1})
 
     async def test_removed_archive_entries_are_not_reimported_on_startup(self) -> None:
         runtime = EmbeddedGrokRuntime()
@@ -192,18 +184,19 @@ class EmbeddedGrokRuntimeTest(unittest.IsolatedAsyncioTestCase):
         host = type("Host", (), {"state": type("State", (), {"repository": repo, "directory": None})()})()
         runtime._host_app = host
         with tempfile.TemporaryDirectory() as temp_dir:
-            store = GrokAccountStore(Path(temp_dir) / "grok_accounts.json")
-            store.upsert({"email": "keep@example.com", "sso": "keep-token", "source_type": "protocol"})
-            store.upsert({"email": "removed@example.com", "sso": "removed-token", "source_type": "protocol"})
-            store.reconcile_runtime_accounts([{"token": "keep-token", "status": "active"}])
-            store.reconcile_runtime_accounts(
-                [
-                    {"token": "keep-token", "status": "active"},
-                    {"token": "runtime-only-token", "status": "active"},
-                ]
+            archive_path = Path(temp_dir) / "grok_accounts.json"
+            archive_path.write_text(
+                json.dumps(
+                    [
+                        {"email": "keep@example.com", "sso": "keep-token", "status": "active", "runtime": {"present": True}},
+                        {"email": "removed@example.com", "sso": "removed-token", "status": "active", "runtime": {"present": False}},
+                        {"email": "runtime-only@example.com", "sso": "runtime-only-token", "status": "active"},
+                    ]
+                ),
+                encoding="utf-8",
             )
 
-            with patch.object(grok_runtime_module, "grok_account_store", store):
+            with patch.object(grok_runtime_module, "DATA_DIR", Path(temp_dir)):
                 result = await runtime.import_registered_accounts()
 
         self.assertEqual(

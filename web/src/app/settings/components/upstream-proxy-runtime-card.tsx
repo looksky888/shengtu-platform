@@ -50,7 +50,11 @@ function badgeModeText(enabled: boolean, mode: UpstreamClearanceMode): string {
   return "手动凭据复用";
 }
 
-export function UpstreamProxyRuntimeCard() {
+export function UpstreamProxyRuntimeCard({
+  hideFooter = false,
+}: {
+  hideFooter?: boolean;
+}) {
   const [isTestingProxy, setIsTestingProxy] = useState(false);
   const [isTestingClearance, setIsTestingClearance] = useState(false);
   const [isWarming, setIsWarming] = useState(false);
@@ -308,17 +312,19 @@ export function UpstreamProxyRuntimeCard() {
         </Button>
       }
       footer={
-        <SettingsCardSaveFooter
-          dirty={sectionDirty}
-          saving={isSavingSection}
-          disabled={isSavingConfig || isTestingClearance || isWarming}
-          onReset={() => resetConfigSection(UPSTREAM_PROXY_KEYS)}
-          onSave={() =>
-            void saveConfigSection(UPSTREAM_PROXY_KEYS, {
-              sectionKey: "upstream-proxy",
-            })
-          }
-        />
+        hideFooter ? undefined : (
+          <SettingsCardSaveFooter
+            dirty={sectionDirty}
+            saving={isSavingSection}
+            disabled={isSavingConfig || isTestingClearance || isWarming}
+            onReset={() => resetConfigSection(UPSTREAM_PROXY_KEYS)}
+            onSave={() =>
+              void saveConfigSection(UPSTREAM_PROXY_KEYS, {
+                sectionKey: "upstream-proxy",
+              })
+            }
+          />
+        )
       }
     >
       <div className="space-y-5">

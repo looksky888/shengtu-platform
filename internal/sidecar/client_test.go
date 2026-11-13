@@ -11,7 +11,7 @@ import (
 
 func TestDoJSONForwardsRequestAndInternalToken(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost || r.URL.Path != "/api/register" {
+		if r.Method != http.MethodPost || r.URL.Path != "/api/grok/accounts" {
 			t.Fatalf("request = %s %s", r.Method, r.URL.Path)
 		}
 		if r.Header.Get("X-Internal-Token") != "shared-token" {
@@ -33,7 +33,7 @@ func TestDoJSONForwardsRequestAndInternalToken(t *testing.T) {
 	defer server.Close()
 
 	client := New(server.URL+"/", " shared-token ")
-	status, body, err := client.DoJSON(context.Background(), http.MethodPost, "/api/register", []byte(`{"target":"grok"}`))
+	status, body, err := client.DoJSON(context.Background(), http.MethodPost, "/api/grok/accounts", []byte(`{"target":"grok"}`))
 	if err != nil {
 		t.Fatal(err)
 	}

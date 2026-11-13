@@ -5,7 +5,6 @@ import (
 	"chatgpt2api/internal/util"
 	"context"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 )
@@ -207,24 +206,23 @@ func clearAuthSessionCookie(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) resolveImageBaseURL(r *http.Request) string {
-	requestOrigin := requestOriginFromRequest(r)
-	if isLoopbackRequestHost(r) && requestOrigin != "" {
-		return requestOrigin
-	}
 	if base := a.config.BaseURL(); base != "" {
 		return base
 	}
-	return requestOrigin
+	return requestOriginFromRequest(r)
 }
 
 func requestOriginFromRequest(r *http.Request) string {
+	if r == nil {
+		return ""
+	}
 	scheme := "http"
 	if isHTTPSRequest(r) {
 		scheme = "https"
 	}
-	host := r.Host
-	if value := r.Header.Get("host"); value != "" {
-		host = value
+	host := strings.TrimSpace(r.Host)
+	if host == "" {
+		return ""
 	}
 	return scheme + "://" + host
 }
@@ -236,23 +234,13 @@ func isHTTPSRequest(r *http.Request) bool {
 	if r.TLS != nil {
 		return true
 	}
-	if forwarded := strings.TrimSpace(r.Header.Get("x-forwarded-proto")); forwarded != "" {
-		first := strings.ToLower(strings.TrimSpace(strings.Split(forwarded, ",")[0]))
-		return first == "https"
+	if trustProxyHeadersEnabled() {
+		if forwarded := strings.TrimSpace(r.Header.Get("x-forwarded-proto")); forwarded != "" {
+			first := strings.ToLower(strings.TrimSpace(strings.Split(forwarded, ",")[0]))
+			return first == "https"
+		}
 	}
 	return false
-}
-
-func isLoopbackRequestHost(r *http.Request) bool {
-	host := r.Host
-	if value := r.Header.Get("host"); value != "" {
-		host = value
-	}
-	parsed, err := url.Parse("//" + strings.TrimSpace(host))
-	if err != nil {
-		return false
-	}
-	return isLoopbackHostname(parsed.Hostname())
 }
 
 func identityScope(identity service.Identity) string {

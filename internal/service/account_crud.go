@@ -158,19 +158,26 @@ func (s *AccountService) UpdateAccount(accessToken string, updates map[string]an
 	}
 	if account.Status == "限流" && s.autoRemoveRateLimitedAccounts() {
 		prevItems := append([]Account(nil), s.items...)
+		prevIndex := s.index
 		prevReservations := cloneStringIntMap(s.imageReservations)
 		prevCooldown := cloneStringTimeMap(s.imageCooldownUntil)
 		prevProbes := cloneStringTimeMap(s.imageProbeAt)
-	prevModelCooldown := cloneStringTimeMap(s.imageModelCooldownUntil)
-	prevLeases := cloneStringTimeMap(s.imageLeases)
+		prevModelCooldown := cloneStringTimeMap(s.imageModelCooldownUntil)
+		prevLeases := cloneStringTimeMap(s.imageLeases)
 		delete(s.imageReservations, accessToken)
 		delete(s.imageCooldownUntil, accessToken)
 		delete(s.imageProbeAt, accessToken)
 		delete(s.imageModelCooldownUntil, accessToken)
 		delete(s.imageLeases, accessToken)
 		s.items = append(s.items[:idx], s.items[idx+1:]...)
+		if len(s.items) > 0 {
+			s.index %= len(s.items)
+		} else {
+			s.index = 0
+		}
 		if err := s.deleteAccountsRowLocked([]string{accessToken}); err != nil {
 			s.items = prevItems
+			s.index = prevIndex
 			s.imageReservations = prevReservations
 			s.imageCooldownUntil = prevCooldown
 			s.imageProbeAt = prevProbes

@@ -12,6 +12,8 @@ import (
 	"chatgpt2api/internal/util"
 )
 
+var dataImageBase64RE = regexp.MustCompile(`data:(image/[A-Za-z0-9.+-]+);base64,([A-Za-z0-9+/=]+)`)
+
 func (e *Engine) HandleChatCompletions(ctx context.Context, body map[string]any) (map[string]any, *StreamResult, error) {
 	if util.ToBool(body["stream"]) {
 		var items <-chan map[string]any
@@ -366,8 +368,7 @@ func ExtractImagesFromMessageContent(content any) []UploadedImage {
 
 func ExtractImagesFromText(text string) []UploadedImage {
 	var images []UploadedImage
-	re := regexp.MustCompile(`data:(image/[A-Za-z0-9.+-]+);base64,([A-Za-z0-9+/=]+)`)
-	for _, match := range re.FindAllStringSubmatch(text, -1) {
+	for _, match := range dataImageBase64RE.FindAllStringSubmatch(text, -1) {
 		if len(match) < 3 {
 			continue
 		}

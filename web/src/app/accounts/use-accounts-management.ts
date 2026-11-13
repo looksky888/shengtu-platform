@@ -5,7 +5,9 @@ import {
   buildAccountsSummary,
   buildPaginationItems,
   downloadTokenFile,
+  formatCompact,
   normalizeAccounts,
+  type AccountsSummary,
 } from "@/app/accounts/account-utils";
 import {
   deleteAccounts,
@@ -14,6 +16,7 @@ import {
   refreshAccounts,
   updateAccount,
   type Account,
+  type AccountsPageSummary,
   type AccountStatus,
   type AccountType,
 } from "@/lib/api";
@@ -59,10 +62,8 @@ export function useAccountsManagement(session: StoredAuthSession, enabled = true
 
   const [total, setTotal] = useState(0);
   const [queryDebounced, setQueryDebounced] = useState("");
-  // Full-pool snapshot for metric cards (must NOT use the current page only).
-  const [summaryAccounts, setSummaryAccounts] = useState<Account[]>([]);
-  const summaryRequestSeq = useRef(0);
-  const summaryAbortRef = useRef<AbortController | null>(null);
+  // Server-computed filtered pool summary returned inside the paginated response.
+  const [serverSummary, setServerSummary] = useState<AccountsPageSummary | null>(null);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setQueryDebounced(query.trim()), 400);
@@ -72,31 +73,6 @@ export function useAccountsManagement(session: StoredAuthSession, enabled = true
   useEffect(() => {
     setPage(1);
   }, [queryDebounced, typeFilter, statusFilter, pageSize]);
-
-  const loadAccountsSummary = useCallback(async () => {
-    summaryAbortRef.current?.abort();
-    const controller = new AbortController();
-    summaryAbortRef.current = controller;
-    const seq = ++summaryRequestSeq.current;
-    try {
-      // Omit page/page_size so backend returns the full filtered set (legacy unlimited mode).
-      // Respect current type/status/keyword filters so cards match the active list scope.
-      const data = await fetchAccounts(
-        {
-          keyword: queryDebounced || undefined,
-          type: typeFilter !== "all" ? typeFilter : undefined,
-          status: statusFilter !== "all" ? statusFilter : undefined,
-        },
-        { signal: controller.signal },
-      );
-      if (seq !== summaryRequestSeq.current) return;
-      setSummaryAccounts(normalizeAccounts(data.items));
-    } catch (error) {
-      if (controller.signal.aborted || seq !== summaryRequestSeq.current) return;
-      // Keep last good summary on transient errors; table load still surfaces failures.
-      console.warn("load accounts summary failed", error);
-    }
-  }, [queryDebounced, statusFilter, typeFilter]);
 
   const loadAccounts = useCallback(async (silent = false) => {
     accountsAbortRef.current?.abort();
@@ -118,6 +94,7 @@ export function useAccountsManagement(session: StoredAuthSession, enabled = true
       if (seq !== accountsRequestSeq.current) return;
       applyAccountItems(data.items);
       setTotal(typeof data.total === "number" ? data.total : (data.items?.length ?? 0));
+      setServerSummary(data.summary ?? null);
       if (typeof data.page === "number" && data.page > 0 && data.page !== page) {
         setPage(data.page);
       }
@@ -126,24 +103,22 @@ export function useAccountsManagement(session: StoredAuthSession, enabled = true
       toast.error(error instanceof Error ? error.message : "加载账户失败");
       setAccounts([]);
       setTotal(0);
+      setServerSummary(null);
     } finally {
       // Latest request always clears loading so aborting a non-silent load can't stick spinner.
       if (seq === accountsRequestSeq.current) setIsLoading(false);
     }
   }, [applyAccountItems, page, pageSize, queryDebounced, statusFilter, typeFilter]);
 
+  const loadAccountsSummary = useCallback(() => loadAccounts(true), [loadAccounts]);
+
   useEffect(() => {
     if (enabled) void loadAccounts();
   }, [enabled, loadAccounts]);
 
-  useEffect(() => {
-    if (enabled) void loadAccountsSummary();
-  }, [enabled, loadAccountsSummary]);
-
   useEffect(
     () => () => {
       accountsAbortRef.current?.abort();
-      summaryAbortRef.current?.abort();
     },
     [],
   );
@@ -159,14 +134,33 @@ export function useAccountsManagement(session: StoredAuthSession, enabled = true
   const allCurrentSelected = currentRows.length > 0 && currentRows.every((row) => selectedIds.includes(row.id));
   const showInitialEmptyState = !isLoading && total === 0 && !queryDebounced && typeFilter === "all" && statusFilter === "all";
   const showFilteredEmptyState = !isLoading && total === 0 && !showInitialEmptyState;
-  const summary = useMemo(() => buildAccountsSummary(summaryAccounts), [summaryAccounts]);
+  const summary = useMemo<AccountsSummary>(() => {
+    if (serverSummary) {
+      return {
+        total: serverSummary.total,
+        active: serverSummary.active,
+        limited: serverSummary.limited,
+        abnormal: serverSummary.abnormal,
+        disabled: serverSummary.disabled,
+        quota: serverSummary.quota_unlimited
+          ? "∞"
+          : serverSummary.quota_unknown
+            ? "未知"
+            : formatCompact(Math.max(0, serverSummary.quota_total)),
+      };
+    }
+    return buildAccountsSummary(accounts);
+  }, [accounts, serverSummary]);
   const selectedAccountIds = useMemo(() => {
     const selectedSet = new Set(selectedIds);
     return accounts.filter((item) => selectedSet.has(item.id)).map((item) => item.id);
   }, [accounts, selectedIds]);
   const abnormalAccountIds = useMemo(
-    () => (summaryAccounts.length > 0 ? summaryAccounts : accounts).filter((item) => item.status === "异常").map((item) => item.id),
-    [accounts, summaryAccounts],
+    () =>
+      serverSummary?.abnormal_ids !== undefined
+        ? serverSummary.abnormal_ids
+        : accounts.filter((item) => item.status === "异常").map((item) => item.id),
+    [accounts, serverSummary],
   );
   const paginationItems = useMemo(() => buildPaginationItems(pageCount, safePage), [pageCount, safePage]);
 
@@ -179,7 +173,6 @@ export function useAccountsManagement(session: StoredAuthSession, enabled = true
       toast.success(`删除 ${data.removed ?? 0} 个账户`);
       setSelectedIds([]);
       void loadAccounts(true);
-      if (enabled) void loadAccountsSummary();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "删除账户失败");
     } finally {
@@ -200,7 +193,6 @@ export function useAccountsManagement(session: StoredAuthSession, enabled = true
         toast.success(`刷新成功 ${data.refreshed} 个账户`);
       }
       void loadAccounts(true);
-      if (enabled) void loadAccountsSummary();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "刷新账户失败");
     } finally {
@@ -231,7 +223,6 @@ export function useAccountsManagement(session: StoredAuthSession, enabled = true
         toast.success(`刷新成功 ${result.refreshed} 个账户`);
       }
       void loadAccounts(true);
-      if (enabled) void loadAccountsSummary();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "刷新账户失败");
     } finally {
@@ -281,7 +272,6 @@ export function useAccountsManagement(session: StoredAuthSession, enabled = true
       setEditingAccount(null);
       toast.success("账号信息已更新");
       void loadAccounts(true);
-      if (enabled) void loadAccountsSummary();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "更新账号失败");
     } finally {

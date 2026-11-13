@@ -124,14 +124,7 @@ func decodeAccessTokenPayload(accessToken string) map[string]any {
 }
 
 func anyList(value any) []any {
-	if list, ok := value.([]any); ok {
-		return list
-	}
-	if list, ok := value.([]map[string]any); ok {
-		out := make([]any, len(list))
-		for i, item := range list {
-			out[i] = item
-		}
+	if out := util.AnyList(value); out != nil {
 		return out
 	}
 	return []any{}
@@ -148,12 +141,7 @@ func mergeMaps(items ...map[string]any) map[string]any {
 }
 
 func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if strings.TrimSpace(value) != "" {
-			return value
-		}
-	}
-	return ""
+	return util.FirstNonEmpty(values...)
 }
 
 func refreshHTTPError(context string, status int, body []byte) error {

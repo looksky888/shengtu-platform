@@ -1,50 +1,5 @@
 import { httpRequest } from "@/lib/request";
-import type { RegisterConfig } from "@/lib/api-types";
 import type { PublicImageChannelModel } from "@/lib/image-channel-api";
-
-export async function fetchRegisterConfig(options: { signal?: AbortSignal } = {}) {
-  return httpRequest<{ register: RegisterConfig }>("/api/register", { signal: options.signal });
-}
-
-export async function updateRegisterConfig(updates: Partial<RegisterConfig>) {
-  return httpRequest<{ register: RegisterConfig }>("/api/register", {
-    method: "POST",
-    body: updates,
-  });
-}
-
-export async function startRegister() {
-  return httpRequest<{ register: RegisterConfig }>("/api/register/start", { method: "POST" });
-}
-
-export async function stopRegister() {
-  return httpRequest<{ register: RegisterConfig }>("/api/register/stop", { method: "POST" });
-}
-
-export async function resetRegister() {
-  return httpRequest<{ register: RegisterConfig }>("/api/register/reset", { method: "POST" });
-}
-
-export async function resetOutlookPool(scope: "all" | "failed" | "unused" | "retryable" | "invalid" = "all") {
-  return httpRequest<{ register: RegisterConfig }>("/api/register/outlook-pool/reset", {
-    method: "POST",
-    body: { scope },
-  });
-}
-
-export async function clearCheckoutHistory() {
-  return httpRequest<{ register?: RegisterConfig; removed?: number }>("/api/register/checkout-history/clear", {
-    method: "POST",
-    body: {},
-  });
-}
-
-export async function stopCheckoutRetries() {
-  return httpRequest<{ register: RegisterConfig }>("/api/register/checkout-retries/stop", {
-    method: "POST",
-    body: {},
-  });
-}
 
 // ── CPA (CLIProxyAPI) ──────────────────────────────────────────────
 

@@ -275,6 +275,7 @@ type PaymentStorageBackend interface {
 
 type MediaRetentionBackend interface {
 	ListMediaAssetsBefore(policyStart, cutoff string, limit int, beforeSortKey, beforePath string) ([]MediaAssetRecord, error)
+	ListPrePolicyMediaAssets(policyStart string, limit int, beforeSortKey, beforePath string) ([]MediaAssetRecord, error)
 }
 
 type PaymentEventHealth struct {

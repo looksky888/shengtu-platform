@@ -136,3 +136,58 @@ func TestAnnouncementRealtimeBroadcastAndSSE(t *testing.T) {
 		t.Fatalf("expected 400 when broadcasting disabled announcement, got %d body = %s", failBroadcastRes.Code, failBroadcastRes.Body.String())
 	}
 }
+
+func TestBannerAnnouncementFieldsAndValidation(t *testing.T) {
+	app := newTestApp(t)
+	authHeader := adminAuthHeader(t, app)
+
+	// 1. Create a persistent top banner announcement with tone + safe relative link
+	createReq := httptest.NewRequest(
+		http.MethodPost,
+		"/api/admin/announcements",
+		strings.NewReader(`{"title":"云存储福利","content":"限时 ¥9.9 开通无限容量 VIP","display_mode":"banner","banner_tone":"activity","link_url":"/recharge","show_login":false,"show_image":true}`),
+	)
+	createReq.Header.Set("Authorization", authHeader)
+	createRes := httptest.NewRecorder()
+	app.Handler().ServeHTTP(createRes, createReq)
+	if createRes.Code != http.StatusOK {
+		t.Fatalf("create banner status = %d body = %s", createRes.Code, createRes.Body.String())
+	}
+
+	publicReq := httptest.NewRequest(http.MethodGet, "/api/announcements?target=image", nil)
+	publicRes := httptest.NewRecorder()
+	app.Handler().ServeHTTP(publicRes, publicReq)
+	if publicRes.Code != http.StatusOK {
+		t.Fatalf("public announcements status = %d body = %s", publicRes.Code, publicRes.Body.String())
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(publicRes.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("unmarshal public announcements: %v", err)
+	}
+	items := logItems(payload)
+	if len(items) != 1 {
+		t.Fatalf("expected 1 visible banner item, got %#v", payload)
+	}
+	if mode, _ := items[0]["display_mode"].(string); mode != "banner" {
+		t.Fatalf("expected display_mode = banner, got %#v", items[0])
+	}
+	if tone, _ := items[0]["banner_tone"].(string); tone != "activity" {
+		t.Fatalf("expected banner_tone = activity, got %#v", items[0])
+	}
+	if link, _ := items[0]["link_url"].(string); link != "/recharge" {
+		t.Fatalf("expected link_url = /recharge, got %#v", items[0])
+	}
+
+	// 2. Reject unsafe javascript: link_url
+	badReq := httptest.NewRequest(
+		http.MethodPost,
+		"/api/admin/announcements",
+		strings.NewReader(`{"title":"bad","content":"bad","display_mode":"banner","link_url":"javascript:alert(1)","show_image":true}`),
+	)
+	badReq.Header.Set("Authorization", authHeader)
+	badRes := httptest.NewRecorder()
+	app.Handler().ServeHTTP(badRes, badReq)
+	if badRes.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for unsafe link_url, got %d body = %s", badRes.Code, badRes.Body.String())
+	}
+}

@@ -30,6 +30,9 @@ type PaymentOrderAdminPublic struct {
 	ProductName        string `json:"product_name"`
 	AmountFen          int64  `json:"amount_fen"`
 	Credits            int    `json:"credits"`
+	ProductType        string `json:"product_type"`
+	StorageDays        int    `json:"storage_days"`
+	StorageBytes       int64  `json:"storage_bytes"`
 	Currency           string `json:"currency"`
 	ExpiresAt          string `json:"expires_at"`
 	Status             string `json:"status"`
@@ -168,10 +171,19 @@ func parsePaymentOrderFilterTime(value string) (time.Time, string, error) {
 }
 
 func publicPaymentOrderAdmin(item storage.PaymentOrderRecord) PaymentOrderAdminPublic {
+	productType := strings.TrimSpace(item.ProductTypeSnapshot)
+	if productType == "" {
+		productType = "credits"
+	}
+	credits := item.CreditsSnapshot
+	if productType == "cloud_storage" {
+		credits = 0
+	}
 	return PaymentOrderAdminPublic{
 		ID: item.ID, OutTradeNo: item.OutTradeNo, UserID: item.UserID, ChannelID: item.ChannelID,
 		ChannelVersionID: item.ChannelVersionID, ProductID: item.ProductID, ProductName: item.ProductNameSnapshot,
-		AmountFen: item.AmountFen, Credits: item.CreditsSnapshot, Currency: item.Currency,
+		AmountFen: item.AmountFen, Credits: credits, ProductType: productType,
+		StorageDays: item.StorageDaysSnapshot, StorageBytes: item.StorageBytesSnapshot, Currency: item.Currency,
 		ExpiresAt: item.ExpiresAt, Status: item.Status, ProviderTradeState: item.ProviderTradeState,
 		ProviderTradeDesc: item.ProviderTradeDesc, TransactionID: item.TransactionID,
 		ProviderRequestID: item.ProviderRequestID, LastQueryAt: item.LastQueryAt,

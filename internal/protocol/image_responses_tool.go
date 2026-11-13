@@ -50,7 +50,10 @@ func (e *Engine) StreamResponsesImageToolOutputs(ctx context.Context, client *ba
 			case "response.output_text.delta":
 				if delta := util.Clean(event["delta"]); delta != "" {
 					textParts = append(textParts, delta)
-					out <- ImageOutput{Kind: "progress", Model: request.Model, Index: index, Total: total, Created: created, Text: delta, UpstreamEventType: eventType}
+					if !sendChan(ctx, out, ImageOutput{Kind: "progress", Model: request.Model, Index: index, Total: total, Created: created, Text: delta, UpstreamEventType: eventType}) {
+						errCh <- ctx.Err()
+						return
+					}
 				}
 			case "response.output_item.done":
 				if item := util.StringMap(event["item"]); len(item) > 0 {
@@ -67,7 +70,10 @@ func (e *Engine) StreamResponsesImageToolOutputs(ctx context.Context, client *ba
 					}
 				}
 			default:
-				out <- ImageOutput{Kind: "progress", Model: request.Model, Index: index, Total: total, Created: created, UpstreamEventType: eventType}
+				if !sendChan(ctx, out, ImageOutput{Kind: "progress", Model: request.Model, Index: index, Total: total, Created: created, UpstreamEventType: eventType}) {
+					errCh <- ctx.Err()
+					return
+				}
 			}
 		}
 		if err := <-upstreamErr; err != nil {
@@ -86,7 +92,10 @@ func (e *Engine) StreamResponsesImageToolOutputs(ctx context.Context, client *ba
 			}
 			data := util.AsMapSlice(result["data"])
 			if len(data) > 0 {
-				out <- ImageOutput{Kind: "result", Model: request.Model, Index: index, Total: total, Created: created, Data: data}
+				if !sendChan(ctx, out, ImageOutput{Kind: "result", Model: request.Model, Index: index, Total: total, Created: created, Data: data}) {
+					errCh <- ctx.Err()
+					return
+				}
 				errCh <- nil
 				return
 			}

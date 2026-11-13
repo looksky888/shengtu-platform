@@ -1,20 +1,38 @@
+import { useCallback, useState } from "react";
+
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { PaymentCredentialsInput } from "@/lib/payment-admin-api";
 
+const CONFIGURED_SECRET_PLACEHOLDER = "已配置，留空保持不变";
+
 export function PaymentCredentialsForm({
   provider,
   value,
+  configured,
   onChange,
 }: {
   provider: string;
   value: PaymentCredentialsInput;
+  configured?: boolean;
   onChange: (key: keyof PaymentCredentialsInput, value: string) => void;
 }) {
+  const [detectedConfigured, setDetectedConfigured] = useState(false);
+  const groupRef = useCallback((node: HTMLDivElement | null) => {
+    if (!node) return;
+    // In CredentialsDialog (existing channel rotation), PaymentCredentialsForm is rendered
+    // directly inside DialogContent rather than a create-mode <section>.
+    setDetectedConfigured(!node.closest("section"));
+  }, []);
+
+  const isSecretConfigured = configured ?? detectedConfigured;
+  const secretPlaceholder = (createHint: string) =>
+    isSecretConfigured ? CONFIGURED_SECRET_PLACEHOLDER : createHint;
+
   if (provider === "alipay") {
     return (
-      <FieldGroup className="md:grid md:grid-cols-2">
+      <FieldGroup ref={groupRef} className="md:grid md:grid-cols-2">
         <Field>
           <FieldLabel htmlFor="alipay-app-id">支付宝 AppID</FieldLabel>
           <Input
@@ -51,6 +69,7 @@ export function PaymentCredentialsForm({
             id="alipay-private-key"
             className="min-h-28 font-mono text-xs"
             value={value.alipay_private_key_pem}
+            placeholder={secretPlaceholder("-----BEGIN PRIVATE KEY-----")}
             autoComplete="off"
             onChange={(event) =>
               onChange("alipay_private_key_pem", event.target.value)
@@ -63,6 +82,7 @@ export function PaymentCredentialsForm({
             id="alipay-public-key"
             className="min-h-28 font-mono text-xs"
             value={value.alipay_public_key_pem}
+            placeholder={secretPlaceholder("-----BEGIN PUBLIC KEY-----")}
             autoComplete="off"
             onChange={(event) =>
               onChange("alipay_public_key_pem", event.target.value)
@@ -73,7 +93,7 @@ export function PaymentCredentialsForm({
     );
   }
   return (
-    <FieldGroup className="md:grid md:grid-cols-2">
+    <FieldGroup ref={groupRef} className="md:grid md:grid-cols-2">
       <Field>
         <FieldLabel htmlFor="wechat-app-id">AppID</FieldLabel>
         <Input
@@ -120,6 +140,7 @@ export function PaymentCredentialsForm({
           id="wechat-api-key"
           type="password"
           value={value.api_v3_key}
+          placeholder={secretPlaceholder("32 位微信支付 API v3 密钥")}
           autoComplete="new-password"
           onChange={(event) => onChange("api_v3_key", event.target.value)}
         />
@@ -130,6 +151,7 @@ export function PaymentCredentialsForm({
           id="wechat-private-key"
           className="min-h-28 font-mono text-xs"
           value={value.merchant_private_key_pem}
+          placeholder={secretPlaceholder("-----BEGIN PRIVATE KEY-----")}
           autoComplete="off"
           onChange={(event) =>
             onChange("merchant_private_key_pem", event.target.value)
@@ -144,6 +166,7 @@ export function PaymentCredentialsForm({
           id="wechat-platform-key"
           className="min-h-28 font-mono text-xs"
           value={value.wechatpay_public_key_pem}
+          placeholder={secretPlaceholder("-----BEGIN PUBLIC KEY-----")}
           autoComplete="off"
           onChange={(event) =>
             onChange("wechatpay_public_key_pem", event.target.value)

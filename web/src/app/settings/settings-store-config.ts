@@ -47,6 +47,12 @@ const LOGIN_VISUAL_CONFIG_KEYS: Array<keyof SettingsConfig> = [
   "login_page_image_position_y",
 ];
 
+const SECRET_COMPANION_CONFIG_KEYS: ReadonlyArray<keyof SettingsConfig> = [
+  "media_r2_secret_access_key_configured",
+  "image_proxy_api_key_configured",
+  "image_proxy_api_key_masked",
+];
+
 function revokeObjectUrlSafely(url: string) {
   if (url && url.startsWith("blob:") && typeof URL !== "undefined" && typeof URL.revokeObjectURL === "function") {
     try {
@@ -194,13 +200,13 @@ export const createConfigSlice: StateCreator<
     savedConfigSnapshot: "",
     pendingLoginImageFile: null,
     pendingLoginImagePreviewUrl: "",
-    isLoadingConfig: true,
+    isLoadingConfig: false,
     isSavingConfig: false,
     savingSectionKey: null,
     isFetchingImageProxyModels: false,
     logGovernance: null,
     lastLogCleanup: null,
-    isLoadingLogGovernance: true,
+    isLoadingLogGovernance: false,
     isCleaningLogs: false,
 
     loadConfig: (options: SettingsLoadOptions = {}) =>
@@ -376,9 +382,20 @@ export const createConfigSlice: StateCreator<
         const data = await updateSettingsConfig(payload);
         const nextConfig = normalizeConfig(data.config);
         const savedKeys = Object.keys(payload) as Array<keyof SettingsConfig>;
+        const syncedKeys = Array.from(
+          new Set<keyof SettingsConfig>([
+            ...savedKeys,
+            ...keys.filter(
+              (key) =>
+                key === "media_r2_secret_access_key" ||
+                key === "image_proxy_api_key"
+            ),
+            ...SECRET_COMPANION_CONFIG_KEYS,
+          ])
+        );
         set((state) => ({
           config: state.config
-            ? savedKeys.reduce(
+            ? syncedKeys.reduce(
                 (merged, key) => ({ ...merged, [key]: nextConfig[key] }),
                 { ...state.config }
               )
@@ -386,7 +403,7 @@ export const createConfigSlice: StateCreator<
           savedConfigSnapshot: mergeConfigSnapshot(
             state.savedConfigSnapshot,
             nextConfig,
-            savedKeys.map(String)
+            syncedKeys.map(String)
           ),
         }));
         syncAppMetaFromConfig(nextConfig, savedKeys);

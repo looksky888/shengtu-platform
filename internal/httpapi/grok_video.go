@@ -18,6 +18,7 @@ import (
 
 	"chatgpt2api/internal/protocol"
 	"chatgpt2api/internal/service"
+	"chatgpt2api/internal/sidecar"
 	"chatgpt2api/internal/storage"
 	"chatgpt2api/internal/util"
 )
@@ -216,7 +217,7 @@ func downloadGrokVideoToFile(ctx context.Context, base, token, videoID, destinat
 	if strings.TrimSpace(token) != "" {
 		req.Header.Set("X-Internal-Token", strings.TrimSpace(token))
 	}
-	resp, err := (&http.Client{Timeout: 5 * time.Minute}).Do(req)
+	resp, err := sidecar.SharedHTTPClient(5 * time.Minute).Do(req)
 	if err != nil {
 		return 0, "", videoRuntimeError(http.StatusBadGateway, "grok_native_unreachable", err.Error())
 	}
@@ -262,7 +263,7 @@ func doGrokVideoJSON(ctx context.Context, base, token, method, path string, body
 	if strings.TrimSpace(token) != "" {
 		req.Header.Set("X-Internal-Token", strings.TrimSpace(token))
 	}
-	resp, err := (&http.Client{Timeout: 30 * time.Second}).Do(req)
+	resp, err := sidecar.SharedHTTPClient(30 * time.Second).Do(req)
 	if err != nil {
 		return 0, nil, videoRuntimeError(http.StatusBadGateway, "grok_native_unreachable", err.Error())
 	}

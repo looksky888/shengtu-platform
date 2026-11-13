@@ -38,7 +38,7 @@ func TestJSONBodyLimitKeepsImagePayloadRoutesUsable(t *testing.T) {
 }
 
 func TestReadJSONMapRawRejectsOversizedRequest(t *testing.T) {
-	req := httptest.NewRequest("POST", "/api/register", strings.NewReader("{}"))
+	req := httptest.NewRequest("POST", "/api/settings", strings.NewReader("{}"))
 	req.ContentLength = maxJSONBodyBytes + 1
 	recorder := httptest.NewRecorder()
 	if _, _, ok := readJSONMapRawOr400(recorder, req); ok {

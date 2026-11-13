@@ -37,11 +37,23 @@ export const IMAGE_ACTIVE_CONVERSATION_REQUEST_EVENT = "chatgpt2api:image-open-c
 const IMAGE_CONVERSATIONS_KEY_PREFIX = "items";
 let imageConversationWriteQueue: Promise<void> = Promise.resolve();
 
-function dispatchImageConversationsChanged() {
+export type ImageConversationsChangedDetail = {
+  sourceId?: string;
+};
+
+type SaveConversationOptions = {
+  sourceId?: string;
+};
+
+function dispatchImageConversationsChanged(sourceId?: string) {
   if (typeof window === "undefined") {
     return;
   }
-  window.dispatchEvent(new Event(IMAGE_CONVERSATIONS_CHANGED_EVENT));
+  window.dispatchEvent(
+    new CustomEvent<ImageConversationsChangedDetail>(IMAGE_CONVERSATIONS_CHANGED_EVENT, {
+      detail: { sourceId },
+    }),
+  );
 }
 
 function conversationScopeFromSession(session: StoredAuthSession | null) {
@@ -86,7 +98,10 @@ export async function listImageConversations(): Promise<ImageConversation[]> {
   return sortImageConversations(await readStoredImageConversations());
 }
 
-export async function saveImageConversations(conversations: ImageConversation[]): Promise<void> {
+export async function saveImageConversations(
+  conversations: ImageConversation[],
+  options?: SaveConversationOptions,
+): Promise<void> {
   await queueImageConversationWrite(async () => {
     const storageKey = await imageConversationsStorageKey();
     const items = await readStoredImageConversations(storageKey);
@@ -101,11 +116,14 @@ export async function saveImageConversations(conversations: ImageConversation[])
       storageKey,
       sortImageConversations([...conversationMap.values()]),
     );
-    dispatchImageConversationsChanged();
+    dispatchImageConversationsChanged(options?.sourceId);
   });
 }
 
-export async function saveImageConversation(conversation: ImageConversation): Promise<void> {
+export async function saveImageConversation(
+  conversation: ImageConversation,
+  options?: SaveConversationOptions,
+): Promise<void> {
   await queueImageConversationWrite(async () => {
     const storageKey = await imageConversationsStorageKey();
     const items = await readStoredImageConversations(storageKey);
@@ -119,11 +137,14 @@ export async function saveImageConversation(conversation: ImageConversation): Pr
       ...items.filter((item) => item.id !== persistedConversation.id),
     ]);
     await imageConversationStorage.setItem(storageKey, nextItems);
-    dispatchImageConversationsChanged();
+    dispatchImageConversationsChanged(options?.sourceId);
   });
 }
 
-export async function deleteImageConversation(id: string): Promise<void> {
+export async function deleteImageConversation(
+  id: string,
+  options?: SaveConversationOptions,
+): Promise<void> {
   await queueImageConversationWrite(async () => {
     const storageKey = await imageConversationsStorageKey();
     const items = await readStoredImageConversations(storageKey);
@@ -131,14 +152,14 @@ export async function deleteImageConversation(id: string): Promise<void> {
       storageKey,
       items.filter((item) => item.id !== id),
     );
-    dispatchImageConversationsChanged();
+    dispatchImageConversationsChanged(options?.sourceId);
   });
 }
 
-export async function clearImageConversations(): Promise<void> {
+export async function clearImageConversations(options?: SaveConversationOptions): Promise<void> {
   await queueImageConversationWrite(async () => {
     await imageConversationStorage.removeItem(await imageConversationsStorageKey());
-    dispatchImageConversationsChanged();
+    dispatchImageConversationsChanged(options?.sourceId);
   });
 }
 

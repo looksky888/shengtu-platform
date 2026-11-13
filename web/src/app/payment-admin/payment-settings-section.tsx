@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
+  ArrowUpRight,
+  Cloud,
   LoaderCircle,
   RefreshCw,
   RotateCcw,
   Save,
   SlidersHorizontal,
 } from "lucide-react";
+import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -28,7 +31,15 @@ import {
 } from "@/lib/payment-admin-api";
 import { useUnsavedRouteGuard } from "@/lib/use-unsaved-route-guard";
 
-export function PaymentSettingsSection() {
+type PaymentSettingsSectionProps = {
+  hideCloudStorageToggle?: boolean;
+  onSaved?: (settings: PaymentSettings) => void;
+};
+
+export function PaymentSettingsSection({
+  hideCloudStorageToggle = false,
+  onSaved,
+}: PaymentSettingsSectionProps = {}) {
   const [settings, setSettings] = useState<PaymentSettings | null>(null);
   const [savedSnapshot, setSavedSnapshot] = useState("");
   const [loading, setLoading] = useState(true);
@@ -65,9 +76,28 @@ export function PaymentSettingsSection() {
     if (!settings) return false;
     setSaving(true);
     try {
-      const result = await updatePaymentSettings(settings);
+      let payload: PaymentSettings = settings;
+      if (hideCloudStorageToggle) {
+        try {
+          const latest = (await fetchPaymentSettings()).item;
+          payload = {
+            ...settings,
+            cloud_storage_enabled: latest.cloud_storage_enabled,
+            free_retention_days: latest.free_retention_days,
+            vip_grace_days: latest.vip_grace_days,
+            historical_grace_days: latest.historical_grace_days,
+          };
+        } catch {
+          payload = {
+            ...settings,
+            cloud_storage_enabled: settings.cloud_storage_enabled,
+          };
+        }
+      }
+      const result = await updatePaymentSettings(payload);
       setSettings(result.item);
       setSavedSnapshot(JSON.stringify(result.item));
+      onSaved?.(result.item);
       toast.success("支付业务规则已保存");
       return true;
     } catch (error) {
@@ -76,7 +106,7 @@ export function PaymentSettingsSection() {
     } finally {
       setSaving(false);
     }
-  }, [settings]);
+  }, [hideCloudStorageToggle, onSaved, settings]);
 
   const discardChanges = useCallback(() => {
     if (!savedSnapshot) return;
@@ -104,7 +134,7 @@ export function PaymentSettingsSection() {
 
   if (loadError || !settings) {
     return (
-      <div className="flex min-h-56 flex-col items-center justify-center gap-4 rounded-xl border border-destructive/30 bg-destructive/5 px-6 text-center">
+      <div className="flex min-h-56 flex-col items-center justify-center gap-4 rounded-[10px] border border-destructive/30 bg-destructive/5 px-6 text-center">
         <AlertCircle className="size-7 text-status-danger" />
         <div>
           <h2 className="text-sm font-semibold text-status-danger">
@@ -126,7 +156,7 @@ export function PaymentSettingsSection() {
 
   return (
     <>
-      <Card className="overflow-hidden rounded-xl">
+      <Card className="overflow-hidden rounded-[10px]">
         <CardHeader className="border-b border-border/70 bg-surface-muted/35">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="space-y-1">
@@ -146,7 +176,9 @@ export function PaymentSettingsSection() {
                 ) : null}
               </CardTitle>
               <CardDescription>
-                控制前台充值中心开关、云存储权益购买权限及自定义积分计价边界。
+                {hideCloudStorageToggle
+                  ? "控制前台充值中心总开关及自定义积分计价边界；云存储 VIP 留存总开关由「存储与备份」统一管理。"
+                  : "控制前台充值中心开关、云存储权益购买权限及自定义积分计价边界。"}
               </CardDescription>
             </div>
             <Button
@@ -162,9 +194,9 @@ export function PaymentSettingsSection() {
           </div>
         </CardHeader>
 
-        <CardContent className="flex flex-col gap-6 pt-5">
+        <CardContent className="flex flex-col gap-5 pt-5">
           <div className="grid gap-3 md:grid-cols-3">
-            <div className="flex items-start justify-between gap-3 rounded-xl border border-border/75 bg-surface-muted/25 p-4">
+            <div className="flex items-start justify-between gap-3 rounded-[10px] border border-border/75 bg-surface-muted/25 p-4">
               <div className="space-y-1">
                 <div className="text-sm font-medium text-foreground">
                   开放用户充值
@@ -182,25 +214,7 @@ export function PaymentSettingsSection() {
               />
             </div>
 
-            <div className="flex items-start justify-between gap-3 rounded-xl border border-border/75 bg-surface-muted/25 p-4">
-              <div className="space-y-1">
-                <div className="text-sm font-medium text-foreground">
-                  开放云存储套餐
-                </div>
-                <p className="text-xs leading-relaxed text-muted-foreground">
-                  允许购买云端媒体持久化存储空间与到期续期权益。
-                </p>
-              </div>
-              <Switch
-                checked={settings.cloud_storage_enabled}
-                onCheckedChange={(checked) =>
-                  setSettings({ ...settings, cloud_storage_enabled: checked })
-                }
-                aria-label="开放云存储套餐"
-              />
-            </div>
-
-            <div className="flex items-start justify-between gap-3 rounded-xl border border-border/75 bg-surface-muted/25 p-4">
+            <div className="flex items-start justify-between gap-3 rounded-[10px] border border-border/75 bg-surface-muted/25 p-4">
               <div className="space-y-1">
                 <div className="text-sm font-medium text-foreground">
                   开放自定义积分充值
@@ -217,9 +231,62 @@ export function PaymentSettingsSection() {
                 aria-label="开放自定义积分充值"
               />
             </div>
+
+            {hideCloudStorageToggle ? (
+              <div className="flex flex-col justify-between gap-2.5 rounded-[10px] border border-border/75 bg-surface-muted/20 p-4">
+                <div className="space-y-1">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
+                      <Cloud className="size-3.5 text-muted-foreground" />
+                      云存储 VIP 总开关
+                    </span>
+                    <Badge
+                      variant={settings.cloud_storage_enabled ? "success" : "secondary"}
+                      className="rounded-md text-[11px]"
+                    >
+                      {settings.cloud_storage_enabled ? "已开启" : "已关闭（永久留存）"}
+                    </Badge>
+                  </div>
+                  <p className="text-xs leading-relaxed text-muted-foreground">
+                    由「存储与备份」作为唯一权威入口统一管控，此处保存不会覆盖该开关状态。
+                  </p>
+                </div>
+                <div>
+                  <Button
+                    asChild
+                    variant="outline"
+                    size="sm"
+                    className="h-7.5 gap-1 text-xs"
+                  >
+                    <Link to="/admin/settings/storage">
+                      <span>前往存储与备份管理</span>
+                      <ArrowUpRight className="size-3.5" />
+                    </Link>
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-start justify-between gap-3 rounded-[10px] border border-border/75 bg-surface-muted/25 p-4">
+                <div className="space-y-1">
+                  <div className="text-sm font-medium text-foreground">
+                    开放云存储套餐
+                  </div>
+                  <p className="text-xs leading-relaxed text-muted-foreground">
+                    允许购买云端媒体持久化存储空间与到期续期权益。
+                  </p>
+                </div>
+                <Switch
+                  checked={settings.cloud_storage_enabled}
+                  onCheckedChange={(checked) =>
+                    setSettings({ ...settings, cloud_storage_enabled: checked })
+                  }
+                  aria-label="开放云存储套餐"
+                />
+              </div>
+            )}
           </div>
 
-          <div className="rounded-xl border border-border/75 bg-surface p-4">
+          <div className="rounded-[10px] border border-border/75 bg-surface p-4">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h3 className="text-sm font-semibold text-foreground">

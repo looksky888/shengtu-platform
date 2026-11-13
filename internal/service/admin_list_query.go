@@ -110,12 +110,26 @@ type ManagedUsersPage struct {
 	UsageReady bool                `json:"usage_ready"`
 }
 
+// AccountsSummary aggregates filtered pool counts and quota without requiring a second unpaginated query.
+type AccountsSummary struct {
+	Total          int      `json:"total"`
+	Active         int      `json:"active"`
+	Limited        int      `json:"limited"`
+	Abnormal       int      `json:"abnormal"`
+	Disabled       int      `json:"disabled"`
+	QuotaTotal     int      `json:"quota_total"`
+	QuotaUnlimited bool     `json:"quota_unlimited"`
+	QuotaUnknown   bool     `json:"quota_unknown"`
+	AbnormalIDs    []string `json:"abnormal_ids"`
+}
+
 // AccountsPage is the paginated admin accounts response.
 type AccountsPage struct {
-	Items    []AccountPublic `json:"items"`
-	Total    int             `json:"total"`
-	Page     int             `json:"page"`
-	PageSize int             `json:"page_size"`
+	Items    []AccountPublic  `json:"items"`
+	Total    int              `json:"total"`
+	Page     int              `json:"page"`
+	PageSize int              `json:"page_size"`
+	Summary  *AccountsSummary `json:"summary,omitempty"`
 }
 
 // QueryAccounts filters and pages public account records in memory.
@@ -155,6 +169,32 @@ func (s *AccountService) QueryAccounts(query AdminListQuery) (AccountsPage, erro
 		return filtered[i].ID < filtered[j].ID
 	})
 
+	summary := &AccountsSummary{
+		Total:       len(filtered),
+		AbnormalIDs: []string{},
+	}
+	for _, acc := range filtered {
+		switch acc.Status {
+		case "正常":
+			summary.Active++
+			switch {
+			case acc.Type == "Pro" || acc.Type == "ProLite":
+				summary.QuotaUnlimited = true
+			case acc.ImageQuotaUnknown:
+				summary.QuotaUnknown = true
+			case acc.Quota > 0:
+				summary.QuotaTotal += acc.Quota
+			}
+		case "限流":
+			summary.Limited++
+		case "异常":
+			summary.Abnormal++
+			summary.AbnormalIDs = append(summary.AbnormalIDs, acc.ID)
+		case "禁用":
+			summary.Disabled++
+		}
+	}
+
 	items := pageSlice(filtered, page, pageSize, unlimited)
 	outPageSize := pageSize
 	if unlimited {
@@ -168,6 +208,7 @@ func (s *AccountService) QueryAccounts(query AdminListQuery) (AccountsPage, erro
 		Total:    len(filtered),
 		Page:     page,
 		PageSize: outPageSize,
+		Summary:  summary,
 	}, nil
 }
 

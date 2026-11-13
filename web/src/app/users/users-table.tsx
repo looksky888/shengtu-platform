@@ -40,6 +40,7 @@ type UsersTableProps = {
   onPageChange: (updater: (value: number) => number) => void;
   onCreateUser?: () => void;
   onClearFilters?: () => void;
+  onSelectUser?: (user: ManagedUser) => void;
   onAdjustCredits: (user: ManagedUser, mode: CreditAdjustMode) => void;
   onRole: (user: ManagedUser) => void;
   onToggle: (user: ManagedUser) => void;
@@ -182,6 +183,7 @@ export function UsersTable(props: UsersTableProps) {
                   usage={usageByUserId?.get(user.id)}
                   usageReady={usageReady}
                   permissions={permissions}
+                  onSelectUser={props.onSelectUser}
                   onAdjustCredits={props.onAdjustCredits}
                   onRole={props.onRole}
                   onToggle={props.onToggle}

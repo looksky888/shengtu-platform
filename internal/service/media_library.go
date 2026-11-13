@@ -50,6 +50,7 @@ type MediaLibrary struct {
 	assetLocks mediaAssetLockSet
 	capacity   storage.StorageCapacityBackend
 	documents  storage.JSONDocumentBackend
+	nowFn      func() time.Time
 	// Keep expensive media work from consuming every image task worker when a
 	// burst produces many outputs. These limits are local process safeguards;
 	// R2 retries still go through the same upload gate.
@@ -57,6 +58,16 @@ type MediaLibrary struct {
 	transformSem chan struct{}
 	uploadQueue  chan storage.MediaAssetRecord
 	startOnce    sync.Once
+	bgWG         sync.WaitGroup
+}
+
+// Close waits for background upload, migration, and local cleanup workers to exit
+// after the root context has been canceled.
+func (m *MediaLibrary) Close() {
+	if m == nil {
+		return
+	}
+	m.bgWG.Wait()
 }
 
 const (
@@ -76,6 +87,10 @@ func NewMediaLibrary(ctx context.Context, cfg MediaStorageConfig, backend storag
 // local storage is still active. This lets operators migrate first and switch
 // providers only after verification.
 func NewR2MediaLibrary(ctx context.Context, cfg MediaStorageConfig, backend storage.Backend, logger *Logger) (*MediaLibrary, error) {
+	return NewR2MediaLibraryWithEndpoint(ctx, cfg, backend, logger, "", nil)
+}
+
+func NewR2MediaLibraryWithEndpoint(ctx context.Context, cfg MediaStorageConfig, backend storage.Backend, logger *Logger, endpoint string, httpClient *http.Client) (*MediaLibrary, error) {
 	if cfg == nil {
 		return nil, errors.New("媒体存储配置为空")
 	}
@@ -83,12 +98,12 @@ func NewR2MediaLibrary(ctx context.Context, cfg MediaStorageConfig, backend stor
 	if !ok {
 		return nil, errors.New("R2 媒体存储需要数据库存储后端")
 	}
-	objects, err := newR2ObjectStore(ctx, r2ObjectStoreConfig{
+	objects, err := newR2ObjectStoreWithEndpoint(ctx, r2ObjectStoreConfig{
 		AccountID:       cfg.MediaR2AccountID(),
 		AccessKeyID:     cfg.MediaR2AccessKeyID(),
 		SecretAccessKey: cfg.MediaR2SecretAccessKey(),
 		Bucket:          cfg.MediaR2Bucket(),
-	})
+	}, endpoint, httpClient)
 	if err != nil {
 		return nil, err
 	}
@@ -177,39 +192,18 @@ func (m *MediaLibrary) StoreImage(data []byte, baseURL, ownerID, ownerName, outp
 	return strings.TrimRight(baseURL, "/") + "/images/" + rel, nil
 }
 
-// checkStorageCapacity enforces the purchased R2 image capacity before a new
-// asset enters the durable pending queue. Free-tier users intentionally have
-// no entitlement and continue to use the configured retention policy.
-func (m *MediaLibrary) reserveStorageCapacity(ownerID string, incomingBytes int64) (string, error) {
-	if m == nil || m.capacity == nil || incomingBytes <= 0 || strings.TrimSpace(ownerID) == "" {
-		return "", nil
-	}
-	now := time.Now().UTC().Format(time.RFC3339Nano)
-	reservationID, limited, allowed, used, total, err := m.capacity.ReserveStorageCapacity(strings.TrimSpace(ownerID), now, incomingBytes, 15*60)
-	if err != nil {
-		return "", fmt.Errorf("读取云存储容量: %w", err)
-	}
-	if limited && !allowed {
-		return "", fmt.Errorf("云存储容量不足：已使用 %s / %s，请购买或升级云存储套餐", formatMediaBytes(used), formatMediaBytes(total))
-	}
-	return reservationID, nil
+// reserveStorageCapacity is intentionally a no-op: cloud storage capacity must
+// never block or fail image generation for any user (free or VIP). Retention is
+// governed asynchronously by the cloud storage policy when enabled.
+func (m *MediaLibrary) reserveStorageCapacity(_ string, _ int64) (string, error) {
+	return "", nil
 }
 
-func formatMediaBytes(value int64) string {
-	if value < 0 {
-		value = 0
+func (m *MediaLibrary) now() time.Time {
+	if m != nil && m.nowFn != nil {
+		return m.nowFn()
 	}
-	const unit = int64(1024)
-	if value >= unit*unit*unit {
-		return fmt.Sprintf("%.1f GB", float64(value)/float64(unit*unit*unit))
-	}
-	if value >= unit*unit {
-		return fmt.Sprintf("%.1f MB", float64(value)/float64(unit*unit))
-	}
-	if value >= unit {
-		return fmt.Sprintf("%.1f KB", float64(value)/float64(unit))
-	}
-	return fmt.Sprintf("%d B", value)
+	return time.Now()
 }
 
 func (m *MediaLibrary) objectKey(parts ...string) string {

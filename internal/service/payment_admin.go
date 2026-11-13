@@ -298,7 +298,7 @@ func validateProductInput(input RechargeProductInput) (storage.RechargeProductRe
 		}
 		product.StorageDays, product.StorageBytes = 0, 0
 	case "cloud_storage":
-		if product.StorageDays <= 0 || product.StorageDays > 3650 || product.StorageBytes <= 0 {
+		if product.StorageDays <= 0 || product.StorageDays > 3650 || product.StorageBytes < 0 {
 			return storage.RechargeProductRecord{}, errors.New("云存储套餐容量或有效期无效")
 		}
 		product.Credits = 1

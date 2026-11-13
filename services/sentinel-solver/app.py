@@ -68,9 +68,12 @@ def create_app(solver=None, key: str | None = None) -> FastAPI:
         return JSONResponse({"detail": "invalid challenge parameters"}, status_code=422)
 
     async def execute(operation, context_id: str = "", timeout_seconds: float = 40.0):
-        if gate.locked():
-            raise HTTPException(503, "solver busy")
-        async with gate:
+        try:
+            async with asyncio.timeout(15.0):
+                await gate.acquire()
+        except TimeoutError:
+            raise HTTPException(503, "solver busy") from None
+        try:
             try:
                 async with asyncio.timeout(timeout_seconds):
                     return await operation()
@@ -86,6 +89,8 @@ def create_app(solver=None, key: str | None = None) -> FastAPI:
                 raise HTTPException(504, "solver timeout") from None
             except Exception:
                 raise HTTPException(503, "solver unavailable") from None
+        finally:
+            gate.release()
 
     @app.get("/health")
     async def health():

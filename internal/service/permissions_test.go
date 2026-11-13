@@ -126,3 +126,57 @@ func TestNormalizeManagedRoleAPIPermissionsBackfillsStorageEntitlement(t *testin
 		t.Fatalf("unrelated role received storage entitlement read permission: %#v", permissions)
 	}
 }
+
+
+func TestPaymentConfigPermissionAlignsWithSettingsEntitlementAndGallery(t *testing.T) {
+	if key, ok := MatchAPIPermissionKey("GET", "/api/payment/config"); !ok || key != APIPermissionKey("GET", "/api/payment/settings") {
+		t.Fatalf("MatchAPIPermissionKey(GET /api/payment/config) = (%q, %v)", key, ok)
+	}
+	for _, granted := range []string{
+		APIPermissionKey("GET", "/api/payment/settings"),
+		APIPermissionKey("GET", "/api/payment/storage-entitlement"),
+		APIPermissionKey("GET", "/api/images"),
+	} {
+		if !HasAPIPermission(PermissionSet{APIPermissions: []string{granted}}, "GET", "/api/payment/config") {
+			t.Fatalf("HasAPIPermission(GET /api/payment/config) = false when granted %q", granted)
+		}
+	}
+	if HasAPIPermission(PermissionSet{APIPermissions: []string{APIPermissionKey("GET", "/api/videos")}}, "GET", "/api/payment/config") {
+		t.Fatal("HasAPIPermission(GET /api/payment/config) unexpectedly true for unrelated permission")
+	}
+}
+
+func TestNormalizeAnnouncementLinkURLHardening(t *testing.T) {
+	valid := []string{
+		"/wallet",
+		"/assets?scope=mine",
+		"https://example.com/promo?ref=1",
+		"http://localhost:8000/docs",
+	}
+	for _, input := range valid {
+		if got := NormalizeAnnouncementLinkURL(input); got != input {
+			t.Fatalf("NormalizeAnnouncementLinkURL(%q) = %q, want %q", input, got, input)
+		}
+	}
+
+	invalid := []string{
+		"",
+		"//evil.com/phish",
+		`/\evil.com/phish`,
+		`/wallet\..\..\evil`,
+		"javascript:alert(1)",
+		"data:text/html,<script>alert(1)</script>",
+		"https://",
+		"http://",
+		"https:///path-without-host",
+		"https://evil.com\\@trusted.com",
+		"https://example.com/path with space",
+		"https://example.com/\r\nX-Injected: 1",
+		"/wallet\t/bad",
+	}
+	for _, input := range invalid {
+		if got := NormalizeAnnouncementLinkURL(input); got != "" {
+			t.Fatalf("NormalizeAnnouncementLinkURL(%q) = %q, want empty", input, got)
+		}
+	}
+}

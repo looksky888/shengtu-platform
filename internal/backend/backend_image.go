@@ -10,27 +10,24 @@ import (
 	_ "image/jpeg"
 	_ "image/png"
 	"io"
+	"math/rand"
 	"mime"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
-	"unicode/utf8"
 
 	"chatgpt2api/internal/util"
 )
 
 const (
 	imageClientCreatedRoot = "client-created-root"
-	imageCreationMention   = "@创建图像"
 )
 
 func (c *Client) ResolveConversationImageURLs(ctx context.Context, conversationID string, fileIDs, sedimentIDs []string, poll bool) []string {
 	fileIDs = filter(fileIDs, func(v string) bool { return v != "file_upload" })
 	if poll && conversationID != "" && (len(fileIDs) > 0 || len(sedimentIDs) > 0) {
-		// The SSE can expose asset ids before the conversation/file service has
-		// committed the download metadata. Give the upstream a short, interruptible
-		// settle window before resolving URLs.
-		if !sleepWithinContext(ctx, imageResultSettleDelay()) {
+		if delay := imageResultSettleDelay(); delay > 0 && !sleepWithinContext(ctx, delay) {
 			return nil
 		}
 	}
@@ -39,25 +36,39 @@ func (c *Client) ResolveConversationImageURLs(ctx context.Context, conversationI
 		fileIDs = appendUnique(fileIDs, polledFiles...)
 		sedimentIDs = appendUnique(sedimentIDs, polledSediments...)
 	}
-	return c.resolveImageURLs(ctx, conversationID, fileIDs, sedimentIDs)
+	urls := c.resolveImageURLs(ctx, conversationID, fileIDs, sedimentIDs)
+	if len(urls) > 0 || !poll || conversationID == "" {
+		return urls
+	}
+	if len(fileIDs) > 0 || len(sedimentIDs) > 0 {
+		for _, backoff := range []time.Duration{400 * time.Millisecond, 1000 * time.Millisecond} {
+			if !sleepWithinContext(ctx, backoff) {
+				return nil
+			}
+			if urls = c.resolveImageURLs(ctx, conversationID, fileIDs, sedimentIDs); len(urls) > 0 {
+				return urls
+			}
+		}
+		polledFiles, polledSediments := c.pollImageResults(ctx, conversationID, imagePollTimeout())
+		fileIDs = appendUnique(fileIDs, polledFiles...)
+		sedimentIDs = appendUnique(sedimentIDs, polledSediments...)
+		return c.resolveImageURLs(ctx, conversationID, fileIDs, sedimentIDs)
+	}
+	return nil
 }
 
 func (c *Client) streamPictureConversation(ctx context.Context, out chan<- string, prompt, model string, images []string) error {
 	if c.AccessToken == "" {
 		return fmt.Errorf("access_token is required for image endpoints")
 	}
+	if err := c.bootstrap(ctx); err != nil {
+		return err
+	}
 	if err := c.prepareSentinelContext(ctx); err != nil {
 		return err
 	}
-	references := make([]UploadedFile, 0, len(images))
-	for index, imageRef := range images {
-		uploaded, err := c.uploadImage(ctx, imageRef, fmt.Sprintf("image_%d.png", index+1))
-		if err != nil {
-			return err
-		}
-		references = append(references, uploaded)
-	}
-	if err := c.bootstrap(ctx); err != nil {
+	references, err := c.uploadReferenceImages(ctx, images)
+	if err != nil {
 		return err
 	}
 	reqs, err := c.getChatRequirements(ctx)
@@ -75,6 +86,58 @@ func (c *Client) streamPictureConversation(ctx context.Context, out chan<- strin
 	}
 	defer resp.Body.Close()
 	return iterPictureSSEPayloads(ctx, resp.Body, out)
+}
+
+func (c *Client) uploadReferenceImages(ctx context.Context, images []string) ([]UploadedFile, error) {
+	if len(images) == 0 {
+		return nil, nil
+	}
+	if len(images) == 1 {
+		uploaded, err := c.uploadImage(ctx, images[0], "image_1.png")
+		if err != nil {
+			return nil, err
+		}
+		return []UploadedFile{uploaded}, nil
+	}
+	references := make([]UploadedFile, len(images))
+	uploadCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	sem := make(chan struct{}, 3)
+	var (
+		wg       sync.WaitGroup
+		errMu    sync.Mutex
+		firstErr error
+	)
+	for index, imageRef := range images {
+		index := index
+		imageRef := imageRef
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			select {
+			case sem <- struct{}{}:
+				defer func() { <-sem }()
+			case <-uploadCtx.Done():
+				return
+			}
+			uploaded, err := c.uploadImage(uploadCtx, imageRef, fmt.Sprintf("image_%d.png", index+1))
+			if err != nil {
+				errMu.Lock()
+				if firstErr == nil {
+					firstErr = err
+					cancel()
+				}
+				errMu.Unlock()
+				return
+			}
+			references[index] = uploaded
+		}()
+	}
+	wg.Wait()
+	if firstErr != nil {
+		return nil, firstErr
+	}
+	return references, nil
 }
 
 func iterPictureSSEPayloads(ctx context.Context, reader io.Reader, out chan<- string) error {
@@ -180,21 +243,18 @@ func (c *Client) imageHeadersContextWithTrace(ctx context.Context, path string, 
 }
 
 func (c *Client) imageModelSlug(model string) string {
-	model = strings.TrimSpace(model)
-	if canonical, ok := util.CanonicalImage25Model(model); ok {
-		return canonical
-	}
-	if model == "" || util.IsGPTImageModel(model) {
-		// Public GPT image aliases are translated to the Web conversation slug;
-		// API providers keep the public ID in their own request path.
+	raw := strings.ToLower(strings.TrimSpace(model))
+	if raw == "" || raw == util.ImageModelGPT {
 		return util.ImageModelGPT53
 	}
-	if strings.EqualFold(model, util.ImageModelAuto) {
-		return util.ImageModelAuto
+	if raw == "codex-gpt-image-2" {
+		return "codex-gpt-image-2"
 	}
-	if isAllowedPictureModelSlug(model) {
-		return strings.ToLower(model)
+	if isAllowedPictureModelSlug(raw) {
+		return raw
 	}
+	// Match yukkcat/chatgpt2api: gpt-image-2.5 / flare / sunburst / 2.6 / auto
+	// route through ChatGPT Web's "auto" model with system_hints=["picture_v2"].
 	return util.ImageModelAuto
 }
 
@@ -211,12 +271,18 @@ func (c *Client) prepareImageConversation(ctx context.Context, prompt string, re
 	path := "/backend-api/f/conversation/prepare"
 	timezoneName, timezoneOffset := c.imageTimezone()
 	payload := map[string]any{
-		"action": "next", "is_do_not_remember": false, "model": c.imageModelSlug(model), "parent_message_id": imageClientCreatedRoot,
-		"system_hints": []any{"picture_v2"}, "timezone_offset_min": timezoneOffset, "timezone": timezoneName,
-		"client_contextual_info": map[string]any{"app_name": "chatgpt.com", "app_surface": "codex_browser", "has_web_push_capabilities": true, "web_push_notification_permission": "default"},
-		"local_function_names":   []any{"local.continue_in_work"}, "supported_encodings": []any{"v1"}, "client_prepare_state": "sent",
-		"partial_query":           map[string]any{"id": util.NewUUID(), "author": map[string]any{"role": "user"}, "content": map[string]any{"content_type": "text", "parts": []any{prompt}}},
-		"client_prepare_dispatch": "debounced", "client_prepare_source": "composer_editor_state",
+		"action":                 "next",
+		"fork_from_shared_post":  false,
+		"parent_message_id":      imageClientCreatedRoot,
+		"model":                  c.imageModelSlug(model),
+		"timezone_offset_min":    timezoneOffset,
+		"timezone":               timezoneName,
+		"conversation_mode":      map[string]any{"kind": "primary_assistant"},
+		"system_hints":           []any{"picture_v2"},
+		"supports_buffering":     true,
+		"supported_encodings":    []any{"v1"},
+		"client_contextual_info": map[string]any{"app_name": "chatgpt.com"},
+		"client_prepare_state":   "success",
 	}
 	resp, err := c.postJSON(ctx, path, payload, c.imageHeadersContextWithTrace(ctx, path, reqs, "", "*/*", traceID), false)
 	if err != nil {
@@ -259,24 +325,43 @@ func (c *Client) uploadImage(ctx context.Context, imageRef, fileName string) (Up
 	if err != nil {
 		return UploadedFile{}, err
 	}
-	// Brief pause for Azure blob SAS readiness; interruptible via request context.
-	if !sleepWithinContext(ctx, imageUploadSettleDelay()) {
+	settleDelay := imageUploadSettleDelay()
+	if settleDelay > 0 && !sleepWithinContext(ctx, settleDelay) {
 		return UploadedFile{}, ctx.Err()
 	}
 	uploadURL := util.Clean(uploadMeta["upload_url"])
-	req, err := http.NewRequestWithContext(ctx, http.MethodPut, uploadURL, bytes.NewReader(data))
-	if err != nil {
-		return UploadedFile{}, fmt.Errorf("image_upload request: %w", err)
+	var lastPutErr error
+	for putAttempt := 0; putAttempt < 2; putAttempt++ {
+		if putAttempt > 0 && !sleepWithinContext(ctx, 200*time.Millisecond) {
+			return UploadedFile{}, ctx.Err()
+		}
+		req, err := http.NewRequestWithContext(ctx, http.MethodPut, uploadURL, bytes.NewReader(data))
+		if err != nil {
+			return UploadedFile{}, fmt.Errorf("image_upload request: %w", err)
+		}
+		for key, value := range map[string]string{"Content-Type": mimeType, "x-ms-blob-type": "BlockBlob", "x-ms-version": "2020-04-08", "Origin": c.BaseURL, "Referer": c.BaseURL + "/", "User-Agent": c.userAgent, "Accept": "application/json, text/plain, */*", "Accept-Language": "en-US,en;q=0.8"} {
+			req.Header.Set(key, value)
+		}
+		putResp, err := c.httpClient.Do(req)
+		if err != nil {
+			lastPutErr = upstreamTransportError("image_upload", err)
+			if putAttempt == 0 && settleDelay == 0 {
+				continue
+			}
+			return UploadedFile{}, lastPutErr
+		}
+		if putAttempt == 0 && settleDelay == 0 && (putResp.StatusCode == http.StatusForbidden || putResp.StatusCode == http.StatusNotFound || putResp.StatusCode >= 500) {
+			_ = putResp.Body.Close()
+			continue
+		}
+		if err := ensureOKAndClose(putResp, "image_upload"); err != nil {
+			return UploadedFile{}, err
+		}
+		lastPutErr = nil
+		break
 	}
-	for key, value := range map[string]string{"Content-Type": mimeType, "x-ms-blob-type": "BlockBlob", "x-ms-version": "2020-04-08", "Origin": c.BaseURL, "Referer": c.BaseURL + "/", "User-Agent": c.userAgent, "Accept": "application/json, text/plain, */*", "Accept-Language": "en-US,en;q=0.8"} {
-		req.Header.Set(key, value)
-	}
-	putResp, err := c.httpClient.Do(req)
-	if err != nil {
-		return UploadedFile{}, upstreamTransportError("image_upload", err)
-	}
-	if err := ensureOKAndClose(putResp, "image_upload"); err != nil {
-		return UploadedFile{}, err
+	if lastPutErr != nil {
+		return UploadedFile{}, lastPutErr
 	}
 	uploadedPath := fmt.Sprintf("/backend-api/files/%s/uploaded", util.Clean(uploadMeta["file_id"]))
 	resp, err = c.postRaw(ctx, uploadedPath, []byte("{}"), c.headersContext(ctx, uploadedPath, map[string]string{"Content-Type": "application/json", "Accept": "application/json"}), false)
@@ -291,19 +376,20 @@ func (c *Client) uploadImage(ctx context.Context, imageRef, fileName string) (Up
 
 func (c *Client) startImageGeneration(ctx context.Context, prompt string, reqs ChatRequirements, conduitToken, model string, references []UploadedFile, traceID string) (*http.Response, error) {
 	timezoneName, timezoneOffset := c.imageTimezone()
-	mentionText := imageCreationMention + " " + prompt
 	var parts []any
 	for _, item := range references {
 		parts = append(parts, map[string]any{"content_type": "image_asset_pointer", "asset_pointer": "file-service://" + item.FileID, "width": item.Width, "height": item.Height, "size_bytes": item.FileSize})
 	}
-	parts = append(parts, mentionText)
-	content := map[string]any{"content_type": "text", "parts": []any{mentionText}}
+	parts = append(parts, prompt)
+	content := map[string]any{"content_type": "text", "parts": []any{prompt}}
 	if len(references) > 0 {
 		content = map[string]any{"content_type": "multimodal_text", "parts": parts}
 	}
-	metadata := map[string]any{"developer_mode_connector_ids": []any{}, "selected_github_repos": []any{}, "selected_all_github_repos": false, "system_hints": []any{"picture_v2"}, "serialization_metadata": map[string]any{
-		"render_format": "markdown", "custom_symbol_offsets": []any{map[string]any{"id": "picture_v2", "symbol": "ecosystemMention", "startIndex": 0, "endIndex": utf8.RuneCountInString(imageCreationMention)}},
-	}}
+	metadata := map[string]any{
+		"selected_github_repos":     []any{},
+		"selected_all_github_repos": false,
+		"serialization_metadata":    map[string]any{"custom_symbol_offsets": []any{}},
+	}
 	if len(references) > 0 {
 		attachments := make([]any, 0, len(references))
 		for _, item := range references {
@@ -312,11 +398,36 @@ func (c *Client) startImageGeneration(ctx context.Context, prompt string, reqs C
 		metadata["attachments"] = attachments
 	}
 	payload := map[string]any{
-		"turn_attribution": map[string]any{"turn_trigger": "composer"}, "action": "next", "is_do_not_remember": false,
-		"messages":          []any{map[string]any{"id": util.NewUUID(), "author": map[string]any{"metadata": map[string]any{}, "name": nil, "role": "user"}, "channel": nil, "create_time": float64(time.Now().UnixNano()) / 1e9, "end_turn": nil, "content": content, "metadata": metadata, "recipient": "all", "status": "finished_successfully", "update_time": nil, "weight": 1}},
-		"parent_message_id": imageClientCreatedRoot, "model": c.imageModelSlug(model), "system_hints": []any{"picture_v2"}, "timezone_offset_min": timezoneOffset, "timezone": timezoneName,
-		"client_contextual_info": map[string]any{"app_name": "chatgpt.com", "app_surface": "codex_browser", "has_web_push_capabilities": true, "web_push_notification_permission": "default"},
-		"local_function_names":   []any{"local.continue_in_work"}, "supported_encodings": []any{"v1"}, "genui_state_snapshots": []any{}, "client_prepare_state": "success",
+		"action": "next",
+		"messages": []any{map[string]any{
+			"id":          util.NewUUID(),
+			"author":      map[string]any{"role": "user"},
+			"create_time": float64(time.Now().UnixNano()) / 1e9,
+			"content":     content,
+			"metadata":    metadata,
+		}},
+		"parent_message_id":        imageClientCreatedRoot,
+		"model":                    c.imageModelSlug(model),
+		"timezone_offset_min":      timezoneOffset,
+		"timezone":                 timezoneName,
+		"conversation_mode":        map[string]any{"kind": "primary_assistant"},
+		"enable_message_followups": true,
+		"system_hints":             []any{"picture_v2"},
+		"supports_buffering":       true,
+		"supported_encodings":      []any{"v1"},
+		"client_contextual_info": map[string]any{
+			"is_dark_mode":      false,
+			"time_since_loaded": 20 + rand.Intn(101),
+			"page_height":       945,
+			"page_width":        1920,
+			"pixel_ratio":       1,
+			"screen_height":     1080,
+			"screen_width":      1920,
+			"app_name":          "chatgpt.com",
+		},
+		"client_prepare_state":                 "sent",
+		"paragen_cot_summary_display_override": "allow",
+		"force_parallel_switch":                "auto",
 	}
 	path := "/backend-api/f/conversation"
 	resp, err := c.postJSON(ctx, path, payload, c.imageHeadersContextWithTrace(ctx, path, reqs, conduitToken, "text/event-stream", traceID), true)
@@ -329,7 +440,7 @@ func (c *Client) startImageGeneration(ctx context.Context, prompt string, reqs C
 		if readErr != nil {
 			return nil, readErr
 		}
-		if isAutoImageModelNotFound(resp.StatusCode, c.imageModelSlug(model), data) {
+		if isAutoImageModelNotFound(resp.StatusCode, strings.ToLower(strings.TrimSpace(model)), data) {
 			return nil, fmt.Errorf("%w: %v", ErrAutoImageModelNotFound, upstreamHTTPErrorWithResponse(path, resp, data))
 		}
 		return nil, upstreamHTTPErrorWithResponse(path, resp, data)

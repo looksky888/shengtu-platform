@@ -5,15 +5,8 @@ import {
   ProductPricingFields,
   ProductStatusField,
 } from "@/app/payment-admin/payment-product-fields";
+import { AdminSlideDrawer } from "@/components/admin";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import type { RechargeProductInput } from "@/lib/payment-admin-api";
 
 type ProductEditorDialogProps = {
@@ -39,42 +32,43 @@ export function ProductEditorDialog({
   onSave,
 }: ProductEditorDialogProps) {
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[92vh] w-[min(94vw,760px)] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{editing ? "编辑充值商品" : "新增充值商品"}</DialogTitle>
-          <DialogDescription>
-            {editing
-              ? "更新商品信息后保存即可生效。"
-              : "按商品类型填写名称、价格和到账权益。"}
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-5">
-          <ProductBasicFields product={product} onChange={onChange} />
-          <ProductPricingFields product={product} onChange={onChange} />
-          <ProductStatusField product={product} onChange={onChange} />
-        </div>
-
-        <DialogFooter>
+    <AdminSlideDrawer
+      open={open}
+      onOpenChange={onOpenChange}
+      widthClassName="w-[min(460px,100vw)]"
+      title={editing ? "编辑套餐商品" : "新增套餐商品"}
+      description={
+        editing
+          ? "更新套餐定价、权益参数与上架状态后保存即可实时生效。"
+          : "按商品类型配置套餐名称、结算价格与对应到账权益。"
+      }
+      footer={
+        <div className="flex items-center justify-end gap-2">
           <Button
             type="button"
             variant="outline"
+            size="sm"
             onClick={() => onOpenChange(false)}
             disabled={saving}
           >
             取消
           </Button>
-          <Button type="button" onClick={onSave} disabled={saving}>
+          <Button type="button" size="sm" onClick={onSave} disabled={saving}>
             {saving ? (
-              <LoaderCircle className="size-4 animate-spin" />
+              <LoaderCircle className="size-3.5 animate-spin" />
             ) : (
-              <Check className="size-4" />
+              <Check className="size-3.5" />
             )}
             {editing ? "保存修改" : "创建商品"}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </div>
+      }
+    >
+      <div className="space-y-4">
+        <ProductBasicFields product={product} onChange={onChange} />
+        <ProductPricingFields product={product} onChange={onChange} />
+        <ProductStatusField product={product} onChange={onChange} />
+      </div>
+    </AdminSlideDrawer>
   );
 }

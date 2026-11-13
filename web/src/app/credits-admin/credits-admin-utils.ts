@@ -3,6 +3,9 @@ import type { ComponentProps } from "react";
 import type { Badge } from "@/components/ui/badge";
 import type { CreditAccount, CreditCard, CreditLedgerEntry, GeneratedCreditCard } from "@/lib/api";
 import { chinaTimeRangeBounds, formatDateTime as formatBizDateTime, isWithinChinaTimeFilter, type TimeRangeFilter } from "@/lib/datetime";
+import { formatCreditNumber } from "@/lib/format";
+
+export { formatCreditNumber };
 
 export const ADMIN_TABLE_PAGE_SIZE_OPTIONS = [10, 20, 50] as const;
 export type AdminTablePageSize = typeof ADMIN_TABLE_PAGE_SIZE_OPTIONS[number];
@@ -33,11 +36,6 @@ export function normalizeGeneratedCreditCards(items: GeneratedCreditCard[] | nul
 
 export function formatDateTime(value?: string | null) {
   return formatBizDateTime(value, { withSeconds: false });
-}
-
-export function formatCreditNumber(value?: number | null) {
-  if (typeof value !== "number" || !Number.isFinite(value)) return "0";
-  return new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 2 }).format(value);
 }
 
 export function formatCardStatus(status: CreditCard["status"]) {

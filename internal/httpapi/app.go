@@ -67,7 +67,6 @@ type App struct {
 	prompts           *service.PromptFavoriteService
 	cpa               *service.CPAConfig
 	cpaImport         *service.CPAImportService
-	register          *service.RegisterService
 	credits           *service.CreditService
 	creditRefunds     *service.CreditRefundQueue
 	imageChannels     *service.ImageChannelService
@@ -246,7 +245,6 @@ func NewApp() (*App, error) {
 			"bill_rows", run.BillRows, "amount_mismatches", run.AmountMismatches, "missing_local_orders", run.MissingLocalOrders,
 			"missing_bill_orders", run.MissingBillOrders)
 	})
-	app.register = service.NewRegisterService(cfg.DataDir, accounts, storageBackend)
 	app.wireImageTasks(cfg, storageBackend)
 	app.startCreationBillingReconciliation(ctx, time.Minute)
 	if err := app.videos.Backfill(app.tasks.VideoAssetSeeds()); err != nil && app.logger != nil {
@@ -273,39 +271,10 @@ func (a *App) startMediaCleanup(ctx context.Context, interval time.Duration) {
 	if interval <= 0 {
 		interval = mediaCleanupInterval
 	}
-	cleanup := func() {
-		if removed := a.config.CleanupOldImages(); removed > 0 && a.logger != nil {
-			a.logger.Info("scheduled image cleanup completed", "removed", removed)
-		}
-		if a.images != nil {
-			if swept := a.images.SweepOrphanedImageDocuments(); swept > 0 && a.logger != nil {
-				a.logger.Info("swept orphaned local image documents", "removed", swept)
-			}
-		}
-		paymentSettings, paymentSettingsErr := a.paymentOrders.Settings()
-		if paymentSettingsErr == nil && paymentSettings.CloudStorageEnabled && paymentSettings.CloudStoragePolicyStartedAt != "" && a.media != nil && a.config.MediaStorageProvider() == "r2" {
-			if removed, err := a.media.CleanupExpiredRemoteMedia(ctx, a.config.ImageRetentionDays(), paymentSettings.CloudStoragePolicyStartedAt); err != nil {
-				if a.logger != nil {
-					a.logger.Warning("scheduled R2 image cleanup failed", "error", err.Error())
-				}
-			} else if removed > 0 && a.logger != nil {
-				a.logger.Info("scheduled R2 image cleanup completed", "removed", removed)
-			}
-		}
-		if a.videos == nil {
-			return
-		}
-		removed, err := a.videos.CleanupOldVideos(a.config.VideoRetentionDays())
-		if err != nil && a.logger != nil {
-			a.logger.Warning("scheduled video cleanup failed", "error", err.Error())
-		} else if removed > 0 && a.logger != nil {
-			a.logger.Info("scheduled video cleanup completed", "removed", removed)
-		}
-	}
 	a.cleanupWG.Add(1)
 	go func() {
 		defer a.cleanupWG.Done()
-		cleanup()
+		a.runMediaCleanup(ctx)
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 		for {
@@ -313,10 +282,68 @@ func (a *App) startMediaCleanup(ctx context.Context, interval time.Duration) {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				cleanup()
+				a.runMediaCleanup(ctx)
 			}
 		}
 	}()
+}
+
+func (a *App) runMediaCleanup(ctx context.Context) {
+	if a == nil || a.config == nil {
+		return
+	}
+	if a.images != nil {
+		if swept := a.images.SweepOrphanedImageDocuments(); swept > 0 && a.logger != nil {
+			a.logger.Info("swept orphaned local image documents", "removed", swept)
+		}
+	}
+	if a.paymentOrders == nil || !a.paymentOrders.Available() {
+		return
+	}
+	paymentSettings, err := a.paymentOrders.Settings()
+	if err != nil {
+		if a.logger != nil {
+			a.logger.Warning("skip scheduled media cleanup: load payment settings failed", "error", err.Error())
+		}
+		return
+	}
+	if !paymentSettings.CloudStorageEnabled {
+		return
+	}
+	if a.media != nil && a.config.MediaStorageProvider() == "r2" && paymentSettings.CloudStoragePolicyStartedAt != "" {
+		if removed, cleanupErr := a.media.CleanupExpiredRemoteMediaWithPolicy(ctx, paymentSettings); cleanupErr != nil {
+			if a.logger != nil {
+				a.logger.Warning("scheduled R2 image cleanup failed", "error", cleanupErr.Error())
+			}
+		} else if removed > 0 && a.logger != nil {
+			a.logger.Info("scheduled R2 image cleanup completed", "removed", removed)
+		}
+	}
+	localImagesDue := a.images != nil && a.config.MediaAutoCleanupEnabled()
+	videosDue := a.videos != nil && a.config.VideoAutoCleanupEnabled()
+	if !localImagesDue && !videosDue {
+		return
+	}
+	protectedOwners, entErr := a.paymentOrders.ActiveStorageEntitlements()
+	if entErr != nil {
+		if a.logger != nil {
+			a.logger.Warning("skip local/video media cleanup: load active storage entitlements failed", "error", entErr.Error())
+		}
+		return
+	}
+	if localImagesDue {
+		if removed := a.images.CleanupOldImages(a.config.ImageRetentionDays(), protectedOwners); removed > 0 && a.logger != nil {
+			a.logger.Info("scheduled image cleanup completed", "removed", removed)
+		}
+	}
+	if videosDue {
+		removed, videoErr := a.videos.CleanupOldVideos(a.config.VideoRetentionDays(), protectedOwners)
+		if videoErr != nil && a.logger != nil {
+			a.logger.Warning("scheduled video cleanup failed", "error", videoErr.Error())
+		} else if removed > 0 && a.logger != nil {
+			a.logger.Info("scheduled video cleanup completed", "removed", removed)
+		}
+	}
 }
 
 const logCleanupInterval = 6 * time.Hour

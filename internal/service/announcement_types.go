@@ -1,6 +1,69 @@
 package service
 
-import "chatgpt2api/internal/util"
+import (
+	"net/url"
+	"strings"
+	"unicode"
+
+	"chatgpt2api/internal/util"
+)
+
+const (
+	AnnouncementDisplayPopup  = "popup"
+	AnnouncementDisplayBanner = "banner"
+)
+
+// NormalizeAnnouncementDisplayMode returns "banner" or defaults to "popup".
+func NormalizeAnnouncementDisplayMode(raw any) string {
+	switch strings.ToLower(util.Clean(raw)) {
+	case AnnouncementDisplayBanner:
+		return AnnouncementDisplayBanner
+	default:
+		return AnnouncementDisplayPopup
+	}
+}
+
+// NormalizeAnnouncementBannerTone returns one of notice/activity/update/warning (default "notice").
+func NormalizeAnnouncementBannerTone(raw any) string {
+	switch strings.ToLower(util.Clean(raw)) {
+	case "activity":
+		return "activity"
+	case "update":
+		return "update"
+	case "warning":
+		return "warning"
+	default:
+		return "notice"
+	}
+}
+
+// NormalizeAnnouncementLinkURL allows safe relative paths (/...) or http(s) URLs.
+func NormalizeAnnouncementLinkURL(raw any) string {
+	cleaned := util.Clean(raw)
+	if cleaned == "" {
+		return ""
+	}
+	for _, r := range cleaned {
+		if r <= 0x20 || r == 0x7f || unicode.IsSpace(r) {
+			return ""
+		}
+	}
+	if strings.HasPrefix(cleaned, "/") {
+		if strings.HasPrefix(cleaned, "//") || strings.HasPrefix(cleaned, `/\`) || strings.Contains(cleaned, `\`) {
+			return ""
+		}
+		return cleaned
+	}
+	lower := strings.ToLower(cleaned)
+	if strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://") {
+		u, err := url.Parse(cleaned)
+		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.Hostname() == "" || strings.Contains(u.Host, `\`) {
+			return ""
+		}
+		return cleaned
+	}
+	return ""
+}
 
 // Announcement is the persisted announcement record (storage + service memory).
 type Announcement struct {
@@ -8,6 +71,9 @@ type Announcement struct {
 	Title           string `json:"title"`
 	Content         string `json:"content"`
 	ImageURL        string `json:"image_url"`
+	DisplayMode     string `json:"display_mode,omitempty"`
+	BannerTone      string `json:"banner_tone,omitempty"`
+	LinkURL         string `json:"link_url,omitempty"`
 	Enabled         bool   `json:"enabled"`
 	ShowLogin       bool   `json:"show_login"`
 	ShowImage       bool   `json:"show_image"`
@@ -23,6 +89,9 @@ type AnnouncementPublic struct {
 	Title           string `json:"title,omitempty"`
 	Content         string `json:"content,omitempty"`
 	ImageURL        string `json:"image_url,omitempty"`
+	DisplayMode     string `json:"display_mode,omitempty"`
+	BannerTone      string `json:"banner_tone,omitempty"`
+	LinkURL         string `json:"link_url,omitempty"`
 	Enabled         *bool  `json:"enabled,omitempty"`
 	ShowLogin       bool   `json:"show_login"`
 	ShowImage       bool   `json:"show_image"`
@@ -39,11 +108,17 @@ func AnnouncementPublicFromRecord(item Announcement, includeAdminMeta bool) Anno
 	if popupVersion < 1 {
 		popupVersion = 1
 	}
+	displayMode := NormalizeAnnouncementDisplayMode(item.DisplayMode)
+	bannerTone := NormalizeAnnouncementBannerTone(item.BannerTone)
+	linkURL := NormalizeAnnouncementLinkURL(item.LinkURL)
 	out := AnnouncementPublic{
 		ID:              item.ID,
 		Title:           item.Title,
 		Content:         item.Content,
 		ImageURL:        item.ImageURL,
+		DisplayMode:     displayMode,
+		BannerTone:      bannerTone,
+		LinkURL:         linkURL,
 		ShowLogin:       item.ShowLogin,
 		ShowImage:       item.ShowImage,
 		PopupVersion:    popupVersion,
@@ -132,6 +207,9 @@ func announcementFromMap(raw map[string]any) Announcement {
 		Title:           title,
 		Content:         util.Clean(raw["content"]),
 		ImageURL:        util.Clean(raw["image_url"]),
+		DisplayMode:     NormalizeAnnouncementDisplayMode(raw["display_mode"]),
+		BannerTone:      NormalizeAnnouncementBannerTone(raw["banner_tone"]),
+		LinkURL:         NormalizeAnnouncementLinkURL(raw["link_url"]),
 		Enabled:         util.ToBool(util.ValueOr(raw["enabled"], true)),
 		ShowLogin:       util.ToBool(raw["show_login"]),
 		ShowImage:       util.ToBool(raw["show_image"]),
@@ -152,6 +230,9 @@ func (a Announcement) toMap() map[string]any {
 		"title":             a.Title,
 		"content":           a.Content,
 		"image_url":         a.ImageURL,
+		"display_mode":      NormalizeAnnouncementDisplayMode(a.DisplayMode),
+		"banner_tone":       NormalizeAnnouncementBannerTone(a.BannerTone),
+		"link_url":          NormalizeAnnouncementLinkURL(a.LinkURL),
 		"enabled":           a.Enabled,
 		"show_login":        a.ShowLogin,
 		"show_image":        a.ShowImage,

@@ -109,9 +109,17 @@ func (m *MediaLibrary) Start(ctx context.Context) {
 			m.uploadQueue = make(chan storage.MediaAssetRecord, defaultMediaUploadQueueCapacity)
 		}
 		for range defaultMediaUploadConcurrency {
-			go m.runUploadWorker(ctx)
+			m.bgWG.Add(1)
+			go func() {
+				defer m.bgWG.Done()
+				m.runUploadWorker(ctx)
+			}()
 		}
-		go m.runPendingUploadDispatcher(ctx)
+		m.bgWG.Add(1)
+		go func() {
+			defer m.bgWG.Done()
+			m.runPendingUploadDispatcher(ctx)
+		}()
 	})
 }
 

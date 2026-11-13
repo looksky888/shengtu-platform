@@ -7,6 +7,7 @@ import { RBACCreateRoleDialog, RBACDeleteRoleDialog } from "@/app/rbac/rbac-role
 import { RBACRoleEditorCard } from "@/app/rbac/rbac-role-editor-card";
 import { RBACRoleList } from "@/app/rbac/rbac-role-list";
 import { useRBACManagement } from "@/app/rbac/use-rbac-management";
+import { AdminStickyCommandBar } from "@/components/admin";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
@@ -16,7 +17,7 @@ import { useAuthGuard } from "@/lib/use-auth-guard";
 import { useUnsavedRouteGuard } from "@/lib/use-unsaved-route-guard";
 import { cn } from "@/lib/utils";
 
-function RBACContent() {
+export function RBACContent({ embedded = false }: { embedded?: boolean }) {
   const rbac = useRBACManagement();
   const [pendingRole, setPendingRole] = useState<ManagedRole | null>(null);
   const hasUnsavedRole = Boolean(rbac.isDirty && rbac.selectedRole);
@@ -61,37 +62,68 @@ function RBACContent() {
     <section
       className={cn(
         "flex flex-col gap-4",
-        hasUnsavedRole ? "pb-24" : "pb-4"
+        !embedded && hasUnsavedRole ? "pb-24" : "pb-4",
       )}
     >
-      <PageHeader
-        eyebrow="权限与访问控制"
-        title="角色权限"
-        badge={
-          !rbac.isLoading ? (
-            <Badge variant="secondary" className="rounded-md tabular-nums">
-              共 {rbac.roles.length} 个角色
-            </Badge>
-          ) : null
-        }
-        description="按角色配置菜单访问与后端接口授权，保存后即时生效。"
-        actions={
-          <>
-            <Button variant="outline" size="sm" onClick={() => void rbac.loadRBAC()} disabled={rbac.isLoading}>
-              <RefreshCw className={cn("size-4", rbac.isLoading ? "animate-spin" : "")} />
-              刷新
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => rbac.setIsCreateDialogOpen(true)} disabled={rbac.isLoading}>
-              <Plus className="size-4" />
-              新建角色
-            </Button>
-            <Button size="sm" onClick={() => void rbac.handleSave()} disabled={!rbac.selectedRole || !rbac.isDirty || rbac.isSaving || rbac.isLoading}>
-              {rbac.isSaving ? <LoaderCircle className="size-4 animate-spin" /> : <Save className="size-4" />}
-              保存更改
-            </Button>
-          </>
-        }
-      />
+      {!embedded ? (
+        <PageHeader
+          eyebrow="权限与访问控制"
+          title="角色权限"
+          badge={
+            !rbac.isLoading ? (
+              <Badge variant="secondary" className="rounded-md tabular-nums">
+                共 {rbac.roles.length} 个角色
+              </Badge>
+            ) : null
+          }
+          description="按角色配置菜单访问与后端接口授权，保存后即时生效。"
+          actions={
+            <>
+              <Button variant="outline" size="sm" onClick={() => void rbac.loadRBAC()} disabled={rbac.isLoading}>
+                <RefreshCw className={cn("size-4", rbac.isLoading ? "animate-spin" : "")} />
+                刷新
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => rbac.setIsCreateDialogOpen(true)} disabled={rbac.isLoading}>
+                <Plus className="size-4" />
+                新建角色
+              </Button>
+              <Button size="sm" onClick={() => void rbac.handleSave()} disabled={!rbac.selectedRole || !rbac.isDirty || rbac.isSaving || rbac.isLoading}>
+                {rbac.isSaving ? <LoaderCircle className="size-4 animate-spin" /> : <Save className="size-4" />}
+                保存更改
+              </Button>
+            </>
+          }
+        />
+      ) : (
+        <AdminStickyCommandBar
+          dirty={hasUnsavedRole}
+          saving={rbac.isSaving}
+          disabled={!rbac.selectedRole || rbac.isLoading}
+          dirtySummary={
+            rbac.selectedRole
+              ? `角色「${rbac.selectedRole.name}」有未保存的权限矩阵修改`
+              : undefined
+          }
+          cleanSummary={`共 ${rbac.roles.length} 个角色 · 按角色配置菜单与后端 API 授权，保存后即时生效`}
+          onSave={() => void rbac.handleSave()}
+          onReset={() => {
+            if (rbac.selectedRole) rbac.applySelectedRole(rbac.selectedRole);
+          }}
+          extraActions={
+            <>
+              <Button variant="outline" size="sm" onClick={() => void rbac.loadRBAC()} disabled={rbac.isLoading}>
+                <RefreshCw className={cn("size-3.5", rbac.isLoading ? "animate-spin" : "")} />
+                刷新
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => rbac.setIsCreateDialogOpen(true)} disabled={rbac.isLoading}>
+                <Plus className="size-3.5" />
+                新建角色
+              </Button>
+            </>
+          }
+        />
+      )}
+
       <div className="grid items-start gap-4 xl:grid-cols-[228px_minmax(0,1fr)]">
         <RBACRoleList
           roles={rbac.roles}
@@ -121,7 +153,7 @@ function RBACContent() {
         />
       </div>
 
-      {hasUnsavedRole && rbac.selectedRole ? (
+      {!embedded && hasUnsavedRole && rbac.selectedRole ? (
         <div className="fixed inset-x-0 bottom-4 z-40 mx-auto flex w-[min(40rem,calc(100vw-1.5rem))] flex-wrap items-center justify-between gap-3 rounded-xl border border-status-warning/35 bg-surface/95 px-4 py-3 shadow-xl backdrop-blur-xl">
           <div className="flex items-center gap-2.5 text-sm">
             <AlertTriangle className="size-4 shrink-0 text-status-warning" />

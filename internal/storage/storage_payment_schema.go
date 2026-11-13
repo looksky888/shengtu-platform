@@ -72,6 +72,9 @@ func paymentSchemaStatements(driver string) []string {
 			custom_credits_enabled INTEGER NOT NULL DEFAULT 0,
 			cloud_storage_enabled INTEGER NOT NULL DEFAULT 0,
 			cloud_storage_policy_started_at TEXT NOT NULL DEFAULT '',
+			free_retention_days INTEGER NOT NULL DEFAULT 3,
+			vip_grace_days INTEGER NOT NULL DEFAULT 7,
+			historical_grace_days INTEGER NOT NULL DEFAULT 7,
 			credit_unit_price_fen INTEGER NOT NULL DEFAULT 4,
 			min_custom_credits INTEGER NOT NULL DEFAULT 10,
 			max_custom_credits INTEGER NOT NULL DEFAULT 100000,
@@ -161,7 +164,7 @@ func paymentSchemaStatements(driver string) []string {
 			expires_at TEXT NOT NULL,
 			created_at TEXT NOT NULL,
 			updated_at TEXT NOT NULL,
-			CHECK (storage_bytes > 0)
+			CHECK (storage_bytes >= 0)
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_storage_entitlements_user_expiry ON user_storage_entitlements (user_id, expires_at)`,
 	}, sqlitePaymentReconciliationSchemaStatements()...)
@@ -237,6 +240,9 @@ func mysqlPaymentSchemaStatements() []string {
 			custom_credits_enabled BOOLEAN NOT NULL DEFAULT FALSE,
 			cloud_storage_enabled BOOLEAN NOT NULL DEFAULT FALSE,
 			cloud_storage_policy_started_at VARCHAR(64) NOT NULL DEFAULT '',
+			free_retention_days INTEGER NOT NULL DEFAULT 3,
+			vip_grace_days INTEGER NOT NULL DEFAULT 7,
+			historical_grace_days INTEGER NOT NULL DEFAULT 7,
 			credit_unit_price_fen BIGINT NOT NULL DEFAULT 4,
 			min_custom_credits INTEGER NOT NULL DEFAULT 10,
 			max_custom_credits INTEGER NOT NULL DEFAULT 100000,
@@ -326,7 +332,7 @@ func mysqlPaymentSchemaStatements() []string {
 			created_at VARCHAR(64) NOT NULL,
 			updated_at VARCHAR(64) NOT NULL,
 			KEY idx_storage_entitlements_user_expiry (user_id, expires_at),
-			CHECK (storage_bytes > 0)
+			CHECK (storage_bytes >= 0)
 		)`,
 		`CREATE TABLE IF NOT EXISTS payment_reconciliation_runs (
 			id VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin PRIMARY KEY NOT NULL,

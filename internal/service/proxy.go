@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"chatgpt2api/internal/util"
@@ -200,16 +201,39 @@ func applyBrowserProfile(builder *surf.Builder, profile string) *surf.Builder {
 	return impersonate.Chrome()
 }
 
+var (
+	proxyTransportMu   sync.Mutex
+	proxyTransportPool = map[string]*http.Transport{}
+)
+
+const maxPooledProxyTransports = 64
+
 func transportForProxy(candidate string) *http.Transport {
-	transport := baseTransport()
-	if candidate == "" {
-		return transport
+	key := strings.TrimSpace(candidate)
+	proxyTransportMu.Lock()
+	defer proxyTransportMu.Unlock()
+	if tr, ok := proxyTransportPool[key]; ok && tr != nil {
+		return tr
 	}
-	proxyURL, err := url.Parse(candidate)
-	if err != nil || proxyURL.Host == "" {
-		return transport
+	var tr *http.Transport
+	if key == "" {
+		tr = baseTransport()
+	} else if proxyURL, err := url.Parse(key); err != nil || proxyURL.Host == "" {
+		tr = baseTransport()
+	} else {
+		tr = transportForProxyURL(proxyURL)
 	}
-	return transportForProxyURL(proxyURL)
+	if len(proxyTransportPool) >= maxPooledProxyTransports {
+		for oldestKey, oldestTr := range proxyTransportPool {
+			delete(proxyTransportPool, oldestKey)
+			if oldestTr != nil {
+				oldestTr.CloseIdleConnections()
+			}
+			break
+		}
+	}
+	proxyTransportPool[key] = tr
+	return tr
 }
 
 func transportForProxyURL(proxyURL *url.URL) *http.Transport {
@@ -320,14 +344,14 @@ func socks5Address(ctx context.Context, scheme, target string) ([]byte, error) {
 		return nil, fmt.Errorf("invalid target port %q", portText)
 	}
 	var out []byte
-	if strings.EqualFold(scheme, "socks5h") {
+	if ip := net.ParseIP(host); ip != nil {
+		out = appendSOCKSIP(out, ip)
+	} else if strings.EqualFold(scheme, "socks5h") || strings.EqualFold(scheme, "socks5") || strings.EqualFold(scheme, "socks") {
 		if len(host) > 255 {
 			return nil, fmt.Errorf("target host is too long")
 		}
 		out = append(out, 0x03, byte(len(host)))
 		out = append(out, []byte(host)...)
-	} else if ip := net.ParseIP(host); ip != nil {
-		out = appendSOCKSIP(out, ip)
 	} else {
 		ips, err := net.DefaultResolver.LookupIPAddr(ctx, host)
 		if err != nil {

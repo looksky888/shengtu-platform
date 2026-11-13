@@ -36,12 +36,10 @@ type healthStorage struct {
 }
 
 type healthFeaturesV35 struct {
-	ICloud          bool   `json:"icloud"`
-	GrokNative      bool   `json:"grok_native"`
-	GrokRegister    bool   `json:"grok_register"`
-	RegisterBackend string `json:"register_backend"`
-	ICloudBaseURL   string `json:"icloud_base_url"`
-	GrokRuntimeURL  string `json:"grok_runtime_url"`
+	ICloud         bool   `json:"icloud"`
+	GrokNative     bool   `json:"grok_native"`
+	ICloudBaseURL  string `json:"icloud_base_url"`
+	GrokRuntimeURL string `json:"grok_runtime_url"`
 }
 
 type publicHealthResponse struct {

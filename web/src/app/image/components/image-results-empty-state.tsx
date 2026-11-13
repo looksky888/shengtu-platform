@@ -1,4 +1,4 @@
-import { ArrowUpRight, Plus, Sparkles } from "lucide-react";
+import { ArrowUpRight, Plus } from "lucide-react";
 
 import type { ImagePromptPreset } from "@/app/image/image-presets";
 
@@ -23,88 +23,71 @@ export function ImageResultsEmptyState({
   onAppendStyleChip,
 }: ImageResultsEmptyStateProps) {
   return (
-    <div className="flex h-full min-h-[280px] items-center justify-center px-1 py-4 sm:min-h-[380px] sm:py-6">
-      <div className="mx-auto flex w-full max-w-[1040px] flex-col gap-5">
-        <div className="mx-auto flex max-w-[540px] flex-col items-center text-center">
-          <span className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-border/80 bg-surface/90 px-3 py-0.5 font-mono text-[10px] font-medium tracking-[0.14em] text-muted-foreground uppercase shadow-2xs">
-            <Sparkles className="size-3 text-foreground/75" aria-hidden="true" />
-            <span>VISUAL CREATION STUDIO</span>
-          </span>
-          <h1 className="font-display text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
-            开始新的视觉创作
-          </h1>
-          <p className="mt-1.5 text-xs leading-5 text-muted-foreground">
-            在下方工作台描述构图与光影细节、拖拽上传参考图，或轻点展陈画作与美学词条一键起稿。
-          </p>
-        </div>
-
-        {/* Curated 16:10 Gallery Plates — Mat Caption Architecture (Zero Artwork Text Collision, Eager Decode) */}
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {promptPresets.map((preset, idx) => (
+    <div className="mx-auto flex w-full max-w-[960px] flex-col gap-4">
+      {/* Quick Style Chips */}
+      {onAppendStyleChip ? (
+        <div className="flex flex-wrap items-center justify-center gap-1.5">
+          {QUICK_STYLE_CHIPS.map((chip) => (
             <button
-              key={preset.id}
+              key={chip.label}
               type="button"
-              className="group flex flex-col overflow-hidden rounded-xl border border-border/80 bg-surface p-1.5 text-left shadow-2xs transition-all duration-200 hover:-translate-y-0.5 hover:border-foreground/30 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20"
-              onClick={() => void onApplyPromptPreset(preset)}
-              aria-label={`套用预设：${preset.title}`}
+              onClick={() => onAppendStyleChip(chip.descriptor)}
+              className="inline-flex h-7 items-center gap-1 rounded-full border border-border/60 bg-surface px-2.5 text-[11px] font-medium text-muted-foreground transition-all duration-150 hover:-translate-y-[1px] hover:border-foreground/30 hover:text-foreground active:scale-[0.98] dark:border-white/[0.06] dark:bg-[#17181c]"
+              title={`向提示词追加：${chip.descriptor}`}
             >
-              <div className="relative aspect-[16/10] w-full overflow-hidden rounded-[8px] bg-surface-muted">
-                <img
-                  src={preset.imageSrc}
-                  alt={preset.title}
-                  loading="eager"
-                  decoding="async"
-                  draggable={false}
-                  className="h-full w-full scale-[1.02] select-none object-cover object-center transition-transform duration-500 ease-out group-hover:scale-[1.05]"
-                />
-                <div className="pointer-events-none absolute inset-0 rounded-[8px] ring-1 ring-inset ring-black/[0.06] dark:ring-white/[0.08]" />
-
-                <span className="pointer-events-none absolute top-2 right-2 rounded bg-black/68 px-1.5 py-0.5 font-mono text-[9.5px] font-medium tracking-[0.06em] text-zinc-100 backdrop-blur-xs">
-                  {preset.size || "Auto"}
-                </span>
-
-                <span className="pointer-events-none absolute bottom-2 right-2 inline-flex translate-y-1 items-center gap-0.5 rounded-full border border-white/25 bg-black/68 px-2 py-0.5 text-[10px] font-medium text-white opacity-0 backdrop-blur-md transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100 group-focus-visible:translate-y-0 group-focus-visible:opacity-100">
-                  <span>载入灵感</span>
-                  <ArrowUpRight className="size-3" />
-                </span>
-              </div>
-
-              <div className="flex flex-col gap-0.5 px-1.5 pt-2 pb-1">
-                <div className="flex items-center justify-between gap-1.5">
-                  <span className="truncate text-xs font-semibold tracking-[-0.01em] text-foreground">
-                    {preset.title}
-                  </span>
-                  <span className="shrink-0 font-mono text-[10px] text-subtle-foreground">
-                    0{idx + 1}
-                  </span>
-                </div>
-                <p className="line-clamp-1 text-[11px] leading-4 text-muted-foreground">
-                  {preset.hint}
-                </p>
-              </div>
+              <Plus className="size-3 text-subtle-foreground" aria-hidden="true" />
+              <span>{chip.label}</span>
             </button>
           ))}
         </div>
+      ) : null}
 
-        {/* open-ai-canvas Style Quick-Start Aesthetic Style Chips */}
-        {onAppendStyleChip ? (
-          <div className="flex flex-col items-center gap-2 pt-0.5">
-            <div className="flex flex-wrap items-center justify-center gap-1.5">
-              {QUICK_STYLE_CHIPS.map((chip) => (
-                <button
-                  key={chip.label}
-                  type="button"
-                  onClick={() => onAppendStyleChip(chip.descriptor)}
-                  className="inline-flex h-7 items-center gap-1 rounded-full border border-border/80 bg-surface/90 px-2.5 text-[11px] font-medium text-muted-foreground shadow-2xs transition-all duration-150 hover:-translate-y-[1px] hover:border-foreground/35 hover:bg-surface hover:text-foreground active:scale-[0.98]"
-                  title={`向提示词追加：${chip.descriptor}`}
-                >
-                  <Plus className="size-3 text-subtle-foreground" aria-hidden="true" />
-                  <span>{chip.label}</span>
-                </button>
-              ))}
+      {/* Curated 16:10 Darkroom Inspiration Plates */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {promptPresets.map((preset, idx) => (
+          <button
+            key={preset.id}
+            type="button"
+            className="group flex flex-col overflow-hidden rounded-xl border border-border/50 bg-surface p-1.5 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-foreground/25 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 dark:border-white/[0.06] dark:bg-[#17181c]"
+            onClick={() => void onApplyPromptPreset(preset)}
+            aria-label={`套用预设：${preset.title}`}
+          >
+            <div className="relative aspect-[16/10] w-full overflow-hidden rounded-[8px] bg-surface-muted">
+              <img
+                src={preset.imageSrc}
+                alt={preset.title}
+                loading="eager"
+                decoding="async"
+                draggable={false}
+                className="h-full w-full scale-[1.02] select-none object-cover object-center transition-transform duration-500 ease-out group-hover:scale-[1.05]"
+              />
+              <div className="pointer-events-none absolute inset-0 rounded-[8px] ring-1 ring-inset ring-black/[0.06] dark:ring-white/[0.08]" />
+
+              <span className="pointer-events-none absolute top-2 right-2 rounded bg-black/68 px-1.5 py-0.5 font-mono text-[9.5px] font-medium tracking-[0.06em] text-zinc-100 backdrop-blur-xs">
+                {preset.size || "Auto"}
+              </span>
+
+              <span className="pointer-events-none absolute right-2 bottom-2 inline-flex translate-y-1 items-center gap-0.5 rounded-full border border-white/25 bg-black/68 px-2 py-0.5 text-[10px] font-medium text-white opacity-0 backdrop-blur-md transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100 group-focus-visible:translate-y-0 group-focus-visible:opacity-100">
+                <span>载入灵感</span>
+                <ArrowUpRight className="size-3" />
+              </span>
             </div>
-          </div>
-        ) : null}
+
+            <div className="flex flex-col gap-0.5 px-1.5 pt-2 pb-1">
+              <div className="flex items-center justify-between gap-1.5">
+                <span className="truncate text-xs font-semibold tracking-[-0.01em] text-foreground">
+                  {preset.title}
+                </span>
+                <span className="shrink-0 font-mono text-[10px] text-subtle-foreground">
+                  0{idx + 1}
+                </span>
+              </div>
+              <p className="line-clamp-1 text-[11px] leading-4 text-muted-foreground">
+                {preset.hint}
+              </p>
+            </div>
+          </button>
+        ))}
       </div>
     </div>
   );

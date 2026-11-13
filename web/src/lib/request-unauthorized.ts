@@ -108,14 +108,23 @@ export function isSessionInvalidError(error: unknown): boolean {
   return /登录已失效|未授权|令牌无效/i.test(message);
 }
 
-export async function redirectAndRejectUnauthorized(
+let activeUnauthorizedRedirect: Promise<never> | null = null;
+
+export function redirectAndRejectUnauthorized(
   clearSession: () => void | Promise<void>,
   redirect: () => void,
 ): Promise<never> {
-  try {
-    await clearSession();
-  } finally {
-    redirect();
+  if (!activeUnauthorizedRedirect) {
+    activeUnauthorizedRedirect = (async () => {
+      try {
+        await clearSession();
+      } finally {
+        redirect();
+      }
+      throw new UnauthorizedRedirectError();
+    })().finally(() => {
+      activeUnauthorizedRedirect = null;
+    });
   }
-  throw new UnauthorizedRedirectError();
+  return activeUnauthorizedRedirect;
 }

@@ -72,7 +72,11 @@ func (m *MediaLibrary) TriggerLegacyImageMigration() MediaMigrationStatus {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	go m.runLegacyImageMigration(ctx)
+	m.bgWG.Add(1)
+	go func() {
+		defer m.bgWG.Done()
+		m.runLegacyImageMigration(ctx)
+	}()
 	return status
 }
 

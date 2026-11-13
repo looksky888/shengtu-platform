@@ -1,5 +1,9 @@
 import { formatImageFileSize } from "@/lib/image-size";
 import { isTurnBusy } from "@/lib/image-turn-state";
+import {
+  fetchAuthorizedImageBlob,
+  fetchAuthorizedImageHead,
+} from "@/lib/media-fetch";
 import type { ImageTurn, ImageTurnStatus, StoredImage } from "@/store/image-conversations";
 import type { DownloadableImage } from "@/app/image/components/image-results-types";
 import { downloadImageBlob, downloadImageFiles, triggerImageDownload, type ImageDownloadResult } from "@/lib/image-download";
@@ -101,22 +105,46 @@ export function buildDownloadName(createdAt: string, turnId: string, index: numb
 }
 
 export async function downloadImage(image: DownloadableImage) {
-	if (image.src.startsWith("data:")) {
-		triggerImageDownload(image.src, image.fileName);
-		return;
-	}
-	await downloadImageBlob(image.src, image.fileName);
+  if (image.src.startsWith("data:")) {
+    triggerImageDownload(image.src, image.fileName);
+    return;
+  }
+  await downloadImageBlob(image.src, image.fileName);
 }
 
 export async function downloadImages(images: DownloadableImage[]): Promise<ImageDownloadResult> {
-	return downloadImageFiles(images.map((image) => ({ src: image.src, fileName: image.fileName })));
+  return downloadImageFiles(images.map((image) => ({ src: image.src, fileName: image.fileName })));
 }
 
 export async function fetchImageSizeLabel(src: string) {
   if (!src || src.startsWith("data:")) return "";
   try {
-    const response = await fetch(src);
+    if (src.startsWith("blob:")) {
+      const response = await fetch(src);
+      if (!response.ok) return "";
+      const blob = await response.blob();
+      return formatImageFileSize(blob.size);
+    }
+
+    try {
+      const headResponse = await fetchAuthorizedImageHead(src);
+      if (headResponse.ok) {
+        const contentLength = Number(headResponse.headers.get("content-length"));
+        if (Number.isFinite(contentLength) && contentLength > 0) {
+          return formatImageFileSize(contentLength);
+        }
+      }
+    } catch {
+      // Fall through to GET fallback when HEAD is not supported.
+    }
+
+    const response = await fetchAuthorizedImageBlob(src);
     if (!response.ok) return "";
+    const headerLength = Number(response.headers.get("content-length"));
+    if (Number.isFinite(headerLength) && headerLength > 0) {
+      void response.body?.cancel();
+      return formatImageFileSize(headerLength);
+    }
     const blob = await response.blob();
     return formatImageFileSize(blob.size);
   } catch {

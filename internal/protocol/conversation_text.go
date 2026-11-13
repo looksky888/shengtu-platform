@@ -8,6 +8,13 @@ import (
 	"chatgpt2api/internal/util"
 )
 
+var (
+	conversationIDJSONRE = regexp.MustCompile(`"conversation_id"\s*:\s*"([^"]+)"`)
+	fileAssetIDRE        = regexp.MustCompile(`\bfile_00000000[a-f0-9]{24}\b`)
+	fileServiceIDRE      = regexp.MustCompile(`file-service://([A-Za-z0-9_-]+)`)
+	sedimentAssetIDRE    = regexp.MustCompile(`sediment://([A-Za-z0-9_-]+)`)
+)
+
 func IsTokenInvalidError(message string) bool {
 	return service.IsAccountInvalidErrorMessage(message)
 }
@@ -200,16 +207,16 @@ func UpdateConversationState(state *ConversationState, payload string, event map
 
 func ExtractConversationIDs(payload string) (string, []string, []string) {
 	conversation := ""
-	if match := regexp.MustCompile(`"conversation_id"\s*:\s*"([^"]+)"`).FindStringSubmatch(payload); len(match) > 1 {
+	if match := conversationIDJSONRE.FindStringSubmatch(payload); len(match) > 1 {
 		conversation = match[1]
 	}
-	fileIDs := regexp.MustCompile(`\bfile_00000000[a-f0-9]{24}\b`).FindAllString(payload, -1)
-	for _, match := range regexp.MustCompile(`file-service://([A-Za-z0-9_-]+)`).FindAllStringSubmatch(payload, -1) {
+	fileIDs := fileAssetIDRE.FindAllString(payload, -1)
+	for _, match := range fileServiceIDRE.FindAllStringSubmatch(payload, -1) {
 		if len(match) > 1 {
 			fileIDs = appendUnique(fileIDs, match[1])
 		}
 	}
-	sedimentMatches := regexp.MustCompile(`sediment://([A-Za-z0-9_-]+)`).FindAllStringSubmatch(payload, -1)
+	sedimentMatches := sedimentAssetIDRE.FindAllStringSubmatch(payload, -1)
 	var sediments []string
 	for _, match := range sedimentMatches {
 		if len(match) > 1 {
@@ -254,17 +261,7 @@ func conversationBaseEvent(eventType string, state *ConversationState) Conversat
 }
 
 func anyList(v any) []any {
-	switch list := v.(type) {
-	case []any:
-		return list
-	case []map[string]any:
-		out := make([]any, 0, len(list))
-		for _, item := range list {
-			out = append(out, item)
-		}
-		return out
-	}
-	return nil
+	return util.AnyList(v)
 }
 
 func appendUnique(base []string, values ...string) []string {
@@ -286,10 +283,5 @@ func appendUnique(base []string, values ...string) []string {
 }
 
 func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if strings.TrimSpace(value) != "" {
-			return value
-		}
-	}
-	return ""
+	return util.FirstNonEmpty(values...)
 }

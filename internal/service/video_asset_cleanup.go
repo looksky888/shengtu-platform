@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"chatgpt2api/internal/storage"
 )
 
 type videoCleanupCandidate struct {
@@ -21,7 +23,7 @@ type videoCleanupCandidate struct {
 // or legacy names that were never migrated).
 // Active generation state lives outside this service and is never touched: the
 // directory sweep only deletes files older than the retention cutoff.
-func (s *VideoAssetService) CleanupOldVideos(retentionDays int) (int, error) {
+func (s *VideoAssetService) CleanupOldVideos(retentionDays int, protectedOwnerSets ...map[string]storage.PaymentStorageEntitlementSummary) (int, error) {
 	if retentionDays < 1 {
 		retentionDays = 1
 	}
@@ -36,6 +38,9 @@ func (s *VideoAssetService) CleanupOldVideos(retentionDays int) (int, error) {
 	for id, item := range s.items {
 		path := s.ContentPath(item.OwnerID, item.TaskID)
 		indexedPaths[path] = struct{}{}
+		if strings.TrimSpace(item.Visibility) == VideoAssetVisibilityPublic || isMediaOwnerProtected(item.OwnerID, protectedOwnerSets...) {
+			continue
+		}
 		info, err := os.Stat(path)
 		if err != nil || info.IsDir() {
 			continue

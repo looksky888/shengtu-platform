@@ -18,6 +18,44 @@ type createPaymentOrderRequest struct {
 	ChannelID     string `json:"channel_id"`
 }
 
+type paymentConfigResponse struct {
+	CloudStorageEnabled bool                                     `json:"cloud_storage_enabled"`
+	FreeRetentionDays   int                                      `json:"free_retention_days"`
+	VIPGraceDays        int                                      `json:"vip_grace_days"`
+	HistoricalGraceDays int                                      `json:"historical_grace_days"`
+	Settings            service.PaymentSettingsPublic            `json:"settings"`
+	StorageEntitlement  storage.PaymentStorageEntitlementSummary `json:"storage_entitlement"`
+}
+
+func (a *App) handlePaymentConfig(w http.ResponseWriter, r *http.Request) {
+	identity, ok := a.requireIdentity(w, r, "")
+	if !ok {
+		return
+	}
+	if a.paymentOrders == nil || !a.paymentOrders.Available() {
+		util.WriteError(w, http.StatusServiceUnavailable, "在线支付需要数据库存储后端")
+		return
+	}
+	settings, err := a.paymentOrders.Settings()
+	if err != nil {
+		util.WriteError(w, http.StatusInternalServerError, "读取充值设置失败")
+		return
+	}
+	entitlement, err := a.paymentOrders.StorageEntitlement(identityScope(identity))
+	if err != nil {
+		util.WriteError(w, http.StatusInternalServerError, "读取云存储权益失败")
+		return
+	}
+	util.WriteJSON(w, http.StatusOK, paymentConfigResponse{
+		CloudStorageEnabled: settings.CloudStorageEnabled,
+		FreeRetentionDays:   settings.FreeRetentionDays,
+		VIPGraceDays:        settings.VIPGraceDays,
+		HistoricalGraceDays: settings.HistoricalGraceDays,
+		Settings:            settings,
+		StorageEntitlement:  entitlement,
+	})
+}
+
 func (a *App) handlePaymentSettings(w http.ResponseWriter, r *http.Request) {
 	if _, ok := a.requireIdentity(w, r, ""); !ok {
 		return

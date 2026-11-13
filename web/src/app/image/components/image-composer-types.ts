@@ -43,4 +43,5 @@ export type ImageComposerProps = {
   onSubmit: () => void | Promise<void>;
   onReferenceImageChange: (files: File[]) => void | Promise<void>;
   onRemoveReferenceImage: (index: number) => void;
+  onClearReferenceImages?: () => void;
 };

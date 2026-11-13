@@ -69,10 +69,12 @@ func (a *App) routes() []appRoute {
 		subtree("/api/admin/payment-channels", a.handleAdminPaymentChannels),
 		exact(http.MethodGet, "/api/admin/payment-stats", a.handleAdminPaymentStats),
 		subtree("/api/admin/payment-settings", a.handleAdminPaymentSettings),
+		subtree("/api/admin/payments/settings", a.handleAdminPaymentSettings),
 		subtree("/api/admin/recharge-products", a.handleAdminRechargeProducts),
 		subtree("/api/admin/payment-orders", a.handleAdminPaymentOrders),
 		subtree(imageChannelsAdminPath, a.handleAdminImageChannels),
 		subtree("/api/admin/payment-reconciliations", a.handleAdminPaymentReconciliations),
+		exact(http.MethodGet, "/api/payment/config", a.handlePaymentConfig),
 		exact(http.MethodGet, "/api/payment/products", a.handlePaymentProducts),
 		exact(http.MethodGet, "/api/payment/channels", a.handlePaymentChannels),
 		exact(http.MethodGet, "/api/payment/settings", a.handlePaymentSettings),
@@ -98,7 +100,6 @@ func (a *App) routes() []appRoute {
 		subtree("/api/creation-tasks", a.handleCreationTasks),
 		prefix("/api/videos", a.handleVideos),
 		prefix("/api/video-reference-assets", a.handleVideoReferenceAssets),
-		subtree("/api/register", a.handleRegister),
 		// 3.5: iCloud Privacy Mail admin proxy (feature-flagged)
 		prefix("/api/icloud", a.handleICloudProxy),
 		exact("", "/api/settings", a.handleSettings),
@@ -255,4 +256,12 @@ func isLoopbackHostname(hostname string) bool {
 	default:
 		return false
 	}
+}
+
+func splitPath(path string) []string {
+	trimmed := strings.Trim(path, "/")
+	if trimmed == "" {
+		return nil
+	}
+	return strings.Split(trimmed, "/")
 }

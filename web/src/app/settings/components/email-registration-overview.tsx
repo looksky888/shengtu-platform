@@ -215,7 +215,7 @@ export function EmailRegistrationOverview({
                 size="sm"
                 className="h-8 shrink-0 gap-1 px-2.5 text-xs"
               >
-                <Link to="/icloud">
+                <Link to="/admin/accounts?tab=icloud">
                   <span>进入管理</span>
                   <ArrowUpRight className="size-3.5" />
                 </Link>

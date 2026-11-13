@@ -158,7 +158,7 @@ export function ImageResults({
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-[980px] flex-col gap-5 sm:gap-8">
+    <div className="mx-auto flex w-full max-w-[1040px] flex-col gap-5 sm:gap-8">
       {selectedConversation.turns.map((turn, turnIndex) => {
         const progress = progressByTurnKey[turnProgressKey(selectedConversation.id, turn.id)];
 

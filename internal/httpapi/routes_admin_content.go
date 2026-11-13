@@ -129,8 +129,15 @@ func (a *App) handleAdminAnnouncements(w http.ResponseWriter, r *http.Request) {
 				util.WriteError(w, http.StatusBadRequest, "请求体不是合法 JSON")
 				return
 			}
+			if service.NormalizeAnnouncementDisplayMode(body["display_mode"]) == "banner" && util.Clean(body["content"]) == "" && util.Clean(body["title"]) != "" {
+				body["content"] = util.Clean(body["title"])
+			}
 			if util.Clean(body["content"]) == "" {
 				util.WriteError(w, http.StatusBadRequest, "请填写公告内容")
+				return
+			}
+			if rawLink := util.Clean(body["link_url"]); rawLink != "" && service.NormalizeAnnouncementLinkURL(rawLink) == "" {
+				util.WriteError(w, http.StatusBadRequest, "公告跳转链接仅支持站内路径（/...）或 http/https 地址")
 				return
 			}
 			item, err := a.announce.Create(body)
@@ -185,7 +192,30 @@ func (a *App) handleAdminAnnouncements(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if value, exists := body["content"]; exists && util.Clean(value) == "" {
-			util.WriteError(w, http.StatusBadRequest, "请填写公告内容")
+			displayMode := util.Clean(body["display_mode"])
+			title := util.Clean(body["title"])
+			if displayMode == "" || title == "" {
+				for _, existing := range a.announce.ListAllTyped() {
+					if existing.ID == id {
+						if displayMode == "" {
+							displayMode = existing.DisplayMode
+						}
+						if title == "" {
+							title = existing.Title
+						}
+						break
+					}
+				}
+			}
+			if service.NormalizeAnnouncementDisplayMode(displayMode) == service.AnnouncementDisplayBanner && title != "" {
+				body["content"] = title
+			} else {
+				util.WriteError(w, http.StatusBadRequest, "请填写公告内容")
+				return
+			}
+		}
+		if rawLink, exists := body["link_url"]; exists && util.Clean(rawLink) != "" && service.NormalizeAnnouncementLinkURL(rawLink) == "" {
+			util.WriteError(w, http.StatusBadRequest, "公告跳转链接仅支持站内路径（/...）或 http/https 地址")
 			return
 		}
 		item, err := a.announce.Update(id, body)

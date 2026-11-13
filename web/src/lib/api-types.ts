@@ -3,7 +3,7 @@ export * from "@/lib/account-types";
 export * from "@/lib/settings-types";
 export * from "@/lib/image-task-types";
 export * from "@/lib/auth-user-types";
-export * from "@/lib/register-types";
+export const STORED_SECRET_HINT = "已保存，留空保持不变";
 
 /** Canonical cursor pagination envelope used by media and other large lists. */
 export type CursorPage<T> = {

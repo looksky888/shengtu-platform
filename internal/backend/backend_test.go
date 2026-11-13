@@ -307,10 +307,10 @@ func TestImageModelSlugSupportsSelection(t *testing.T) {
 		{model: "", want: "gpt-5-3"},
 		{model: "auto", want: "auto"},
 		{model: "gpt-image-2", want: "gpt-5-3"},
-		{model: "gpt-image-2.5", want: "gpt-image-2.5-flare"},
-		{model: "GPT-IMAGE-2.5-FLARE", want: "gpt-image-2.5-flare"},
-		{model: "gpt-image-2.5-flare", want: "gpt-image-2.5-flare"},
-		{model: "gpt-image-2.5-sunburst", want: "gpt-image-2.5-sunburst"},
+		{model: "gpt-image-2.5", want: "auto"},
+		{model: "GPT-IMAGE-2.5-FLARE", want: "auto"},
+		{model: "gpt-image-2.5-flare", want: "auto"},
+		{model: "gpt-image-2.5-sunburst", want: "auto"},
 		{model: "gpt-5", want: "gpt-5"},
 		{model: "gpt-5-3-mini", want: "gpt-5-3-mini"},
 		{model: "gpt-5.4", want: "gpt-5.4"},
@@ -352,8 +352,17 @@ func TestStartImageGenerationMatchesPictureV2WebPayload(t *testing.T) {
 	if _, ok := payload["image_generation_quality"]; ok {
 		t.Fatalf("picture_v2 payload contains unsupported image_generation_quality: %#v", payload["image_generation_quality"])
 	}
-	if got := payload["model"]; got != "gpt-image-2.5-flare" {
-		t.Fatalf("model = %#v, want gpt-image-2.5-flare", got)
+	if got := payload["model"]; got != "auto" {
+		t.Fatalf("model = %#v, want auto", got)
+	}
+	if got := payload["client_prepare_state"]; got != "sent" {
+		t.Fatalf("client_prepare_state = %#v, want sent", got)
+	}
+	if got := payload["paragen_cot_summary_display_override"]; got != "allow" {
+		t.Fatalf("paragen_cot_summary_display_override = %#v, want allow", got)
+	}
+	if got := payload["force_parallel_switch"]; got != "auto" {
+		t.Fatalf("force_parallel_switch = %#v, want auto", got)
 	}
 	if hints, ok := payload["system_hints"].([]any); !ok || len(hints) != 1 || hints[0] != "picture_v2" {
 		t.Fatalf("system_hints = %#v", payload["system_hints"])
@@ -372,8 +381,8 @@ func TestImagePrepareAndGenerationShareCurrentWebContract(t *testing.T) {
 		want       string
 		references []UploadedFile
 	}{
-		{name: "alias generation", requested: "gpt-image-2.5", want: "gpt-image-2.5-flare"},
-		{name: "sunburst edit", requested: "gpt-image-2.5-sunburst", want: "gpt-image-2.5-sunburst", references: []UploadedFile{{FileID: "file-1", FileName: "input.png", FileSize: 20, MimeType: "image/png", Width: 10, Height: 10}}},
+		{name: "alias generation", requested: "gpt-image-2.5", want: "auto"},
+		{name: "sunburst edit", requested: "gpt-image-2.5-sunburst", want: "auto", references: []UploadedFile{{FileID: "file-1", FileName: "input.png", FileSize: 20, MimeType: "image/png", Width: 10, Height: 10}}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			var requests []capturedRequest
@@ -417,18 +426,24 @@ func TestImagePrepareAndGenerationShareCurrentWebContract(t *testing.T) {
 					t.Fatalf("%s model/parent = %#v / %#v", request.path, request.payload["model"], request.payload["parent_message_id"])
 				}
 			}
+			if got := requests[0].payload["client_prepare_state"]; got != "success" {
+				t.Fatalf("prepare client_prepare_state = %#v, want success", got)
+			}
+			if got := requests[1].payload["client_prepare_state"]; got != "sent" {
+				t.Fatalf("conversation client_prepare_state = %#v, want sent", got)
+			}
 			messages := requests[1].payload["messages"].([]any)
 			message := messages[0].(map[string]any)
 			content := message["content"].(map[string]any)
 			parts := content["parts"].([]any)
-			if parts[len(parts)-1] != "@创建图像 cat" {
-				t.Fatalf("prompt part = %#v", parts[len(parts)-1])
+			if parts[len(parts)-1] != "cat" {
+				t.Fatalf("prompt part = %#v, want cat", parts[len(parts)-1])
 			}
 			metadata := message["metadata"].(map[string]any)
 			serialization := metadata["serialization_metadata"].(map[string]any)
 			offsets := serialization["custom_symbol_offsets"].([]any)
-			if len(offsets) != 1 || offsets[0].(map[string]any)["id"] != "picture_v2" {
-				t.Fatalf("custom_symbol_offsets = %#v", offsets)
+			if len(offsets) != 0 {
+				t.Fatalf("custom_symbol_offsets = %#v, want empty", offsets)
 			}
 		})
 	}

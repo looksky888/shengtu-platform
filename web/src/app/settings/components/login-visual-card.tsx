@@ -74,7 +74,11 @@ const MODE_ITEMS: ReadonlyArray<{ value: LoginPageImageMode; label: string }> = 
   { value: "fill", label: "拉伸填充" },
 ];
 
-export function LoginVisualCard() {
+export function LoginVisualCard({
+  hideFooter = false,
+}: {
+  hideFooter?: boolean;
+}) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const config = useSettingsStore((state) => state.config);
   const savedConfigSnapshot = useSettingsStore(
@@ -206,7 +210,7 @@ export function LoginVisualCard() {
         </Button>
       }
       footer={
-        expanded || isDirty ? (
+        !hideFooter && (expanded || isDirty) ? (
           <SettingsCardSaveFooter
             dirty={isDirty}
             saving={isSaving}
@@ -314,7 +318,7 @@ export function LoginVisualCard() {
               </div>
 
               {effectiveImageUrl ? (
-                <div className="space-y-3 rounded-xl border border-border/70 bg-surface-subtle/45 p-3.5">
+                <div className="space-y-3 rounded-[10px] border border-border/70 bg-surface-subtle/45 p-3.5">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="text-xs font-medium text-foreground">
                       铺展模式
@@ -408,7 +412,7 @@ export function LoginVisualCard() {
               )}
             </div>
 
-            <div className="flex flex-col justify-between rounded-xl border border-zinc-800/80 bg-[#0c0c0e] p-3 text-zinc-200">
+            <div className="flex flex-col justify-between rounded-[10px] border border-zinc-800/80 bg-[#0c0c0e] p-3 text-zinc-200">
               <div className="mb-2 flex items-center justify-between text-[11px] text-zinc-400">
                 <span className="font-mono uppercase tracking-wider">
                   LOGIN STAGE PREVIEW (4:5)

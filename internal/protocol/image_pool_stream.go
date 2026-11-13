@@ -51,7 +51,7 @@ func (e *Engine) streamImageOutputsWithPool(ctx context.Context, request Convers
 					errCh <- newImageStreamGenerationError(firstNonEmpty(lastError, "image generation failed after account retries"))
 					return
 				}
-				token, err := e.Accounts.GetAvailableAccessTokenForExcluding(ctx, allowAccount, attemptedTokens)
+				token, err := e.Accounts.AcquireImageTokenForExcluding(ctx, allowAccount, attemptedTokens)
 				if err != nil {
 					if emittedResult {
 						errCh <- nil
@@ -275,7 +275,7 @@ func (e *Engine) streamImageOutputsWithPool(ctx context.Context, request Convers
 				if !emittedForToken && IsTokenInvalidError(lastError) {
 					continue
 				}
-				if !returnedResult && isRetryableImageStreamError(lastError) && streamRetryCount < maxImageStreamTransientRetries {
+				if !returnedResult && isAccountSwitchableImageError(lastError) && streamRetryCount < maxImageStreamTransientRetries {
 					streamRetryCount++
 					if e.Logger != nil {
 						e.Logger.Warning("image stream transient error, retrying with another account", "index", index, "retry", streamRetryCount, "upstream_model", request.upstreamModelForAttempt(streamRetryCount), "error", imageStreamErrorMessage(lastError))

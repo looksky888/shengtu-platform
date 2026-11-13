@@ -22,7 +22,7 @@ func (s *ImageService) ListImagesQuery(baseURL string, q ImageListQuery) (map[st
 	if s.media != nil {
 		return s.media.ListImages(baseURL, q)
 	}
-	cleanupOldImagesIfDue(s.config)
+
 	q.UpdatedAfter = parseUpdatedAfter(q.UpdatedAfter)
 	if q.Limit < 1 {
 		q.Limit = DefaultImageListLimit

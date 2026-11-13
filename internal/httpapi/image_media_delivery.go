@@ -39,6 +39,27 @@ func (a *App) handleImageFile(w http.ResponseWriter, r *http.Request) {
 			}
 			return
 		}
+		if imageInlineProxyRequested(r) {
+			if r.Method == http.MethodHead {
+				if ref.Asset.Status != "ready" && ref.Asset.Status != "pending" {
+					http.NotFound(w, r)
+					return
+				}
+				writeImageInlineHeaders(w, ref.Asset.ContentType, ref.Asset.SizeBytes)
+				w.WriteHeader(http.StatusOK)
+				return
+			}
+			reader, contentType, err := a.images.OpenImage(r.Context(), ref)
+			if err != nil {
+				http.NotFound(w, r)
+				return
+			}
+			defer reader.Close()
+			if err := streamImageInline(w, contentType, ref.Asset.SizeBytes, reader); err != nil && a.logger != nil {
+				a.logger.Warning("stream remote image inline failed", "path", rel, "error", err.Error())
+			}
+			return
+		}
 		delivery, err := a.images.Delivery(r.Context(), ref, service.MediaDeliveryOptions{Method: r.Method, Download: imageDownloadRequested(r)})
 		if err != nil {
 			http.NotFound(w, r)
@@ -70,6 +91,23 @@ func streamImageDownload(w http.ResponseWriter, rel, contentType string, size in
 	if size > 0 {
 		w.Header().Set("Content-Length", strconv.FormatInt(size, 10))
 	}
+	_, err := io.Copy(w, reader)
+	return err
+}
+
+func writeImageInlineHeaders(w http.ResponseWriter, contentType string, size int64) {
+	if contentType != "" {
+		w.Header().Set("Content-Type", contentType)
+	}
+	w.Header().Set("Cache-Control", "private, max-age=300")
+	w.Header().Set("X-Accel-Buffering", "no")
+	if size > 0 {
+		w.Header().Set("Content-Length", strconv.FormatInt(size, 10))
+	}
+}
+
+func streamImageInline(w http.ResponseWriter, contentType string, size int64, reader io.Reader) error {
+	writeImageInlineHeaders(w, contentType, size)
 	_, err := io.Copy(w, reader)
 	return err
 }
@@ -152,6 +190,15 @@ func redirectRemoteMedia(w http.ResponseWriter, r *http.Request, target string) 
 
 func imageDownloadRequested(r *http.Request) bool {
 	return r != nil && r.URL.Query().Get("download") == "1"
+}
+
+func imageInlineProxyRequested(r *http.Request) bool {
+	if r == nil {
+		return false
+	}
+	q := r.URL.Query()
+	proxy := strings.TrimSpace(q.Get("proxy"))
+	return proxy == "1" || strings.EqualFold(proxy, "true") || strings.TrimSpace(q.Get("inline")) == "1"
 }
 
 func imageFileRequestPath(r *http.Request) (string, error) {

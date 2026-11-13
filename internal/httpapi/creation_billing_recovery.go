@@ -23,7 +23,9 @@ func (a *App) startCreationBillingReconciliation(ctx context.Context, interval t
 		interval = time.Minute
 	}
 	a.reconcileCreationBilling()
+	a.cleanupWG.Add(1)
 	go func() {
+		defer a.cleanupWG.Done()
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 		for {

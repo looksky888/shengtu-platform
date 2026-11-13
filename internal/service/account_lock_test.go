@@ -131,6 +131,60 @@ func TestGetAvailableAccessTokenReusesRecentSuccessfulPreflight(t *testing.T) {
 	}
 }
 
+func TestAcquireImageTokenFastSkipsRemotePreflightByDefault(t *testing.T) {
+	t.Setenv("CHATGPT2API_IMAGE_PREFLIGHT_ENABLED", "")
+	accounts := newTestAccountService(t)
+	var mu sync.Mutex
+	remoteHits := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		remoteHits++
+		mu.Unlock()
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/backend-api/me":
+			_, _ = w.Write([]byte(`{"email":"fast@example.com","id":"fast-1","plan_type":"plus"}`))
+		case "/backend-api/conversation/init":
+			_, _ = w.Write([]byte(`{"limits_progress":[{"feature_name":"image_gen","remaining":5}]}`))
+		default:
+			_, _ = w.Write([]byte(`<html>ok</html>`))
+		}
+	}))
+	defer server.Close()
+	accounts.remoteBaseURL = server.URL
+	accounts.browserHTTPClient = func(string, time.Duration) *http.Client { return server.Client() }
+	accounts.AddAccounts([]string{"fast-token"})
+	_, _ = accounts.UpdateAccount("fast-token", map[string]any{"status": "正常", "quota": 5, "type": "Plus"})
+
+	token, err := accounts.AcquireImageTokenForExcluding(context.Background(), nil, nil)
+	if err != nil {
+		t.Fatalf("AcquireImageTokenForExcluding: %v", err)
+	}
+	if token != "fast-token" {
+		t.Fatalf("token = %q, want fast-token", token)
+	}
+	accounts.ReleaseImageReservation(token)
+	mu.Lock()
+	hitsDefault := remoteHits
+	mu.Unlock()
+	if hitsDefault != 0 {
+		t.Fatalf("fast acquire issued %d remote preflight requests, want 0", hitsDefault)
+	}
+
+	t.Setenv("CHATGPT2API_IMAGE_PREFLIGHT_ENABLED", "true")
+	token, err = accounts.AcquireImageTokenForExcluding(context.Background(), nil, nil)
+	if err != nil {
+		t.Fatalf("AcquireImageTokenForExcluding(preflight=true): %v", err)
+	}
+	accounts.ReleaseImageReservation(token)
+	mu.Lock()
+	hitsOptIn := remoteHits
+	mu.Unlock()
+	if hitsOptIn == 0 {
+		t.Fatal("expected remote preflight requests when CHATGPT2API_IMAGE_PREFLIGHT_ENABLED=true")
+	}
+}
+
 type staticAccountConfig struct {
 	invalid     bool
 	rateLimited bool

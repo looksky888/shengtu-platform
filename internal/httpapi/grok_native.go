@@ -13,6 +13,7 @@ import (
 
 	"chatgpt2api/internal/protocol"
 	"chatgpt2api/internal/service"
+	"chatgpt2api/internal/sidecar"
 	"chatgpt2api/internal/util"
 )
 
@@ -49,7 +50,7 @@ func (a *App) streamGrokNativeChatCompletion(ctx context.Context, body map[strin
 	if token != "" {
 		req.Header.Set("X-Internal-Token", token)
 	}
-	client := &http.Client{Timeout: 300 * time.Second}
+	client := sidecar.SharedHTTPClient(300 * time.Second)
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, &protocol.ImageGenerationError{
@@ -165,7 +166,7 @@ func (a *App) runGrokNativeChatCompletion(ctx context.Context, body map[string]a
 	if token != "" {
 		req.Header.Set("X-Internal-Token", token)
 	}
-	client := &http.Client{Timeout: 300 * time.Second}
+	client := sidecar.SharedHTTPClient(300 * time.Second)
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, &protocol.ImageGenerationError{
@@ -321,7 +322,7 @@ func (a *App) runSingleGrokNativeImageBatch(ctx context.Context, body map[string
 	if token != "" {
 		req.Header.Set("X-Internal-Token", token)
 	}
-	client := &http.Client{Timeout: 300 * time.Second}
+	client := sidecar.SharedHTTPClient(300 * time.Second)
 	resp, err := client.Do(req)
 	if err != nil {
 		imageErr := &protocol.ImageGenerationError{

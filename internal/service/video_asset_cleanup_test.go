@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"chatgpt2api/internal/storage"
 )
 
 func TestVideoAssetCleanupRemovesExpiredFileAndIndex(t *testing.T) {
@@ -89,5 +91,48 @@ func TestVideoAssetCleanupReclaimsOrphanFiles(t *testing.T) {
 	}
 	if _, err := os.Stat(freshPath); err != nil {
 		t.Fatalf("recent orphan video was removed: %v", err)
+	}
+}
+
+
+func TestVideoAssetCleanupPreservesVIPAndPublicAssets(t *testing.T) {
+	root := t.TempDir()
+	s := NewVideoAssetService(root)
+	expiredAt := time.Now().Add(-96 * time.Hour).Format(time.RFC3339)
+
+	vipItem := VideoAsset{TaskID: "vip-video", OwnerID: "user:vip", Visibility: VideoAssetVisibilityPrivate, CreatedAt: expiredAt}
+	publicItem := VideoAsset{TaskID: "pub-video", OwnerID: "user:free", Visibility: VideoAssetVisibilityPublic, CreatedAt: expiredAt}
+	freeItem := VideoAsset{TaskID: "free-video", OwnerID: "user:free", Visibility: VideoAssetVisibilityPrivate, CreatedAt: expiredAt}
+
+	for _, item := range []VideoAsset{vipItem, publicItem, freeItem} {
+		p := s.ContentPath(item.OwnerID, item.TaskID)
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte(item.TaskID), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		oldMod := time.Now().Add(-96 * time.Hour)
+		_ = os.Chtimes(p, oldMod, oldMod)
+		if _, err := s.Record(item); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	protected := map[string]storage.PaymentStorageEntitlementSummary{
+		"user:vip": {UserID: "user:vip", Tier: storage.StorageTierActive},
+	}
+	removed, err := s.CleanupOldVideos(1, protected)
+	if err != nil || removed != 1 {
+		t.Fatalf("CleanupOldVideos() = %d, %v, want 1 (only free private video)", removed, err)
+	}
+	if _, err := os.Stat(s.ContentPath(vipItem.OwnerID, vipItem.TaskID)); err != nil {
+		t.Fatalf("VIP video was deleted: %v", err)
+	}
+	if _, err := os.Stat(s.ContentPath(publicItem.OwnerID, publicItem.TaskID)); err != nil {
+		t.Fatalf("public Inspiration video was deleted: %v", err)
+	}
+	if _, err := os.Stat(s.ContentPath(freeItem.OwnerID, freeItem.TaskID)); !os.IsNotExist(err) {
+		t.Fatalf("free private expired video survived cleanup: %v", err)
 	}
 }

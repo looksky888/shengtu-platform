@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"chatgpt2api/internal/storage"
 )
@@ -116,6 +117,89 @@ func (s *ImageService) SweepOrphanedImageDocuments() int {
 	removed, err := prefixStore.DeleteJSONDocumentsBatch(orphanDocs)
 	if err != nil {
 		return removed
+	}
+	return removed
+}
+
+
+func isMediaOwnerProtected(ownerID string, sets ...map[string]storage.PaymentStorageEntitlementSummary) bool {
+	ownerID = strings.TrimSpace(ownerID)
+	if ownerID == "" {
+		return false
+	}
+	for _, set := range sets {
+		if _, ok := set[ownerID]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+// CleanupOldImages removes expired local image files while preserving public
+// Inspiration Gallery artworks and active/grace VIP owners.
+func (s *ImageService) CleanupOldImages(retentionDays int, protectedOwnerSets ...map[string]storage.PaymentStorageEntitlementSummary) int {
+	if s == nil || s.config == nil || s.media != nil {
+		return 0
+	}
+	if toggle, ok := s.config.(interface{ MediaAutoCleanupEnabled() bool }); ok && !toggle.MediaAutoCleanupEnabled() {
+		return 0
+	}
+	if retentionDays < 1 {
+		if cfg, ok := s.config.(interface{ ImageRetentionDays() int }); ok && cfg.ImageRetentionDays() > 0 {
+			retentionDays = cfg.ImageRetentionDays()
+		} else {
+			retentionDays = 7
+		}
+	}
+	imagesDir := strings.TrimSpace(s.config.ImagesDir())
+	if imagesDir == "" {
+		return 0
+	}
+	imagesRoot, err := filepath.Abs(imagesDir)
+	if err != nil {
+		return 0
+	}
+	thumbnailRoot, _ := filepath.Abs(s.config.ImageThumbnailsDir())
+	cutoff := time.Now().Add(-time.Duration(retentionDays) * 24 * time.Hour)
+
+	removed := 0
+	var removedRels []string
+	_ = filepath.WalkDir(imagesRoot, func(path string, d os.DirEntry, walkErr error) error {
+		if walkErr != nil || d.IsDir() {
+			return nil
+		}
+		if strings.HasSuffix(strings.ToLower(d.Name()), ".tmp") {
+			return nil
+		}
+		info, statErr := d.Info()
+		if statErr != nil || !info.ModTime().Before(cutoff) {
+			return nil
+		}
+		relPath, relErr := filepath.Rel(imagesRoot, path)
+		if relErr != nil {
+			return nil
+		}
+		rel, cleanErr := cleanImageRelativePath(filepath.ToSlash(relPath))
+		if cleanErr != nil {
+			return nil
+		}
+		meta := s.imageMetadata(rel)
+		if meta.Visibility == ImageVisibilityPublic || isMediaOwnerProtected(meta.OwnerID, protectedOwnerSets...) {
+			return nil
+		}
+		if os.Remove(path) == nil {
+			removed++
+			removedRels = append(removedRels, rel)
+			if thumbnailRoot != "" {
+				_ = s.removeImageThumbnail(thumbnailRoot, rel)
+			}
+			_ = s.removeImageOwner(rel)
+			removeEmptyParentDirs(imagesRoot, filepath.Dir(path))
+		}
+		return nil
+	})
+	if len(removedRels) > 0 {
+		_ = s.removeGalleryIndexEntries(removedRels)
 	}
 	return removed
 }

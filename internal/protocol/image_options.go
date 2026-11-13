@@ -10,6 +10,8 @@ import (
 	"chatgpt2api/internal/util"
 )
 
+var imageDimensionsRE = regexp.MustCompile(`^(\d+)x(\d+)$`)
+
 type ImageConfig interface {
 	ImagesDir() string
 	ImageMetadataDir() string
@@ -177,7 +179,7 @@ func RequiresPaidImageSize(size string) bool {
 
 func imageSizeDimensions(size string) (int, int, bool) {
 	normalized := strings.ReplaceAll(strings.ToLower(strings.TrimSpace(size)), "×", "x")
-	matches := regexp.MustCompile(`^(\d+)x(\d+)$`).FindStringSubmatch(normalized)
+	matches := imageDimensionsRE.FindStringSubmatch(normalized)
 	if len(matches) != 3 {
 		return 0, 0, false
 	}

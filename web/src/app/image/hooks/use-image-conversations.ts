@@ -16,13 +16,21 @@ import {
   listImageConversations,
   saveImageConversation,
   type ImageConversation,
+  type ImageConversationsChangedDetail,
 } from "@/store/image-conversations";
+
+let nextImageConversationsHookSeq = 0;
 
 type UseImageConversationsOptions = {
   restoreStoredComposerSettings: () => void;
 };
 
 export function useImageConversations({ restoreStoredComposerSettings }: UseImageConversationsOptions) {
+  const instanceSourceIdRef = useRef<string>("");
+  if (!instanceSourceIdRef.current) {
+    nextImageConversationsHookSeq += 1;
+    instanceSourceIdRef.current = `use-image-conversations:${nextImageConversationsHookSeq}`;
+  }
   const conversationsRef = useRef<ImageConversation[]>([]);
   const [conversations, setConversations] = useState<ImageConversation[]>([]);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
@@ -80,7 +88,11 @@ export function useImageConversations({ restoreStoredComposerSettings }: UseImag
       }
     };
 
-    const handleConversationsChanged = () => {
+    const handleConversationsChanged = (event: Event) => {
+      const detail = (event as CustomEvent<ImageConversationsChangedDetail | undefined>).detail;
+      if (detail?.sourceId && detail.sourceId === instanceSourceIdRef.current) {
+        return;
+      }
       void refreshChangedConversations();
     };
 
@@ -181,7 +193,7 @@ export function useImageConversations({ restoreStoredComposerSettings }: UseImag
         ...conversationsRef.current.filter((item) => item.id !== nextConversation.id),
       ]);
       replaceConversations(nextConversations);
-      await saveImageConversation(nextConversation);
+      await saveImageConversation(nextConversation, { sourceId: instanceSourceIdRef.current });
     },
     [replaceConversations],
   );
@@ -200,7 +212,7 @@ export function useImageConversations({ restoreStoredComposerSettings }: UseImag
       ]);
       replaceConversations(nextConversations);
       if (options.persist !== false) {
-        await saveImageConversation(nextConversation);
+        await saveImageConversation(nextConversation, { sourceId: instanceSourceIdRef.current });
       }
     },
     [replaceConversations],

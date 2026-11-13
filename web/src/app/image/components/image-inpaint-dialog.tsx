@@ -13,6 +13,10 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { isImeComposing } from "@/lib/keyboard";
+import {
+  buildSameOriginImageProxySrc,
+  fetchAuthorizedImageBlob,
+} from "@/lib/media-fetch";
 import type { StoredImage } from "@/store/image-conversations";
 import {
   drawInpaintOverlay,
@@ -43,6 +47,7 @@ export function ImageInpaintDialog({ source, onClose, onSubmit }: ImageInpaintDi
   const [drag, setDrag] = useState<{ pointerId: number; start: InpaintPoint; mark: InpaintMark } | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  const resolvedSourceSrc = source ? buildSameOriginImageProxySrc(source.src) : "";
   const imageSize = () => ({ width: imageRef.current?.naturalWidth || 0, height: imageRef.current?.naturalHeight || 0 });
 
   const draw = useCallback(
@@ -136,10 +141,7 @@ export function ImageInpaintDialog({ source, onClose, onSubmit }: ImageInpaintDi
           mimeType,
         );
       } else {
-        const isSameOrigin =
-          typeof window !== "undefined" &&
-          new URL(source.src, window.location.href).origin === window.location.origin;
-        const originalResponse = await fetch(source.src, { credentials: isSameOrigin ? "same-origin" : "omit" });
+        const originalResponse = await fetchAuthorizedImageBlob(source.src);
         if (!originalResponse.ok) throw new Error(`读取原图失败：HTTP ${originalResponse.status}`);
         const originalBlob = await originalResponse.blob();
         originalFile = new File([originalBlob], source.name || "source.png", {
@@ -189,7 +191,7 @@ export function ImageInpaintDialog({ source, onClose, onSubmit }: ImageInpaintDi
             <Button size="sm" variant="outline" disabled={!marks.length} onClick={() => setMarks([])}><Eraser />清空</Button>
           </aside>
           <div className="flex min-h-[280px] items-center justify-center overflow-auto rounded-2xl border border-border bg-surface p-3">
-            {source ? <div className="relative inline-block max-w-full overflow-hidden rounded-xl"><img ref={imageRef} src={source.src} alt={source.name} crossOrigin="anonymous" draggable={false} className="block max-h-[58vh] max-w-full select-none" onLoad={() => draw()} onError={() => toast.error("原图加载失败，请检查图片地址或跨域配置")} /><canvas ref={canvasRef} className="absolute inset-0 h-full w-full cursor-crosshair touch-none" onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={finishPointer} onPointerCancel={finishPointer} /></div> : null}
+            {source ? <div className="relative inline-block max-w-full overflow-hidden rounded-xl"><img ref={imageRef} src={resolvedSourceSrc} alt={source.name} crossOrigin="anonymous" draggable={false} className="block max-h-[58vh] max-w-full select-none" onLoad={() => draw()} onError={() => toast.error("原图加载失败，请检查图片地址或跨域配置")} /><canvas ref={canvasRef} className="absolute inset-0 h-full w-full cursor-crosshair touch-none" onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={finishPointer} onPointerCancel={finishPointer} /></div> : null}
           </div>
         </div>
         <DialogFooter className="flex-row items-center border-t border-border px-5 py-4">

@@ -145,5 +145,7 @@ export type ManagedImage = {
   megapixels?: number;
   created_at: string;
   published_at?: string;
+  output_format?: string;
+  expires_at?: string;
 };
 

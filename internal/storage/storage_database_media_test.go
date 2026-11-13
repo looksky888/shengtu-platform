@@ -111,3 +111,27 @@ func TestListMediaAssetsBeforeExcludesMediaCreatedBeforePolicy(t *testing.T) {
 		t.Fatalf("second page = %#v", second)
 	}
 }
+
+func TestListMediaAssetsBeforeNormalizesMixedRFC3339AndNanoTimestamps(t *testing.T) {
+	backend := newMediaTestBackend(t)
+	// In raw ASCII, "2026-08-10T00:00:00Z" > "2026-08-10T00:00:00.500Z" because 'Z' > '.'.
+	// utcSortableExpr must order exact-second RFC3339 before sub-second RFC3339Nano.
+	saveMediaTestAsset(t, backend, "second-exact.png", "alice", "private", "2026-08-10T00:00:00Z")
+	saveMediaTestAsset(t, backend, "second-nano.png", "alice", "private", "2026-08-10T00:00:00.500Z")
+	saveMediaTestAsset(t, backend, "cutoff-exact.png", "alice", "private", "2026-08-11T00:00:00Z")
+
+	first, err := backend.ListMediaAssetsBefore("2026-08-10T00:00:00.000000000Z", "2026-08-11T00:00:00.000000000Z", 1, "", "")
+	if err != nil {
+		t.Fatalf("first page error = %v", err)
+	}
+	if len(first) != 1 || first[0].Path != "second-exact.png" {
+		t.Fatalf("first page = %#v, want second-exact.png", first)
+	}
+	second, err := backend.ListMediaAssetsBefore("2026-08-10T00:00:00Z", "2026-08-11T00:00:00Z", 10, first[0].CreatedAt, first[0].Path)
+	if err != nil {
+		t.Fatalf("second page error = %v", err)
+	}
+	if len(second) != 1 || second[0].Path != "second-nano.png" {
+		t.Fatalf("second page = %#v, want second-nano.png only", second)
+	}
+}

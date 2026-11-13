@@ -30,12 +30,16 @@ func (c *Client) postRaw(ctx context.Context, path string, data []byte, headers 
 }
 
 func (c *Client) doUpstreamRequest(ctx context.Context, client *http.Client, method, targetURL, contextName string, data []byte, headers map[string]string) (*http.Response, error) {
+	reqHeaders := make(map[string]string, len(headers))
+	for key, value := range headers {
+		reqHeaders[key] = value
+	}
 	for attempt := 0; attempt < 2; attempt++ {
 		req, err := http.NewRequestWithContext(ctx, method, targetURL, bytes.NewReader(data))
 		if err != nil {
 			return nil, fmt.Errorf("%s request: %w", contextName, err)
 		}
-		for key, value := range headers {
+		for key, value := range reqHeaders {
 			req.Header.Set(key, value)
 		}
 		resp, err := client.Do(req)
@@ -45,8 +49,20 @@ func (c *Client) doUpstreamRequest(ctx context.Context, client *http.Client, met
 		if attempt == 0 && shouldRefreshCloudflare(resp) && service.UpstreamClearanceEnabled() {
 			c.logCloudflareChallenge(contextName, resp, attempt)
 			if bundle, refreshErr := service.RefreshUpstreamClearanceForChallengeWithProxy(ctx, c.proxyURL); refreshErr == nil && bundle != nil {
-				headers = service.ApplyUpstreamClearanceToHeaders(headers, bundle)
-				c.applySentinelHeaders(headers)
+				c.syncClearanceFingerprint()
+				if c != nil && c.sentinel != nil && strings.HasPrefix(c.sentinel.ID, "native-") {
+					_ = c.buildNativeSentinelContext()
+				}
+				if ua := strings.TrimSpace(bundle.UserAgent); ua != "" {
+					setHeaderCaseInsensitive(reqHeaders, "User-Agent", ua)
+					if c != nil && c.fp != nil {
+						updateHeaderIfPresent(reqHeaders, "Sec-Ch-Ua", c.fp["sec-ch-ua"])
+						updateHeaderIfPresent(reqHeaders, "Sec-Ch-Ua-Full-Version", c.fp["sec-ch-ua-full-version"])
+						updateHeaderIfPresent(reqHeaders, "Sec-Ch-Ua-Full-Version-List", c.fp["sec-ch-ua-full-version-list"])
+					}
+				}
+				reqHeaders = service.ApplyUpstreamClearanceToHeaders(reqHeaders, bundle)
+				c.applySentinelHeaders(reqHeaders)
 				if c.logger != nil {
 					c.logger.Info("upstream clearance refreshed", "host", upstreamRequestHost(resp), "proxy_present", c.proxyURL != "", "proxy_hash", service.ProxyURLHash(c.proxyURL), "clearance_created_at", bundle.CreatedAt.UTC().Format(time.RFC3339), "clearance_expires_at", bundle.ExpiresAt.UTC().Format(time.RFC3339), "clearance_cookie_count", len(bundle.Cookies), "clearance_has_user_agent", strings.TrimSpace(bundle.UserAgent) != "")
 				}
@@ -57,6 +73,30 @@ func (c *Client) doUpstreamRequest(ctx context.Context, client *http.Client, met
 		return resp, nil
 	}
 	return nil, fmt.Errorf("%s failed: Cloudflare clearance retry exhausted", contextName)
+}
+
+func setHeaderCaseInsensitive(headers map[string]string, canonicalKey, value string) {
+	if headers == nil || strings.TrimSpace(value) == "" {
+		return
+	}
+	for existing := range headers {
+		if strings.EqualFold(existing, canonicalKey) && existing != canonicalKey {
+			delete(headers, existing)
+		}
+	}
+	headers[canonicalKey] = value
+}
+
+func updateHeaderIfPresent(headers map[string]string, canonicalKey, value string) {
+	if headers == nil || strings.TrimSpace(value) == "" {
+		return
+	}
+	for existing := range headers {
+		if strings.EqualFold(existing, canonicalKey) {
+			headers[existing] = value
+			return
+		}
+	}
 }
 
 func (c *Client) logCloudflareChallenge(contextName string, resp *http.Response, attempt int) {

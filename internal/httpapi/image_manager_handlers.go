@@ -2,11 +2,13 @@ package httpapi
 
 import (
 	"chatgpt2api/internal/service"
+	"chatgpt2api/internal/storage"
 	"chatgpt2api/internal/util"
 	"errors"
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 )
 
 func (a *App) handleImages(w http.ResponseWriter, r *http.Request) {
@@ -104,6 +106,7 @@ func (a *App) handleImageVisibility(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.decorateImageItem(item, a.imageOwnerDisplayNames())
+	a.decorateImageExpiryHint(item, a.resolveImageExpiryPolicyContext())
 	util.WriteJSON(w, http.StatusOK, itemResponse[service.ImagePublic]{Item: service.ImagePublicFromMap(item)})
 }
 
@@ -192,11 +195,122 @@ func (a *App) recordGeneratedImagesForPayload(identity service.Identity, urls []
 	}
 }
 
+type imageExpiryPolicyContext struct {
+	enabled         bool
+	policyStartTime time.Time
+	freeDays        int
+	historicalDays  int
+	protectedOwners map[string]storage.PaymentStorageEntitlementSummary
+}
+
+func (a *App) resolveImageExpiryPolicyContext() imageExpiryPolicyContext {
+	if a == nil || a.paymentOrders == nil || !a.paymentOrders.Available() {
+		return imageExpiryPolicyContext{}
+	}
+	settings, err := a.paymentOrders.Settings()
+	if err != nil || !settings.CloudStorageEnabled || strings.TrimSpace(settings.CloudStoragePolicyStartedAt) == "" {
+		return imageExpiryPolicyContext{}
+	}
+	parsedStart, parseErr := time.Parse(time.RFC3339Nano, strings.TrimSpace(settings.CloudStoragePolicyStartedAt))
+	if parseErr != nil {
+		return imageExpiryPolicyContext{}
+	}
+	protectedOwners, entErr := a.paymentOrders.ActiveStorageEntitlements()
+	if entErr != nil {
+		if a.logger != nil {
+			a.logger.Warning("skip image expiry hints: load active storage entitlements failed", "error", entErr.Error())
+		}
+		return imageExpiryPolicyContext{}
+	}
+	freeDays := settings.FreeRetentionDays
+	if freeDays < 1 {
+		freeDays = storage.DefaultFreeRetentionDays
+	}
+	historicalDays := settings.HistoricalGraceDays
+	if historicalDays < 1 {
+		historicalDays = storage.DefaultHistoricalGraceDays
+	}
+	return imageExpiryPolicyContext{
+		enabled:         true,
+		policyStartTime: parsedStart.UTC(),
+		freeDays:        freeDays,
+		historicalDays:  historicalDays,
+		protectedOwners: protectedOwners,
+	}
+}
+
 func (a *App) decorateImageList(payload map[string]any) {
 	ownerNames := a.imageOwnerDisplayNames()
+	policy := a.resolveImageExpiryPolicyContext()
 	for _, item := range util.AsMapSlice(payload["items"]) {
 		a.decorateImageItem(item, ownerNames)
+		a.decorateImageExpiryHint(item, policy)
 	}
+}
+
+func (a *App) decorateImageExpiryHint(item map[string]any, policy imageExpiryPolicyContext) {
+	if item == nil {
+		return
+	}
+	if !policy.enabled || util.Clean(item["visibility"]) == service.ImageVisibilityPublic {
+		delete(item, "expires_at")
+		return
+	}
+	ownerID := util.Clean(item["owner_id"])
+	var (
+		ent       storage.PaymentStorageEntitlementSummary
+		protected bool
+	)
+	if ownerID != "" && policy.protectedOwners != nil {
+		ent, protected = policy.protectedOwners[ownerID]
+		if protected && ent.Tier != storage.StorageTierGrace {
+			delete(item, "expires_at")
+			return
+		}
+	}
+	createdRaw := util.Clean(item["created_at"])
+	createdTime, hasCreated := parseImageCreatedTime(createdRaw)
+	var baseExpiry time.Time
+	if hasCreated {
+		createdUTC := createdTime.UTC()
+		if createdUTC.Before(policy.policyStartTime) {
+			baseExpiry = policy.policyStartTime.AddDate(0, 0, policy.historicalDays)
+		} else {
+			baseExpiry = createdUTC.AddDate(0, 0, policy.freeDays)
+		}
+	}
+	if protected && ent.Tier == storage.StorageTierGrace {
+		graceTime, graceOK := parseImageCreatedTime(ent.GraceExpiresAt)
+		if !graceOK {
+			delete(item, "expires_at")
+			return
+		}
+		effectiveExpiry := graceTime.UTC()
+		if hasCreated && baseExpiry.After(effectiveExpiry) {
+			effectiveExpiry = baseExpiry
+		}
+		item["expires_at"] = effectiveExpiry.UTC().Format(time.RFC3339)
+		return
+	}
+	if !hasCreated {
+		delete(item, "expires_at")
+		return
+	}
+	item["expires_at"] = baseExpiry.UTC().Format(time.RFC3339)
+}
+
+func parseImageCreatedTime(raw string) (time.Time, bool) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return time.Time{}, false
+	}
+	if parsed, err := time.Parse(time.RFC3339Nano, raw); err == nil {
+		return parsed, true
+	}
+	if parsed, err := time.ParseInLocation("2006-01-02 15:04:05", raw, util.ChinaLocation()); err == nil {
+		return parsed, true
+	}
+	return time.Time{}, false
 }
 
 func (a *App) decorateImageItem(item map[string]any, ownerNames map[string]string) {

@@ -350,8 +350,8 @@ func validateRechargeProduct(product RechargeProductRecord) error {
 	if product.ProductType == "credits" && product.Credits <= 0 {
 		return errors.New("积分商品到账积分必须为正数")
 	}
-	if product.ProductType == "cloud_storage" && (product.StorageDays <= 0 || product.StorageBytes <= 0) {
-		return errors.New("云存储商品容量和有效期必须为正数")
+	if product.ProductType == "cloud_storage" && (product.StorageDays <= 0 || product.StorageBytes < 0) {
+		return errors.New("云存储商品有效期必须为正数且容量不能为负数")
 	}
 	return nil
 }

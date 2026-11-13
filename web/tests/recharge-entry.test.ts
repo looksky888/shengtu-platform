@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-const rechargeSourceURL = new URL("../src/app/recharge/recharge-content.tsx", import.meta.url);
+const rechargeSourceURL = new URL("../src/app/wallet/page.tsx", import.meta.url);
 const rechargeOrderHookURL = new URL("../src/app/recharge/use-recharge-order.ts", import.meta.url);
 const rechargeStatusSourceURL = new URL("../src/app/recharge/recharge-order-status.tsx", import.meta.url);
 const profileSourceURL = new URL("../src/app/profile/profile-content.tsx", import.meta.url);

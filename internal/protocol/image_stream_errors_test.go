@@ -36,6 +36,29 @@ func TestIsRetryableImageStreamErrorUsesEnvelopeStatus(t *testing.T) {
 	}
 }
 
+func TestIsAccountSwitchableImageErrorIncludes403And423(t *testing.T) {
+	for _, message := range []string{
+		`bootstrap failed: status=403, upstream returned Cloudflare challenge page`,
+		`sentinel prepare failed: status=403, body={"detail":"Forbidden"}`,
+		`conversation failed: status=423, body={"detail":"account locked"}`,
+		`getConversation failed: status=429, {"error":{"message":"rate limited"}}`,
+		`getConversation failed: status=503, {"error":{"message":"unavailable"}}`,
+	} {
+		if !isAccountSwitchableImageError(message) {
+			t.Fatalf("isAccountSwitchableImageError(%q) = false, want true", message)
+		}
+	}
+	for _, message := range []string{
+		`getConversation failed: status=400, {"error":{"message":"bad request"}}`,
+		`conversation failed: status=422, {"error":{"message":"invalid prompt"}}`,
+		"content policy violation",
+	} {
+		if isAccountSwitchableImageError(message) {
+			t.Fatalf("isAccountSwitchableImageError(%q) = true, want false", message)
+		}
+	}
+}
+
 func TestIsRetryableImageStreamErrorKeepsTransportSignals(t *testing.T) {
 	for _, message := range []string{
 		"stream error: stream ID 1; INTERNAL_ERROR; received from peer",

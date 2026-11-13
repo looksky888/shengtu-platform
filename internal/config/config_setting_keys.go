@@ -65,8 +65,6 @@ var settingEnvKeys = map[string]string{
 	"upstream_clearance_warm_up_on_start": "CHATGPT2API_UPSTREAM_CLEARANCE_WARM_UP_ON_START",
 	"image_challenge_cooldown_seconds":    "CHATGPT2API_IMAGE_CHALLENGE_COOLDOWN_SECONDS",
 	"feature_icloud":                      "CHATGPT2API_FEATURE_ICLOUD",
-	"feature_grok_register":               "CHATGPT2API_FEATURE_GROK_REGISTER",
-	"feature_register_backend":            "CHATGPT2API_FEATURE_REGISTER_BACKEND",
 	"icloud_privacy_mail_base_url":        "ICLOUD_PRIVACY_MAIL_BASE_URL",
 	"grok_runtime_base_url":               "GROK_RUNTIME_BASE_URL",
 	"internal_service_token":              "INTERNAL_SERVICE_TOKEN",

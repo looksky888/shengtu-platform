@@ -236,7 +236,7 @@ func validatePaymentOrder(order PaymentOrderRecord) error {
 	if order.ProductTypeSnapshot == "credits" && order.CreditsSnapshot <= 0 {
 		return fmt.Errorf("payment order 积分必须为正数")
 	}
-	if order.ProductTypeSnapshot == "cloud_storage" && (order.StorageDaysSnapshot <= 0 || order.StorageBytesSnapshot <= 0) {
+	if order.ProductTypeSnapshot == "cloud_storage" && (order.StorageDaysSnapshot <= 0 || order.StorageBytesSnapshot < 0) {
 		return fmt.Errorf("payment order 云存储权益无效")
 	}
 	if order.ProductTypeSnapshot != "credits" && order.ProductTypeSnapshot != "cloud_storage" {

@@ -7,10 +7,30 @@ import (
 	"html"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"chatgpt2api/internal/util"
 )
+
+var (
+	stripToolMarkupRE   = regexp.MustCompile(`(?is)<tool_calls\b[^>]*>.*?</tool_calls>|<tool_call\b[^>]*>.*?</tool_call>|<function_call\b[^>]*>.*?</function_call>|<invoke\b[^>]*>.*?</invoke>`)
+	streamableToolTagRE = regexp.MustCompile(`(?is)<tool_calls\b|<tool_call\b|<function_call\b|<invoke\b`)
+	codeFenceRE         = regexp.MustCompile("(?is)```.*?```")
+	toolCallBlockRE     = regexp.MustCompile(`(?is)<tool_call\b[^>]*>(.*?)</tool_call>|<function_call\b[^>]*>(.*?)</function_call>|<invoke\b[^>]*>(.*?)</invoke>`)
+	cdataBlockRE        = regexp.MustCompile(`(?is)^<!\[CDATA\[(.*?)]]>$`)
+	xmlParamRE          = regexp.MustCompile(`(?is)<([\w.-]+)\b[^>]*>(.*?)</([\w.-]+)>`)
+	xmlTagRegexCache    sync.Map
+)
+
+func compiledXMLTagRE(tag string) *regexp.Regexp {
+	if cached, ok := xmlTagRegexCache.Load(tag); ok {
+		return cached.(*regexp.Regexp)
+	}
+	re := regexp.MustCompile(`(?is)<` + regexp.QuoteMeta(tag) + `\b[^>]*>(.*?)</` + regexp.QuoteMeta(tag) + `>`)
+	actual, _ := xmlTagRegexCache.LoadOrStore(tag, re)
+	return actual.(*regexp.Regexp)
+}
 
 func (e *Engine) HandleMessages(ctx context.Context, body map[string]any) (map[string]any, *StreamResult, error) {
 	request := MessageRequestFromBody(e, body)
@@ -205,12 +225,35 @@ func (e *Engine) StreamAnthropicEvents(ctx context.Context, request MessageReque
 		toolMode := len(anyList(request.Tools)) > 0
 		toolStarted := false
 		textOpen := false
-		out <- map[string]any{"type": "message_start", "message": map[string]any{"id": messageID, "type": "message", "role": "assistant", "model": request.Model, "content": []any{}, "stop_reason": nil, "stop_sequence": nil, "usage": map[string]any{"input_tokens": CountMessageTokens(request.Messages, request.Model), "output_tokens": 0}}}
+		if !sendChan(ctx, out, map[string]any{"type": "message_start", "message": map[string]any{"id": messageID, "type": "message", "role": "assistant", "model": request.Model, "content": []any{}, "stop_reason": nil, "stop_sequence": nil, "usage": map[string]any{"input_tokens": CountMessageTokens(request.Messages, request.Model), "output_tokens": 0}}}) {
+			outErr <- ctx.Err()
+			return
+		}
 		if !toolMode {
 			textOpen = true
-			out <- map[string]any{"type": "content_block_start", "index": 0, "content_block": map[string]any{"type": "text", "text": ""}}
+			if !sendChan(ctx, out, map[string]any{"type": "content_block_start", "index": 0, "content_block": map[string]any{"type": "text", "text": ""}}) {
+				outErr <- ctx.Err()
+				return
+			}
 		}
-		for chunk := range chunks {
+		finished := false
+		for {
+			var (
+				chunk map[string]any
+				ok    bool
+			)
+			select {
+			case chunk, ok = <-chunks:
+			case <-ctx.Done():
+				outErr <- ctx.Err()
+				return
+			}
+			if !ok {
+				break
+			}
+			if finished {
+				continue
+			}
 			choice := firstChoice(chunk)
 			delta := util.StringMap(choice["delta"])
 			textDelta := util.Clean(delta["content"])
@@ -226,10 +269,16 @@ func (e *Engine) StreamAnthropicEvents(ctx context.Context, request MessageReque
 						if next != "" {
 							if !textOpen {
 								textOpen = true
-								out <- map[string]any{"type": "content_block_start", "index": 0, "content_block": map[string]any{"type": "text", "text": ""}}
+								if !sendChan(ctx, out, map[string]any{"type": "content_block_start", "index": 0, "content_block": map[string]any{"type": "text", "text": ""}}) {
+									outErr <- ctx.Err()
+									return
+								}
 							}
 							streamed = visible
-							out <- map[string]any{"type": "content_block_delta", "index": 0, "delta": map[string]any{"type": "text_delta", "text": next}}
+							if !sendChan(ctx, out, map[string]any{"type": "content_block_delta", "index": 0, "delta": map[string]any{"type": "text_delta", "text": next}}) {
+								outErr <- ctx.Err()
+								return
+							}
 						}
 					}
 					toolStarted = toolMode && visible != current
@@ -238,42 +287,61 @@ func (e *Engine) StreamAnthropicEvents(ctx context.Context, request MessageReque
 			if choice["finish_reason"] != nil {
 				content, stopReason := ContentBlocks(current, request.Tools)
 				if textOpen {
-					out <- map[string]any{"type": "content_block_stop", "index": 0}
+					if !sendChan(ctx, out, map[string]any{"type": "content_block_stop", "index": 0}) {
+						outErr <- ctx.Err()
+						return
+					}
 				}
 				if stopReason == "tool_use" {
 					startIndex := 0
 					if textOpen {
 						startIndex = 1
 					}
-					outBufferedBlocks(out, content, startIndex)
+					if !outBufferedBlocks(ctx, out, content, startIndex) {
+						outErr <- ctx.Err()
+						return
+					}
 				}
-				out <- map[string]any{"type": "message_delta", "delta": map[string]any{"stop_reason": stopReason, "stop_sequence": nil}, "usage": map[string]any{"output_tokens": CountTextTokens(current, request.Model)}}
-				break
+				if !sendChan(ctx, out, map[string]any{"type": "message_delta", "delta": map[string]any{"stop_reason": stopReason, "stop_sequence": nil}, "usage": map[string]any{"output_tokens": CountTextTokens(current, request.Model)}}) {
+					outErr <- ctx.Err()
+					return
+				}
+				finished = true
 			}
 		}
 		if err := <-errCh; err != nil {
 			outErr <- err
 			return
 		}
-		out <- map[string]any{"type": "message_stop", "created": time.Now().Unix()}
+		if !sendChan(ctx, out, map[string]any{"type": "message_stop", "created": time.Now().Unix()}) {
+			outErr <- ctx.Err()
+			return
+		}
 		outErr <- nil
 	}()
 	return out, outErr
 }
 
-func outBufferedBlocks(out chan<- map[string]any, content []map[string]any, startIndex int) {
+func outBufferedBlocks(ctx context.Context, out chan<- map[string]any, content []map[string]any, startIndex int) bool {
 	for offset, block := range content {
 		index := startIndex + offset
 		if block["type"] == "tool_use" {
 			data, _ := json.Marshal(block["input"])
-			out <- map[string]any{"type": "content_block_start", "index": index, "content_block": map[string]any{"type": "tool_use", "id": block["id"], "name": block["name"], "input": map[string]any{}}}
-			out <- map[string]any{"type": "content_block_delta", "index": index, "delta": map[string]any{"type": "input_json_delta", "partial_json": string(data)}}
+			if !sendChan(ctx, out, map[string]any{"type": "content_block_start", "index": index, "content_block": map[string]any{"type": "tool_use", "id": block["id"], "name": block["name"], "input": map[string]any{}}}) ||
+				!sendChan(ctx, out, map[string]any{"type": "content_block_delta", "index": index, "delta": map[string]any{"type": "input_json_delta", "partial_json": string(data)}}) {
+				return false
+			}
 		} else {
-			out <- map[string]any{"type": "content_block_start", "index": index, "content_block": map[string]any{"type": "text", "text": ""}}
-			out <- map[string]any{"type": "content_block_delta", "index": index, "delta": map[string]any{"type": "text_delta", "text": block["text"]}}
+			if !sendChan(ctx, out, map[string]any{"type": "content_block_start", "index": index, "content_block": map[string]any{"type": "text", "text": ""}}) ||
+				!sendChan(ctx, out, map[string]any{"type": "content_block_delta", "index": index, "delta": map[string]any{"type": "text_delta", "text": block["text"]}}) {
+				return false
+			}
 		}
-		out <- map[string]any{"type": "content_block_stop", "index": index}
+		if !sendChan(ctx, out, map[string]any{"type": "content_block_stop", "index": index}) {
+			return false
+		}
 	}
+	return true
 }
 
 func CollectChatContent(chunks <-chan map[string]any) string {
@@ -305,11 +373,11 @@ type ToolCall struct {
 }
 
 func StripToolMarkup(text string) string {
-	return strings.TrimSpace(regexp.MustCompile(`(?is)<tool_calls\b[^>]*>.*?</tool_calls>|<tool_call\b[^>]*>.*?</tool_call>|<function_call\b[^>]*>.*?</function_call>|<invoke\b[^>]*>.*?</invoke>`).ReplaceAllString(text, ""))
+	return strings.TrimSpace(stripToolMarkupRE.ReplaceAllString(text, ""))
 }
 
 func StreamableText(text string) string {
-	loc := regexp.MustCompile(`(?is)<tool_calls\b|<tool_call\b|<function_call\b|<invoke\b`).FindStringIndex(text)
+	loc := streamableToolTagRE.FindStringIndex(text)
 	if loc == nil {
 		return text
 	}
@@ -317,8 +385,8 @@ func StreamableText(text string) string {
 }
 
 func ParseToolCalls(text string) []ToolCall {
-	text = regexp.MustCompile("(?is)```.*?```").ReplaceAllString(text, "")
-	matches := regexp.MustCompile(`(?is)<tool_call\b[^>]*>(.*?)</tool_call>|<function_call\b[^>]*>(.*?)</function_call>|<invoke\b[^>]*>(.*?)</invoke>`).FindAllStringSubmatch(text, -1)
+	text = codeFenceRE.ReplaceAllString(text, "")
+	matches := toolCallBlockRE.FindAllStringSubmatch(text, -1)
 	var out []ToolCall
 	for _, match := range matches {
 		block := ""
@@ -338,13 +406,13 @@ func ParseToolCalls(text string) []ToolCall {
 }
 
 func XMLValue(text, tag string) string {
-	re := regexp.MustCompile(`(?is)<` + regexp.QuoteMeta(tag) + `\b[^>]*>(.*?)</` + regexp.QuoteMeta(tag) + `>`)
+	re := compiledXMLTagRE(tag)
 	match := re.FindStringSubmatch(text)
 	if len(match) < 2 {
 		return ""
 	}
 	value := strings.TrimSpace(match[1])
-	if cdata := regexp.MustCompile(`(?is)^<!\[CDATA\[(.*?)]]>$`).FindStringSubmatch(value); len(cdata) > 1 {
+	if cdata := cdataBlockRE.FindStringSubmatch(value); len(cdata) > 1 {
 		value = cdata[1]
 	}
 	return strings.TrimSpace(html.UnescapeString(value))
@@ -357,7 +425,7 @@ func ParseToolParams(raw string) map[string]any {
 		return parsed
 	}
 	out := map[string]any{}
-	for _, match := range regexp.MustCompile(`(?is)<([\w.-]+)\b[^>]*>(.*?)</([\w.-]+)>`).FindAllStringSubmatch(raw, -1) {
+	for _, match := range xmlParamRE.FindAllStringSubmatch(raw, -1) {
 		if len(match) > 3 && match[1] == match[3] {
 			out[match[1]] = ParseToolValue(match[2])
 		}

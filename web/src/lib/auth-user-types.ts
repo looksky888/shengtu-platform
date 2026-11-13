@@ -71,11 +71,17 @@ export type AuthProviders = {
   };
 };
 
+export type AnnouncementDisplayMode = "popup" | "banner";
+export type AnnouncementBannerTone = "notice" | "activity" | "update" | "warning";
+
 export type Announcement = {
   id: string;
   title: string;
   content: string;
   image_url?: string;
+  display_mode?: AnnouncementDisplayMode;
+  banner_tone?: AnnouncementBannerTone;
+  link_url?: string;
   enabled?: boolean;
   show_login: boolean;
   show_image: boolean;

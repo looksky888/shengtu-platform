@@ -1,6 +1,7 @@
 package protocol
 
 import (
+	"context"
 	"regexp"
 	"strings"
 	"sync"
@@ -13,6 +14,12 @@ const (
 	maxContextMessages        = 16
 	maxContextImages          = 4
 	maxContextMessageChars    = 2000
+)
+
+var (
+	markdownDataImageRE = regexp.MustCompile(`!\[[^\]]*]\(data:image/[^)]+\)`)
+	inlineDataImageRE   = regexp.MustCompile(`data:image/[A-Za-z0-9.+-]+;base64,[A-Za-z0-9+/=\s]+`)
+	longBase64RE        = regexp.MustCompile(`[A-Za-z0-9+/]{800,}={0,2}`)
 )
 
 type ResponseContext struct {
@@ -103,11 +110,32 @@ func (e *Engine) responseContextFromPreviousScoped(scope string, raw any) (Respo
 	return ctx, nil
 }
 
-func (e *Engine) rememberResponseContextEventsScoped(scope string, events <-chan map[string]any, base ResponseContext) <-chan map[string]any {
+func (e *Engine) rememberResponseContextEventsScoped(ctx context.Context, scope string, events <-chan map[string]any, base ResponseContext, onDone ...func()) <-chan map[string]any {
 	out := make(chan map[string]any)
 	go func() {
 		defer close(out)
-		for event := range events {
+		for _, fn := range onDone {
+			if fn != nil {
+				defer fn()
+			}
+		}
+		for {
+			var (
+				event map[string]any
+				ok    bool
+			)
+			if ctx != nil {
+				select {
+				case event, ok = <-events:
+				case <-ctx.Done():
+					return
+				}
+			} else {
+				event, ok = <-events
+			}
+			if !ok {
+				return
+			}
 			if event["type"] == "response.completed" {
 				if response := util.StringMap(event["response"]); len(response) > 0 {
 					id := util.Clean(response["id"])
@@ -116,7 +144,9 @@ func (e *Engine) rememberResponseContextEventsScoped(scope string, events <-chan
 					}
 				}
 			}
-			out <- event
+			if !sendChan(ctx, out, event) {
+				return
+			}
 		}
 	}()
 	return out
@@ -305,9 +335,9 @@ func sanitizeImageContextText(text string) string {
 	if text == "" {
 		return ""
 	}
-	text = regexp.MustCompile(`!\[[^\]]*]\(data:image/[^)]+\)`).ReplaceAllString(text, "[generated image]")
-	text = regexp.MustCompile(`data:image/[A-Za-z0-9.+-]+;base64,[A-Za-z0-9+/=\s]+`).ReplaceAllString(text, "[image data]")
-	text = regexp.MustCompile(`[A-Za-z0-9+/]{800,}={0,2}`).ReplaceAllString(text, "[long encoded data]")
+	text = markdownDataImageRE.ReplaceAllString(text, "[generated image]")
+	text = inlineDataImageRE.ReplaceAllString(text, "[image data]")
+	text = longBase64RE.ReplaceAllString(text, "[long encoded data]")
 	return strings.TrimSpace(text)
 }
 

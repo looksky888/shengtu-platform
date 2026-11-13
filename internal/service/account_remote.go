@@ -22,14 +22,15 @@ func (s *AccountService) FetchRemoteInfo(ctx context.Context, accessToken string
 		return nil, fmt.Errorf("请提供 access_token")
 	}
 	baseURL := strings.TrimRight(firstNonEmpty(s.remoteBaseURL, "https://chatgpt.com"), "/")
-	headers := s.remoteHeadersContext(ctx, accessToken)
-	client := s.browserHTTPClient(s.remoteImpersonation(accessToken), 30*time.Second)
+	proxyURL := s.accountProxyURL(accessToken)
+	client := s.remoteHTTPClient(accessToken, 30*time.Second)
 	if client == nil {
 		client = &http.Client{Timeout: 30 * time.Second}
 	}
-	if err := s.bootstrapRemote(ctx, client, baseURL, accessToken); err != nil {
+	if err := s.bootstrapRemote(ctx, client, baseURL, accessToken, proxyURL); err != nil {
 		return nil, err
 	}
+	headers := s.remoteHeadersContext(ctx, accessToken)
 	type response struct {
 		payload map[string]any
 		err     error
@@ -79,7 +80,10 @@ func (s *AccountService) FetchRemoteInfo(ctx context.Context, accessToken string
 			requestErr := refreshHTTPError(urlPath, resp.StatusCode, data)
 			if attempt+1 < maxAccountRemoteAttempts && isAccountCloudflareChallengeResponse(resp, data) {
 				if attempt == 0 && UpstreamClearanceEnabled() {
-					if bundle, refreshErr := RefreshUpstreamClearanceForChallenge(ctx); refreshErr == nil && bundle != nil {
+					if bundle, refreshErr := RefreshUpstreamClearanceForChallengeWithProxy(ctx, proxyURL); refreshErr == nil && bundle != nil {
+						if ua := strings.TrimSpace(bundle.UserAgent); ua != "" {
+							headers["user-agent"] = ua
+						}
 						headers = ApplyUpstreamClearanceToHeaders(headers, bundle)
 					}
 				}
@@ -157,7 +161,7 @@ func waitAccountRemoteRetry(ctx context.Context, delay time.Duration) error {
 	}
 }
 
-func (s *AccountService) bootstrapRemote(ctx context.Context, client *http.Client, baseURL, accessToken string) error {
+func (s *AccountService) bootstrapRemote(ctx context.Context, client *http.Client, baseURL, accessToken, proxyURL string) error {
 	err := s.doBootstrapRemote(ctx, client, baseURL, accessToken)
 	if err == nil {
 		return nil
@@ -166,7 +170,7 @@ func (s *AccountService) bootstrapRemote(ctx context.Context, client *http.Clien
 	if !isCloudflareRefreshError(err) || !UpstreamClearanceEnabled() {
 		return err
 	}
-	if _, refreshErr := RefreshUpstreamClearanceForChallenge(ctx); refreshErr != nil {
+	if _, refreshErr := RefreshUpstreamClearanceForChallengeWithProxy(ctx, proxyURL); refreshErr != nil {
 		return err
 	}
 	return s.doBootstrapRemote(ctx, client, baseURL, accessToken)
@@ -178,9 +182,6 @@ func (s *AccountService) doBootstrapRemote(ctx context.Context, client *http.Cli
 		return fmt.Errorf("bootstrap request: %w", err)
 	}
 	headers := s.remoteBootstrapHeadersContext(ctx, accessToken)
-	if bundle := CachedUpstreamClearance(); bundle != nil {
-		headers = ApplyUpstreamClearanceToHeaders(headers, bundle)
-	}
 	for key, value := range headers {
 		req.Header.Set(key, value)
 	}
@@ -214,6 +215,7 @@ func (s *AccountService) remoteHeaders(accessToken string) map[string]string {
 
 func (s *AccountService) remoteHeadersContext(ctx context.Context, accessToken string) map[string]string {
 	account := s.GetAccount(accessToken)
+	proxyURL := s.accountProxyURL(accessToken)
 	clean := func(keys ...string) string {
 		for _, key := range keys {
 			if raw, ok := account["fp"].(map[string]any); ok {
@@ -249,7 +251,10 @@ func (s *AccountService) remoteHeadersContext(ctx context.Context, accessToken s
 	if sessionID := clean("oai-session-id", "oai_session_id"); sessionID != "" {
 		headers["oai-session-id"] = sessionID
 	}
-	if bundle := CachedUpstreamClearance(); bundle != nil {
+	if bundle := CachedUpstreamClearanceForProxy(proxyURL); bundle != nil {
+		if ua := strings.TrimSpace(bundle.UserAgent); ua != "" {
+			headers["user-agent"] = ua
+		}
 		headers = ApplyUpstreamClearanceToHeaders(headers, bundle)
 	}
 	return headers
@@ -261,6 +266,7 @@ func (s *AccountService) remoteBootstrapHeaders(accessToken string) map[string]s
 
 func (s *AccountService) remoteBootstrapHeadersContext(ctx context.Context, accessToken string) map[string]string {
 	account := s.GetAccount(accessToken)
+	proxyURL := s.accountProxyURL(accessToken)
 	clean := func(keys ...string) string {
 		for _, key := range keys {
 			if raw, ok := account["fp"].(map[string]any); ok {
@@ -288,10 +294,39 @@ func (s *AccountService) remoteBootstrapHeadersContext(ctx context.Context, acce
 		"upgrade-insecure-requests": "1",
 	}
 	// Also inject on header build path for remote API calls after bootstrap when clearance is warm.
-	if bundle := CachedUpstreamClearance(); bundle != nil {
+	if bundle := CachedUpstreamClearanceForProxy(proxyURL); bundle != nil {
+		if ua := strings.TrimSpace(bundle.UserAgent); ua != "" {
+			headers["user-agent"] = ua
+		}
 		headers = ApplyUpstreamClearanceToHeaders(headers, bundle)
 	}
 	return headers
+}
+
+func (s *AccountService) accountProxyURL(accessToken string) string {
+	if s == nil {
+		return ""
+	}
+	account := s.GetAccount(accessToken)
+	if customProxy := util.Clean(account["proxy_url"]); customProxy != "" {
+		return customProxy
+	}
+	if s.proxy != nil {
+		return s.proxy.ProxyURL()
+	}
+	return ""
+}
+
+func (s *AccountService) remoteHTTPClient(accessToken string, timeout time.Duration) *http.Client {
+	profile := s.remoteImpersonation(accessToken)
+	account := s.GetAccount(accessToken)
+	if customProxy := util.Clean(account["proxy_url"]); customProxy != "" {
+		return BrowserHTTPClientForProxyWithProfile(customProxy, profile, timeout)
+	}
+	if s.browserHTTPClient != nil {
+		return s.browserHTTPClient(profile, timeout)
+	}
+	return &http.Client{Timeout: timeout}
 }
 
 func (s *AccountService) remoteImpersonation(accessToken string) string {

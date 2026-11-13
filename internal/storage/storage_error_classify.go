@@ -21,7 +21,16 @@ const (
 const (
 	sqliteGenericError    = 1    // SQLITE_ERROR: SQLite reports duplicate columns under this generic code
 	mysqlDuplicateColumn  = 1060 // ER_DUP_FIELDNAME
-	sqliteDuplicateColumn = "duplicate column name"
+	sqliteDuplicateColumn        = "duplicate column name"
+	mysqlDupKeyName              = 1061 // ER_DUP_KEYNAME
+	mysqlCantDropFieldOrKey      = 1091 // ER_CANT_DROP_FIELD_OR_KEY
+	mysqlBadTableError           = 1051 // ER_BAD_TABLE_ERROR
+	mysqlUnknownTable            = 1109 // ER_UNKNOWN_TABLE
+	mysqlNoSuchTable             = 1146 // ER_NO_SUCH_TABLE
+	mysqlCheckConstraintDupName  = 3822 // ER_CHECK_CONSTRAINT_DUP_NAME
+	mysqlCheckConstraintNotFound = 3940 // ER_CHECK_CONSTRAINT_NOT_FOUND
+	postgresDuplicateObject      = "42710"
+	postgresUndefinedObject      = "42704"
 )
 
 // isDuplicatePaymentColumnError reports whether an ALTER TABLE ADD COLUMN lost
@@ -89,6 +98,51 @@ func matchesUniqueViolationText(message string) bool {
 		"sqlite_constraint_primarykey",
 	} {
 		if strings.Contains(lower, needle) {
+			return true
+		}
+	}
+	return false
+}
+
+
+func isDuplicateCheckConstraintError(err error) bool {
+	if err == nil {
+		return false
+	}
+	var mysqlErr *mysqlDriver.MySQLError
+	if errors.As(err, &mysqlErr) {
+		return mysqlErr.Number == mysqlCheckConstraintDupName || mysqlErr.Number == mysqlDupKeyName
+	}
+	var pqErr *pq.Error
+	if errors.As(err, &pqErr) {
+		return string(pqErr.Code) == postgresDuplicateObject
+	}
+	return false
+}
+
+func isMissingCheckConstraintError(err error) bool {
+	if err == nil {
+		return false
+	}
+	var mysqlErr *mysqlDriver.MySQLError
+	if errors.As(err, &mysqlErr) {
+		return mysqlErr.Number == mysqlCheckConstraintNotFound || mysqlErr.Number == mysqlCantDropFieldOrKey
+	}
+	var pqErr *pq.Error
+	if errors.As(err, &pqErr) {
+		return string(pqErr.Code) == postgresUndefinedObject
+	}
+	return false
+}
+
+func isMissingCheckConstraintsCatalogError(err error) bool {
+	if err == nil {
+		return false
+	}
+	var mysqlErr *mysqlDriver.MySQLError
+	if errors.As(err, &mysqlErr) {
+		switch mysqlErr.Number {
+		case mysqlBadTableError, mysqlUnknownTable, mysqlNoSuchTable:
 			return true
 		}
 	}

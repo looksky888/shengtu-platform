@@ -4,10 +4,6 @@ import {
   normalizeLoginPageImageMode,
   normalizeLoginPageImageTransform,
 } from "@/lib/login-page-image-layout";
-export {
-  normalizeRegisterClearanceConfig,
-  normalizeRegisterConfig,
-} from "./settings-register-sync";
 
 export function normalizeImageAccountSchedule(value: unknown): "least_loaded" | "least_fail" | "quota_aware" {
   const raw = String(value || "").trim().toLowerCase();

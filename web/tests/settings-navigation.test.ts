@@ -8,8 +8,9 @@ import {
   searchSettingsCatalog,
   SETTINGS_TABS,
 } from "../src/app/settings/settings-tab-types.ts";
+import { resolveLegacySettingsRedirect } from "../src/components/admin/admin-navigation.ts";
 
-test("parseSettingsTab and domain mapping cover all 10 settings tabs", () => {
+test("parseSettingsTab and domain mapping cover all 10 legacy settings tabs", () => {
   assert.equal(SETTINGS_TABS.length, 10);
   assert.equal(parseSettingsTab(null), "base");
   assert.equal(parseSettingsTab("unknown"), "base");
@@ -23,6 +24,20 @@ test("parseSettingsTab and domain mapping cover all 10 settings tabs", () => {
 
   const imageMeta = getSettingsTabMeta("image");
   assert.equal(imageMeta.sections.length, 3);
+});
+
+test("resolveLegacySettingsRedirect maps all 10 legacy /settings?tab=... queries to Yingce /admin/* routes", () => {
+  assert.equal(resolveLegacySettingsRedirect(""), "/admin/settings/appearance");
+  assert.equal(resolveLegacySettingsRedirect("?tab=base"), "/admin/settings/appearance");
+  assert.equal(resolveLegacySettingsRedirect("?tab=image"), "/admin/channels");
+  assert.equal(resolveLegacySettingsRedirect("?tab=email"), "/admin/settings/access?tab=email");
+  assert.equal(resolveLegacySettingsRedirect("?tab=register"), "/admin/clearance");
+  assert.equal(resolveLegacySettingsRedirect("?tab=imports"), "/admin/accounts?tab=cpa");
+  assert.equal(resolveLegacySettingsRedirect("?tab=storage"), "/admin/settings/storage?tab=media");
+  assert.equal(resolveLegacySettingsRedirect("?tab=announcement"), "/admin/announcements");
+  assert.equal(resolveLegacySettingsRedirect("?tab=backup"), "/admin/settings/storage?tab=backup");
+  assert.equal(resolveLegacySettingsRedirect("?tab=maintenance"), "/admin/settings/system?tab=governance");
+  assert.equal(resolveLegacySettingsRedirect("?tab=system-update"), "/admin/settings/system?tab=update");
 });
 
 test("searchSettingsCatalog finds Grok channel pricing, R2 storage, and SMTP sections", () => {

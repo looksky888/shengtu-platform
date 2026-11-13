@@ -135,3 +135,15 @@ func isRetryableImageStreamError(message string) bool {
 	}
 	return false
 }
+
+// isAccountSwitchableImageError returns true when an upstream failure should
+// rotate to another account in the local pool (including HTTP 403/423 per
+// yukkcat/chatgpt2api's classify_upstream_http_error).
+func isAccountSwitchableImageError(message string) bool {
+	if isRetryableImageStreamError(message) {
+		return true
+	}
+	lower := strings.ToLower(strings.TrimSpace(message))
+	status := service.ImageTaskUpstreamMetadataFromError(errors.New(lower)).HTTPStatus
+	return status == http.StatusForbidden || status == http.StatusLocked
+}

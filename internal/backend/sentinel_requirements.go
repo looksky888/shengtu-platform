@@ -5,14 +5,20 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"chatgpt2api/internal/util"
 )
 
 func (c *Client) getChatRequirements(ctx context.Context) (ChatRequirements, error) {
+	c.syncClearanceFingerprint()
 	if c.sentinel == nil {
 		if err := c.prepareSentinelContext(ctx); err != nil {
+			return ChatRequirements{}, err
+		}
+	} else if strings.HasPrefix(c.sentinel.ID, "native-") {
+		if err := c.buildNativeSentinelContext(); err != nil {
 			return ChatRequirements{}, err
 		}
 	}
@@ -34,7 +40,13 @@ func (c *Client) getChatRequirements(ctx context.Context) (ChatRequirements, err
 	reqs := ChatRequirements{}
 	proof := util.StringMap(prepare["proofofwork"])
 	if util.ToBool(proof["required"]) {
-		reqs.ProofToken, err = buildProofToken(ctx, util.Clean(proof["seed"]), util.Clean(proof["difficulty"]), c.sentinel.P)
+		seed := util.Clean(proof["seed"])
+		difficulty := util.Clean(proof["difficulty"])
+		if len(difficulty) > 8 {
+			reqs.ProofToken, err = buildSHA3ProofToken(ctx, seed, difficulty, c.sentinel.P)
+		} else {
+			reqs.ProofToken, err = buildProofToken(ctx, seed, difficulty, c.sentinel.P)
+		}
 		if err != nil {
 			return ChatRequirements{}, err
 		}
@@ -45,19 +57,14 @@ func (c *Client) getChatRequirements(ctx context.Context) (ChatRequirements, err
 		if dx == "" {
 			return ChatRequirements{}, fmt.Errorf("missing sentinel turnstile challenge")
 		}
-		var solved struct {
-			Token string `json:"token"`
-		}
-		err := callSentinelSolver(ctx, "/v1/turnstile", map[string]any{
-			"context_id": c.sentinel.ID, "p": c.sentinel.P, "dx": dx, "requirements": prepare,
-		}, &solved)
+		token, err := c.solveTurnstileChallenge(ctx, dx, prepare)
 		if err != nil {
 			return ChatRequirements{}, err
 		}
-		if solved.Token == "" {
+		if token == "" {
 			return ChatRequirements{}, fmt.Errorf("empty sentinel turnstile result")
 		}
-		reqs.TurnstileToken = solved.Token
+		reqs.TurnstileToken = token
 	}
 	finalized, err := c.sentinelRequest(ctx, base+"/finalize", map[string]any{
 		"prepare_token": prepareToken, "proofofwork": reqs.ProofToken, "turnstile": reqs.TurnstileToken,
@@ -72,6 +79,48 @@ func (c *Client) getChatRequirements(ctx context.Context) (ChatRequirements, err
 	}
 	reqs.SOToken, reqs.Raw = util.Clean(finalized["so_token"]), finalized
 	return reqs, nil
+}
+
+func (c *Client) solveTurnstileChallenge(ctx context.Context, dx string, prepare map[string]any) (string, error) {
+	if sentinelSolverMode() == "external" {
+		var solved struct {
+			Token string `json:"token"`
+		}
+		err := callSentinelSolver(ctx, "/v1/turnstile", map[string]any{
+			"context_id": c.sentinel.ID, "p": c.sentinel.P, "dx": dx, "requirements": prepare,
+		}, &solved)
+		if err == nil && solved.Token != "" {
+			return solved.Token, nil
+		}
+		if token, vmErr := solveTurnstileToken(dx, c.sentinel.P); vmErr == nil && token != "" {
+			return token, nil
+		}
+		if err != nil {
+			return "", err
+		}
+		return "", fmt.Errorf("empty sentinel turnstile result")
+	}
+
+	// Default native mode: solve Turnstile bytecode directly in-process (<1ms).
+	if token, vmErr := solveTurnstileToken(dx, c.sentinel.P); vmErr == nil && token != "" {
+		return token, nil
+	} else if isExternalSentinelSolverConfigured() {
+		var solved struct {
+			Token string `json:"token"`
+		}
+		err := callSentinelSolver(ctx, "/v1/turnstile", map[string]any{
+			"context_id": c.sentinel.ID, "p": c.sentinel.P, "dx": dx, "requirements": prepare,
+		}, &solved)
+		if err == nil && solved.Token != "" {
+			return solved.Token, nil
+		}
+		if err != nil {
+			return "", err
+		}
+		return "", vmErr
+	} else {
+		return "", vmErr
+	}
 }
 
 func (c *Client) dropRestrictedSentinelCookie() {

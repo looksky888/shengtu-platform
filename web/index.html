@@ -6,6 +6,21 @@
     <meta name="description" content="Shengtu Studio — AI 影像与视频创作工作台" />
     <link rel="icon" type="image/svg+xml" href="/logo-mark.svg" />
     <title>Shengtu Studio</title>
+    <script>
+      (function () {
+        var theme = "dark";
+        try {
+          var stored = window.localStorage.getItem("shengtu:v6:color-theme");
+          if (stored === "light" || stored === "dark") {
+            theme = stored;
+          }
+        } catch (e) {}
+        var root = document.documentElement;
+        root.classList.remove("light", "dark");
+        root.classList.add(theme);
+        root.style.colorScheme = theme;
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

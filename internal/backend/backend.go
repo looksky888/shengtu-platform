@@ -14,19 +14,18 @@ import (
 )
 
 const (
-	DefaultClientVersion     = "prod-be885abbfcfe7b1f511e88b3003d9ee44757fbad"
-	DefaultClientBuildNumber = "5955942"
+	DefaultClientVersion     = "prod-a194cd50d4416d3c0b47c740f206b12ce60f5887"
+	DefaultClientBuildNumber = "6708908"
 	// ResponsesUpstreamPath is the ChatGPT backend route used by gpt-5* Responses
 	// image_generation tool calls. The path segment historically says "codex";
 	// the studio model codex-gpt-image-2 was removed in 3.4 (naming only).
 	ResponsesUpstreamPath       = "/backend-api/codex/responses"
-	responsesUpstreamUserAgent  = "codex-tui/0.128.0 (Mac OS 26.3.1; arm64) iTerm.app/3.6.9 (codex-tui; 0.128.0)"
 	responsesUpstreamOriginator = "codex-tui"
 
 	browserUserAgent              = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
-	browserSecCHUA                = `"Chromium";v="146", "Google Chrome";v="146", "Not/A)Brand";v="99"`
+	browserSecCHUA                = `"Not:A-Brand";v="99", "Google Chrome";v="146", "Chromium";v="146"`
 	browserSecCHUAFullVersion     = `"146.0.0.0"`
-	browserSecCHUAFullVersionList = `"Chromium";v="146.0.0.0", "Google Chrome";v="146.0.0.0", "Not/A)Brand";v="99.0.0.0"`
+	browserSecCHUAFullVersionList = `"Not:A-Brand";v="99.0.0.0", "Google Chrome";v="146.0.0.0", "Chromium";v="146.0.0.0"`
 	browserSecCHUAMobile          = "?0"
 	browserSecCHUAPlatform        = `"Windows"`
 	browserSecCHUAPlatformVersion = `"19.0.0"`
@@ -99,6 +98,7 @@ func NewClient(accessToken string, lookup AccountLookup, proxy *service.ProxySer
 	c.userAgent = c.fp["user-agent"]
 	c.deviceID = c.fp["oai-device-id"]
 	c.sessionID = c.fp["oai-session-id"]
+	c.syncClearanceFingerprint()
 	c.httpClient = service.BrowserHTTPClientForProxyWithProfile(c.proxyURL, c.fp["impersonate"], 300*time.Second)
 	return c
 }
@@ -164,11 +164,11 @@ func (c *Client) StreamConversation(ctx context.Context, messages []map[string]a
 		} else if len(messages) == 0 {
 			messages = []map[string]any{{"role": "user", "content": prompt}}
 		}
-		if err := c.prepareSentinelContext(ctx); err != nil {
+		if err := c.bootstrap(ctx); err != nil {
 			errCh <- err
 			return
 		}
-		if err := c.bootstrap(ctx); err != nil {
+		if err := c.prepareSentinelContext(ctx); err != nil {
 			errCh <- err
 			return
 		}
@@ -207,6 +207,8 @@ func (c *Client) StreamResponsesUpstream(ctx context.Context, payload map[string
 			errCh <- fmt.Errorf("access_token is required for responses endpoint")
 			return
 		}
+		// Best-effort session warm-up (__cf_bm / _cfuvid + clearance refresh if challenged).
+		_ = c.bootstrap(ctx)
 		path := ResponsesUpstreamPath
 		resp, err := c.postResponsesUpstreamJSON(ctx, path, payload, c.responsesUpstreamHeaders(path))
 		if err != nil {
@@ -271,13 +273,18 @@ func (c *Client) conversationHeaders(path string, reqs ChatRequirements) map[str
 }
 
 func (c *Client) responsesUpstreamHeaders(path string) map[string]string {
+	c.syncClearanceFingerprint()
 	if c.sessionID == "" {
 		c.sessionID = util.NewUUID()
+	}
+	ua := strings.TrimSpace(c.userAgent)
+	if ua == "" {
+		ua = browserUserAgent
 	}
 	extra := map[string]string{
 		"Accept":                "text/event-stream",
 		"Content-Type":          "application/json",
-		"User-Agent":            responsesUpstreamUserAgent,
+		"User-Agent":            ua,
 		"Originator":            responsesUpstreamOriginator,
 		"Session_id":            c.sessionID,
 		"Connection":            "Keep-Alive",

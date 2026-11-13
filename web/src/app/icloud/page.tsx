@@ -22,29 +22,21 @@ function parseICloudTab(raw: string | null): ICloudTab {
   return raw === "sessions" ? "sessions" : "mailboxes";
 }
 
-export default function ICloudPage() {
-  const { isCheckingAuth, session } = useAuthGuard(undefined, "/icloud");
-  const controller = useICloudPage(Boolean(session));
+export function ICloudContent({ embedded = false }: { embedded?: boolean }) {
+  const controller = useICloudPage(true);
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab = parseICloudTab(searchParams.get("tab"));
+  const paramKey = embedded ? "subtab" : "tab";
+  const activeTab = parseICloudTab(searchParams.get(paramKey));
 
   const handleTabChange = (nextTab: ICloudTab) => {
     const nextParams = new URLSearchParams(searchParams);
     if (nextTab === "mailboxes") {
-      nextParams.delete("tab");
+      nextParams.delete(paramKey);
     } else {
-      nextParams.set("tab", nextTab);
+      nextParams.set(paramKey, nextTab);
     }
     setSearchParams(nextParams, { replace: true });
   };
-
-  if (isCheckingAuth || !session) {
-    return (
-      <div className="flex min-h-[40vh] items-center justify-center">
-        <LoaderCircle className="size-5 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
 
   const { loading, bridge, selectedAccountIds, pageError, notice, metrics, refreshAll, mailboxSummary, sessions } = controller;
 
@@ -69,47 +61,49 @@ export default function ICloudPage() {
     },
   ];
 
+  const bridgeBadge = bridge?.reachable ? (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <Badge variant="success">Bridge 可达</Badge>
+      {bridge.base_url ? (
+        <span className="rounded-md border border-border/70 bg-surface-muted px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
+          {bridge.base_url}
+        </span>
+      ) : null}
+    </div>
+  ) : undefined;
+
   return (
-    <section className="flex flex-col gap-5 pb-8">
-      <PageHeader
-        eyebrow="号池与运维"
-        title="iCloud 隐私邮箱"
-        badge={
-          bridge?.reachable ? (
-            <div className="flex flex-wrap items-center gap-1.5">
-              <Badge variant="success">Bridge 可达</Badge>
-              {bridge.base_url ? (
-                <span className="rounded-md border border-border/70 bg-surface-muted px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
-                  {bridge.base_url}
-                </span>
+    <section className="flex flex-col gap-5 pb-6">
+      {!embedded ? (
+        <PageHeader
+          eyebrow="号池与运维"
+          title="iCloud 隐私邮箱"
+          badge={bridgeBadge}
+          description="集中管理隐藏邮件地址库存、IMAP 自动取码与多 Apple 会话批量生成。"
+          actions={
+            <div className="flex flex-wrap items-center gap-2">
+              {selectedAccountIds.length > 0 ? (
+                <Badge variant="info">已选 {selectedAccountIds.length} 个账号 · 自动记住</Badge>
               ) : null}
+              <Button variant="outline" size="sm" onClick={() => void refreshAll()} disabled={loading}>
+                <RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} />
+                刷新
+              </Button>
             </div>
-          ) : undefined
-        }
-        description="集中管理隐藏邮件地址库存、IMAP 自动取码与多 Apple 会话批量生成。"
-        actions={
-          <div className="flex flex-wrap items-center gap-2">
-            {selectedAccountIds.length > 0 ? (
-              <Badge variant="info">已选 {selectedAccountIds.length} 个账号 · 自动记住</Badge>
-            ) : null}
-            <Button variant="outline" size="sm" onClick={() => void refreshAll()} disabled={loading}>
-              <RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} />
-              刷新
-            </Button>
-          </div>
-        }
-      />
+          }
+        />
+      ) : null}
 
       {isModuleDisabled ? (
         <div className="flex flex-col gap-3 rounded-[14px] border border-status-warning/30 bg-status-warning-soft/55 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-2.5 text-xs leading-5 text-foreground sm:items-center sm:text-[13px]">
             <AlertCircle className="mt-0.5 size-4 shrink-0 text-status-warning sm:mt-0" />
             <span>
-              iCloud 隐私邮箱模块当前未启用 · 请前往「系统设置 → 邮箱与注册」开启后再执行取码与生成操作
+              iCloud 隐私邮箱模块当前未启用 · 请前往「系统配置 → 注册与邮件」开启后再执行取码与生成操作
             </span>
           </div>
           <Button asChild variant="outline" size="sm" className="shrink-0 bg-surface">
-            <Link to="/settings?tab=email">
+            <Link to="/admin/settings/access?tab=email">
               前往开启
               <ArrowRight className="size-3.5" />
             </Link>
@@ -150,24 +144,49 @@ export default function ICloudPage() {
           ariaLabel="iCloud 隐私邮箱栏目切换"
           layoutId="icloud-subnav"
         />
-        <span className="text-xs text-muted-foreground">
-          {activeTab === "mailboxes"
-            ? "实时检索隐私邮箱库存、同步邮件并提取平台验证码"
-            : "管理 Apple 会话、配置 IMAP 密码并执行批量或定时创建"}
-        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          {embedded ? bridgeBadge : null}
+          {embedded && selectedAccountIds.length > 0 ? (
+            <Badge variant="info">已选 {selectedAccountIds.length} 个账号 · 自动记住</Badge>
+          ) : null}
+          {embedded ? (
+            <Button variant="outline" size="sm" onClick={() => void refreshAll()} disabled={loading}>
+              <RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} />
+              刷新
+            </Button>
+          ) : (
+            <span className="text-xs text-muted-foreground">
+              {activeTab === "mailboxes"
+                ? "实时检索隐私邮箱库存、同步邮件并提取平台验证码"
+                : "管理 Apple 会话、配置 IMAP 密码并执行批量或定时创建"}
+            </span>
+          )}
+        </div>
       </div>
 
       {activeTab === "mailboxes" ? (
-        <ICloudMailboxesPanel controller={controller} onSwitchToSessions={() => handleTabChange("sessions")} />
+        <ICloudMailboxesPanel controller={controller} />
       ) : (
-        <div className="grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(22rem,.9fr)]">
+        <div className="space-y-5">
+          <ICloudLoginPanels controller={controller} />
           <ICloudSessionsPanel controller={controller} />
-          <div className="space-y-5">
-            <ICloudLoginPanels controller={controller} />
-            <ICloudCreatePanels controller={controller} />
-          </div>
+          <ICloudCreatePanels controller={controller} />
         </div>
       )}
     </section>
   );
+}
+
+export default function ICloudPage() {
+  const { isCheckingAuth, session } = useAuthGuard(undefined, "/icloud");
+
+  if (isCheckingAuth || !session) {
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center">
+        <LoaderCircle className="size-5 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  return <ICloudContent />;
 }

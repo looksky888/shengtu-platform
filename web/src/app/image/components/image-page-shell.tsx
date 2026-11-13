@@ -33,11 +33,15 @@ export function ImagePageShell({ children }: ImagePageShellProps) {
 
   if (isCheckingAuth || !session) {
     return (
-      <div className="flex min-h-[40vh] items-center justify-center">
+      <div className="flex min-h-[40vh] flex-1 items-center justify-center">
         <LoaderCircle className="size-5 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
-  return <>{children}</>;
+  return (
+    <div className="flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden">
+      {children}
+    </div>
+  );
 }

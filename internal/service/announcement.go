@@ -305,9 +305,14 @@ func publicAnnouncement(item Announcement) map[string]any {
 		"title":         item.Title,
 		"content":       item.Content,
 		"image_url":     item.ImageURL,
+		"display_mode":  NormalizeAnnouncementDisplayMode(item.DisplayMode),
+		"banner_tone":   NormalizeAnnouncementBannerTone(item.BannerTone),
 		"show_login":    item.ShowLogin,
 		"show_image":    item.ShowImage,
 		"popup_version": popupVersion,
+	}
+	if linkURL := NormalizeAnnouncementLinkURL(item.LinkURL); linkURL != "" {
+		out["link_url"] = linkURL
 	}
 	if item.LastBroadcastAt != "" {
 		out["last_broadcast_at"] = item.LastBroadcastAt

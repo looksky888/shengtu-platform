@@ -35,17 +35,17 @@ func (b *DatabaseBackend) ReserveStorageCapacity(userID, now string, sizeBytes i
 		rollback()
 		return "", false, false, 0, 0, err
 	}
-	var totalBytes int64
+	var totalBytes, unlimitedCount int64
 	nowBound := normalizeUTCSortableISO(now)
 	if _, err := tx.Exec(`DELETE FROM media_capacity_reservations WHERE user_id = `+b.placeholder(1)+` AND (released <> 0 OR `+b.utcSortableExpr("lease_until")+` <= `+b.placeholder(2)+`)`, userID, nowBound); err != nil {
 		rollback()
 		return "", false, false, 0, 0, err
 	}
-	if err := tx.QueryRow(`SELECT COALESCE(SUM(storage_bytes), 0) FROM user_storage_entitlements WHERE user_id = `+b.placeholder(1)+` AND `+b.utcSortableExpr("expires_at")+` > `+b.placeholder(2), userID, nowBound).Scan(&totalBytes); err != nil {
+	if err := tx.QueryRow(`SELECT COALESCE(SUM(storage_bytes), 0), COALESCE(SUM(CASE WHEN storage_bytes = 0 THEN 1 ELSE 0 END), 0) FROM user_storage_entitlements WHERE user_id = `+b.placeholder(1)+` AND `+b.utcSortableExpr("expires_at")+` > `+b.placeholder(2), userID, nowBound).Scan(&totalBytes, &unlimitedCount); err != nil {
 		rollback()
 		return "", false, false, 0, 0, err
 	}
-	if totalBytes <= 0 {
+	if unlimitedCount > 0 || totalBytes <= 0 {
 		rollback()
 		return "", false, true, 0, 0, nil
 	}

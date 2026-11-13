@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -71,6 +72,69 @@ func (s *AccountService) GetAvailableAccessToken(ctx context.Context) (string, e
 const maxImageAcquireProbes = 12
 
 const imageAccountPreflightTTL = 60 * time.Second
+
+func imagePreflightEnabled() bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("CHATGPT2API_IMAGE_PREFLIGHT_ENABLED"))) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
+}
+
+// AcquireImageTokenForExcluding claims an available image slot directly from memory
+// without issuing 3 synchronous remote preflight HTTP requests on every generation,
+// matching yukkcat/chatgpt2api's fast token pool scheduling and avoiding preflight
+// Cloudflare 403 storms. Set CHATGPT2API_IMAGE_PREFLIGHT_ENABLED=true to opt into
+// remote preflight probing before generation.
+func (s *AccountService) AcquireImageTokenForExcluding(ctx context.Context, allow func(map[string]any) bool, excluded map[string]struct{}) (string, error) {
+	if imagePreflightEnabled() {
+		return s.GetAvailableAccessTokenForExcluding(ctx, allow, excluded)
+	}
+	attempted := make(map[string]struct{}, len(excluded))
+	for token := range excluded {
+		if token = strings.TrimSpace(token); token != "" {
+			attempted[token] = struct{}{}
+		}
+	}
+	switchCount := 0
+	reportTaskProgress(ctx, 30, "正在分配账号", "申请号池账户锁")
+	for {
+		if switchCount >= maxImageAcquireProbes {
+			return "", fmt.Errorf("号池分配尝试次数过多（已尝试 %d 个账号），请稍后重试", switchCount)
+		}
+		reservation, err := s.reserveNextCandidateToken(attempted, allow)
+		if err != nil {
+			if _, hasDeadline := ctx.Deadline(); len(attempted) == 0 && hasDeadline && s.hasReadyImageAccountFor(allow) {
+				select {
+				case <-ctx.Done():
+					return "", ctx.Err()
+				case <-time.After(time.Second):
+					continue
+				}
+			}
+			if len(attempted) > 0 {
+				return "", fmt.Errorf("号池暂无可用账号槽位（已尝试 %d 个令牌）", len(attempted))
+			}
+			return "", err
+		}
+		attempted[reservation.token] = struct{}{}
+		if !s.reservedImageSlotAvailable(reservation) {
+			s.releaseImageReservation(reservation.token)
+			switchCount++
+			continue
+		}
+		finalLabel := s.AccountLabel(reservation.token)
+		reportTaskAccount(ctx, finalLabel, shortTokenHash(reservation.token), switchCount)
+		reportTaskProgress(ctx, 48, "正在启动生成", "已分配 "+finalLabel)
+		reportTaskEvent(ctx, "account_ready", "账号可用: "+finalLabel, map[string]any{
+			"account_label":        finalLabel,
+			"account_switch_count": switchCount,
+			"token_hash":           shortTokenHash(reservation.token),
+		})
+		return reservation.token, nil
+	}
+}
 
 // GetAvailableAccessTokenFor reserves an account lock, probes remote availability, and
 // either returns the token or disposes unusable accounts (graded) and tries the next one.

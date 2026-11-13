@@ -11,6 +11,7 @@ import {
   ShieldCheck,
   Sun,
   UserCircle2,
+  WalletCards,
 } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import { Link, NavLink } from "react-router-dom";
@@ -52,7 +53,7 @@ export function ThemeToggleButton({
       size="icon"
       className={cn(
         "relative size-8 rounded-lg text-muted-foreground shadow-none hover:bg-surface-hover hover:text-foreground",
-        className
+        className,
       )}
       onClick={(event) => onToggle(event.currentTarget)}
       aria-label={dark ? "切换到浅色模式" : "切换到深色模式"}
@@ -107,7 +108,7 @@ export function NavPill({
           "relative isolate inline-flex h-7.5 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[7px] px-2.5 text-[13px] font-medium transition-colors",
           active
             ? "font-semibold text-foreground"
-            : "text-muted-foreground hover:text-foreground"
+            : "text-muted-foreground hover:text-foreground",
         )
       }
     >
@@ -123,7 +124,7 @@ export function NavPill({
       <Icon
         className={cn(
           "relative z-10 size-3.5 shrink-0 transition-colors",
-          active ? "text-foreground" : "text-muted-foreground/85"
+          active ? "text-foreground" : "text-muted-foreground/85",
         )}
       />
       <span className="relative z-10 block">{item.label}</span>
@@ -133,26 +134,33 @@ export function NavPill({
 
 export function CreditBalanceBadge({
   creditBalance,
-  canRecharge = false,
+  canRecharge = true,
+  href = "/wallet",
 }: {
   creditBalance: string;
   canRecharge?: boolean;
+  href?: string;
 }) {
   const content = (
     <div
       className={cn(
         "inline-flex h-8 min-w-[76px] items-center justify-center gap-1.5 rounded-lg bg-surface-muted/85 px-2.5 text-xs font-medium text-foreground ring-1 ring-inset ring-border/75 transition-all duration-150",
-        canRecharge && "hover:-translate-y-px hover:bg-surface hover:shadow-2xs hover:ring-border-strong"
+        canRecharge &&
+          "hover:-translate-y-px hover:bg-surface hover:shadow-2xs hover:ring-border-strong",
       )}
-      title={canRecharge ? "当前算力积分余额，点击前往充值中心" : "当前算力积分余额"}
+      title={canRecharge ? "当前算力积分余额，点击前往积分与权益中心" : "当前算力积分余额"}
     >
-      <Coins className="size-3.5 text-foreground/70" />
+      <Coins className="size-3.5 text-amber-500 dark:text-amber-300" />
       <span className="font-mono font-semibold tabular-nums">{creditBalance}</span>
     </div>
   );
 
   if (canRecharge) {
-    return <Link to="/recharge">{content}</Link>;
+    return (
+      <Link to={href} onMouseEnter={() => preloadRoute(href)}>
+        {content}
+      </Link>
+    );
   }
   return content;
 }
@@ -181,7 +189,7 @@ export function MoreNavMenu({
             "relative isolate inline-flex h-7.5 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[7px] px-2.5 text-[13px] font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-foreground/20",
             active
               ? "font-semibold text-foreground"
-              : "text-muted-foreground hover:text-foreground"
+              : "text-muted-foreground hover:text-foreground",
           )}
         >
           {active ? (
@@ -196,7 +204,7 @@ export function MoreNavMenu({
           <LayoutGrid
             className={cn(
               "relative z-10 size-3.5 shrink-0 transition-colors",
-              active ? "text-foreground" : "text-muted-foreground/85"
+              active ? "text-foreground" : "text-muted-foreground/85",
             )}
           />
           <span className="relative z-10 inline-flex items-center gap-1.5">
@@ -216,7 +224,7 @@ export function MoreNavMenu({
           <ChevronDown
             className={cn(
               "relative z-10 size-3.5 opacity-65 transition-transform duration-150",
-              open && "rotate-180"
+              open && "rotate-180",
             )}
           />
         </button>
@@ -232,7 +240,7 @@ export function MoreNavMenu({
               key={group.id}
               className={cn(
                 "space-y-1.5",
-                groupIndex > 0 && "border-t border-border/60 pt-2.5"
+                groupIndex > 0 && "border-t border-border/60 pt-2.5",
               )}
             >
               <div className="flex items-center justify-between px-2 text-[11px] font-semibold tracking-[0.06em] uppercase text-muted-foreground/80">
@@ -255,7 +263,7 @@ export function MoreNavMenu({
                         "group flex items-start gap-2.5 rounded-xl px-2.5 py-2 transition-colors",
                         itemActive
                           ? "bg-surface-muted text-foreground ring-1 ring-inset ring-border/70"
-                          : "text-foreground hover:bg-surface-hover"
+                          : "text-foreground hover:bg-surface-hover",
                       )}
                     >
                       <div
@@ -263,7 +271,7 @@ export function MoreNavMenu({
                           "mt-0.5 flex size-7.5 shrink-0 items-center justify-center rounded-lg border transition-colors",
                           itemActive
                             ? "border-foreground/20 bg-foreground text-background shadow-2xs"
-                            : "border-border/75 bg-surface-subtle text-muted-foreground group-hover:bg-surface group-hover:text-foreground"
+                            : "border-border/75 bg-surface-subtle text-muted-foreground group-hover:bg-surface group-hover:text-foreground",
                         )}
                       >
                         <Icon className="size-3.5" />
@@ -299,31 +307,40 @@ export function AccountMenu({
   session,
   roleLabel,
   creditBalance,
-  canRecharge = false,
+  canRecharge = true,
+  canAccessAdmin = false,
   pathname,
   search = "",
   onLogout,
   compact = false,
+  popoverSide = "bottom",
+  popoverAlign = "end",
 }: {
   session: StoredAuthSession;
   roleLabel: string;
   creditBalance: string;
   canRecharge?: boolean;
+  canAccessAdmin?: boolean;
   pathname: string;
   search?: string;
   onLogout: () => Promise<void>;
   compact?: boolean;
+  popoverSide?: "top" | "right" | "bottom" | "left";
+  popoverAlign?: "start" | "center" | "end";
 }) {
   const [open, setOpen] = React.useState(false);
   const displayName = session.name || roleLabel;
   const initial = (displayName.trim() || "U").slice(0, 1).toUpperCase();
   const profileActive = isActivePath(pathname, profileNavItem.href);
+  const walletActive = isActivePath(pathname, "/wallet") || isActivePath(pathname, "/recharge");
   const profileTab = React.useMemo(() => {
     if (!profileActive) return "";
     const raw = new URLSearchParams(search).get("tab") || "account";
     return raw;
   }, [profileActive, search]);
-  const rbacActive = isActivePath(pathname, "/rbac");
+  const showAdminEntry = canAccessAdmin || session.role === "admin";
+  const rbacActive = isActivePath(pathname, "/admin/users");
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -333,22 +350,27 @@ export function AccountMenu({
           className={cn(
             "rounded-lg shadow-none hover:bg-surface-hover",
             compact ? "size-8 px-0" : "h-8 gap-1.5 px-1.5",
-            profileActive && "bg-surface-muted text-foreground"
+            profileActive && "bg-surface-muted text-foreground",
           )}
           aria-label="账号菜单"
         >
-          <span className="flex size-6 shrink-0 items-center justify-center rounded-lg bg-foreground text-[11px] font-semibold text-background shadow-2xs">
+          <span className="flex size-6.5 shrink-0 items-center justify-center rounded-lg bg-foreground text-[11px] font-semibold text-background shadow-2xs">
             {initial}
           </span>
-          <span className="hidden max-w-[96px] truncate text-xs font-medium xl:inline">
-            {displayName}
-          </span>
-          <ChevronDown className={cn("size-3.5 opacity-60", compact && "hidden")} />
+          {!compact ? (
+            <>
+              <span className="hidden max-w-[96px] truncate text-xs font-medium xl:inline">
+                {displayName}
+              </span>
+              <ChevronDown className="size-3.5 opacity-60" />
+            </>
+          ) : null}
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        align="end"
-        sideOffset={8}
+        side={popoverSide}
+        align={popoverAlign}
+        sideOffset={10}
         className="w-[296px] rounded-2xl border-border/85 bg-surface-raised p-3 shadow-xl"
       >
         <div className="flex flex-col gap-2.5">
@@ -362,10 +384,31 @@ export function AccountMenu({
             onClose={() => setOpen(false)}
           />
           <div className="grid gap-0.5 pt-0.5">
+            {showAdminEntry ? (
+              <Link
+                to="/admin"
+                onMouseEnter={() => preloadRoute("/admin")}
+                onClick={() => setOpen(false)}
+                className="group mb-1 flex min-h-9.5 items-center justify-between rounded-xl border border-foreground/15 bg-foreground/[0.07] px-2.5 py-2 text-[13px] font-semibold text-foreground transition-all hover:bg-foreground/[0.12] motion-safe:active:scale-[0.985]"
+              >
+                <span className="inline-flex items-center gap-2.5">
+                  <LayoutGrid className="size-4 text-foreground" />
+                  <span>进入管理后台</span>
+                </span>
+                <ArrowUpRight className="size-3.5 text-foreground/75 transition-transform duration-150 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+              </Link>
+            ) : null}
+            <AccountActionLink
+              to="/wallet"
+              icon={WalletCards}
+              label="积分与权益中心"
+              active={walletActive}
+              onClick={() => setOpen(false)}
+            />
             <AccountActionLink
               to={profileNavItem.href}
               icon={UserCircle2}
-              label="个人中心 · 账号概览"
+              label="账号与安全设置"
               active={
                 profileActive &&
                 profileTab !== "api" &&
@@ -376,20 +419,13 @@ export function AccountMenu({
             <AccountActionLink
               to="/profile?tab=api"
               icon={BookOpen}
-              label="接口密钥与 API 文档"
+              label="账号与 API 密钥"
               active={profileActive && profileTab === "api"}
-              onClick={() => setOpen(false)}
-            />
-            <AccountActionLink
-              to="/profile?tab=credits"
-              icon={Coins}
-              label="积分中心与每日签到"
-              active={profileActive && profileTab === "credits"}
               onClick={() => setOpen(false)}
             />
             {session.role === "admin" ? (
               <AccountActionLink
-                to="/rbac"
+                to="/admin/users?tab=rbac"
                 icon={ShieldCheck}
                 label="角色与权限矩阵"
                 active={rbacActive}
@@ -433,10 +469,11 @@ function AccountActionLink({
   return (
     <Link
       to={to}
+      onMouseEnter={() => preloadRoute(to)}
       onClick={onClick}
       className={cn(
         "group flex min-h-9 items-center justify-between rounded-xl px-2.5 py-2 text-[13px] font-medium transition-all hover:bg-surface-hover motion-safe:active:scale-[0.985]",
-        active ? "bg-surface-muted font-semibold text-foreground" : "text-foreground"
+        active ? "bg-surface-muted font-semibold text-foreground" : "text-foreground",
       )}
     >
       <span className="inline-flex items-center gap-2.5">
@@ -500,11 +537,12 @@ function AccountSummary({
             </div>
           </div>
           <Link
-            to={canRecharge ? "/recharge" : "/profile?tab=credits"}
+            to={canRecharge ? "/wallet" : "/wallet?tab=redeem"}
+            onMouseEnter={() => preloadRoute("/wallet")}
             onClick={onClose}
             className="inline-flex h-7.5 items-center gap-1 rounded-lg bg-foreground px-2.5 text-xs font-medium text-background shadow-2xs transition-opacity hover:opacity-90"
           >
-            <span>{canRecharge ? "充值" : "明细"}</span>
+            <span>{canRecharge ? "充值" : "权益"}</span>
             <ArrowUpRight className="size-3" />
           </Link>
         </div>

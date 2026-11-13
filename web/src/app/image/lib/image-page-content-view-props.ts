@@ -109,6 +109,7 @@ export function buildImagePageContentViewProps(
       onSubmit: controller.handleSubmit,
       onReferenceImageChange: controller.handleReferenceImageChange,
       onRemoveReferenceImage: controller.handleRemoveReferenceImage,
+      onClearReferenceImages: controller.clearReferenceImages,
     },
     lightboxProps: {
       images: controller.lightboxImages,

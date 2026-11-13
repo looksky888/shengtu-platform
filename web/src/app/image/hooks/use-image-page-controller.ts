@@ -1,7 +1,10 @@
-import { useCallback, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useCallback, useEffect, useRef } from "react";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { toast } from "sonner";
 
+import { readFileAsDataUrl } from "@/app/image/lib/reference-image-utils";
 import { PENDING_STUDIO_PROMPT_STORAGE_KEY } from "@/app/landing/landing-brand";
+import { fetchAuthorizedImageBlob } from "@/lib/media-fetch";
 import { useImageComposerSettings } from "@/app/image/hooks/use-image-composer-settings";
 import { useImageComposerWorkflow } from "@/app/image/hooks/use-image-composer-workflow";
 import { useImageConversations } from "@/app/image/hooks/use-image-conversations";
@@ -22,6 +25,12 @@ import { useReferenceImages } from "@/app/image/hooks/use-reference-images";
 import { useSaveEditingTurn } from "@/app/image/hooks/use-save-editing-turn";
 import { useSubmitImageTurn } from "@/app/image/hooks/use-submit-image-turn";
 import { usePublicModelChannel } from "@/lib/use-public-model-channel";
+
+type RemixLocationState = {
+  remixImageUrl?: string;
+  remixImageName?: string;
+  remixPrompt?: string;
+} | null;
 
 export function useImagePageController() {
   const { isSubmitDispatchingRef, cancelledTurnIdsRef, resultsViewportRef, composerDockRef, textareaRef,
@@ -284,7 +293,10 @@ export function useImagePageController() {
     setSelectedConversationId,
   });
 
+  const location = useLocation();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const handledRemixKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (isLoadingHistory) return;
@@ -356,6 +368,130 @@ export function useImagePageController() {
     setComposerMode,
     setImagePrompt,
     setSearchParams,
+    setSelectedConversationId,
+    textareaRef,
+  ]);
+
+  // Handle remix navigation from /assets ("去二创" passing location.state.remixImageUrl or ?ref_url=)
+  useEffect(() => {
+    if (isLoadingHistory) return;
+
+    const routeState = (location.state as RemixLocationState) ?? null;
+    const stateRemixUrl = (routeState?.remixImageUrl || "").trim();
+    const queryRemixUrl = (searchParams.get("ref_url") || "").trim();
+    const remixUrl = stateRemixUrl || queryRemixUrl;
+    if (!remixUrl) return;
+
+    const dedupeKey = `${location.key}:${remixUrl}`;
+    if (handledRemixKeyRef.current === dedupeKey) return;
+    handledRemixKeyRef.current = dedupeKey;
+
+    const remixName = (routeState?.remixImageName || "").trim();
+    const remixPrompt = (routeState?.remixPrompt || "").trim();
+    const abortController = new AbortController();
+    let settled = false;
+
+    const clearRemixRouteParams = () => {
+      if (typeof window === "undefined") return;
+      const nextParams = new URLSearchParams(window.location.search);
+      nextParams.delete("ref_url");
+      const nextSearch = nextParams.toString();
+      navigate(`${window.location.pathname}${nextSearch ? `?${nextSearch}` : ""}`, {
+        replace: true,
+        state: null,
+      });
+    };
+
+    cancelPromptApplyRequest();
+    clearReferenceImages();
+    setActiveInpaintSource(null);
+    setSelectedConversationId(null);
+    setComposerMode("image");
+    if (remixPrompt) {
+      setImagePrompt((prev) => (prev.trim() ? prev : remixPrompt));
+    }
+
+    void (async () => {
+      try {
+        const response = await fetchAuthorizedImageBlob(
+          remixUrl,
+          abortController.signal,
+        );
+        if (!response.ok) {
+          throw new Error("载入参考图失败，素材可能已过期或不可访问");
+        }
+        const blob = await response.blob();
+        if (abortController.signal.aborted) return;
+
+        const fallbackName =
+          remixName ||
+          remixUrl.split(/[?#]/, 1)[0]?.split("/").filter(Boolean).pop() ||
+          "remix-reference.png";
+        const normalizedName = fallbackName.includes(".")
+          ? fallbackName
+          : `${fallbackName}.png`;
+        const file = new File([blob], normalizedName, {
+          type: blob.type || "image/png",
+        });
+        const dataUrl = await readFileAsDataUrl(file);
+        if (abortController.signal.aborted) return;
+
+        settled = true;
+        setActiveInpaintSource(null);
+        setComposerMode("image");
+        setReferenceImages([
+          {
+            name: file.name,
+            type: file.type || "image/png",
+            dataUrl,
+            source: "upload",
+          },
+        ]);
+        toast.success("已载入参考图，可直接输入修改指令创作");
+        if (typeof window !== "undefined") {
+          window.requestAnimationFrame(() => {
+            textareaRef.current?.focus({ preventScroll: true });
+          });
+        }
+      } catch (error) {
+        if (
+          abortController.signal.aborted ||
+          (error instanceof DOMException && error.name === "AbortError")
+        ) {
+          return;
+        }
+        settled = true;
+        toast.error(
+          error instanceof Error ? error.message : "载入参考图失败，请稍后重试",
+        );
+      } finally {
+        if (!abortController.signal.aborted) {
+          clearRemixRouteParams();
+        }
+      }
+    })();
+
+    return () => {
+      if (!settled) {
+        abortController.abort();
+        if (handledRemixKeyRef.current === dedupeKey) {
+          handledRemixKeyRef.current = null;
+        }
+      }
+    };
+  }, [
+    cancelPromptApplyRequest,
+    clearReferenceImages,
+    isLoadingHistory,
+    location.key,
+    location.pathname,
+    location.state,
+    navigate,
+    searchParams,
+    setActiveInpaintSource,
+    setComposerMode,
+    setImagePrompt,
+    setReferenceImages,
     setSelectedConversationId,
     textareaRef,
   ]);

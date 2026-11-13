@@ -10,10 +10,23 @@ export type AccountsQuery = {
   status?: string;
 };
 
+export type AccountsPageSummary = {
+  total: number;
+  active: number;
+  limited: number;
+  abnormal: number;
+  disabled: number;
+  quota_total: number;
+  quota_unlimited: boolean;
+  quota_unknown: boolean;
+  abnormal_ids?: string[];
+};
+
 export type AccountsPage = AccountListResponse & {
   total: number;
   page: number;
   page_size: number;
+  summary?: AccountsPageSummary;
 };
 
 export async function fetchAccounts(query: AccountsQuery = {}, options: { signal?: AbortSignal } = {}) {

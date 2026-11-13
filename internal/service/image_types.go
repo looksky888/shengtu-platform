@@ -25,6 +25,7 @@ type ImagePublic struct {
 	Megapixels       any    `json:"megapixels,omitempty"`
 	CreatedAt        string `json:"created_at,omitempty"`
 	PublishedAt      string `json:"published_at,omitempty"`
+	ExpiresAt        string `json:"expires_at,omitempty"`
 }
 
 // ImageGroupPublic groups images by date for the gallery UI.
@@ -69,6 +70,7 @@ func ImagePublicFromMap(item map[string]any) ImagePublic {
 		Megapixels:       item["megapixels"],
 		CreatedAt:        util.Clean(item["created_at"]),
 		PublishedAt:      util.Clean(item["published_at"]),
+		ExpiresAt:        util.Clean(item["expires_at"]),
 	}
 }
 

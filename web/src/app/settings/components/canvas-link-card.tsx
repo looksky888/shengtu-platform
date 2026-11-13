@@ -22,7 +22,11 @@ import {
 
 const CANVAS_KEYS: readonly (keyof SettingsConfig)[] = ["canvas_url"];
 
-export function CanvasLinkCard() {
+export function CanvasLinkCard({
+  hideFooter = false,
+}: {
+  hideFooter?: boolean;
+}) {
   const config = useSettingsStore((state) => state.config);
   const savedConfigSnapshot = useSettingsStore(
     (state) => state.savedConfigSnapshot
@@ -108,21 +112,23 @@ export function CanvasLinkCard() {
         </Badge>
       }
       footer={
-        <SettingsCardSaveFooter
-          dirty={sectionDirty}
-          saving={isSavingSection}
-          disabled={!config || isSavingConfig}
-          hint={
-            inlineError
-              ? "请填写合法的 HTTP/HTTPS 地址后再保存"
-              : undefined
-          }
-          onReset={() => {
-            setError("");
-            resetConfigSection(CANVAS_KEYS);
-          }}
-          onSave={() => void handleSave()}
-        />
+        hideFooter ? undefined : (
+          <SettingsCardSaveFooter
+            dirty={sectionDirty}
+            saving={isSavingSection}
+            disabled={!config || isSavingConfig}
+            hint={
+              inlineError
+                ? "请填写合法的 HTTP/HTTPS 地址后再保存"
+                : undefined
+            }
+            onReset={() => {
+              setError("");
+              resetConfigSection(CANVAS_KEYS);
+            }}
+            onSave={() => void handleSave()}
+          />
+        )
       }
     >
       <div className="space-y-2">

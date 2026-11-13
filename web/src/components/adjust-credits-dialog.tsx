@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { formatCreditNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const CREDIT_PRESETS = [50, 100, 500, 1000, 5000] as const;
@@ -40,10 +41,6 @@ export type AdjustCreditsDialogProps = {
   onReasonChange: (value: string) => void;
   onSave: () => void;
 };
-
-function formatCreditNumber(value: number): string {
-  return new Intl.NumberFormat("zh-CN").format(Math.trunc(Number(value) || 0));
-}
 
 export function AdjustCreditsDialog({
   open,

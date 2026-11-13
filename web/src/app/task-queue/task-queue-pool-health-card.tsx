@@ -48,8 +48,7 @@ export function TaskQueuePoolHealthCard({ pool }: { pool: AccountPoolHealth | nu
           <div className="mt-0.5">写仓失败 <b className={cn(qFail > 0 ? "text-rose-600 dark:text-rose-400" : "text-foreground")}>{qFail}</b>{qFailPct != null ? `（${qFailPct}%）` : ""}{recoverPct != null ? ` · 永久恢复率 ${recoverPct}%` : ""}</div>
         </div>
         <div className="flex gap-2">
-          <Button asChild variant="outline" size="sm" className="flex-1 text-xs"><Link to="/accounts">号池管理</Link></Button>
-          <Button asChild variant="outline" size="sm" className="flex-1 text-xs"><Link to="/register">注册机</Link></Button>
+          <Button asChild variant="outline" size="sm" className="flex-1 text-xs"><Link to="/admin/accounts">号池管理</Link></Button>
         </div>
       </CardContent>
     </Card>

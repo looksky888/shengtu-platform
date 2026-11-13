@@ -32,19 +32,30 @@ const ANNOUNCEMENTS_CACHE_TTL_MS = 15_000;
 
 type StreamHub = {
   source: EventSource;
-  listeners: Set<() => void>;
+  listeners: Set<(items?: Announcement[]) => void>;
 };
 
 const targetStreams = new Map<AnnouncementTarget, StreamHub>();
+
+// Singleton auto-open owner per target so multiple mounted AnnouncementNotifications
+// (e.g. desktop rail + mobile header) can never stack duplicate modal dialogs.
+const autoOpenOwners = new Map<AnnouncementTarget, symbol>();
+const autoOpenWaiters = new Map<AnnouncementTarget, Set<() => void>>();
+
+function notifyAutoOpenWaiters(target: AnnouncementTarget) {
+  const set = autoOpenWaiters.get(target);
+  if (!set) return;
+  set.forEach((listener) => listener());
+}
 
 function buildAnnouncementEventsUrl(target: AnnouncementTarget): string {
   const base = webConfig.apiUrl.replace(/\/$/, "");
   return `${base}/api/announcements/events?target=${encodeURIComponent(target)}`;
 }
 
-function subscribeAnnouncementEvents(
+export function subscribeAnnouncementEvents(
   target: AnnouncementTarget,
-  onUpdate: () => void,
+  onUpdate: (items?: Announcement[]) => void,
 ): () => void {
   if (typeof window === "undefined" || typeof EventSource === "undefined") {
     return () => {};
@@ -55,12 +66,31 @@ function subscribeAnnouncementEvents(
     const source = new EventSource(buildAnnouncementEventsUrl(target), {
       withCredentials: true,
     });
-    const listeners = new Set<() => void>();
-    const dispatch = () => {
+    const listeners = new Set<(items?: Announcement[]) => void>();
+    const dispatchInvalidate = () => {
       announcementsCache.delete(target);
       listeners.forEach((listener) => listener());
     };
-    source.addEventListener("announcement_updated", dispatch);
+    const handleMessage = (event: MessageEvent) => {
+      try {
+        const parsed = JSON.parse(String(event.data || "{}")) as {
+          items?: Announcement[];
+        };
+        if (Array.isArray(parsed.items)) {
+          announcementsCache.set(target, {
+            items: parsed.items,
+            fetchedAt: Date.now(),
+          });
+          listeners.forEach((listener) => listener(parsed.items));
+          return;
+        }
+      } catch {
+        // Fall through to cache invalidation if payload is non-JSON.
+      }
+      dispatchInvalidate();
+    };
+    source.addEventListener("message", handleMessage);
+    source.addEventListener("announcement_updated", dispatchInvalidate);
     hub = { source, listeners };
     targetStreams.set(target, hub);
   }
@@ -78,7 +108,7 @@ function subscribeAnnouncementEvents(
   };
 }
 
-function loadSharedAnnouncements(
+export function loadSharedAnnouncements(
   target: AnnouncementTarget,
   options: { force?: boolean } = {},
 ): Promise<Announcement[]> {
@@ -91,7 +121,7 @@ function loadSharedAnnouncements(
     }
   }
   const existing = announcementsInFlight.get(target);
-  if (existing && !options.force) return existing;
+  if (existing) return existing;
   const req = fetchVisibleAnnouncements(target)
     .then((data) => {
       const items = Array.isArray(data.items) ? data.items : [];
@@ -111,43 +141,113 @@ export function AnnouncementNotifications({
   target,
   className,
   autoOpen = true,
+  triggerless = false,
 }: {
   target: AnnouncementTarget;
   className?: string;
   autoOpen?: boolean;
+  triggerless?: boolean;
 }) {
   const location = useLocation();
   const pathname = location.pathname;
-  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [rawAnnouncements, setRawAnnouncements] = useState<Announcement[]>([]);
   const [activeAnnouncementId, setActiveAnnouncementId] = useState("");
   const [autoQueue, setAutoQueue] = useState<string[]>([]);
+  const [ownerEpoch, setOwnerEpoch] = useState(0);
   const didAutoOpenStandardRef = useRef(false);
+  const instanceIdRef = useRef<symbol | null>(null);
+  if (instanceIdRef.current === null) {
+    instanceIdRef.current = Symbol("announcement-notifications");
+  }
+  const instanceId = instanceIdRef.current;
+
+  // All active announcements (both modal and banner) stay accessible in the bell popover,
+  // even after a user dismisses BannerAnnouncementsBar with X.
+  const visibleAnnouncements = useMemo(
+    () =>
+      rawAnnouncements.filter(
+        (item) =>
+          item.enabled !== false &&
+          Boolean((item.content || item.title || "").trim()),
+      ),
+    [rawAnnouncements],
+  );
+
+  // Only non-banner announcements participate in automatic modal popups.
+  const modalAnnouncements = useMemo(
+    () =>
+      visibleAnnouncements.filter((item) => item.display_mode !== "banner"),
+    [visibleAnnouncements],
+  );
 
   const activeAnnouncement = useMemo(
     () =>
-      announcements.find((item) => item.id === activeAnnouncementId) ?? null,
-    [activeAnnouncementId, announcements],
+      visibleAnnouncements.find((item) => item.id === activeAnnouncementId) ??
+      null,
+    [activeAnnouncementId, visibleAnnouncements],
   );
   const activeIndex = activeAnnouncement
-    ? announcements.findIndex((item) => item.id === activeAnnouncement.id)
+    ? visibleAnnouncements.findIndex(
+        (item) => item.id === activeAnnouncement.id,
+      )
     : -1;
+
+  useEffect(() => {
+    if (!autoOpen) {
+      if (autoOpenOwners.get(target) === instanceId) {
+        autoOpenOwners.delete(target);
+        notifyAutoOpenWaiters(target);
+      }
+      return;
+    }
+
+    let waiters = autoOpenWaiters.get(target);
+    if (!waiters) {
+      waiters = new Set();
+      autoOpenWaiters.set(target, waiters);
+    }
+    const handleOwnerReleased = () => setOwnerEpoch((prev) => prev + 1);
+    waiters.add(handleOwnerReleased);
+
+    if (!autoOpenOwners.has(target)) {
+      autoOpenOwners.set(target, instanceId);
+    }
+
+    return () => {
+      const currentWaiters = autoOpenWaiters.get(target);
+      if (currentWaiters) {
+        currentWaiters.delete(handleOwnerReleased);
+        if (currentWaiters.size === 0) {
+          autoOpenWaiters.delete(target);
+        }
+      }
+      if (autoOpenOwners.get(target) === instanceId) {
+        autoOpenOwners.delete(target);
+        notifyAutoOpenWaiters(target);
+      }
+    };
+  }, [autoOpen, instanceId, target]);
 
   useEffect(() => {
     let active = true;
     const refresh = (force = false) => {
       loadSharedAnnouncements(target, { force })
         .then((items) => {
-          if (active) setAnnouncements(items);
+          if (active) setRawAnnouncements(items);
         })
         .catch(() => {
-          if (active && !force) setAnnouncements([]);
+          if (active && !force) setRawAnnouncements([]);
         });
     };
 
     refresh(false);
-    const unsubscribeStream = subscribeAnnouncementEvents(target, () =>
-      refresh(true),
-    );
+    const unsubscribeStream = subscribeAnnouncementEvents(target, (pushed) => {
+      if (pushed && active) {
+        setRawAnnouncements(pushed);
+        return;
+      }
+      refresh(true);
+    });
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
         refresh(true);
@@ -167,7 +267,16 @@ export function AnnouncementNotifications({
   }, [pathname, target]);
 
   useEffect(() => {
-    if (!autoOpen || pathname.startsWith("/settings") || announcements.length === 0) {
+    const isAdminRoute =
+      pathname === "/admin" ||
+      pathname.startsWith("/admin/") ||
+      pathname.startsWith("/settings");
+    const isAutoOpenOwner =
+      autoOpen &&
+      (autoOpenOwners.get(target) === instanceId ||
+        (!autoOpenOwners.has(target) &&
+          (autoOpenOwners.set(target, instanceId), true)));
+    if (!isAutoOpenOwner || isAdminRoute || modalAnnouncements.length === 0) {
       return;
     }
 
@@ -179,7 +288,7 @@ export function AnnouncementNotifications({
 
     // 1. Check urgent/live broadcast items across ALL user pages (/image, /video, /gallery, /recharge, /login, etc.)
     const broadcastIds: string[] = [];
-    for (const item of announcements) {
+    for (const item of modalAnnouncements) {
       if (
         hasUnseenBroadcast(item) &&
         !isAnnouncementMutedToday(item, today)
@@ -193,7 +302,7 @@ export function AnnouncementNotifications({
     const standardIds: string[] = [];
     if (shouldAutoOpenStandard && !didAutoOpenStandardRef.current) {
       didAutoOpenStandardRef.current = true;
-      for (const item of announcements) {
+      for (const item of modalAnnouncements) {
         if (!isAnnouncementMutedToday(item, today)) {
           if (item.last_broadcast_at) {
             markBroadcastSeen(item);
@@ -215,10 +324,15 @@ export function AnnouncementNotifications({
           merged.push(id);
         }
       }
-      setActiveAnnouncementId((prevActive) => prevActive || merged[0] || "");
       return merged;
     });
-  }, [announcements, autoOpen, pathname, target]);
+  }, [autoOpen, instanceId, modalAnnouncements, ownerEpoch, pathname, target]);
+
+  useEffect(() => {
+    if (!activeAnnouncementId && autoQueue.length > 0) {
+      setActiveAnnouncementId(autoQueue[0]);
+    }
+  }, [activeAnnouncementId, autoQueue]);
 
   const openAnnouncement = (announcementId: string) => {
     setAutoQueue([]);
@@ -227,7 +341,9 @@ export function AnnouncementNotifications({
 
   const closeAndMaybeOpenNext = (muteCurrent = false, muteAll = false) => {
     if (muteAll) {
-      muteAnnouncementsForToday(announcements);
+      muteAnnouncementsForToday(
+        modalAnnouncements.length > 0 ? modalAnnouncements : visibleAnnouncements,
+      );
       setAutoQueue([]);
       setActiveAnnouncementId("");
       return;
@@ -242,19 +358,32 @@ export function AnnouncementNotifications({
     setActiveAnnouncementId(nextQueue[0] || "");
   };
 
-  if (announcements.length === 0) return null;
+  if (triggerless) {
+    if (!activeAnnouncement) return null;
+    return (
+      <AnnouncementDialog
+        activeAnnouncement={activeAnnouncement}
+        activeIndex={activeIndex}
+        totalCount={visibleAnnouncements.length}
+        autoQueueLength={autoQueue.length}
+        onClose={closeAndMaybeOpenNext}
+      />
+    );
+  }
+
+  if (visibleAnnouncements.length === 0) return null;
 
   return (
     <>
       <AnnouncementPopover
-        announcements={announcements}
+        announcements={visibleAnnouncements}
         className={className}
         onOpenAnnouncement={openAnnouncement}
       />
       <AnnouncementDialog
         activeAnnouncement={activeAnnouncement}
         activeIndex={activeIndex}
-        totalCount={announcements.length}
+        totalCount={visibleAnnouncements.length}
         autoQueueLength={autoQueue.length}
         onClose={closeAndMaybeOpenNext}
       />

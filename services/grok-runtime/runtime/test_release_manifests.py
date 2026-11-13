@@ -62,3 +62,28 @@ def test_requirements_lock_covers_every_direct_requirement() -> None:
             continue
         requirement = _normalise(name.split("[", 1)[0])
         assert locked.get(requirement) == version.strip(), f"{requirement} is stale in requirements.lock"
+
+
+
+def test_upstream_manifest_matches_vendored_tree() -> None:
+    import hashlib
+
+    manifest = json.loads((SERVICE_ROOT / "upstream-manifest.json").read_text(encoding="utf-8"))
+    upstream_root = SERVICE_ROOT / "upstream"
+    files = [
+        path
+        for path in upstream_root.rglob("*")
+        if path.is_file()
+        and "__pycache__" not in path.parts
+        and ".pytest_cache" not in path.parts
+        and "node_modules" not in path.parts
+        and not path.name.endswith(".pyc")
+    ]
+    hasher = hashlib.sha256()
+    for path in sorted(files, key=lambda item: item.relative_to(upstream_root).as_posix()):
+        rel = path.relative_to(upstream_root).as_posix()
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        hasher.update(f"{rel}\0{digest}\n".encode("utf-8"))
+
+    assert manifest["file_count"] == len(files)
+    assert manifest["content_sha256"] == hasher.hexdigest()

@@ -12,16 +12,34 @@ func TestPaymentSettingsDefaultsAndUpdate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !item.RechargeEnabled || item.CustomCreditsEnabled || item.CloudStorageEnabled || item.CreditUnitPriceFen != 4 || item.MinCustomCredits != 10 || item.MaxCustomCredits != 100000 {
+	if !item.RechargeEnabled || item.CustomCreditsEnabled || item.CloudStorageEnabled ||
+		item.FreeRetentionDays != 3 || item.VIPGraceDays != 7 || item.HistoricalGraceDays != 7 ||
+		item.CreditUnitPriceFen != 4 || item.MinCustomCredits != 10 || item.MaxCustomCredits != 100000 {
 		t.Fatalf("defaults = %#v", item)
 	}
 	startedAt := time.Now().UTC().Format(time.RFC3339Nano)
-	updated, err := backend.SavePaymentSettings(PaymentSettingsRecord{RechargeEnabled: false, CustomCreditsEnabled: true, CloudStorageEnabled: true, CreditUnitPriceFen: 5, MinCustomCredits: 20, MaxCustomCredits: 2000, UpdatedBy: "admin", UpdatedAt: startedAt})
+	updated, err := backend.SavePaymentSettings(PaymentSettingsRecord{
+		RechargeEnabled: false, CustomCreditsEnabled: true, CloudStorageEnabled: true,
+		FreeRetentionDays: 5, VIPGraceDays: 14, HistoricalGraceDays: 10,
+		CreditUnitPriceFen: 5, MinCustomCredits: 20, MaxCustomCredits: 2000, UpdatedBy: "admin", UpdatedAt: startedAt,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if updated.RechargeEnabled || !updated.CustomCreditsEnabled || !updated.CloudStorageEnabled || updated.CreditUnitPriceFen != 5 || updated.CloudStoragePolicyStartedAt != startedAt {
+	if updated.RechargeEnabled || !updated.CustomCreditsEnabled || !updated.CloudStorageEnabled ||
+		updated.FreeRetentionDays != 5 || updated.VIPGraceDays != 14 || updated.HistoricalGraceDays != 10 ||
+		updated.CreditUnitPriceFen != 5 || updated.CloudStoragePolicyStartedAt != startedAt {
 		t.Fatalf("updated = %#v", updated)
+	}
+	preserved, err := backend.SavePaymentSettings(PaymentSettingsRecord{
+		RechargeEnabled: true, CustomCreditsEnabled: true, CloudStorageEnabled: true,
+		CreditUnitPriceFen: 6, MinCustomCredits: 20, MaxCustomCredits: 2000, UpdatedBy: "admin", UpdatedAt: startedAt,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if preserved.FreeRetentionDays != 5 || preserved.VIPGraceDays != 14 || preserved.HistoricalGraceDays != 10 {
+		t.Fatalf("zero-value update clobbered persisted retention days: %#v", preserved)
 	}
 }
 
@@ -75,5 +93,67 @@ func TestPaymentStatsUsesAsiaShanghaiDayBoundaries(t *testing.T) {
 	}
 	if stats.Today.TotalOrders != 1 || stats.Today.SucceededOrders != 1 || stats.DailyTrend[6].Date != "2026-08-31" {
 		t.Fatalf("Asia/Shanghai boundary stats = %#v, trend = %#v", stats.Today, stats.DailyTrend)
+	}
+}
+
+
+func TestPaymentSettingsCloudStoragePolicyStartedAtTransitionSemantics(t *testing.T) {
+	backend := openPaymentSchemaTestBackend(t)
+	defer backend.Close()
+
+	t1 := "2026-09-01T10:00:00Z"
+	firstEnable, err := backend.SavePaymentSettings(PaymentSettingsRecord{
+		RechargeEnabled: true, CustomCreditsEnabled: false, CloudStorageEnabled: true,
+		FreeRetentionDays: 3, VIPGraceDays: 7, HistoricalGraceDays: 7,
+		CreditUnitPriceFen: 4, MinCustomCredits: 10, MaxCustomCredits: 100000,
+		UpdatedBy: "admin", UpdatedAt: t1,
+	})
+	if err != nil {
+		t.Fatalf("first enable SavePaymentSettings() error = %v", err)
+	}
+	if !firstEnable.CloudStorageEnabled || firstEnable.CloudStoragePolicyStartedAt != t1 {
+		t.Fatalf("after 0->1 transition = %#v, want started_at=%q", firstEnable, t1)
+	}
+
+	t2 := "2026-09-02T10:00:00Z"
+	stillEnabled, err := backend.SavePaymentSettings(PaymentSettingsRecord{
+		RechargeEnabled: true, CustomCreditsEnabled: true, CloudStorageEnabled: true,
+		FreeRetentionDays: 5, VIPGraceDays: 7, HistoricalGraceDays: 7,
+		CreditUnitPriceFen: 4, MinCustomCredits: 10, MaxCustomCredits: 100000,
+		UpdatedBy: "admin", UpdatedAt: t2,
+	})
+	if err != nil {
+		t.Fatalf("1->1 SavePaymentSettings() error = %v", err)
+	}
+	if !stillEnabled.CloudStorageEnabled || stillEnabled.CloudStoragePolicyStartedAt != t1 {
+		t.Fatalf("after 1->1 transition = %#v, want preserved started_at=%q", stillEnabled, t1)
+	}
+
+	t3 := "2026-09-03T10:00:00Z"
+	disabled, err := backend.SavePaymentSettings(PaymentSettingsRecord{
+		RechargeEnabled: true, CustomCreditsEnabled: true, CloudStorageEnabled: false,
+		FreeRetentionDays: 5, VIPGraceDays: 7, HistoricalGraceDays: 7,
+		CreditUnitPriceFen: 4, MinCustomCredits: 10, MaxCustomCredits: 100000,
+		UpdatedBy: "admin", UpdatedAt: t3,
+	})
+	if err != nil {
+		t.Fatalf("1->0 SavePaymentSettings() error = %v", err)
+	}
+	if disabled.CloudStorageEnabled || disabled.CloudStoragePolicyStartedAt != t1 {
+		t.Fatalf("after 1->0 transition = %#v, want disabled with preserved started_at=%q", disabled, t1)
+	}
+
+	t4 := "2026-09-04T10:00:00Z"
+	reEnabled, err := backend.SavePaymentSettings(PaymentSettingsRecord{
+		RechargeEnabled: true, CustomCreditsEnabled: true, CloudStorageEnabled: true,
+		FreeRetentionDays: 5, VIPGraceDays: 7, HistoricalGraceDays: 7,
+		CreditUnitPriceFen: 4, MinCustomCredits: 10, MaxCustomCredits: 100000,
+		UpdatedBy: "admin", UpdatedAt: t4,
+	})
+	if err != nil {
+		t.Fatalf("second 0->1 SavePaymentSettings() error = %v", err)
+	}
+	if !reEnabled.CloudStorageEnabled || reEnabled.CloudStoragePolicyStartedAt != t4 {
+		t.Fatalf("after second 0->1 transition = %#v, want refreshed started_at=%q", reEnabled, t4)
 	}
 }

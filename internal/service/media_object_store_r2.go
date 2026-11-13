@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -29,6 +30,10 @@ type r2ObjectStore struct {
 }
 
 func newR2ObjectStore(ctx context.Context, cfg r2ObjectStoreConfig) (*r2ObjectStore, error) {
+	return newR2ObjectStoreWithEndpoint(ctx, cfg, "", nil)
+}
+
+func newR2ObjectStoreWithEndpoint(ctx context.Context, cfg r2ObjectStoreConfig, customEndpoint string, httpClient *http.Client) (*r2ObjectStore, error) {
 	cfg.AccountID = strings.TrimSpace(cfg.AccountID)
 	cfg.AccessKeyID = strings.TrimSpace(cfg.AccessKeyID)
 	cfg.SecretAccessKey = strings.TrimSpace(cfg.SecretAccessKey)
@@ -36,15 +41,21 @@ func newR2ObjectStore(ctx context.Context, cfg r2ObjectStoreConfig) (*r2ObjectSt
 	if cfg.AccountID == "" || cfg.AccessKeyID == "" || cfg.SecretAccessKey == "" || cfg.Bucket == "" {
 		return nil, errors.New("R2 媒体存储配置不完整")
 	}
-	awsCfg, err := awsconfig.LoadDefaultConfig(
-		ctx,
+	loadOptions := []func(*awsconfig.LoadOptions) error{
 		awsconfig.WithRegion("auto"),
 		awsconfig.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(cfg.AccessKeyID, cfg.SecretAccessKey, "")),
-	)
+	}
+	if httpClient != nil {
+		loadOptions = append(loadOptions, awsconfig.WithHTTPClient(httpClient))
+	}
+	awsCfg, err := awsconfig.LoadDefaultConfig(ctx, loadOptions...)
 	if err != nil {
 		return nil, fmt.Errorf("初始化 R2 SDK: %w", err)
 	}
-	endpoint := "https://" + cfg.AccountID + ".r2.cloudflarestorage.com"
+	endpoint := strings.TrimRight(strings.TrimSpace(customEndpoint), "/")
+	if endpoint == "" {
+		endpoint = "https://" + cfg.AccountID + ".r2.cloudflarestorage.com"
+	}
 	client := s3.NewFromConfig(awsCfg, func(options *s3.Options) {
 		options.BaseEndpoint = aws.String(endpoint)
 		options.UsePathStyle = true

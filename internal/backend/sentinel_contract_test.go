@@ -13,6 +13,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"chatgpt2api/internal/service"
 	"chatgpt2api/internal/util"
@@ -73,6 +74,11 @@ func (l sentinelAccountLookup) GetAccount(token string) map[string]any { return 
 func TestSentinelUsesSelectedAccountProxyAndTimezone(t *testing.T) {
 	const proxyURL = "http://user-session:secret@proxy.example:8080"
 	const timezone = "America/Los_Angeles"
+	loc, locErr := time.LoadLocation(timezone)
+	if locErr != nil {
+		t.Fatal(locErr)
+	}
+	_, tzOffset := time.Now().In(loc).Zone()
 	p := sentinelFixtureP(t)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body map[string]any
@@ -84,11 +90,13 @@ func TestSentinelUsesSelectedAccountProxyAndTimezone(t *testing.T) {
 		}
 		json.NewEncoder(w).Encode(sentinelContext{
 			ID: "account-context", P: p, UserAgent: browserUserAgent,
-			Language: "en-US", Timezone: timezone, Offset: 420,
+			Language: "en-US", Timezone: timezone, Offset: -tzOffset / 60,
 			ProxyHash: service.ProxyURLHash(proxyURL),
 		})
 	}))
 	defer server.Close()
+	t.Setenv("CHATGPT2API_SENTINEL_SOLVER_MODE", "external")
+	t.Setenv("CHATGPT2API_SENTINEL_SOLVER_FALLBACK", "false")
 	t.Setenv("CHATGPT2API_SENTINEL_SOLVER_URL", server.URL)
 	t.Setenv("CHATGPT2API_SENTINEL_SOLVER_KEY", strings.Repeat("k", 32))
 	lookup := sentinelAccountLookup{"selected": {"proxy_url": proxyURL, "proxy_timezone": timezone}}

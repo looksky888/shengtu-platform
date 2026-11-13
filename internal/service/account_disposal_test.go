@@ -349,3 +349,33 @@ func TestLeaseReclaimReleasesStaleLocks(t *testing.T) {
 		t.Fatalf("locked still %d", accounts.LockedAccountCount())
 	}
 }
+
+func TestDisposeCloudflareChallengeCoolsWithoutQuarantining(t *testing.T) {
+	accounts := newTestAccountService(t)
+	accounts.InitQuarantinePath(t.TempDir())
+	accounts.AddAccounts([]string{"token-cf"})
+	_, _ = accounts.UpdateAccount("token-cf", map[string]any{"status": "正常", "quota": 5})
+
+	reason := "/backend-api/f/conversation/prepare failed: status=403, upstream returned Cloudflare challenge page; refresh browser fingerprint/session or change proxy"
+	grade := ClassifyAccountFailure("image_stream", reason)
+	if grade != DisposalTemporary {
+		t.Fatalf("grade = %q, want temporary", grade)
+	}
+	action := accounts.disposeAccount("token-cf", "image_stream", reason, grade)
+	if action != DisposeCooledTemporary {
+		t.Fatalf("action = %q, want cooled_temporary", action)
+	}
+	acct := accounts.GetAccount("token-cf")
+	if acct == nil {
+		t.Fatal("Cloudflare-challenged account must remain in active pool, not be deleted into quarantine")
+	}
+	if acct["status"] != "正常" {
+		t.Fatalf("status = %#v, want 正常 (cooldown only, not permanent/limited mutation)", acct["status"])
+	}
+	if len(accounts.ListQuarantine()) != 0 {
+		t.Fatalf("quarantine should remain empty for Cloudflare challenge, got %#v", accounts.ListQuarantine())
+	}
+	if _, err := accounts.reserveNextCandidateToken(nil, nil); err == nil {
+		t.Fatal("challenged account should be in temporary image cooldown")
+	}
+}

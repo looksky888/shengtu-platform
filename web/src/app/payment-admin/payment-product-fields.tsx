@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import { CircleDollarSign, PackageOpen, SlidersHorizontal } from "lucide-react";
 
-import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import {
@@ -11,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import type { RechargeProductInput } from "@/lib/payment-admin-api";
 
@@ -24,27 +24,28 @@ type ProductFieldsProps = {
 
 export function ProductBasicFields({ product, onChange }: ProductFieldsProps) {
   return (
-    <section className="rounded-xl border border-border/70 p-4">
+    <section className="rounded-[10px] border border-border/75 bg-surface-subtle/35 p-3.5">
       <SectionTitle
-        icon={<PackageOpen className="size-4" />}
+        icon={<PackageOpen className="size-4 text-muted-foreground" />}
         title="基础信息"
       />
-      <FieldGroup className="mt-4 md:grid md:grid-cols-2">
-        <Field>
+      <FieldGroup className="mt-3.5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <Field className="sm:col-span-2">
           <FieldLabel htmlFor="recharge-product-name">商品名称</FieldLabel>
           <Input
             id="recharge-product-name"
             value={product.name}
-            placeholder="例如 100 积分"
+            placeholder="例如：100 算力积分包 / 云存储 VIP 月卡"
             onChange={(event) => onChange("name", event.target.value)}
           />
         </Field>
-        <Field>
-          <FieldLabel htmlFor="recharge-product-sku">SKU</FieldLabel>
+        <Field className="sm:col-span-2">
+          <FieldLabel htmlFor="recharge-product-sku">SKU 编码</FieldLabel>
           <Input
             id="recharge-product-sku"
             value={product.sku}
-            placeholder="例如 credits-100"
+            className="font-mono text-xs sm:text-[13px]"
+            placeholder="例如：credits-100 / vip-cloud-30d"
             onChange={(event) => onChange("sku", event.target.value)}
           />
         </Field>
@@ -59,12 +60,12 @@ export function ProductBasicFields({ product, onChange }: ProductFieldsProps) {
               )
             }
           >
-            <SelectTrigger id="recharge-product-type">
+            <SelectTrigger id="recharge-product-type" className="w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="credits">积分充值</SelectItem>
-              <SelectItem value="cloud_storage">云存储</SelectItem>
+              <SelectItem value="credits">算力积分充值</SelectItem>
+              <SelectItem value="cloud_storage">云存储 VIP</SelectItem>
             </SelectContent>
           </Select>
         </Field>
@@ -74,6 +75,7 @@ export function ProductBasicFields({ product, onChange }: ProductFieldsProps) {
             id="recharge-product-sort"
             type="number"
             min={0}
+            className="tabular-nums"
             value={product.sort_order}
             onChange={(event) =>
               onChange("sort_order", toNumber(event.target.value))
@@ -94,46 +96,92 @@ export function ProductPricingFields({
   const storageGB = Number(product.storage_bytes) / 1024 ** 3 || 0;
 
   return (
-    <section className="rounded-xl border border-border/70 p-4">
+    <section className="rounded-[10px] border border-border/75 bg-surface-subtle/35 p-3.5">
       <SectionTitle
-        icon={<CircleDollarSign className="size-4" />}
+        icon={<CircleDollarSign className="size-4 text-muted-foreground" />}
         title="价格与权益"
       />
-      <FieldGroup className="mt-4 md:grid md:grid-cols-2">
+      <FieldGroup className="mt-3.5 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Field>
           <FieldLabel htmlFor="recharge-product-amount">售价（分）</FieldLabel>
           <Input
             id="recharge-product-amount"
             type="number"
             min={1}
+            className="font-mono tabular-nums"
             value={product.amount_fen}
             onChange={(event) =>
               onChange("amount_fen", toNumber(event.target.value))
             }
           />
-          <div className="text-xs text-muted-foreground">
-            当前显示 ¥{(amount / 100).toFixed(2)}
+          <div className="text-[11px] tabular-nums text-muted-foreground">
+            前台展示 ¥{(amount / 100).toFixed(2)}
           </div>
         </Field>
         {product.product_type === "credits" ? (
           <Field>
-            <FieldLabel htmlFor="recharge-product-credits">到账积分</FieldLabel>
-            <Input id="recharge-product-credits" type="number" min={1} value={product.credits} onChange={(event) => onChange("credits", toNumber(event.target.value))} />
-            <div className="text-xs text-muted-foreground">每积分约 ¥{credits > 0 ? (amount / 100 / credits).toFixed(4) : "0.0000"}</div>
+            <FieldLabel htmlFor="recharge-product-credits">
+              到账算力积分
+            </FieldLabel>
+            <Input
+              id="recharge-product-credits"
+              type="number"
+              min={1}
+              className="font-mono tabular-nums"
+              value={product.credits}
+              onChange={(event) =>
+                onChange("credits", toNumber(event.target.value))
+              }
+            />
+            <div className="text-[11px] tabular-nums text-muted-foreground">
+              折合 ¥{credits > 0 ? (amount / 100 / credits).toFixed(4) : "0.0000"} / 积分
+            </div>
           </Field>
         ) : (
           <>
             <Field>
-              <FieldLabel htmlFor="recharge-product-storage-gb">存储容量（GB）</FieldLabel>
-              <Input id="recharge-product-storage-gb" type="number" min={1} value={storageGB} onChange={(event) => onChange("storage_bytes", Math.round(toNumber(event.target.value) * 1024 ** 3))} />
+              <FieldLabel htmlFor="recharge-product-storage-days">
+                VIP 有效期（天）
+              </FieldLabel>
+              <Input
+                id="recharge-product-storage-days"
+                type="number"
+                min={1}
+                max={3650}
+                className="font-mono tabular-nums"
+                value={product.storage_days}
+                onChange={(event) =>
+                  onChange("storage_days", toNumber(event.target.value))
+                }
+              />
+              <div className="text-[11px] text-muted-foreground">
+                付款后实时叠加会员天数
+              </div>
             </Field>
-            <Field>
-              <FieldLabel htmlFor="recharge-product-storage-days">有效期（天）</FieldLabel>
-              <Input id="recharge-product-storage-days" type="number" min={1} max={3650} value={product.storage_days} onChange={(event) => onChange("storage_days", toNumber(event.target.value))} />
+            <Field className="sm:col-span-2">
+              <FieldLabel htmlFor="recharge-product-storage-gb">
+                云存储容量（GB，0 = 不限容量）
+              </FieldLabel>
+              <Input
+                id="recharge-product-storage-gb"
+                type="number"
+                min={0}
+                className="font-mono tabular-nums"
+                value={storageGB}
+                onChange={(event) =>
+                  onChange(
+                    "storage_bytes",
+                    Math.max(0, Math.round(toNumber(event.target.value) * 1024 ** 3)),
+                  )
+                }
+              />
+              <div className="text-[11px] text-muted-foreground">
+                填 0 表示 VIP 有效期内不限容量、不限张数畅存所有生图与视频
+              </div>
             </Field>
           </>
         )}
-        <Field className="md:col-span-2">
+        <Field className="sm:col-span-2">
           <FieldLabel htmlFor="recharge-product-description">
             商品说明
           </FieldLabel>
@@ -141,7 +189,7 @@ export function ProductPricingFields({
             id="recharge-product-description"
             rows={3}
             value={product.description}
-            placeholder="展示在用户充值页面的简短说明"
+            placeholder="展示在前台充值与权益中心的简短说明"
             onChange={(event) => onChange("description", event.target.value)}
           />
         </Field>
@@ -152,22 +200,35 @@ export function ProductPricingFields({
 
 export function ProductStatusField({ product, onChange }: ProductFieldsProps) {
   return (
-    <section className="rounded-xl border border-border/70 p-4">
+    <section className="rounded-[10px] border border-border/75 bg-surface-subtle/35 p-3.5">
       <SectionTitle
-        icon={<SlidersHorizontal className="size-4" />}
-        title="状态"
+        icon={<SlidersHorizontal className="size-4 text-muted-foreground" />}
+        title="上架状态"
       />
-      <label
-        className="mt-4 flex min-h-9 items-center gap-3 rounded-lg border border-border/80 bg-background px-3 text-sm font-medium"
-        htmlFor="recharge-product-enabled"
+      <div
+        onClick={() => onChange("enabled", !product.enabled)}
+        className="mt-3 flex cursor-pointer items-center justify-between gap-3 rounded-[8px] border border-border/80 bg-surface px-3.5 py-2.5 transition-colors hover:bg-surface-hover/55"
       >
-        <Checkbox
+        <div className="min-w-0 space-y-0.5">
+          <label
+            htmlFor="recharge-product-enabled"
+            onClick={(event) => event.stopPropagation()}
+            className="cursor-pointer text-xs font-medium text-foreground sm:text-[13px]"
+          >
+            对用户显示并允许购买
+          </label>
+          <p className="text-[11px] text-muted-foreground">
+            关闭后前台隐藏该套餐，已购历史订单与存量权益不受影响
+          </p>
+        </div>
+        <Switch
           id="recharge-product-enabled"
+          size="sm"
           checked={product.enabled}
-          onCheckedChange={(value) => onChange("enabled", value === true)}
+          onClick={(event) => event.stopPropagation()}
+          onCheckedChange={(checked) => onChange("enabled", checked)}
         />
-        对用户显示并允许购买
-      </label>
+      </div>
     </section>
   );
 }
@@ -179,7 +240,7 @@ function toNumber(value: string) {
 
 function SectionTitle({ icon, title }: { icon: ReactNode; title: string }) {
   return (
-    <div className="flex items-center gap-2 text-sm font-semibold">
+    <div className="flex items-center gap-2 text-xs font-semibold text-foreground sm:text-[13px]">
       {icon}
       <span>{title}</span>
     </div>

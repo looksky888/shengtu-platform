@@ -35,30 +35,6 @@ export function settingsSnapshot(
   return JSON.stringify(sortValue(value, omitKeys, new Set()));
 }
 
-/** Snapshot only fields that are editable in the registration form. Runtime stats/logs are excluded. */
-export function registerConfigSnapshot(value: unknown) {
-  const source =
-    value && typeof value === "object"
-      ? (value as Record<string, unknown>)
-      : {};
-  const editable = {
-    mail: source.mail,
-    proxy: source.proxy,
-    total: source.total,
-    threads: source.threads,
-    mode: source.mode,
-    target: source.target,
-    target_quota: source.target_quota,
-    target_available: source.target_available,
-    check_interval: source.check_interval,
-    clearance: source.clearance,
-    grok: source.grok,
-    ...(source.checkout !== undefined ? { checkout: source.checkout } : {}),
-    ...(source.sub2api_sync !== undefined ? { sub2api_sync: source.sub2api_sync } : {}),
-  };
-  return settingsSnapshot(editable);
-}
-
 export function configSnapshot(value: unknown) {
   return JSON.stringify(sortValue(value, new Set(), secretConfigKeys));
 }
@@ -82,21 +58,8 @@ export function mergeConfigSnapshot(
     nextValue && typeof nextValue === "object"
       ? (nextValue as Record<string, unknown>)
       : {};
-  const secretKeys = new Set([
-    "image_proxy_api_key",
-    "media_r2_secret_access_key",
-  ]);
   for (const key of keys) {
     if (!Object.prototype.hasOwnProperty.call(next, key)) continue;
-    // The server intentionally omits write-only secrets from its response. Preserve the
-    // existing "provided" marker after a successful section save instead of turning it
-    // into an empty value and immediately reporting a false dirty state.
-    if (
-      secretKeys.has(key) &&
-      !String(next[key] ?? "").trim() &&
-      previousValue[key] === "__provided__"
-    )
-      continue;
     previousValue[key] = next[key];
   }
   return configSnapshot(previousValue);

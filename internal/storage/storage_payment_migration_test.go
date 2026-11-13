@@ -141,3 +141,52 @@ func TestLoadPaymentChannelVersionReadsAlipayCipherColumnsWithoutNullFallback(t 
 		t.Fatalf("wechat credentials = %q/%q, want merchant/cipher-2", version.MerchantID, version.APIv3KeyCipher)
 	}
 }
+
+func TestLegacyStorageEntitlementTableMigratesZeroBytesCheck(t *testing.T) {
+	backend, _ := legacyPaymentSchemaBackend(t)
+	if _, err := backend.db.Exec(`CREATE TABLE user_storage_entitlements (
+		id TEXT PRIMARY KEY NOT NULL,
+		user_id TEXT NOT NULL,
+		source_order_id TEXT UNIQUE NOT NULL,
+		product_id TEXT NOT NULL,
+		storage_bytes INTEGER NOT NULL,
+		expires_at TEXT NOT NULL,
+		created_at TEXT NOT NULL,
+		updated_at TEXT NOT NULL,
+		CHECK (storage_bytes > 0)
+	)`); err != nil {
+		t.Fatalf("create legacy user_storage_entitlements: %v", err)
+	}
+	if _, err := backend.db.Exec(`INSERT INTO user_storage_entitlements (id, user_id, source_order_id, product_id, storage_bytes, expires_at, created_at, updated_at) VALUES ('ent-legacy', 'user-1', 'ord-legacy', 'prod-legacy', 1024, '2026-10-01T00:00:00Z', '2026-09-01T00:00:00Z', '2026-09-01T00:00:00Z')`); err != nil {
+		t.Fatalf("seed legacy entitlement: %v", err)
+	}
+	if err := backend.ensurePaymentChannelVersionColumns(); err != nil {
+		t.Fatalf("ensurePaymentChannelVersionColumns() error = %v", err)
+	}
+	if _, err := backend.db.Exec(`INSERT INTO user_storage_entitlements (id, user_id, source_order_id, product_id, storage_bytes, expires_at, created_at, updated_at) VALUES ('ent-unlim', 'user-1', 'ord-unlim', 'prod-unlim', 0, '2026-11-01T00:00:00Z', '2026-10-01T00:00:00Z', '2026-10-01T00:00:00Z')`); err != nil {
+		t.Fatalf("insert unlimited (storage_bytes=0) entitlement after migration: %v", err)
+	}
+	if _, err := backend.db.Exec(`INSERT INTO user_storage_entitlements (id, user_id, source_order_id, product_id, storage_bytes, expires_at, created_at, updated_at) VALUES ('ent-neg', 'user-1', 'ord-neg', 'prod-neg', -1, '2026-11-01T00:00:00Z', '2026-10-01T00:00:00Z', '2026-10-01T00:00:00Z')`); err == nil {
+		t.Fatal("negative storage_bytes unexpectedly succeeded after migration")
+	}
+	var count int
+	if err := backend.db.QueryRow(`SELECT COUNT(*) FROM user_storage_entitlements WHERE user_id = 'user-1'`).Scan(&count); err != nil || count != 2 {
+		t.Fatalf("entitlement row count = %d, err = %v; want 2", count, err)
+	}
+}
+
+
+func TestPaymentColumnMigrationsAvoidMySQLTextDefaultsAndMatchBaseline(t *testing.T) {
+	backend := &DatabaseBackend{driver: "mysql"}
+	baseline := strings.Join(mysqlPaymentSchemaStatements(), "\n")
+	for _, column := range backend.paymentColumnMigrations() {
+		upper := strings.ToUpper(column.definition)
+		if strings.Contains(upper, "TEXT") && strings.Contains(upper, "DEFAULT") {
+			t.Fatalf("MySQL migration %s.%s uses illegal TEXT DEFAULT definition: %q", column.table, column.name, column.definition)
+		}
+		expectedDecl := column.name + " " + column.definition
+		if !strings.Contains(baseline, expectedDecl) {
+			t.Fatalf("MySQL baseline missing exact declaration %q for %s.%s", expectedDecl, column.table, column.name)
+		}
+	}
+}

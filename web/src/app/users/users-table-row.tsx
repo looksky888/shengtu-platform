@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { providerLabel } from "@/lib/provider-label";
 import { Button } from "@/components/ui/button";
 import { TableCell, TableRow } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 import type { ManagedRole, ManagedUser, ManagedUserUsage } from "@/lib/api";
 
 type UsersTableRowProps = {
@@ -32,6 +33,7 @@ type UsersTableRowProps = {
     canDeleteUser: boolean;
     canAdjustCredits: boolean;
   };
+  onSelectUser?: (user: ManagedUser) => void;
   onAdjustCredits: (user: ManagedUser, mode: CreditAdjustMode) => void;
   onRole: (user: ManagedUser) => void;
   onToggle: (user: ManagedUser) => void;
@@ -39,9 +41,15 @@ type UsersTableRowProps = {
 };
 
 export function UsersTableRow(props: UsersTableRowProps) {
-  const { user, roles, creditBalance, isPending, usage, usageReady = true } = props;
+  const { user, roles, creditBalance, isPending, usage, usageReady = true, onSelectUser } = props;
   return (
-    <TableRow className="text-muted-foreground transition-colors hover:bg-surface-hover/60">
+    <TableRow
+      onClick={onSelectUser ? () => onSelectUser(user) : undefined}
+      className={cn(
+        "text-muted-foreground transition-colors hover:bg-surface-hover/60",
+        onSelectUser && "cursor-pointer",
+      )}
+    >
       <TableCell><UserIdentity user={user} /></TableCell>
       <TableCell>
         <div className="space-y-0.5 tabular-nums">
@@ -67,7 +75,12 @@ export function UsersTableRow(props: UsersTableRowProps) {
           <div>活跃 {formatDateTime(user.last_used_at)}</div>
         </div>
       </TableCell>
-      <TableCell className="w-[210px]"><UserActions {...props} isPending={isPending} /></TableCell>
+      <TableCell
+        className="w-[210px]"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <UserActions {...props} isPending={isPending} />
+      </TableCell>
     </TableRow>
   );
 }

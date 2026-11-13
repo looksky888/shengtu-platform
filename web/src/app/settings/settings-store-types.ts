@@ -5,7 +5,6 @@ import type {
   CPARemoteFile,
   LogCleanupResult,
   LogGovernanceSummary,
-  RegisterConfig,
   SettingsConfig,
 } from "@/lib/api";
 
@@ -15,7 +14,7 @@ export const PAGE_SIZE_OPTIONS = ["50", "100", "200"] as const;
 
 export type PageSizeOption = (typeof PAGE_SIZE_OPTIONS)[number];
 
-export type SettingsDataKey = "config" | "register" | "pools" | "logGovernance";
+export type SettingsDataKey = "config" | "pools" | "logGovernance";
 
 export type SettingsLoadOptions = {
   silent?: boolean;
@@ -45,11 +44,6 @@ export type SettingsStore = {
   lastLogCleanup: LogCleanupResult | null;
   isLoadingLogGovernance: boolean;
   isCleaningLogs: boolean;
-
-  registerConfig: RegisterConfig | null;
-  savedRegisterSnapshot: string;
-  isLoadingRegister: boolean;
-  isSavingRegister: boolean;
 
   pools: CPAPool[];
   isLoadingPools: boolean;
@@ -127,35 +121,6 @@ export type SettingsStore = {
   setRegistrationEnabled: (value: boolean) => void;
   loadLogGovernance: (options?: SettingsLoadOptions) => Promise<void>;
   cleanupLogsByRetention: (explicitDays?: number) => Promise<void>;
-
-  loadRegister: (options?: SettingsLoadOptions) => Promise<boolean>;
-  setRegisterConfig: (config: RegisterConfig) => void;
-  setRegisterClearance: (updates: Partial<RegisterConfig["clearance"]>) => void;
-  setRegisterProxy: (value: string) => void;
-  setRegisterTotal: (value: string) => void;
-  setRegisterThreads: (value: string) => void;
-  setRegisterMode: (value: "total" | "quota" | "available") => void;
-  setRegisterTarget: (value: "openai" | "grok") => void;
-  setRegisterTargetQuota: (value: string) => void;
-  setRegisterTargetAvailable: (value: string) => void;
-  setRegisterCheckInterval: (value: string) => void;
-  setRegisterMailField: (
-    key: "request_timeout" | "wait_timeout" | "wait_interval",
-    value: string
-  ) => void;
-  setRegisterGrokField: (key: string, value: string | number | boolean) => void;
-  addRegisterProvider: () => void;
-  updateRegisterProvider: (
-    index: number,
-    updates: Record<string, unknown>
-  ) => void;
-  deleteRegisterProvider: (index: number) => void;
-  saveRegister: () => Promise<boolean>;
-  toggleRegister: () => Promise<void>;
-  resetRegister: () => Promise<void>;
-  resetOutlookPool: (
-    scope: "all" | "failed" | "unused" | "retryable" | "invalid"
-  ) => Promise<void>;
 
   loadPools: (options?: SettingsLoadOptions) => Promise<void>;
   openAddDialog: () => void;

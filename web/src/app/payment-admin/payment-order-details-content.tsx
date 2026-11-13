@@ -4,12 +4,23 @@ import { formatPaymentAmount, paymentChannelName } from "@/app/payment-admin/pay
 import { formatDateTime } from "@/lib/datetime";
 import type { AdminPaymentOrder, PaymentChannel } from "@/lib/payment-admin-api";
 
+function formatCloudStorageCapacity(storageBytes?: number): string {
+  const bytes = Number(storageBytes) || 0;
+  if (bytes <= 0) return "不限容量";
+  return `${(bytes / 1024 ** 3).toFixed(bytes % 1024 ** 3 === 0 ? 0 : 1)} GB`;
+}
+
 export function PaymentOrderDetailsGrid({ item, channels }: { item: AdminPaymentOrder; channels: PaymentChannel[] }) {
+  const isCloudStorage = item.product_type === "cloud_storage";
+  const entitlementText = isCloudStorage
+    ? `云存储 VIP · ${item.storage_days || 30} 天（${formatCloudStorageCapacity(item.storage_bytes)}）`
+    : `${item.credits.toLocaleString()} 积分`;
   const orderFields: Array<[string, string | undefined]> = [
     ["订单 ID", item.id],
     ["用户", item.user_id],
     ["订单号", item.out_trade_no],
     ["商品", item.product_name],
+    ["交付权益", entitlementText],
     ["支付方式", paymentChannelName(item.channel_id, channels)],
     ["交易号", item.transaction_id || "—"],
   ];
@@ -37,6 +48,7 @@ export function PaymentOrderDetailsGrid({ item, channels }: { item: AdminPayment
 }
 
 export function PaymentOrderSummary({ item, channels }: { item: AdminPaymentOrder; channels: PaymentChannel[] }) {
+  const isCloudStorage = item.product_type === "cloud_storage";
   return (
     <div className="mt-5 grid gap-3 sm:grid-cols-[1.2fr_1fr_1fr]">
       <div className="rounded-xl border border-border/70 bg-background/80 px-4 py-3">
@@ -44,8 +56,19 @@ export function PaymentOrderSummary({ item, channels }: { item: AdminPaymentOrde
         <div className="mt-1 font-mono text-2xl font-semibold tracking-tight tabular-nums">{formatPaymentAmount(item.amount_fen)}</div>
       </div>
       <div className="rounded-xl border border-border/70 bg-background/80 px-4 py-3">
-        <div className="text-xs text-muted-foreground">到账积分</div>
-        <div className="mt-1 text-lg font-semibold tabular-nums">{item.credits.toLocaleString()} <span className="text-sm font-normal text-muted-foreground">积分</span></div>
+        <div className="text-xs text-muted-foreground">{isCloudStorage ? "到账权益" : "到账积分"}</div>
+        {isCloudStorage ? (
+          <div className="mt-1">
+            <div className="text-base font-semibold tabular-nums">
+              云存储 VIP · {item.storage_days || 30} 天
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {formatCloudStorageCapacity(item.storage_bytes)}
+            </div>
+          </div>
+        ) : (
+          <div className="mt-1 text-lg font-semibold tabular-nums">{item.credits.toLocaleString()} <span className="text-sm font-normal text-muted-foreground">积分</span></div>
+        )}
       </div>
       <div className="rounded-xl border border-border/70 bg-background/80 px-4 py-3">
         <div className="text-xs text-muted-foreground">支付渠道</div>

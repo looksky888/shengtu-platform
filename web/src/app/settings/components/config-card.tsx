@@ -20,6 +20,7 @@ import { useSettingsStore } from "../store";
 import {
   ConcurrencyOverviewStrip,
   ConfigLoadingState,
+  CrossPageGovernanceStrips,
   ProxySourceStatusStrip,
   RestartBadge,
 } from "./config-card-parts";
@@ -33,7 +34,7 @@ import {
   settingsInputClassName,
 } from "./settings-ui";
 
-const BASE_CONFIG_KEYS: readonly (keyof SettingsConfig)[] = [
+const APPEARANCE_CONFIG_KEYS: readonly (keyof SettingsConfig)[] = [
   "base_url",
   "refresh_account_interval_minute",
   "image_concurrent_limit",
@@ -41,6 +42,12 @@ const BASE_CONFIG_KEYS: readonly (keyof SettingsConfig)[] = [
   "image_task_timeout_seconds",
   "image_account_schedule",
   "image_parallel_generation",
+  "auto_remove_invalid_accounts",
+  "auto_remove_rate_limited_accounts",
+];
+
+const BASE_CONFIG_KEYS: readonly (keyof SettingsConfig)[] = [
+  ...APPEARANCE_CONFIG_KEYS,
   "image_worker_count",
   "image_queue_capacity",
   "video_worker_count",
@@ -52,11 +59,20 @@ const BASE_CONFIG_KEYS: readonly (keyof SettingsConfig)[] = [
   "api_key_daily_request_limit",
   "image_retention_days",
   "video_retention_days",
-  "auto_remove_invalid_accounts",
-  "auto_remove_rate_limited_accounts",
 ];
 
-export function ConfigCard() {
+export function ConfigCard({
+  mode = "full",
+  hideFooter = false,
+}: {
+  mode?: "full" | "appearance";
+  hideFooter?: boolean;
+}) {
+  const isAppearanceMode = mode === "appearance";
+  const activeKeys = isAppearanceMode
+    ? APPEARANCE_CONFIG_KEYS
+    : BASE_CONFIG_KEYS;
+
   const config = useSettingsStore((state) => state.config);
   const savedConfigSnapshot = useSettingsStore(
     (state) => state.savedConfigSnapshot
@@ -137,34 +153,47 @@ export function ConfigCard() {
     isDirty: false,
     validate: () => {
       if (!config) return true;
-      const errors = capacityErrors(config as Record<string, unknown>);
-      const firstError = Object.values(errors)[0];
-      if (firstError) {
-        toast.error(firstError);
+      const allErrors = capacityErrors(config as Record<string, unknown>);
+      const firstKey = activeKeys.find((key) => Boolean(allErrors[key]));
+      if (firstKey) {
+        toast.error(allErrors[firstKey]);
         return false;
       }
       return true;
     },
   });
 
+  const cardTitle = isAppearanceMode
+    ? "站点地址与本地号池基础调度"
+    : "基础运行与调度参数";
+  const cardDescription = isAppearanceMode
+    ? "管理站点公网访问基准地址、本地账号池巡检并发调度与异常账号自动摘除策略"
+    : "统一管理站点地址、号池并发、Worker 容量、默认限流与资产生命周期";
+
   if (isLoadingConfig || !config) {
     return (
       <SettingsCard
         icon={Settings2}
-        title="基础运行与调度参数"
-        description="统一管理站点地址、号池并发、Worker 容量、默认限流与资产生命周期"
+        title={cardTitle}
+        description={cardDescription}
       >
         <ConfigLoadingState />
       </SettingsCard>
     );
   }
 
-  const validationErrors = capacityErrors(config as Record<string, unknown>);
+  const allValidationErrors = capacityErrors(config as Record<string, unknown>);
+  const validationErrors: Record<string, string> = {};
+  for (const key of activeKeys) {
+    if (allValidationErrors[key]) {
+      validationErrors[key] = allValidationErrors[key];
+    }
+  }
   const hasValidationError = Object.keys(validationErrors).length > 0;
   const sectionDirty = isConfigKeysDirty(
     config,
     savedConfigSnapshot,
-    BASE_CONFIG_KEYS
+    activeKeys
   );
   const isSavingSection =
     isSavingConfig &&
@@ -185,6 +214,15 @@ export function ConfigCard() {
     Number(config.image_concurrent_limit) || 1
   );
   const userConcurrentLimit = Number(config.user_default_concurrent_limit) || 0;
+  const userRpmLimit = Number(config.user_default_rpm_limit) || 0;
+  const imageRetentionDays = Math.max(
+    1,
+    Number(config.image_retention_days) || 30
+  );
+  const videoRetentionDays = Math.max(
+    1,
+    Number(config.video_retention_days) || 30
+  );
   const configuredImageCeiling = Math.min(
     imageWorkerCount,
     imageChannelLimit,
@@ -197,27 +235,29 @@ export function ConfigCard() {
       toast.error(firstError || "请先修正表单中标红的参数范围错误");
       return;
     }
-    await saveConfigSection(BASE_CONFIG_KEYS, { sectionKey: "base-config" });
+    await saveConfigSection(activeKeys, { sectionKey: "base-config" });
   };
 
   return (
     <SettingsCard
       icon={Settings2}
-      title="基础运行与调度参数"
-      description="统一管理站点地址、号池并发、Worker 容量、默认限流与资产生命周期"
+      title={cardTitle}
+      description={cardDescription}
       footer={
-        <SettingsCardSaveFooter
-          dirty={sectionDirty}
-          saving={isSavingSection}
-          disabled={isSavingConfig}
-          hint={
-            hasValidationError
-              ? "请先修正标红的参数范围错误后再保存"
-              : undefined
-          }
-          onReset={() => resetConfigSection(BASE_CONFIG_KEYS)}
-          onSave={() => void handleSave()}
-        />
+        hideFooter ? undefined : (
+          <SettingsCardSaveFooter
+            dirty={sectionDirty}
+            saving={isSavingSection}
+            disabled={isSavingConfig}
+            hint={
+              hasValidationError
+                ? "请先修正标红的参数范围错误后再保存"
+                : undefined
+            }
+            onReset={() => resetConfigSection(activeKeys)}
+            onSave={() => void handleSave()}
+          />
+        )
       }
     >
       <div className="space-y-5">
@@ -225,7 +265,7 @@ export function ConfigCard() {
         <SettingsSection
           layout="split"
           title="站点基础地址"
-          description="用于拼装外部回调、邮件验证码链接与作品公开分享地址；出站代理由「代理与清障」统一接管。"
+          description="用于拼装外部回调、邮件验证码链接与作品公开分享地址；出站代理由「过盾与代理」统一接管。"
         >
           <div className="space-y-3">
             <div className="space-y-1.5">
@@ -366,193 +406,239 @@ export function ConfigCard() {
           />
         </SettingsSection>
 
-        {/* 3. Worker 与队列容量 */}
-        <SettingsSection
-          layout="split"
-          title="Worker 与队列容量"
-          description="决定进程内异步消费协程数量与等待队列缓冲深度，修改保存后需重启后端服务生效。"
-        >
-          <ConcurrencyOverviewStrip
-            configuredImageCeiling={configuredImageCeiling}
-            imageWorkerCount={imageWorkerCount}
-            imageQueueCapacity={imageQueueCapacity}
-            videoWorkerCount={videoWorkerCount}
-            videoQueueCapacity={videoQueueCapacity}
-          />
-          <div className="grid gap-3.5 sm:grid-cols-2">
-            <SettingsUnitInput
-              id="settings-image-worker-count"
-              label="图片消费协程"
-              unit="Worker"
-              min={1}
-              max={100}
-              rangeHint="1–100"
-              placeholder="8"
-              badge={<RestartBadge />}
-              value={config.image_worker_count ?? ""}
-              error={validationErrors.image_worker_count}
-              onChange={setImageWorkerCount}
-            />
-            <SettingsUnitInput
-              id="settings-image-queue-capacity"
-              label="图片等待队列容量"
-              unit="队列"
-              min={1}
-              max={2000}
-              rangeHint="1–2000"
-              placeholder="256"
-              badge={<RestartBadge />}
-              value={config.image_queue_capacity ?? ""}
-              error={validationErrors.image_queue_capacity}
-              onChange={setImageQueueCapacity}
-            />
-            <SettingsUnitInput
-              id="settings-video-worker-count"
-              label="视频消费协程"
-              unit="Worker"
-              min={1}
-              max={32}
-              rangeHint="1–32"
-              placeholder="2"
-              badge={<RestartBadge />}
-              value={config.video_worker_count ?? ""}
-              error={validationErrors.video_worker_count}
-              onChange={setVideoWorkerCount}
-            />
-            <SettingsUnitInput
-              id="settings-video-queue-capacity"
-              label="视频等待队列容量"
-              unit="队列"
-              min={1}
-              max={1000}
-              rangeHint="1–1000"
-              placeholder="64"
-              badge={<RestartBadge />}
-              value={config.video_queue_capacity ?? ""}
-              error={validationErrors.video_queue_capacity}
-              onChange={setVideoQueueCapacity}
-            />
-          </div>
-        </SettingsSection>
+        {isAppearanceMode ? (
+          <>
+            {/* 3. 异常账号自动治理 */}
+            <SettingsSection
+              layout="split"
+              title="异常账号自动治理"
+              description="自动隔离鉴权失效或持续触发上游频控的本地账号，保障队列整体可用率。"
+            >
+              <div className="grid gap-3 sm:grid-cols-2">
+                <SettingsSwitchRow
+                  id="settings-auto-remove-invalid"
+                  title="自动移除异常失效账号"
+                  description="检测到账号鉴权失效或封禁时，自动从可用调度池中摘除"
+                  checked={Boolean(config.auto_remove_invalid_accounts)}
+                  onCheckedChange={setAutoRemoveInvalidAccounts}
+                />
+                <SettingsSwitchRow
+                  id="settings-auto-remove-rate-limited"
+                  title="自动移除持续限流账号"
+                  description="账号连续触发上游速率限制时，自动移出轮询避免拖慢队列"
+                  checked={Boolean(config.auto_remove_rate_limited_accounts)}
+                  onCheckedChange={setAutoRemoveRateLimitedAccounts}
+                />
+              </div>
+            </SettingsSection>
 
-        {/* 4. 用户与 API Key 默认限流 */}
-        <SettingsSection
-          layout="split"
-          title="用户与 API Key 默认限流"
-          description="为未单独配置专属配额的注册用户与外部 API Key 提供默认并发及调用速率保护。"
-        >
-          <div className="grid gap-3.5 sm:grid-cols-2">
-            <SettingsUnitInput
-              id="settings-user-concurrent"
-              label="用户默认并发限制"
-              unit="并发"
-              min={0}
-              rangeHint="0 = 不限制"
-              placeholder="0"
-              value={config.user_default_concurrent_limit ?? ""}
-              error={validationErrors.user_default_concurrent_limit}
-              onChange={setUserDefaultConcurrentLimit}
-            />
-            <SettingsUnitInput
-              id="settings-user-rpm"
-              label="用户默认速率限制"
-              unit="RPM"
-              min={0}
-              rangeHint="0 = 不限制"
-              placeholder="0"
-              value={config.user_default_rpm_limit ?? ""}
-              error={validationErrors.user_default_rpm_limit}
-              onChange={setUserDefaultRpmLimit}
-            />
-            <SettingsUnitInput
-              id="settings-api-key-concurrent"
-              label="API Key 默认并发限制"
-              unit="并发"
-              min={0}
-              max={10000}
-              rangeHint="0 = 不限制"
-              placeholder="0"
-              value={config.api_key_default_concurrent_limit ?? ""}
-              error={validationErrors.api_key_default_concurrent_limit}
-              onChange={setAPIKeyDefaultConcurrentLimit}
-            />
-            <SettingsUnitInput
-              id="settings-api-key-rpm"
-              label="API Key 默认速率限制"
-              unit="RPM"
-              min={0}
-              max={100000}
-              rangeHint="0 = 不限制"
-              placeholder="0"
-              value={config.api_key_default_rpm_limit ?? ""}
-              error={validationErrors.api_key_default_rpm_limit}
-              onChange={setAPIKeyDefaultRpmLimit}
-            />
-            <SettingsUnitInput
-              id="settings-api-key-daily"
-              label="API Key 每日请求配额"
-              unit="次/日"
-              min={0}
-              max={10000000}
-              rangeHint="0 = 不限制"
-              placeholder="0"
-              value={config.api_key_daily_request_limit ?? ""}
-              error={validationErrors.api_key_daily_request_limit}
-              onChange={setAPIKeyDailyRequestLimit}
-              className="sm:col-span-2"
-            />
-          </div>
-        </SettingsSection>
+            {/* 4. 关联模块配置分流入口 */}
+            <SettingsSection
+              layout="split"
+              title="关联容量与留存配置"
+              description="Worker 协程队列、默认请求速率限制与媒体保留策略已按职责归口至专项页面独立管理。"
+            >
+              <CrossPageGovernanceStrips
+                imageWorkerCount={imageWorkerCount}
+                videoWorkerCount={videoWorkerCount}
+                userConcurrentLimit={userConcurrentLimit}
+                userRpmLimit={userRpmLimit}
+                imageRetentionDays={imageRetentionDays}
+                videoRetentionDays={videoRetentionDays}
+              />
+            </SettingsSection>
+          </>
+        ) : (
+          <>
+            {/* 3. Worker 与队列容量 */}
+            <SettingsSection
+              layout="split"
+              title="Worker 与队列容量"
+              description="决定进程内异步消费协程数量与等待队列缓冲深度，修改保存后需重启后端服务生效。"
+            >
+              <ConcurrencyOverviewStrip
+                configuredImageCeiling={configuredImageCeiling}
+                imageWorkerCount={imageWorkerCount}
+                imageQueueCapacity={imageQueueCapacity}
+                videoWorkerCount={videoWorkerCount}
+                videoQueueCapacity={videoQueueCapacity}
+              />
+              <div className="grid gap-3.5 sm:grid-cols-2">
+                <SettingsUnitInput
+                  id="settings-image-worker-count"
+                  label="图片消费协程"
+                  unit="Worker"
+                  min={1}
+                  max={100}
+                  rangeHint="1–100"
+                  placeholder="8"
+                  badge={<RestartBadge />}
+                  value={config.image_worker_count ?? ""}
+                  error={validationErrors.image_worker_count}
+                  onChange={setImageWorkerCount}
+                />
+                <SettingsUnitInput
+                  id="settings-image-queue-capacity"
+                  label="图片等待队列容量"
+                  unit="队列"
+                  min={1}
+                  max={2000}
+                  rangeHint="1–2000"
+                  placeholder="256"
+                  badge={<RestartBadge />}
+                  value={config.image_queue_capacity ?? ""}
+                  error={validationErrors.image_queue_capacity}
+                  onChange={setImageQueueCapacity}
+                />
+                <SettingsUnitInput
+                  id="settings-video-worker-count"
+                  label="视频消费协程"
+                  unit="Worker"
+                  min={1}
+                  max={32}
+                  rangeHint="1–32"
+                  placeholder="2"
+                  badge={<RestartBadge />}
+                  value={config.video_worker_count ?? ""}
+                  error={validationErrors.video_worker_count}
+                  onChange={setVideoWorkerCount}
+                />
+                <SettingsUnitInput
+                  id="settings-video-queue-capacity"
+                  label="视频等待队列容量"
+                  unit="队列"
+                  min={1}
+                  max={1000}
+                  rangeHint="1–1000"
+                  placeholder="64"
+                  badge={<RestartBadge />}
+                  value={config.video_queue_capacity ?? ""}
+                  error={validationErrors.video_queue_capacity}
+                  onChange={setVideoQueueCapacity}
+                />
+              </div>
+            </SettingsSection>
 
-        {/* 5. 资产保留期与异常账号治理 */}
-        <SettingsSection
-          layout="split"
-          title="资产保留期与异常账号治理"
-          description="管理创作媒体文件的自动清理保留天数，以及失效或高频限流账号的自动隔离策略。"
-        >
-          <div className="grid gap-3.5 sm:grid-cols-2">
-            <SettingsUnitInput
-              id="settings-retention-days"
-              label="图片资产保留期"
-              unit="天"
-              min={1}
-              max={3650}
-              rangeHint="1–3650"
-              placeholder="30"
-              value={config.image_retention_days ?? ""}
-              error={validationErrors.image_retention_days}
-              onChange={setImageRetentionDays}
-            />
-            <SettingsUnitInput
-              id="settings-video-retention-days"
-              label="视频资产保留期"
-              unit="天"
-              min={1}
-              max={3650}
-              rangeHint="1–3650"
-              placeholder="30"
-              value={config.video_retention_days ?? ""}
-              error={validationErrors.video_retention_days}
-              onChange={setVideoRetentionDays}
-            />
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <SettingsSwitchRow
-              id="settings-auto-remove-invalid"
-              title="自动移除异常失效账号"
-              description="检测到账号鉴权失效或封禁时，自动从可用调度池中摘除"
-              checked={Boolean(config.auto_remove_invalid_accounts)}
-              onCheckedChange={setAutoRemoveInvalidAccounts}
-            />
-            <SettingsSwitchRow
-              id="settings-auto-remove-rate-limited"
-              title="自动移除持续限流账号"
-              description="账号连续触发上游速率限制时，自动移出轮询避免拖慢队列"
-              checked={Boolean(config.auto_remove_rate_limited_accounts)}
-              onCheckedChange={setAutoRemoveRateLimitedAccounts}
-            />
-          </div>
-        </SettingsSection>
+            {/* 4. 用户与 API Key 默认限流 */}
+            <SettingsSection
+              layout="split"
+              title="用户与 API Key 默认限流"
+              description="为未单独配置专属配额的注册用户与外部 API Key 提供默认并发及调用速率保护。"
+            >
+              <div className="grid gap-3.5 sm:grid-cols-2">
+                <SettingsUnitInput
+                  id="settings-user-concurrent"
+                  label="用户默认并发限制"
+                  unit="并发"
+                  min={0}
+                  rangeHint="0 = 不限制"
+                  placeholder="0"
+                  value={config.user_default_concurrent_limit ?? ""}
+                  error={validationErrors.user_default_concurrent_limit}
+                  onChange={setUserDefaultConcurrentLimit}
+                />
+                <SettingsUnitInput
+                  id="settings-user-rpm"
+                  label="用户默认速率限制"
+                  unit="RPM"
+                  min={0}
+                  rangeHint="0 = 不限制"
+                  placeholder="0"
+                  value={config.user_default_rpm_limit ?? ""}
+                  error={validationErrors.user_default_rpm_limit}
+                  onChange={setUserDefaultRpmLimit}
+                />
+                <SettingsUnitInput
+                  id="settings-api-key-concurrent"
+                  label="API Key 默认并发限制"
+                  unit="并发"
+                  min={0}
+                  max={10000}
+                  rangeHint="0 = 不限制"
+                  placeholder="0"
+                  value={config.api_key_default_concurrent_limit ?? ""}
+                  error={validationErrors.api_key_default_concurrent_limit}
+                  onChange={setAPIKeyDefaultConcurrentLimit}
+                />
+                <SettingsUnitInput
+                  id="settings-api-key-rpm"
+                  label="API Key 默认速率限制"
+                  unit="RPM"
+                  min={0}
+                  max={100000}
+                  rangeHint="0 = 不限制"
+                  placeholder="0"
+                  value={config.api_key_default_rpm_limit ?? ""}
+                  error={validationErrors.api_key_default_rpm_limit}
+                  onChange={setAPIKeyDefaultRpmLimit}
+                />
+                <SettingsUnitInput
+                  id="settings-api-key-daily"
+                  label="API Key 每日请求配额"
+                  unit="次/日"
+                  min={0}
+                  max={10000000}
+                  rangeHint="0 = 不限制"
+                  placeholder="0"
+                  value={config.api_key_daily_request_limit ?? ""}
+                  error={validationErrors.api_key_daily_request_limit}
+                  onChange={setAPIKeyDailyRequestLimit}
+                  className="sm:col-span-2"
+                />
+              </div>
+            </SettingsSection>
+
+            {/* 5. 资产保留期与异常账号治理 */}
+            <SettingsSection
+              layout="split"
+              title="资产保留期与异常账号治理"
+              description="管理创作媒体文件的自动清理保留天数，以及失效或高频限流账号的自动隔离策略。"
+            >
+              <div className="grid gap-3.5 sm:grid-cols-2">
+                <SettingsUnitInput
+                  id="settings-retention-days"
+                  label="图片资产保留期"
+                  unit="天"
+                  min={1}
+                  max={3650}
+                  rangeHint="1–3650"
+                  placeholder="30"
+                  value={config.image_retention_days ?? ""}
+                  error={validationErrors.image_retention_days}
+                  onChange={setImageRetentionDays}
+                />
+                <SettingsUnitInput
+                  id="settings-video-retention-days"
+                  label="视频资产保留期"
+                  unit="天"
+                  min={1}
+                  max={3650}
+                  rangeHint="1–3650"
+                  placeholder="30"
+                  value={config.video_retention_days ?? ""}
+                  error={validationErrors.video_retention_days}
+                  onChange={setVideoRetentionDays}
+                />
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <SettingsSwitchRow
+                  id="settings-auto-remove-invalid"
+                  title="自动移除异常失效账号"
+                  description="检测到账号鉴权失效或封禁时，自动从可用调度池中摘除"
+                  checked={Boolean(config.auto_remove_invalid_accounts)}
+                  onCheckedChange={setAutoRemoveInvalidAccounts}
+                />
+                <SettingsSwitchRow
+                  id="settings-auto-remove-rate-limited"
+                  title="自动移除持续限流账号"
+                  description="账号连续触发上游速率限制时，自动移出轮询避免拖慢队列"
+                  checked={Boolean(config.auto_remove_rate_limited_accounts)}
+                  onCheckedChange={setAutoRemoveRateLimitedAccounts}
+                />
+              </div>
+            </SettingsSection>
+          </>
+        )}
       </div>
     </SettingsCard>
   );

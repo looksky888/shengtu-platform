@@ -16,8 +16,10 @@ func (c *Client) postResponsesUpstreamJSON(ctx context.Context, path string, pay
 	if err != nil {
 		return nil, fmt.Errorf("%s request payload: %w", path, err)
 	}
-	client := c.httpClient
-	client = service.BrowserHTTPClientForProxyWithProfile(c.proxyURL, c.fp["impersonate"], 1200*time.Second)
+	client := service.BrowserHTTPClientForProxyWithProfile(c.proxyURL, c.fp["impersonate"], 1200*time.Second)
+	if c.httpClient != nil && c.httpClient.Jar != nil {
+		client.Jar = c.httpClient.Jar
+	}
 	return c.doUpstreamRequest(ctx, client, http.MethodPost, c.BaseURL+path, path, data, headers)
 }
 
@@ -26,6 +28,7 @@ func (c *Client) headers(path string, extra map[string]string) map[string]string
 }
 
 func (c *Client) headersContext(ctx context.Context, path string, extra map[string]string) map[string]string {
+	c.syncClearanceFingerprint()
 	headers := map[string]string{
 		"User-Agent":                  c.userAgent,
 		"Origin":                      c.BaseURL,
@@ -60,13 +63,13 @@ func (c *Client) headersContext(ctx context.Context, path string, extra map[stri
 	for key, value := range extra {
 		headers[key] = value
 	}
+	c.applySentinelHeaders(headers)
 	if bundle := service.CachedUpstreamClearanceForProxy(c.proxyURL); bundle != nil {
 		headers = service.ApplyUpstreamClearanceToHeaders(headers, bundle)
-		if ua := strings.TrimSpace(headers["User-Agent"]); ua != "" && c.sentinel == nil {
+		if ua := strings.TrimSpace(headers["User-Agent"]); ua != "" {
 			c.userAgent = ua
 		}
 	}
-	c.applySentinelHeaders(headers)
 	return headers
 }
 
@@ -75,6 +78,7 @@ func (c *Client) bootstrapHeaders() map[string]string {
 }
 
 func (c *Client) bootstrapHeadersContext(ctx context.Context) map[string]string {
+	c.syncClearanceFingerprint()
 	headers := map[string]string{
 		"User-Agent":                c.userAgent,
 		"Accept":                    "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
@@ -88,10 +92,10 @@ func (c *Client) bootstrapHeadersContext(ctx context.Context) map[string]string 
 		"Sec-Fetch-User":            "?1",
 		"Upgrade-Insecure-Requests": "1",
 	}
+	c.applySentinelHeaders(headers)
 	if bundle := service.CachedUpstreamClearanceForProxy(c.proxyURL); bundle != nil {
 		headers = service.ApplyUpstreamClearanceToHeaders(headers, bundle)
 	}
-	c.applySentinelHeaders(headers)
 	return headers
 }
 
@@ -106,6 +110,7 @@ func (c *Client) bootstrap(ctx context.Context) error {
 	if _, refreshErr := service.RefreshUpstreamClearanceForChallengeWithProxy(ctx, c.proxyURL); refreshErr != nil {
 		return err
 	}
+	c.syncClearanceFingerprint()
 	return c.doBootstrap(ctx)
 }
 

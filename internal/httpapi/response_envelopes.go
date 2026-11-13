@@ -43,10 +43,6 @@ type statsResponse[T any] struct {
 	Stats T `json:"stats"`
 }
 
-type registerResponse[T any] struct {
-	Register T `json:"register"`
-}
-
 type poolsResponse[T any] struct {
 	Pools []T `json:"pools"`
 }

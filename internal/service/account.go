@@ -47,7 +47,7 @@ type AccountService struct {
 
 const (
 	defaultRemoteUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
-	defaultRemoteSecCHUA   = `"Chromium";v="146", "Google Chrome";v="146", "Not/A)Brand";v="99"`
+	defaultRemoteSecCHUA   = `"Not:A-Brand";v="99", "Google Chrome";v="146", "Chromium";v="146"`
 	defaultRemoteProfile   = "chrome146"
 )
 

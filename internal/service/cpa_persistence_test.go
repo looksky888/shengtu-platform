@@ -1,6 +1,7 @@
 package service
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -11,6 +12,20 @@ import (
 	"chatgpt2api/internal/storage"
 	"chatgpt2api/internal/util"
 )
+
+type registerAccountBackend struct {
+	*storage.JSONBackend
+	upsertCalls int
+	failAt      int
+}
+
+func (b *registerAccountBackend) UpsertAccount(accessToken string, data map[string]any) error {
+	b.upsertCalls++
+	if b.upsertCalls == b.failAt {
+		return errors.New("forced register account write failure")
+	}
+	return b.JSONBackend.UpsertAccount(accessToken, data)
+}
 
 func TestCPAImportReportsAccountSaveFailure(t *testing.T) {
 	service, poolID, pool, accounts, backend := newCPAImportPersistenceTest(t)

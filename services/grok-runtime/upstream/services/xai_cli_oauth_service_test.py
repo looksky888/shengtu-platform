@@ -13,6 +13,7 @@ from unittest.mock import AsyncMock, patch
 
 import httpx
 
+from app.platform.errors import ValidationError
 from services.xai_cli_oauth_service import XaiCliOAuthService
 from services.xai_cli_oauth_store import XaiCliOAuthAccountStore
 
@@ -76,144 +77,19 @@ class XaiCliOAuthServiceTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(self.store.get(account["id"], redacted=True)["status"], "active")
 
-    async def test_protocol_job_imports_credentials_without_exposing_source_password(self) -> None:
-        source = {
-            "id": "grok-source-one",
-            "email": "source@example.com",
-            "password": "source-password",
-            "status": "active",
-        }
-        credential = {
-            "access_token": _jwt({"sub": "subject-protocol", "email": "source@example.com", "exp": int(time.time()) + 3600}),
-            "refresh_token": "protocol-refresh",
-            "id_token": "",
-            "expires_in": 3600,
-        }
-        protocol = SimpleNamespace(authorize=lambda **_kwargs: credential)
+    async def test_protocol_authorization_fails_fast_synchronously_without_spawning_jobs(self) -> None:
+        with self.assertRaises(ValidationError) as ctx:
+            await self.service.start_protocol_authorization("grok-source-one")
+        self.assertIn("unavailable", str(ctx.exception))
+        self.assertEqual(self.service._protocol_jobs, {})
+        self.assertFalse(self.service._protocol_tasks)
+        self.assertFalse(self.service._protocol_threads)
 
-        with patch.object(self.service, "_select_protocol_source_account", return_value=source), patch(
-            "services.register_service.register_service.get",
-            return_value={"grok": {}, "proxy": "direct"},
-        ), patch(
-            "services.xai_device_oauth_protocol.XaiDeviceOAuthProtocol",
-            return_value=protocol,
-        ), patch.object(
-            self.service,
-            "_fetch_models",
-            new=AsyncMock(return_value=["grok-4.5"]),
-        ):
-            started = await self.service.start_protocol_authorization()
-            job_id = started["job"]["id"]
-            for _ in range(50):
-                await asyncio.sleep(0)
-                job = self.service.get_protocol_authorization_job(job_id)
-                if job and job["status"] not in {"pending", "running"}:
-                    break
-
-        self.assertIsNotNone(job)
-        self.assertEqual(job["status"], "authorized")
-        self.assertEqual(job["models"], ["grok-4.5"])
-        self.assertNotIn("source-password", repr(job))
-        self.assertNotIn("protocol-refresh", repr(job))
-        self.assertEqual(self.store.list_accounts()[0]["source_type"], "registered_account_protocol")
-
-    async def test_protocol_jobs_are_reused_per_source_account(self) -> None:
-        first = {"id": "grok-one", "email": "one@example.com", "password": "password"}
-        second = {"id": "grok-two", "email": "two@example.com", "password": "password"}
-        sources = {"grok-one": first, "grok-two": second}
-
-        with patch.object(
-            self.service,
-            "_select_protocol_source_account",
-            side_effect=lambda account_id="": sources[account_id or "grok-one"],
-        ), patch.object(self.service, "_run_protocol_authorization", new=AsyncMock()):
-            one = await self.service.start_protocol_authorization("grok-one")
-            one_reused = await self.service.start_protocol_authorization("grok-one")
-            two = await self.service.start_protocol_authorization("grok-two")
-
-        self.assertFalse(one["reused"])
-        self.assertTrue(one_reused["reused"])
-        self.assertEqual(one_reused["job"]["id"], one["job"]["id"])
-        self.assertFalse(two["reused"])
-        self.assertNotEqual(two["job"]["id"], one["job"]["id"])
-
-    async def test_protocol_authorization_stays_successful_when_one_delivery_target_fails(self) -> None:
-        source = {
-            "id": "grok-delivery-source",
-            "email": "delivery@example.com",
-            "password": "source-password",
-        }
-        credential = {
-            "access_token": _jwt({"sub": "delivery-subject", "email": "delivery@example.com", "exp": int(time.time()) + 3600}),
-            "refresh_token": "delivery-refresh",
-            "id_token": "",
-            "expires_in": 3600,
-        }
-        protocol = SimpleNamespace(authorize=lambda **_kwargs: credential)
-        delivery = {
-            "sub2api": {"status": "success", "target_id": "server-one", "at": "2030-01-01T00:00:00+00:00"},
-            "cpa": {"status": "failed", "target_id": "pool-one", "at": "2030-01-01T00:00:00+00:00", "error": "HTTP 503"},
-        }
-
-        with patch.object(self.service, "_select_protocol_source_account", return_value=source), patch(
-            "services.register_service.register_service.get",
-            return_value={"grok": {"oauth_delivery": {}}, "proxy": "direct"},
-        ), patch(
-            "services.xai_device_oauth_protocol.XaiDeviceOAuthProtocol",
-            return_value=protocol,
-        ), patch.object(
-            self.service,
-            "_fetch_models",
-            new=AsyncMock(return_value=["grok-4.5"]),
-        ), patch(
-            "services.xai_oauth_delivery_service.deliver_xai_oauth_account",
-            return_value=delivery,
-        ):
-            started = await self.service.start_protocol_authorization("grok-delivery-source")
-            job_id = started["job"]["id"]
-            for _ in range(50):
-                await asyncio.sleep(0)
-                job = self.service.get_protocol_authorization_job(job_id)
-                if job and job["status"] not in {"pending", "running"}:
-                    break
-
-        self.assertEqual(job["status"], "authorized")
-        self.assertIn("外部投递部分失败", job["message"])
-        self.assertEqual(job["delivery"], delivery)
-        account = self.store.list_accounts(redacted=False)[0]
-        self.assertEqual(account["metadata"]["oauth_delivery"], delivery)
-        self.assertNotIn("delivery-refresh", repr(job))
-
-    async def test_background_protocol_entry_runs_to_terminal_state(self) -> None:
-        source = {"id": "grok-background", "email": "background@example.com", "password": "password"}
-        completed = threading.Event()
-
-        async def run(job_id: str, selected: dict[str, object]) -> None:
-            self.assertEqual(selected, source)
-            self.service._update_protocol_job(
-                job_id,
-                status="authorized",
-                stage="completed",
-                message="协议授权完成",
-            )
-            completed.set()
-
-        with patch.object(self.service, "_select_protocol_source_account", return_value=source), patch.object(
-            self.service,
-            "_run_protocol_authorization",
-            new=run,
-        ):
-            started = self.service.start_protocol_authorization_background("grok-background")
-            finished = await asyncio.to_thread(completed.wait, 2)
-
-        self.assertTrue(finished)
-        job = self.service.get_protocol_authorization_job(started["job"]["id"])
-        self.assertIsNotNone(job)
-        self.assertEqual(job["status"], "authorized")
-        for _ in range(20):
-            if not self.service._protocol_threads:
-                break
-            await asyncio.sleep(0.01)
+    async def test_background_protocol_entry_fails_fast_without_spawning_threads(self) -> None:
+        with self.assertRaises(ValidationError) as ctx:
+            self.service.start_protocol_authorization_background("grok-background")
+        self.assertIn("unavailable", str(ctx.exception))
+        self.assertEqual(self.service._protocol_jobs, {})
         self.assertFalse(self.service._protocol_threads)
 
     async def test_refresh_rotates_token_without_returning_credentials(self) -> None:

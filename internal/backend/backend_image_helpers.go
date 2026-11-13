@@ -206,23 +206,19 @@ func filter(values []string, keep func(string) bool) []string {
 }
 
 func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if strings.TrimSpace(value) != "" {
-			return value
-		}
-	}
-	return ""
+	return util.FirstNonEmpty(values...)
 }
 
 func imageUploadSettleDelay() time.Duration {
-	// Default 200ms (was fixed 500ms). Override with CHATGPT2API_IMAGE_UPLOAD_SETTLE_MS (milliseconds).
+	// Default 0ms (Azure Blob SAS URLs have backdated start times; uploadImage retries once on transient SAS delay).
+	// Override with CHATGPT2API_IMAGE_UPLOAD_SETTLE_MS (milliseconds).
 	raw := strings.TrimSpace(os.Getenv("CHATGPT2API_IMAGE_UPLOAD_SETTLE_MS"))
 	if raw == "" {
-		return 200 * time.Millisecond
+		return 0
 	}
 	value, err := strconv.ParseFloat(raw, 64)
 	if err != nil || value < 0 {
-		return 200 * time.Millisecond
+		return 0
 	}
 	duration := time.Duration(value * float64(time.Millisecond))
 	if duration > 5*time.Second {

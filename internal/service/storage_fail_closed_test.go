@@ -76,20 +76,6 @@ func TestPromptFavoriteServiceRefusesWriteAfterFailedLoad(t *testing.T) {
 	assertCorruptJSONUnchanged(t, path)
 }
 
-func TestRegisterServiceRefusesWriteAfterFailedLoad(t *testing.T) {
-	dataDir := t.TempDir()
-	path := filepath.Join(dataDir, "register.json")
-	writeCorruptJSON(t, path)
-	svc := NewRegisterService(dataDir, nil)
-
-	_, err := svc.Update(map[string]any{"threads": 3})
-
-	if err == nil {
-		t.Fatal("Update() succeeded after corrupt load")
-	}
-	assertCorruptJSONUnchanged(t, path)
-}
-
 func writeCorruptJSON(t *testing.T, path string) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {

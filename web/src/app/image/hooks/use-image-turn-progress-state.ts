@@ -28,8 +28,10 @@ export function useImageTurnProgressState({ activeTaskCount }: UseImageTurnProgr
     [],
   );
 
+  const hasProgressEntries = Object.keys(progressByTurnKey).length > 0;
+
   useEffect(() => {
-    if (!pageVisible || (activeTaskCount === 0 && Object.keys(progressByTurnKey).length === 0)) {
+    if (!pageVisible || (activeTaskCount === 0 && !hasProgressEntries)) {
       return;
     }
 
@@ -40,7 +42,7 @@ export function useImageTurnProgressState({ activeTaskCount }: UseImageTurnProgr
     return () => {
       window.clearInterval(timer);
     };
-  }, [activeTaskCount, pageVisible, progressByTurnKey]);
+  }, [activeTaskCount, hasProgressEntries, pageVisible]);
 
   const updateTurnProgress = useCallback(
     (conversationId: string, turnId: string, updates: Omit<ImageTurnProgress, "startedAt"> & { startedAt?: number }) => {

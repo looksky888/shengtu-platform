@@ -105,36 +105,6 @@ func TestCancelledMultiImageTaskPreservesDeliveredDataForReconciliation(t *testi
 	}
 }
 
-func TestResolveICloudMailboxCodeURLRewritesRelativeAndBlocksForeignHost(t *testing.T) {
-	got, err := resolveICloudMailboxCodeURL(
-		"http://icloud-privacy-mail:8787",
-		"/api/icloud/public/v1/mailboxes/alice%40icloud.com/code?key=tok123",
-		"alice@icloud.com",
-		"tok123",
-	)
-	if err != nil {
-		t.Fatalf("resolveICloudMailboxCodeURL(relative) error = %v", err)
-	}
-	want := "http://icloud-privacy-mail:8787/api/v1/mailboxes/alice@icloud.com/code?key=tok123"
-	if got != want {
-		t.Fatalf("got %q, want %q", got, want)
-	}
-
-	foreign, err := resolveICloudMailboxCodeURL(
-		"http://icloud-privacy-mail:8787",
-		"https://attacker.example/steal?key=tok999",
-		"alice@icloud.com",
-		"",
-	)
-	if err != nil {
-		t.Fatalf("resolveICloudMailboxCodeURL(foreign) error = %v", err)
-	}
-	wantForeign := "http://icloud-privacy-mail:8787/api/v1/mailboxes/alice@icloud.com/code?key=tok999"
-	if foreign != wantForeign {
-		t.Fatalf("foreign rewrite = %q, want %q", foreign, wantForeign)
-	}
-}
-
 func TestBackupCollectFilesIncludesSettingsEnv(t *testing.T) {
 	root := t.TempDir()
 	dataDir := filepath.Join(root, "data")

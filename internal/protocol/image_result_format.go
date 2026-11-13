@@ -134,7 +134,6 @@ func (e *Engine) SaveImageBytesForOwnerWithFormat(imageData []byte, baseURL, own
 		return e.Media.StoreImage(imageData, baseURL, ownerID, ownerName, outputFormat)
 	}
 	outputFormat = NormalizeImageOutputFormat(outputFormat)
-	cleanupOldImagesIfDue(e.Config)
 	sum := md5.Sum(imageData)
 	filename := fmt.Sprintf("%d_%s.%s", time.Now().Unix(), hex.EncodeToString(sum[:]), imageFileExtension(outputFormat))
 	y, m, d := util.ChinaDatePath()

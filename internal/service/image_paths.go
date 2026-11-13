@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"chatgpt2api/internal/storage"
 )
 
 func imageDay(rel string, modTime time.Time) string {
@@ -127,15 +129,5 @@ func pathInsideRoot(root, target string) bool {
 }
 
 func removeEmptyParentDirs(root, start string) {
-	current, err := filepath.Abs(start)
-	if err != nil {
-		return
-	}
-	for pathInsideRoot(root, current) {
-		err := os.Remove(current)
-		if err != nil && !errors.Is(err, os.ErrNotExist) {
-			return
-		}
-		current = filepath.Dir(current)
-	}
+	storage.RemoveEmptyParentDirs(root, start)
 }

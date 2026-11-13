@@ -1,6 +1,8 @@
 package service
 
 import (
+	"encoding/json"
+	"strings"
 	"time"
 
 	"chatgpt2api/internal/util"
@@ -229,4 +231,48 @@ func (s *AccountService) reclaimExpiredLeasesLocked(now time.Time) int {
 		s.poolOpCounts["lease_reclaimed"] += reclaimedSlots
 	}
 	return reclaimedSlots
+}
+
+func maskOutlookEmail(email string) string {
+	email = strings.TrimSpace(email)
+	local, domain, ok := strings.Cut(email, "@")
+	if !ok {
+		return "***"
+	}
+	var masked string
+	if len(local) > 2 {
+		masked = local[:2] + "***" + local[len(local)-1:]
+	} else if len(local) > 0 {
+		masked = local[:1] + "***"
+	} else {
+		masked = "***"
+	}
+	return masked + "@" + domain
+}
+
+func truncateReason(text string, max int) string {
+	text = strings.TrimSpace(text)
+	if max <= 0 || len(text) <= max {
+		return text
+	}
+	return text[:max]
+}
+
+func utilClean(v any) string {
+	if v == nil {
+		return ""
+	}
+	switch t := v.(type) {
+	case string:
+		return strings.TrimSpace(t)
+	case []byte:
+		return strings.TrimSpace(string(t))
+	default:
+		b, _ := json.Marshal(v)
+		s := string(b)
+		if len(s) >= 2 && s[0] == '"' && s[len(s)-1] == '"' {
+			s = strings.Trim(s, `"`)
+		}
+		return strings.TrimSpace(strings.ReplaceAll(strings.ReplaceAll(s, "\r", ""), "\n", " "))
+	}
 }

@@ -121,34 +121,20 @@ func (a *App) handleChatImageWithChannel(ctx context.Context, body map[string]an
 }
 
 func (a *App) chatImageViaGrokNative(ctx context.Context, body map[string]any) (map[string]any, *protocol.StreamResult, error) {
-	model, prompt, n, images, _, err := protocol.ChatImageArgs(body)
-	if err != nil {
-		return nil, nil, err
-	}
-	payload := util.CopyMap(body)
-	payload["model"] = model
-	payload["prompt"] = prompt
-	payload["n"] = n
-	if util.Clean(payload["response_format"]) == "" {
-		payload["response_format"] = "url"
-	}
-	result, err := a.runGrokNativeImageGeneration(ctx, payload, images)
-	if err != nil {
-		if result == nil {
-			result = map[string]any{"data": []any{}}
-		}
-		return result, nil, err
-	}
-	content := protocol.ImageResultContent(result)
-	created := int64(util.ToInt(result["created"], 0))
-	completion := protocol.CompletionResponse(model, content, created, nil)
-	if !util.ToBool(body["stream"]) {
-		return completion, nil, nil
-	}
-	return emitCompletionAsStream(ctx, model, content, created, completion)
+	return chatImageViaExecutor(ctx, body, a.runGrokNativeImageGeneration)
 }
 
 func (a *App) chatImageViaProxy(ctx context.Context, body map[string]any, channel string) (map[string]any, *protocol.StreamResult, error) {
+	return chatImageViaExecutor(ctx, body, func(ctx context.Context, payload map[string]any, images []protocol.UploadedImage) (map[string]any, error) {
+		return a.runProxyImageGeneration(ctx, payload, images, channel)
+	})
+}
+
+func chatImageViaExecutor(
+	ctx context.Context,
+	body map[string]any,
+	runImage func(ctx context.Context, payload map[string]any, images []protocol.UploadedImage) (map[string]any, error),
+) (map[string]any, *protocol.StreamResult, error) {
 	model, prompt, n, images, _, err := protocol.ChatImageArgs(body)
 	if err != nil {
 		return nil, nil, err
@@ -160,7 +146,7 @@ func (a *App) chatImageViaProxy(ctx context.Context, body map[string]any, channe
 	if util.Clean(payload["response_format"]) == "" {
 		payload["response_format"] = "url"
 	}
-	result, err := a.runProxyImageGeneration(ctx, payload, images, channel)
+	result, err := runImage(ctx, payload, images)
 	if err != nil {
 		if result == nil {
 			result = map[string]any{"data": []any{}}

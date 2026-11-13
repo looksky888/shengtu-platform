@@ -6,6 +6,7 @@ import time
 from collections.abc import Awaitable, Callable
 from concurrent.futures import TimeoutError as FutureTimeoutError
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any, TypeVar
 
 import orjson
@@ -13,7 +14,20 @@ from fastapi import FastAPI
 from fastapi.responses import Response
 
 from app.platform.runtime.batch import run_batch
-from services.register.grok_account_store import grok_account_store
+from services.config import DATA_DIR
+from services.json_file import read_json_file
+
+
+def _load_legacy_grok_accounts(path: Path | None = None) -> list[dict[str, Any]]:
+    target = path or (DATA_DIR / "grok_accounts.json")
+    raw = read_json_file(target, default_factory=list, expected_types=(list, dict))
+    if isinstance(raw, dict):
+        items = raw.get("accounts")
+    else:
+        items = raw
+    if not isinstance(items, list):
+        return []
+    return [dict(item) for item in items if isinstance(item, dict)]
 
 
 T = TypeVar("T")
@@ -105,7 +119,7 @@ class EmbeddedGrokRuntime:
         if repo is None:
             return {"added": 0, "skipped": 0}
 
-        items = await asyncio.to_thread(grok_account_store.list_accounts, redacted=False)
+        items = await asyncio.to_thread(_load_legacy_grok_accounts)
         tokens = list(
             dict.fromkeys(
                 str(item.get("sso") or "").strip()
@@ -141,11 +155,11 @@ class EmbeddedGrokRuntime:
         return {"added": len(new_tokens), "updated": len(existing), "skipped": 0, "pool": pool}
 
     async def sync_host_accounts_from_runtime(self) -> dict[str, int]:
-        """Persist a credential-free view of the runtime pool in the host archive."""
+        """Return runtime pool count without writing legacy registration archives."""
         payload = await self.list_accounts()
         tokens = payload.get("tokens") if isinstance(payload, dict) else []
         runtime_items = [dict(item) for item in tokens if isinstance(item, dict)] if isinstance(tokens, list) else []
-        return await asyncio.to_thread(grok_account_store.reconcile_runtime_accounts, runtime_items)
+        return {"added": 0, "updated": 0, "missing": 0, "count": len(runtime_items)}
 
     async def list_accounts(self) -> dict[str, Any]:
         from app.products.web.admin.tokens import list_tokens

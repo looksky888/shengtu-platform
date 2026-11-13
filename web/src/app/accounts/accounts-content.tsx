@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AlertCircle, Bot, CheckCircle2, Plus, RefreshCw, Sparkles } from "lucide-react";
+import { AlertCircle, Bot, CheckCircle2, Download, LoaderCircle, Plus, RefreshCw, Sparkles } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 
 import { AccountEditDialog } from "@/app/accounts/account-edit-dialog";
@@ -8,6 +8,7 @@ import { AccountPageHeader } from "@/app/accounts/account-page-header";
 import { AccountsLoadingCard } from "@/app/accounts/accounts-empty-states";
 import { AccountsListFilters } from "@/app/accounts/accounts-list-filters";
 import { AccountsTable } from "@/app/accounts/accounts-table";
+import { AccountImportDialog } from "@/app/accounts/components/account-import-dialog";
 import { GrokAccountsPanel } from "@/app/accounts/grok-accounts-panel";
 import { GrokProviderTaskProgress } from "@/app/accounts/grok-provider-task-progress";
 import { useAccountsManagement } from "@/app/accounts/use-accounts-management";
@@ -24,7 +25,13 @@ const PLATFORM_ITEMS = [
   { value: "grok" as const, label: "Grok 号池", icon: Sparkles },
 ] as const;
 
-export function AccountsPageContent({ session }: { session: StoredAuthSession }) {
+export function AccountsPageContent({
+  session,
+  embedded = false,
+}: {
+  session: StoredAuthSession;
+  embedded?: boolean;
+}) {
   const [searchParams, setSearchParams] = useSearchParams();
   const rawPlatform = searchParams.get("platform");
   const platform: AccountPlatform = rawPlatform === "grok" ? "grok" : "gpt";
@@ -58,64 +65,122 @@ export function AccountsPageContent({ session }: { session: StoredAuthSession })
     accounts.setPage(1);
   };
 
-  return (
-    <div className="flex flex-col gap-4">
-      <AccountPageHeader
-        accounts={accounts.accounts}
-        isLoading={accounts.isLoading}
-        isRefreshing={accounts.isRefreshing}
-        isDeleting={accounts.isDeleting}
-        isExporting={accounts.isExporting}
-        canImportAccounts={canImportAccounts}
-        canRefreshAccounts={canRefreshAccounts}
-        canExportTokens={canExportTokens}
-        platform={platform}
-        grokActions={
-          <>
-            {grok.task ? (
-              <GrokProviderTaskProgress task={grok.task} defaultOpen={grok.taskAutoOpen} />
-            ) : null}
-            {grok.data ? (
-              <span className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border/80 bg-surface px-2.5 text-xs text-muted-foreground shadow-2xs">
-                {grok.data.projection.status === "success" ? (
-                  <CheckCircle2 className="size-3.5 text-emerald-600 dark:text-emerald-400" />
-                ) : (
-                  <AlertCircle className="size-3.5 text-rose-600 dark:text-rose-400" />
-                )}
-                投影{grok.data.projection.status === "success" ? "正常" : "异常"}
-              </span>
-            ) : null}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={grok.loading}
-              onClick={() => void grok.load()}
-            >
-              <RefreshCw className={cn("size-3.5", grok.loading && "animate-spin")} />
-              刷新
-            </Button>
-            {canWriteGrok ? (
-              <Button
-                type="button"
-                size="sm"
-                disabled={grok.busy}
-                onClick={() => setGrokImportOpen(true)}
-              >
-                <Plus className="size-3.5" />
-                账号接入
-              </Button>
-            ) : null}
-          </>
-        }
-        onLoad={() => {
+  const grokToolbarActions = (
+    <>
+      {grok.task ? (
+        <GrokProviderTaskProgress task={grok.task} defaultOpen={grok.taskAutoOpen} />
+      ) : null}
+      {grok.data ? (
+        <span className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border/80 bg-surface px-2.5 text-xs text-muted-foreground shadow-2xs">
+          {grok.data.projection.status === "success" ? (
+            <CheckCircle2 className="size-3.5 text-emerald-600 dark:text-emerald-400" />
+          ) : (
+            <AlertCircle className="size-3.5 text-rose-600 dark:text-rose-400" />
+          )}
+          投影{grok.data.projection.status === "success" ? "正常" : "异常"}
+        </span>
+      ) : null}
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        disabled={grok.loading}
+        onClick={() => void grok.load()}
+      >
+        <RefreshCw className={cn("size-3.5", grok.loading && "animate-spin")} />
+        刷新
+      </Button>
+      {canWriteGrok ? (
+        <Button
+          type="button"
+          size="sm"
+          disabled={grok.busy}
+          onClick={() => setGrokImportOpen(true)}
+        >
+          <Plus className="size-3.5" />
+          账号接入
+        </Button>
+      ) : null}
+    </>
+  );
+
+  const gptToolbarActions = (
+    <>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => {
           void accounts.loadAccounts();
           void accounts.loadAccountsSummary();
         }}
-        onRefreshAll={() => void accounts.handleRefreshAllAccounts()}
-        onExportTokens={() => void accounts.handleExportTokens()}
-        onImported={accounts.handleImported}
-      />
+        disabled={accounts.isLoading || accounts.isRefreshing || accounts.isDeleting}
+      >
+        <RefreshCw className={cn("size-3.5", accounts.isLoading ? "animate-spin" : "")} />
+        刷新
+      </Button>
+      {canRefreshAccounts ? (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => void accounts.handleRefreshAllAccounts()}
+          disabled={
+            accounts.isLoading ||
+            accounts.isRefreshing ||
+            accounts.isDeleting ||
+            accounts.accounts.length === 0
+          }
+        >
+          <RefreshCw className={cn("size-3.5", accounts.isRefreshing ? "animate-spin" : "")} />
+          全量刷新额度
+        </Button>
+      ) : null}
+      {canExportTokens ? (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => void accounts.handleExportTokens()}
+          disabled={accounts.accounts.length === 0 || accounts.isExporting}
+        >
+          {accounts.isExporting ? (
+            <LoaderCircle className="size-3.5 animate-spin" />
+          ) : (
+            <Download className="size-3.5" />
+          )}
+          导出 Token
+        </Button>
+      ) : null}
+      {canImportAccounts ? (
+        <AccountImportDialog
+          disabled={accounts.isLoading || accounts.isRefreshing || accounts.isDeleting}
+          onImported={accounts.handleImported}
+        />
+      ) : null}
+    </>
+  );
+
+  return (
+    <div className="flex flex-col gap-4">
+      {!embedded ? (
+        <AccountPageHeader
+          accounts={accounts.accounts}
+          isLoading={accounts.isLoading}
+          isRefreshing={accounts.isRefreshing}
+          isDeleting={accounts.isDeleting}
+          isExporting={accounts.isExporting}
+          canImportAccounts={canImportAccounts}
+          canRefreshAccounts={canRefreshAccounts}
+          canExportTokens={canExportTokens}
+          platform={platform}
+          grokActions={grokToolbarActions}
+          onLoad={() => {
+            void accounts.loadAccounts();
+            void accounts.loadAccountsSummary();
+          }}
+          onRefreshAll={() => void accounts.handleRefreshAllAccounts()}
+          onExportTokens={() => void accounts.handleExportTokens()}
+          onImported={accounts.handleImported}
+        />
+      ) : null}
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <SubNav
@@ -125,6 +190,11 @@ export function AccountsPageContent({ session }: { session: StoredAuthSession })
           onValueChange={handlePlatformChange}
           layoutId="accounts-platform-subnav"
         />
+        {embedded ? (
+          <div className="flex flex-wrap items-center gap-2">
+            {platform === "grok" ? grokToolbarActions : gptToolbarActions}
+          </div>
+        ) : null}
       </div>
 
       {platform === "grok" ? (

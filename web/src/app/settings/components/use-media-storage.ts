@@ -103,10 +103,12 @@ export function useMediaStorage(config: SettingsConfig | null) {
 
     let disposed = false;
     let timer = 0;
+    let consecutiveErrors = 0;
     const controller = new AbortController();
 
     const poll = async () => {
-      let keepPolling = false;
+      let keepMigration = isMigrationRunning;
+      let keepCleanup = isCleanupRunning;
       try {
         if (isMigrationRunning) {
           const data = await fetchMediaMigrationStatus({
@@ -115,28 +117,38 @@ export function useMediaStorage(config: SettingsConfig | null) {
           if (disposed || controller.signal.aborted) return;
           const nextMigration = data?.migration ?? idleMigration;
           setMigration(nextMigration);
-          keepPolling = nextMigration.state === "running";
-        } else {
+          keepMigration = nextMigration.state === "running";
+        }
+        if (isCleanupRunning) {
           const data = await fetchMediaLocalCleanupStatus({
             signal: controller.signal,
           });
           if (disposed || controller.signal.aborted) return;
           const nextCleanup = data?.cleanup ?? idleCleanup;
           setCleanup(nextCleanup);
-          keepPolling = nextCleanup.state === "running";
+          keepCleanup = nextCleanup.state === "running";
         }
+        consecutiveErrors = 0;
       } catch (error) {
         if (!disposed && !controller.signal.aborted) {
-          toast.error(
-            error instanceof Error ? error.message : "刷新媒体任务进度失败"
-          );
-          keepPolling = true;
+          consecutiveErrors += 1;
+          if (consecutiveErrors === 1) {
+            toast.error(
+              error instanceof Error ? error.message : "刷新媒体任务进度失败"
+            );
+          }
+          if (consecutiveErrors >= 5) {
+            keepMigration = false;
+            keepCleanup = false;
+          }
         }
       } finally {
+        const keepPolling = keepMigration || keepCleanup;
+        const delayMs = consecutiveErrors > 0 ? Math.min(10_000, 1500 * 2 ** (consecutiveErrors - 1)) : 1500;
         if (!disposed && !controller.signal.aborted && keepPolling) {
           timer = window.setTimeout(() => {
             void poll();
-          }, 1500);
+          }, delayMs);
         }
       }
     };

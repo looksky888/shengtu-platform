@@ -37,7 +37,7 @@ import {
 } from "@/app/video/video-task-storage";
 import type { VideoInspirationCard } from "@/app/video/video-options";
 import type { VideoPreview } from "@/components/video-preview-dialog";
-import type { StoredAuthSession } from "@/store/auth";
+import { hasAPIPermission, type StoredAuthSession } from "@/store/auth";
 import { createRequestId } from "@/lib/request-id";
 import { dispatchQuotaRefresh } from "@/lib/quota-events";
 
@@ -165,11 +165,21 @@ export function useVideoCreation(session: StoredAuthSession | null | undefined) 
     observedActiveTaskRef.current = false;
   }, [taskStorageKey]);
 
+  const canReadVideoAssets = Boolean(
+    session && hasAPIPermission(session, "GET", "/api/videos"),
+  );
+  const canReadCreationTasks = Boolean(
+    session && hasAPIPermission(session, "GET", "/api/creation-tasks"),
+  );
+  const canCancelCreationTasks = Boolean(
+    session && hasAPIPermission(session, "POST", "/api/creation-tasks"),
+  );
+
   useEffect(() => {
     const initialLocal = readRecentVideoTakes(recentTakesKey);
     setRecentTakes(initialLocal);
     setSelectedTakeId("");
-    if (!recentTakesKey) return;
+    if (!recentTakesKey || !canReadVideoAssets) return;
 
     const abortController = new AbortController();
     if (initialLocal.length === 0) {
@@ -230,7 +240,7 @@ export function useVideoCreation(session: StoredAuthSession | null | undefined) 
     return () => {
       abortController.abort();
     };
-  }, [recentTakesKey]);
+  }, [canReadVideoAssets, recentTakesKey]);
 
   useEffect(() => {
     let disposed = false;
@@ -247,7 +257,7 @@ export function useVideoCreation(session: StoredAuthSession | null | undefined) 
   }, []);
 
   useEffect(() => {
-    if (!activeTakeIdsKey) return;
+    if (!activeTakeIdsKey || !canReadCreationTasks) return;
     let disposed = false;
     let timer: number | undefined;
 
@@ -396,7 +406,7 @@ export function useVideoCreation(session: StoredAuthSession | null | undefined) 
       disposed = true;
       if (timer !== undefined) window.clearTimeout(timer);
     };
-  }, [activeTakeIdsKey, recentTakesKey, taskID, taskStorageKey]);
+  }, [activeTakeIdsKey, canReadCreationTasks, recentTakesKey, taskID, taskStorageKey]);
 
   const video = useMemo(
     () => task?.data?.find((item) => item.url && item.content_type?.startsWith("video/")),
@@ -611,6 +621,10 @@ export function useVideoCreation(session: StoredAuthSession | null | undefined) 
   }
 
   async function cancel(targetTaskId?: string) {
+    if (!canCancelCreationTasks) {
+      toast.error("当前账号无取消任务权限");
+      return;
+    }
     const resolvedId = String(targetTaskId || task?.id || taskID || "").trim();
     if (!resolvedId) return;
     const isCurrentTaskActive = Boolean(
@@ -809,6 +823,7 @@ export function useVideoCreation(session: StoredAuthSession | null | undefined) 
   }
 
   return {
+    session,
     composerTextareaRef,
     focusComposer,
     prompt, setPrompt, seconds, setSeconds, size, setSize, resolutionName, setResolutionName,
@@ -821,7 +836,7 @@ export function useVideoCreation(session: StoredAuthSession | null | undefined) 
     referenceAssets, selectedReferenceAssetIds, referenceLibraryOpen, setReferenceLibraryOpen, referenceLibraryLoading,
     referenceAssetsHasMore, referenceAssetsLoadingMore, loadMoreReferenceAssets,
     openReferenceLibrary, toggleReferenceAsset, setSelectedReferenceAssets, removeReferenceAsset,
-    task, video, submittedMeta, submitting, pollError, submit, cancel, creditCostPerSecond,
+    task, video, submittedMeta, submitting, pollError, submit, cancel, canCancelCreationTasks, creditCostPerSecond,
     recentTakes, isLoadingHistory, selectedTakeId, selectedTake, lastSubmittedTaskId,
     selectRecentTake, clearSelectedTake, startNewShot, removeTake, clearHistoryTakes,
     applyRecentTakePrompt, applyInspirationCard, appendCameraStyleChip,

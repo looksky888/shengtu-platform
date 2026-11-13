@@ -39,24 +39,38 @@ func (b *DatabaseBackend) CompletePaymentStorage(input PaymentStorageCompletion)
 		order.StorageBytesSnapshot != input.Entitlement.StorageBytes || order.ProductID != input.Entitlement.ProductID {
 		return PaymentOrderRecord{}, false, errors.New("payment storage snapshot mismatch")
 	}
-	baseExpiry := input.CreditedAt
-	creditedBound := normalizeUTCSortableISO(input.CreditedAt)
-	expiresExpr := b.utcSortableExpr("expires_at")
-	var currentExpiry sql.NullString
-	query := `SELECT expires_at FROM user_storage_entitlements WHERE user_id = ` + b.placeholder(1) + ` AND ` + expiresExpr + ` > ` + b.placeholder(2) + ` ORDER BY ` + expiresExpr + ` DESC LIMIT 1`
-	if err := tx.QueryRow(query, order.UserID, creditedBound).Scan(&currentExpiry); err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return PaymentOrderRecord{}, false, err
-	}
-	if currentExpiry.Valid && compareTimestampStrings(currentExpiry.String, baseExpiry) > 0 {
-		baseExpiry = currentExpiry.String
-	}
-	base, err := time.Parse(time.RFC3339Nano, baseExpiry)
+	creditedTime, err := time.Parse(time.RFC3339Nano, input.CreditedAt)
 	if err != nil {
 		return PaymentOrderRecord{}, false, errors.New("storage entitlement base expiry invalid")
 	}
-	expiresAt := base.AddDate(0, 0, order.StorageDaysSnapshot).UTC().Format(time.RFC3339Nano)
-	if _, err := tx.Exec(`UPDATE user_storage_entitlements SET expires_at = `+b.placeholder(1)+`, updated_at = `+b.placeholder(2)+` WHERE user_id = `+b.placeholder(3)+` AND `+expiresExpr+` > `+b.placeholder(4), expiresAt, input.CreditedAt, order.UserID, creditedBound); err != nil {
+	vipGraceDays := DefaultVIPGraceDays
+	var rawGraceDays sql.NullInt64
+	if err := tx.QueryRow(`SELECT vip_grace_days FROM payment_settings WHERE id = 1`).Scan(&rawGraceDays); err == nil && rawGraceDays.Valid && rawGraceDays.Int64 > 0 {
+		vipGraceDays = int(rawGraceDays.Int64)
+	}
+	creditedBound := normalizeUTCSortableISO(input.CreditedAt)
+	graceCutoffBound := formatUTCZeroNanoBound(creditedTime.AddDate(0, 0, -vipGraceDays))
+	expiresExpr := b.utcSortableExpr("expires_at")
+	var currentExpiry sql.NullString
+	query := `SELECT expires_at FROM user_storage_entitlements WHERE user_id = ` + b.placeholder(1) + ` AND ` + expiresExpr + ` > ` + b.placeholder(2) + ` ORDER BY ` + expiresExpr + ` DESC LIMIT 1`
+	if err := tx.QueryRow(query, order.UserID, graceCutoffBound).Scan(&currentExpiry); err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return PaymentOrderRecord{}, false, err
+	}
+	base := creditedTime
+	if currentExpiry.Valid {
+		if parsedCurrent, parseErr := time.Parse(time.RFC3339Nano, strings.TrimSpace(currentExpiry.String)); parseErr == nil && parsedCurrent.After(base) {
+			base = parsedCurrent
+		}
+	}
+	expiresAt := base.AddDate(0, 0, order.StorageDaysSnapshot).UTC().Format(time.RFC3339Nano)
+	if input.Entitlement.StorageBytes > 0 {
+		if _, err := tx.Exec(`UPDATE user_storage_entitlements SET expires_at = `+b.placeholder(1)+`, updated_at = `+b.placeholder(2)+` WHERE user_id = `+b.placeholder(3)+` AND `+expiresExpr+` > `+b.placeholder(4)+` AND storage_bytes > 0`, expiresAt, input.CreditedAt, order.UserID, creditedBound); err != nil {
+			return PaymentOrderRecord{}, false, err
+		}
+	} else {
+		if _, err := tx.Exec(`UPDATE user_storage_entitlements SET expires_at = `+b.placeholder(1)+`, updated_at = `+b.placeholder(2)+` WHERE user_id = `+b.placeholder(3)+` AND `+expiresExpr+` > `+b.placeholder(4)+` AND storage_bytes = 0`, expiresAt, input.CreditedAt, order.UserID, graceCutoffBound); err != nil {
+			return PaymentOrderRecord{}, false, err
+		}
 	}
 	input.Entitlement.ExpiresAt = expiresAt
 	if _, err := tx.Exec(`INSERT INTO user_storage_entitlements (id, user_id, source_order_id, product_id, storage_bytes, expires_at, created_at, updated_at) VALUES (`+b.paymentPlaceholders(8)+`)`, input.Entitlement.ID, input.Entitlement.UserID, input.Entitlement.SourceOrderID, input.Entitlement.ProductID, input.Entitlement.StorageBytes, input.Entitlement.ExpiresAt, input.Entitlement.CreatedAt, input.Entitlement.UpdatedAt); err != nil {
@@ -77,19 +91,117 @@ func (b *DatabaseBackend) CompletePaymentStorage(input PaymentStorageCompletion)
 	return order, true, nil
 }
 
+func (b *DatabaseBackend) loadStoragePolicySettings() PaymentSettingsRecord {
+	settings, err := b.LoadPaymentSettings()
+	if err != nil {
+		return PaymentSettingsRecord{
+			FreeRetentionDays:   DefaultFreeRetentionDays,
+			VIPGraceDays:        DefaultVIPGraceDays,
+			HistoricalGraceDays: DefaultHistoricalGraceDays,
+		}
+	}
+	return settings
+}
+
 func (b *DatabaseBackend) LoadActiveStorageEntitlement(userID, now string) (PaymentStorageEntitlementSummary, error) {
 	userID, now = strings.TrimSpace(userID), strings.TrimSpace(now)
 	if userID == "" || now == "" {
 		return PaymentStorageEntitlementSummary{}, errors.New("storage entitlement query fields are required")
 	}
-	item := PaymentStorageEntitlementSummary{UserID: userID}
-	var expiresAt sql.NullString
-	err := b.db.QueryRow(`SELECT COALESCE(SUM(storage_bytes), 0), MAX(expires_at), COALESCE((SELECT SUM(size_bytes) FROM media_assets WHERE owner_id = `+b.placeholder(1)+` AND media_type = 'image' AND status IN ('ready', 'pending') AND deleted_at = ''), 0) FROM user_storage_entitlements WHERE user_id = `+b.placeholder(2)+` AND `+b.utcSortableExpr("expires_at")+` > `+b.placeholder(3), userID, userID, normalizeUTCSortableISO(now)).Scan(&item.StorageBytes, &expiresAt, &item.UsedBytes)
+	nowTime, err := time.Parse(time.RFC3339Nano, now)
+	if err != nil {
+		return PaymentStorageEntitlementSummary{}, errors.New("storage entitlement time is invalid")
+	}
+	settings := b.loadStoragePolicySettings()
+	item := PaymentStorageEntitlementSummary{
+		UserID:              userID,
+		CloudStorageEnabled: settings.CloudStorageEnabled,
+		FreeRetentionDays:   settings.FreeRetentionDays,
+		VIPGraceDays:        settings.VIPGraceDays,
+		HistoricalGraceDays: settings.HistoricalGraceDays,
+		Tier:                StorageTierFree,
+	}
+	if !settings.CloudStorageEnabled {
+		item.Tier = StorageTierDisabled
+	}
+	if err := b.db.QueryRow(
+		`SELECT COUNT(*), COALESCE(SUM(size_bytes), 0) FROM media_assets WHERE owner_id = `+b.placeholder(1)+` AND media_type = 'image' AND status IN ('ready', 'pending') AND deleted_at = ''`,
+		userID,
+	).Scan(&item.AssetCount, &item.UsedBytes); err != nil {
+		return PaymentStorageEntitlementSummary{}, err
+	}
+
+	graceCutoffBound := formatUTCZeroNanoBound(nowTime.AddDate(0, 0, -settings.VIPGraceDays))
+	expiresExpr := b.utcSortableExpr("expires_at")
+	rows, err := b.db.Query(
+		`SELECT storage_bytes, expires_at FROM user_storage_entitlements WHERE user_id = `+b.placeholder(1)+` AND `+expiresExpr+` > `+b.placeholder(2),
+		userID, graceCutoffBound,
+	)
 	if err != nil {
 		return PaymentStorageEntitlementSummary{}, err
 	}
-	if expiresAt.Valid {
-		item.ExpiresAt = expiresAt.String
+	defer rows.Close()
+
+	var (
+		maxExpiresAt   string
+		maxExpiresTime time.Time
+		activeBytes    int64
+		graceBytes     int64
+		activeUnlim    bool
+		graceUnlim     bool
+	)
+	for rows.Next() {
+		var rowBytes int64
+		var rowExpires string
+		if scanErr := rows.Scan(&rowBytes, &rowExpires); scanErr != nil {
+			return PaymentStorageEntitlementSummary{}, scanErr
+		}
+		rowExpires = strings.TrimSpace(rowExpires)
+		parsedExpires, parseErr := time.Parse(time.RFC3339Nano, rowExpires)
+		if parseErr != nil {
+			continue
+		}
+		if maxExpiresTime.IsZero() || parsedExpires.After(maxExpiresTime) {
+			maxExpiresTime = parsedExpires
+			maxExpiresAt = rowExpires
+		}
+		if rowBytes == 0 {
+			graceUnlim = true
+		} else {
+			graceBytes += rowBytes
+		}
+		if parsedExpires.After(nowTime) {
+			if rowBytes == 0 {
+				activeUnlim = true
+			} else {
+				activeBytes += rowBytes
+			}
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return PaymentStorageEntitlementSummary{}, err
+	}
+
+	if !maxExpiresTime.IsZero() {
+		item.ExpiresAt = maxExpiresAt
+		item.GraceExpiresAt = maxExpiresTime.AddDate(0, 0, settings.VIPGraceDays).UTC().Format(time.RFC3339Nano)
+		if maxExpiresTime.After(nowTime) {
+			item.Unlimited = activeUnlim || graceUnlim
+			if !item.Unlimited {
+				item.StorageBytes = activeBytes
+			}
+			if settings.CloudStorageEnabled {
+				item.Tier = StorageTierActive
+			}
+		} else {
+			item.Unlimited = graceUnlim
+			if !item.Unlimited {
+				item.StorageBytes = graceBytes
+			}
+			if settings.CloudStorageEnabled {
+				item.Tier = StorageTierGrace
+			}
+		}
 	}
 	return item, nil
 }
@@ -99,20 +211,113 @@ func (b *DatabaseBackend) ListActiveStorageEntitlements(now string) (map[string]
 	if now == "" {
 		return nil, errors.New("storage entitlement time is required")
 	}
-	rows, err := b.db.Query(`SELECT e.user_id, SUM(e.storage_bytes), MAX(e.expires_at), COALESCE((SELECT SUM(m.size_bytes) FROM media_assets m WHERE m.owner_id = e.user_id AND m.media_type = 'image' AND m.status IN ('ready', 'pending') AND m.deleted_at = ''), 0) FROM user_storage_entitlements e WHERE `+b.utcSortableExpr("e.expires_at")+` > `+b.placeholder(1)+` GROUP BY e.user_id`, normalizeUTCSortableISO(now))
+	nowTime, err := time.Parse(time.RFC3339Nano, now)
+	if err != nil {
+		return nil, errors.New("storage entitlement time is invalid")
+	}
+	settings := b.loadStoragePolicySettings()
+	graceCutoffBound := formatUTCZeroNanoBound(nowTime.AddDate(0, 0, -settings.VIPGraceDays))
+	expiresExpr := b.utcSortableExpr("e.expires_at")
+
+	rows, err := b.db.Query(
+		`SELECT e.user_id, e.storage_bytes, e.expires_at,
+			COALESCE((SELECT COUNT(*) FROM media_assets m WHERE m.owner_id = e.user_id AND m.media_type = 'image' AND m.status IN ('ready', 'pending') AND m.deleted_at = ''), 0),
+			COALESCE((SELECT SUM(m.size_bytes) FROM media_assets m WHERE m.owner_id = e.user_id AND m.media_type = 'image' AND m.status IN ('ready', 'pending') AND m.deleted_at = ''), 0)
+		FROM user_storage_entitlements e WHERE `+expiresExpr+` > `+b.placeholder(1),
+		graceCutoffBound,
+	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	result := make(map[string]PaymentStorageEntitlementSummary)
-	for rows.Next() {
-		var item PaymentStorageEntitlementSummary
-		if err := rows.Scan(&item.UserID, &item.StorageBytes, &item.ExpiresAt, &item.UsedBytes); err != nil {
-			return nil, err
-		}
-		result[item.UserID] = item
+
+	type aggState struct {
+		maxExpiresAt   string
+		maxExpiresTime time.Time
+		activeBytes    int64
+		graceBytes     int64
+		activeUnlim    bool
+		graceUnlim     bool
+		assetCount     int
+		usedBytes      int64
 	}
-	return result, rows.Err()
+	byUser := make(map[string]*aggState)
+	for rows.Next() {
+		var userID, rowExpires string
+		var rowBytes, usedBytes int64
+		var assetCount int
+		if scanErr := rows.Scan(&userID, &rowBytes, &rowExpires, &assetCount, &usedBytes); scanErr != nil {
+			return nil, scanErr
+		}
+		userID = strings.TrimSpace(userID)
+		rowExpires = strings.TrimSpace(rowExpires)
+		parsedExpires, parseErr := time.Parse(time.RFC3339Nano, rowExpires)
+		if parseErr != nil || userID == "" {
+			continue
+		}
+		st, exists := byUser[userID]
+		if !exists {
+			st = &aggState{assetCount: assetCount, usedBytes: usedBytes}
+			byUser[userID] = st
+		}
+		if st.maxExpiresTime.IsZero() || parsedExpires.After(st.maxExpiresTime) {
+			st.maxExpiresTime = parsedExpires
+			st.maxExpiresAt = rowExpires
+		}
+		if rowBytes == 0 {
+			st.graceUnlim = true
+		} else {
+			st.graceBytes += rowBytes
+		}
+		if parsedExpires.After(nowTime) {
+			if rowBytes == 0 {
+				st.activeUnlim = true
+			} else {
+				st.activeBytes += rowBytes
+			}
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	result := make(map[string]PaymentStorageEntitlementSummary, len(byUser))
+	for userID, st := range byUser {
+		item := PaymentStorageEntitlementSummary{
+			UserID:              userID,
+			CloudStorageEnabled: settings.CloudStorageEnabled,
+			FreeRetentionDays:   settings.FreeRetentionDays,
+			VIPGraceDays:        settings.VIPGraceDays,
+			HistoricalGraceDays: settings.HistoricalGraceDays,
+			UsedBytes:           st.usedBytes,
+			AssetCount:          st.assetCount,
+			ExpiresAt:           st.maxExpiresAt,
+			GraceExpiresAt:      st.maxExpiresTime.AddDate(0, 0, settings.VIPGraceDays).UTC().Format(time.RFC3339Nano),
+		}
+		if st.maxExpiresTime.After(nowTime) {
+			item.Unlimited = st.activeUnlim || st.graceUnlim
+			if !item.Unlimited {
+				item.StorageBytes = st.activeBytes
+			}
+			if settings.CloudStorageEnabled {
+				item.Tier = StorageTierActive
+			} else {
+				item.Tier = StorageTierDisabled
+			}
+		} else {
+			item.Unlimited = st.graceUnlim
+			if !item.Unlimited {
+				item.StorageBytes = st.graceBytes
+			}
+			if settings.CloudStorageEnabled {
+				item.Tier = StorageTierGrace
+			} else {
+				item.Tier = StorageTierDisabled
+			}
+		}
+		result[userID] = item
+	}
+	return result, nil
 }
 
 func (b *DatabaseBackend) markPaymentStorageOrderSucceededTx(tx *sql.Tx, input PaymentStorageCompletion) error {
@@ -147,7 +352,7 @@ func validatePaymentStorageCompletion(input PaymentStorageCompletion) error {
 		return errors.New("payment storage completion 缺少必要字段")
 	}
 	e := input.Entitlement
-	if e.ID == "" || e.UserID == "" || e.SourceOrderID != input.OrderID || e.ProductID == "" || e.StorageBytes <= 0 || e.CreatedAt == "" || e.UpdatedAt == "" {
+	if e.ID == "" || e.UserID == "" || e.SourceOrderID != input.OrderID || e.ProductID == "" || e.StorageBytes < 0 || e.CreatedAt == "" || e.UpdatedAt == "" {
 		return fmt.Errorf("payment storage entitlement 无效")
 	}
 	return nil

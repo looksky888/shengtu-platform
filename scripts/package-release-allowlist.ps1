@@ -64,7 +64,6 @@ $RequiredReleaseFiles = @(
   "docker-compose.yml",
   "services\grok-runtime\Dockerfile",
   "services\grok-runtime\requirements.lock",
-  "services\grok-runtime\upstream\services\register\package-lock.json",
   "deploy\icloud-privacy-mail\Dockerfile",
   "internal\web\dist\build-manifest.json",
   "internal\web\dist\index.html",

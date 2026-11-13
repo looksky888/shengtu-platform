@@ -20,6 +20,30 @@ func Clean(v any) string {
 	return strings.TrimSpace(fmt.Sprint(ValueOr(v, "")))
 }
 
+func FirstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func AnyList(v any) []any {
+	switch list := v.(type) {
+	case []any:
+		return list
+	case []map[string]any:
+		out := make([]any, len(list))
+		for i, item := range list {
+			out[i] = item
+		}
+		return out
+	default:
+		return nil
+	}
+}
+
 func ValueOr(v any, fallback any) any {
 	if v == nil {
 		return fallback

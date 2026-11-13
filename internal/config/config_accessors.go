@@ -306,21 +306,6 @@ func (s *Store) FeatureICloud() bool {
 	return util.ToBool(s.settingValue("feature_icloud", false))
 }
 
-func (s *Store) FeatureGrokRegister() bool {
-	return util.ToBool(s.settingValue("feature_grok_register", false))
-}
-
-// FeatureRegisterBackend returns go | python (default go during migration).
-func (s *Store) FeatureRegisterBackend() string {
-	v := strings.ToLower(strings.TrimSpace(fmt.Sprint(s.settingValue("feature_register_backend", "go"))))
-	switch v {
-	case "python", "py":
-		return "python"
-	default:
-		return "go"
-	}
-}
-
 func (s *Store) ICloudPrivacyMailBaseURL() string {
 	v := strings.TrimSpace(fmt.Sprint(s.settingValue("icloud_privacy_mail_base_url", "")))
 	if v == "" {

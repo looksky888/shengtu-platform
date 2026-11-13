@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"chatgpt2api/internal/sidecar"
 	"chatgpt2api/internal/util"
 )
 
@@ -123,7 +124,7 @@ func (a *App) handleICloudProxy(w http.ResponseWriter, r *http.Request) {
 		req.Header.Set("X-Internal-Token", internalToken)
 	}
 
-	client := &http.Client{Timeout: 120 * time.Second}
+	client := sidecar.SharedHTTPClient(120 * time.Second)
 	resp, err := client.Do(req)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {

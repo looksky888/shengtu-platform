@@ -52,7 +52,7 @@ func (e *Engine) ResponseEventsScoped(ctx context.Context, body map[string]any, 
 	baseContext := MergeResponseContext(previous, currentMessages, nil)
 	if !HasResponseImageGenerationTool(body) {
 		events, errCh := e.StreamTextResponseWithMessages(ctx, responseModel, baseContext.Messages)
-		events = e.rememberResponseContextEventsScoped(scope, events, baseContext)
+		events = e.rememberResponseContextEventsScoped(ctx, scope, events, baseContext)
 		return events, errCh, nil
 	}
 	request, prompt, err := ResponseImageGenerationRequest(body, scope, &previous)
@@ -65,9 +65,10 @@ func (e *Engine) ResponseEventsScoped(ctx context.Context, body map[string]any, 
 	}
 	baseContext = MergeResponseContext(previous, currentMessages, currentImages)
 	request.Messages = baseContext.Messages
-	outputs, errCh := e.StreamImageOutputsWithPool(ctx, request)
-	events, responseErr := StreamImageResponse(outputs, prompt, responseModel)
-	events = e.rememberResponseContextEventsScoped(scope, events, baseContext)
+	streamCtx, cancelStream := context.WithCancel(ctx)
+	outputs, errCh := e.StreamImageOutputsWithPool(streamCtx, request)
+	events, responseErr := StreamImageResponseContext(streamCtx, outputs, prompt, responseModel)
+	events = e.rememberResponseContextEventsScoped(ctx, scope, events, baseContext, cancelStream)
 	return events, combineErrorChannels(errCh, responseErr), nil
 }
 
@@ -236,6 +237,10 @@ func combineErrorChannels(first, second <-chan error) <-chan error {
 }
 
 func StreamImageResponse(outputs <-chan ImageOutput, prompt, model string) (<-chan map[string]any, <-chan error) {
+	return StreamImageResponseContext(context.Background(), outputs, prompt, model)
+}
+
+func StreamImageResponseContext(ctx context.Context, outputs <-chan ImageOutput, prompt, model string) (<-chan map[string]any, <-chan error) {
 	out := make(chan map[string]any)
 	errCh := make(chan error, 1)
 	go func() {
@@ -243,15 +248,39 @@ func StreamImageResponse(outputs <-chan ImageOutput, prompt, model string) (<-ch
 		defer close(errCh)
 		responseID := "resp_" + util.NewHex(32)
 		created := time.Now().Unix()
-		out <- ResponseCreated(responseID, model, created)
+		if !sendChan(ctx, out, ResponseCreated(responseID, model, created)) {
+			errCh <- ctx.Err()
+			return
+		}
 		items := make([]map[string]any, 0, MaxImageCount)
-		for output := range outputs {
+	loop:
+		for {
+			var (
+				output ImageOutput
+				ok     bool
+			)
+			if ctx != nil {
+				select {
+				case output, ok = <-outputs:
+				case <-ctx.Done():
+					errCh <- ctx.Err()
+					return
+				}
+			} else {
+				output, ok = <-outputs
+			}
+			if !ok {
+				break loop
+			}
 			if output.Kind == "message" {
 				item := TextOutputItem(output.Text, "", "completed")
-				out <- map[string]any{"type": "response.output_text.delta", "item_id": item["id"], "output_index": 0, "content_index": 0, "delta": output.Text}
-				out <- map[string]any{"type": "response.output_text.done", "item_id": item["id"], "output_index": 0, "content_index": 0, "text": output.Text}
-				out <- map[string]any{"type": "response.output_item.done", "output_index": 0, "item": item}
-				out <- ResponseCompleted(responseID, model, created, []map[string]any{item})
+				if !sendChan(ctx, out, map[string]any{"type": "response.output_text.delta", "item_id": item["id"], "output_index": 0, "content_index": 0, "delta": output.Text}) ||
+					!sendChan(ctx, out, map[string]any{"type": "response.output_text.done", "item_id": item["id"], "output_index": 0, "content_index": 0, "text": output.Text}) ||
+					!sendChan(ctx, out, map[string]any{"type": "response.output_item.done", "output_index": 0, "item": item}) ||
+					!sendChan(ctx, out, ResponseCompleted(responseID, model, created, []map[string]any{item})) {
+					errCh <- ctx.Err()
+					return
+				}
 				errCh <- nil
 				return
 			}
@@ -268,8 +297,11 @@ func StreamImageResponse(outputs <-chan ImageOutput, prompt, model string) (<-ch
 				// Item ids must be unique across the whole response, so they cannot
 				// come from the per-output numbering inside ImageOutputItems.
 				item["id"] = fmt.Sprintf("ig_%d", index+1)
-				out <- map[string]any{"type": "response.output_item.added", "output_index": index, "item": item}
-				out <- map[string]any{"type": "response.output_item.done", "output_index": index, "item": item}
+				if !sendChan(ctx, out, map[string]any{"type": "response.output_item.added", "output_index": index, "item": item}) ||
+					!sendChan(ctx, out, map[string]any{"type": "response.output_item.done", "output_index": index, "item": item}) {
+					errCh <- ctx.Err()
+					return
+				}
 				items = append(items, item)
 			}
 		}
@@ -277,7 +309,10 @@ func StreamImageResponse(outputs <-chan ImageOutput, prompt, model string) (<-ch
 			errCh <- fmt.Errorf("image generation failed")
 			return
 		}
-		out <- ResponseCompleted(responseID, model, created, items)
+		if !sendChan(ctx, out, ResponseCompleted(responseID, model, created, items)) {
+			errCh <- ctx.Err()
+			return
+		}
 		errCh <- nil
 	}()
 	return out, errCh

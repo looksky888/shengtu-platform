@@ -108,10 +108,18 @@ func (s *ImageTaskService) SubscribeTaskQueue(ctx context.Context) <-chan string
 	if s.subscribers == nil {
 		s.subscribers = map[chan string]struct{}{}
 	}
-	s.subscribers[ch] = struct{}{}
 	initial := s.taskQueueSnapshotJSONLocked()
+	// Send initial snapshot before registering ch (or drop if caller already canceled)
+	// so ch <- initial can never block on a full channel after unlock.
+	select {
+	case ch <- initial:
+	case <-ctx.Done():
+		s.mu.Unlock()
+		close(ch)
+		return ch
+	}
+	s.subscribers[ch] = struct{}{}
 	s.mu.Unlock()
-	ch <- initial
 	go func() {
 		<-ctx.Done()
 		s.mu.Lock()

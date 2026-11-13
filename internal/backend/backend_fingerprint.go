@@ -70,9 +70,14 @@ type browserHeaderMetadata struct {
 	fullVersionList string
 }
 
+var (
+	chromeUAVersionRE = regexp.MustCompile(`Chrome/([0-9]+(?:\.[0-9]+){0,3})`)
+	edgeUAVersionRE   = regexp.MustCompile(`Edg[A-Z]*/([0-9]+(?:\.[0-9]+){0,3})`)
+)
+
 func browserMetadataFromUserAgent(userAgent string) browserHeaderMetadata {
-	chromeVersion := regexpVersion(userAgent, `Chrome/([0-9]+(?:\.[0-9]+){0,3})`)
-	edgeVersion := regexpVersion(userAgent, `Edg[A-Z]*/([0-9]+(?:\.[0-9]+){0,3})`)
+	chromeVersion := regexpVersion(userAgent, chromeUAVersionRE)
+	edgeVersion := regexpVersion(userAgent, edgeUAVersionRE)
 	if edgeVersion != "" {
 		edgeMajor := majorVersion(edgeVersion)
 		chromiumVersion := firstNonEmpty(chromeVersion, edgeVersion)
@@ -99,8 +104,8 @@ func browserMetadataFromUserAgent(userAgent string) browserHeaderMetadata {
 	}
 }
 
-func regexpVersion(value, pattern string) string {
-	match := regexp.MustCompile(pattern).FindStringSubmatch(value)
+func regexpVersion(value string, pattern *regexp.Regexp) string {
+	match := pattern.FindStringSubmatch(value)
 	if len(match) > 1 {
 		return match[1]
 	}

@@ -223,28 +223,77 @@ func (s *ImageTaskService) pruneStatsLedgerRecordedLocked() int {
 	return removed
 }
 
+// ExternalImageOutcome describes one completed synchronous protocol image call
+// (such as /v1/images/generations, /v1/images/edits, /v1/chat/completions, or
+// /v1/responses image_generation) so custom relay and protocol requests count
+// into the daily stats ledger consistently with /api/creation-tasks.
+type ExternalImageOutcome struct {
+	RecordKey      string
+	Mode           string
+	Status         string
+	RequestedCount int
+	SuccessImages  int
+	FinishedAt     time.Time
+}
+
+// RecordExternalImageOutcome appends one completed synchronous image call into
+// the durable stats ledger in a thread-safe way. If RecordKey is provided, it
+// is deduplicated in Recorded (capped against unbounded growth); empty RecordKey
+// records once directly without retaining an ephemeral UUID key in Recorded.
+func (s *ImageTaskService) RecordExternalImageOutcome(outcome ExternalImageOutcome) bool {
+	if s == nil {
+		return false
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.statsLedger == nil {
+		return false
+	}
+	key := util.Clean(outcome.RecordKey)
+	when := outcome.FinishedAt
+	if when.IsZero() {
+		when = time.Now()
+	}
+	if !s.recordStatsOutcomeLocked(key, key != "", outcome.Mode, outcome.Status, outcome.RequestedCount, outcome.SuccessImages, when) {
+		return false
+	}
+	s.notifySubscribersLocked()
+	return true
+}
+
 // recordTerminalStatsLocked appends one terminal task into the durable ledger (idempotent).
 // Caller must hold s.mu.
 func (s *ImageTaskService) recordTerminalStatsLocked(task *ImageTask) {
 	if task == nil || s.statsLedger == nil {
 		return
 	}
-	if util.Clean(task.Mode) == "video" {
-		return
-	}
-	status := util.Clean(task.Status)
-	if status != TaskStatusSuccess && status != TaskStatusError {
-		return
-	}
 	key := taskKey(task.OwnerID, task.ID)
 	if key == ":" || strings.Trim(key, ":") == "" {
 		key = firstNonEmpty(util.Clean(task.ID), util.NewUUID())
 	}
-	if s.statsLedger.Recorded[key] {
-		return
-	}
 	loc := imageTaskStatsLocation()
 	when := parseTaskTimeInLocation(firstNonEmpty(util.Clean(task.FinishedAt), util.Clean(task.UpdatedAt), util.Clean(task.CreatedAt)), loc)
+	if when.IsZero() {
+		when = time.Now().In(loc)
+	}
+	s.recordStatsOutcomeLocked(key, true, task.Mode, task.Status, task.Count, len(task.Data), when)
+}
+
+func (s *ImageTaskService) recordStatsOutcomeLocked(key string, dedupe bool, mode, rawStatus string, requestedCount, successImages int, when time.Time) bool {
+	if s.statsLedger == nil {
+		return false
+	}
+	if util.Clean(mode) == "video" {
+		return false
+	}
+	status := util.Clean(rawStatus)
+	if status != TaskStatusSuccess && status != TaskStatusError {
+		return false
+	}
+	if dedupe && key != "" && s.statsLedger.Recorded[key] {
+		return false
+	}
+	loc := imageTaskStatsLocation()
 	if when.IsZero() {
 		when = time.Now().In(loc)
 	}
@@ -254,11 +303,13 @@ func (s *ImageTaskService) recordTerminalStatsLocked(task *ImageTask) {
 		bucket = &imageTaskStatsDayBucket{Date: date}
 		s.statsLedger.Days[date] = bucket
 	}
-	count := task.Count
+	count := requestedCount
 	if count < 1 {
 		count = 1
 	}
-	successImages := len(task.Data)
+	if successImages < 0 {
+		successImages = 0
+	}
 	switch status {
 	case TaskStatusSuccess:
 		bucket.SuccessTasks++
@@ -281,8 +332,14 @@ func (s *ImageTaskService) recordTerminalStatsLocked(task *ImageTask) {
 		}
 		bucket.FailedImages += failedImages
 	}
-	s.statsLedger.Recorded[key] = true
+	if dedupe && key != "" {
+		s.statsLedger.Recorded[key] = true
+		if len(s.statsLedger.Recorded) > 4096 {
+			s.pruneStatsLedgerRecordedLocked()
+		}
+	}
 	s.markStatsLedgerDirtyLocked()
+	return true
 }
 
 // backfillStatsLedgerFromTasksLocked seeds the ledger from existing terminal tasks once.

@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { formatStorageQuota } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { PaymentSettings, RechargeProduct } from "@/lib/user-admin-api";
 
@@ -30,7 +31,7 @@ export function RechargeHeaderActions({
         </strong>
       </Badge>
       <Button variant="outline" size="sm" asChild>
-        <Link to="/profile?tab=credits">
+        <Link to="/wallet?tab=redeem">
           <History className="size-3.5 text-muted-foreground" />
           积分明细与卡密兑换
         </Link>
@@ -104,8 +105,7 @@ export function ProductTile({ product, disabled, onSubmit }: ProductTileProps) {
 }
 
 function formatStorage(bytes: number) {
-  const gb = bytes / 1024 ** 3;
-  return `${Number.isInteger(gb) ? gb : gb.toFixed(1)} GB`;
+  return formatStorageQuota(bytes, "不限张数");
 }
 
 type CustomCreditsPanelProps = {

@@ -135,6 +135,9 @@ export async function createAnnouncement(announcement: {
   show_login: boolean;
   show_image: boolean;
   image_url?: string;
+  display_mode?: "popup" | "banner";
+  banner_tone?: "notice" | "activity" | "update" | "warning";
+  link_url?: string;
   broadcast_now?: boolean;
 }) {
   return httpRequest<{ item: Announcement; items: Announcement[] }>("/api/admin/announcements", {
@@ -145,7 +148,20 @@ export async function createAnnouncement(announcement: {
 
 export async function updateAnnouncement(
   announcementId: string,
-  updates: Partial<Pick<Announcement, "title" | "content" | "image_url" | "enabled" | "show_login" | "show_image">> & {
+  updates: Partial<
+    Pick<
+      Announcement,
+      | "title"
+      | "content"
+      | "image_url"
+      | "display_mode"
+      | "banner_tone"
+      | "link_url"
+      | "enabled"
+      | "show_login"
+      | "show_image"
+    >
+  > & {
     broadcast_now?: boolean;
   },
 ) {

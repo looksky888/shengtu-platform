@@ -317,6 +317,9 @@ func (s *ImageTaskService) scheduleSaveLocked(keys ...string) {
 		s.mu.Lock()
 		defer s.mu.Unlock()
 		s.saveTimer = nil
+		if s.closing {
+			return
+		}
 		if s.dirty {
 			if err := s.saveLocked(); err != nil {
 				log.Printf("image task coalesced retry failed: %v", err)

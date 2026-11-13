@@ -1,6 +1,8 @@
+import { getStoredImageSrc } from "@/app/image/components/image-results-utils";
 import { formatDateTime } from "@/lib/datetime";
-import type { StoredImage, StoredReferenceImage } from "@/store/image-conversations";
+import { fetchAuthorizedImageBlob } from "@/lib/media-fetch";
 import { createRequestId } from "@/lib/request-id";
+import type { StoredImage, StoredReferenceImage } from "@/store/image-conversations";
 
 export { buildConversationTitle } from "@/app/image/lib/image-conversation-mutations";
 
@@ -45,8 +47,8 @@ export function buildReferenceImageFromResult(image: StoredImage, fileName: stri
   };
 }
 
-async function fetchImageAsFile(url: string, fileName: string) {
-  const response = await fetch(url);
+export async function fetchImageAsFile(url: string, fileName: string, signal?: AbortSignal) {
+  const response = await fetchAuthorizedImageBlob(url, signal);
   if (!response.ok) {
     throw new Error("读取结果图失败");
   }
@@ -73,8 +75,9 @@ export async function buildReferenceImageFromUrl(
   url: string,
   index: number,
   fallbackPrefix: string,
+  signal?: AbortSignal,
 ): Promise<StoredReferenceImage> {
-  const file = await fetchImageAsFile(url, buildReferenceFileName(url, index, fallbackPrefix));
+  const file = await fetchImageAsFile(url, buildReferenceFileName(url, index, fallbackPrefix), signal);
   return {
     name: file.name,
     type: file.type || "image/png",
@@ -83,7 +86,11 @@ export async function buildReferenceImageFromUrl(
   };
 }
 
-export async function buildReferenceImageFromStoredImage(image: StoredImage, fileName: string) {
+export async function buildReferenceImageFromStoredImage(
+  image: StoredImage,
+  fileName: string,
+  signal?: AbortSignal,
+) {
   const direct = buildReferenceImageFromResult(image, fileName);
   if (direct) {
     return {
@@ -92,10 +99,11 @@ export async function buildReferenceImageFromStoredImage(image: StoredImage, fil
     };
   }
 
-  if (!image.url) {
+  const src = getStoredImageSrc(image);
+  if (!src) {
     return null;
   }
-  const file = await fetchImageAsFile(image.url, fileName);
+  const file = await fetchImageAsFile(src, fileName, signal);
   return {
     referenceImage: {
       name: file.name,

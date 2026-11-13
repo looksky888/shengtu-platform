@@ -104,6 +104,14 @@ func (s *AccountService) disposeAccount(accessToken, event, reason string, grade
 	case DisposalPermanent:
 		return s.disposePermanent(accessToken, event, reason)
 	case DisposalTemporary:
+		// Cloudflare 403 challenges reflect egress IP / TLS / fingerprint risk rather
+		// than account quota exhaustion; cool the account briefly without removing it
+		// from the active pool into the quarantine cabin.
+		if IsCloudflareSignal(reason) && !IsUpstreamRateLimitSignal(reason) && !IsUpstreamAccountQuotaSignal(reason) {
+			s.MarkImageChallenge(accessToken)
+			s.recordPoolOp(string(DisposeCooledTemporary), 1)
+			return DisposeCooledTemporary
+		}
 		// Rate-limit / quota exhaustion: leave active pool into isolation cabin so they
 		// are not scheduled again until auto-restore (or manual restore) succeeds.
 		if s.quarantineTemporaryAccount(accessToken, event, reason) {

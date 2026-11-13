@@ -82,8 +82,26 @@ func (c *Client) openImageDownload(ctx context.Context, imageURL string) (*http.
 	if err != nil {
 		return nil, fmt.Errorf("image_download request: %w", err)
 	}
+	c.syncClearanceFingerprint()
+	req.Header.Set("Accept", "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8")
+	req.Header.Set("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
+	req.Header.Set("Referer", strings.TrimRight(firstNonEmpty(c.BaseURL, "https://chatgpt.com"), "/")+"/")
+	req.Header.Set("Sec-Fetch-Dest", "image")
+	req.Header.Set("Sec-Fetch-Mode", "no-cors")
+	req.Header.Set("Sec-Fetch-Site", "cross-site")
 	if c.userAgent != "" {
 		req.Header.Set("User-Agent", c.userAgent)
+	}
+	if c.fp != nil {
+		if v := strings.TrimSpace(c.fp["sec-ch-ua"]); v != "" {
+			req.Header.Set("Sec-Ch-Ua", v)
+		}
+		if v := strings.TrimSpace(c.fp["sec-ch-ua-mobile"]); v != "" {
+			req.Header.Set("Sec-Ch-Ua-Mobile", v)
+		}
+		if v := strings.TrimSpace(c.fp["sec-ch-ua-platform"]); v != "" {
+			req.Header.Set("Sec-Ch-Ua-Platform", v)
+		}
 	}
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -167,7 +185,7 @@ func imageResultRetryDelay() time.Duration {
 }
 
 func imageResultSettleDelay() time.Duration {
-	return envDurationSeconds("CHATGPT2API_IMAGE_RESULT_SETTLE_SECONDS", 5*time.Second, 0, 120*time.Second)
+	return envDurationSeconds("CHATGPT2API_IMAGE_RESULT_SETTLE_SECONDS", 0, 0, 120*time.Second)
 }
 
 func (c *Client) attachmentDownloadURL(ctx context.Context, conversationID, attachmentID string) string {

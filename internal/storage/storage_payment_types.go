@@ -22,6 +22,16 @@ const (
 	PaymentReconciliationStatusRunning   = "running"
 	PaymentReconciliationStatusSucceeded = "succeeded"
 	PaymentReconciliationStatusFailed    = "failed"
+
+	DefaultFreeRetentionDays   = 3
+	DefaultVIPGraceDays        = 7
+	DefaultHistoricalGraceDays = 7
+	MaxPaymentRetentionDays    = 3650
+
+	StorageTierDisabled = "disabled"
+	StorageTierActive   = "active"
+	StorageTierGrace    = "grace"
+	StorageTierFree     = "free"
 )
 
 // PaymentChannelRecord contains mutable, non-secret operating configuration.
@@ -89,6 +99,9 @@ type PaymentSettingsRecord struct {
 	CustomCreditsEnabled        bool
 	CloudStorageEnabled         bool
 	CloudStoragePolicyStartedAt string
+	FreeRetentionDays           int
+	VIPGraceDays                int
+	HistoricalGraceDays         int
 	CreditUnitPriceFen          int64
 	MinCustomCredits            int
 	MaxCustomCredits            int
@@ -176,10 +189,18 @@ type PaymentStorageEntitlementRecord struct {
 }
 
 type PaymentStorageEntitlementSummary struct {
-	UserID       string `json:"user_id"`
-	StorageBytes int64  `json:"storage_bytes"`
-	UsedBytes    int64  `json:"used_bytes"`
-	ExpiresAt    string `json:"expires_at,omitempty"`
+	UserID              string `json:"user_id"`
+	CloudStorageEnabled bool   `json:"cloud_storage_enabled"`
+	FreeRetentionDays   int    `json:"free_retention_days"`
+	VIPGraceDays        int    `json:"vip_grace_days"`
+	HistoricalGraceDays int    `json:"historical_grace_days"`
+	Tier                string `json:"tier"`
+	Unlimited           bool   `json:"unlimited"`
+	StorageBytes        int64  `json:"storage_bytes"`
+	UsedBytes           int64  `json:"used_bytes"`
+	AssetCount          int    `json:"asset_count"`
+	ExpiresAt           string `json:"expires_at,omitempty"`
+	GraceExpiresAt      string `json:"grace_expires_at,omitempty"`
 }
 
 type PaymentStorageCompletion struct {

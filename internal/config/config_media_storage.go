@@ -83,6 +83,10 @@ func (s *Store) MediaAutoCleanupEnabled() bool {
 	return util.ToBool(s.settingValue("media_auto_cleanup_enabled", true))
 }
 
+func (s *Store) VideoAutoCleanupEnabled() bool {
+	return util.ToBool(s.settingValue("media_auto_cleanup_enabled", true))
+}
+
 func (s *Store) MediaR2AccountID() string {
 	return strings.TrimSpace(fmt.Sprint(s.settingValue("media_r2_account_id", "")))
 }

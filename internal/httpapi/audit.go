@@ -57,6 +57,10 @@ func (w *auditResponseWriter) Flush() {
 	}
 }
 
+func (w *auditResponseWriter) Unwrap() http.ResponseWriter {
+	return w.ResponseWriter
+}
+
 func (w *auditResponseWriter) statusCode() int {
 	if w.status == 0 {
 		return http.StatusOK
@@ -193,11 +197,27 @@ func captureAuditRequestArgs(r *http.Request) any {
 		return "[multipart/form-data]"
 	}
 	if r.Method != http.MethodGet && r.Body != nil {
-		if r.ContentLength < 0 {
-			return "[body omitted: unknown size]"
-		}
 		if r.ContentLength > maxAuditPayloadBytes {
 			return "[body omitted: too large]"
+		}
+		if r.ContentLength < 0 {
+			originalBody := r.Body
+			peek, err := io.ReadAll(io.LimitReader(originalBody, maxAuditPayloadBytes+1))
+			if err != nil {
+				r.Body = io.NopCloser(bytes.NewReader(nil))
+				return nil
+			}
+			r.Body = struct {
+				io.Reader
+				io.Closer
+			}{
+				Reader: io.MultiReader(bytes.NewReader(peek), originalBody),
+				Closer: originalBody,
+			}
+			if len(peek) > maxAuditPayloadBytes {
+				return "[body omitted: too large]"
+			}
+			return normalizeAuditPayload(peek)
 		}
 		body, err := io.ReadAll(r.Body)
 		if err != nil {

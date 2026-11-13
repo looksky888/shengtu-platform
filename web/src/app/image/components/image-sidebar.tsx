@@ -358,7 +358,7 @@ export function ImageSidebar({
           <div className="space-y-1.5 pt-1.5">
             <div className="flex items-center gap-1.5">
               <Link
-                to="/image-manager"
+                to="/assets"
                 className="inline-flex h-7.5 flex-1 items-center justify-center gap-1.5 rounded-xl bg-surface-muted/75 px-2 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground"
               >
                 <Images className="size-3" />

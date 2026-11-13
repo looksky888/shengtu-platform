@@ -22,7 +22,11 @@ const LOG_CONFIG_KEYS: readonly (keyof SettingsConfig)[] = [
   "log_levels",
 ];
 
-export function LogGovernanceCard() {
+export function LogGovernanceCard({
+  hideFooter = false,
+}: {
+  hideFooter?: boolean;
+} = {}) {
   const [cleanupDialogOpen, setCleanupDialogOpen] = useState(false);
 
   const config = useSettingsStore((state) => state.config);
@@ -152,13 +156,15 @@ export function LogGovernanceCard() {
       description="监控审计日志留存规模，配置采集级别过滤与过期日志滚动回收"
       tone="amber"
       footer={
-        <SettingsCardSaveFooter
-          dirty={isDirty}
-          saving={isSavingThisCard}
-          disabled={isCleaningLogs}
-          onReset={() => resetConfigSection(LOG_CONFIG_KEYS)}
-          onSave={() => void handleSave()}
-        />
+        hideFooter ? undefined : (
+          <SettingsCardSaveFooter
+            dirty={isDirty}
+            saving={isSavingThisCard}
+            disabled={isCleaningLogs}
+            onReset={() => resetConfigSection(LOG_CONFIG_KEYS)}
+            onSave={() => void handleSave()}
+          />
+        )
       }
     >
       <div className="flex flex-col gap-5">

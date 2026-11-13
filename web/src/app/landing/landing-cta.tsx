@@ -103,7 +103,7 @@ export function LandingCTA({
               size="xl"
               className="group h-11 rounded-xl bg-primary px-6 text-sm font-medium text-primary-foreground shadow-[0_2px_10px_rgba(0,0,0,0.12)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-primary/90"
             >
-              <Link to="/login">
+              <Link to="/login?returnTo=%2Fimage">
                 <span>立即开始创作</span>
                 <ArrowRight
                   className="size-4 transition-transform duration-200 group-hover:translate-x-0.5"
@@ -118,7 +118,13 @@ export function LandingCTA({
               size="xl"
               className="h-11 rounded-xl border-border/90 bg-surface/85 px-6 text-sm font-medium text-foreground backdrop-blur-sm transition-all duration-200 hover:border-border-strong hover:bg-surface-hover"
             >
-              <Link to={registrationEnabled ? "/login?register=1" : "/login"}>
+              <Link
+                to={
+                  registrationEnabled
+                    ? "/login?register=1&returnTo=%2Fimage"
+                    : "/login"
+                }
+              >
                 {registrationEnabled ? "创建工作室账号" : "进入控制台"}
               </Link>
             </Button>

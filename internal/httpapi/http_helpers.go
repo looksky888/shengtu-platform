@@ -259,24 +259,9 @@ func openAIErrorForStream(err error) map[string]any {
 }
 
 func anyList(v any) []any {
-	if list, ok := v.([]any); ok {
-		return list
-	}
-	if list, ok := v.([]map[string]any); ok {
-		out := make([]any, len(list))
-		for i, item := range list {
-			out[i] = item
-		}
-		return out
-	}
-	return nil
+	return util.AnyList(v)
 }
 
 func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if strings.TrimSpace(value) != "" {
-			return value
-		}
-	}
-	return ""
+	return util.FirstNonEmpty(values...)
 }

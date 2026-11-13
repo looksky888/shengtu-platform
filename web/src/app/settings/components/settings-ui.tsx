@@ -58,13 +58,13 @@ export const settingsDialogInputClassName =
 export const settingsInlineCodeClassName =
   "min-w-0 break-all rounded-md bg-surface-muted px-2.5 py-1.5 font-mono text-xs leading-5 text-muted-foreground ring-1 ring-border/60";
 export const settingsListItemClassName =
-  "rounded-xl border border-border/75 bg-surface-subtle/50 p-4 transition-colors";
+  "rounded-xl [[data-admin-root]_&]:rounded-[10px] [.admin-drawer_&]:rounded-[10px] border border-border/75 bg-surface-subtle/50 p-4 transition-colors";
 export const settingsPanelClassName =
-  "rounded-xl border border-border/70 bg-surface-subtle/45 p-4";
+  "rounded-xl [[data-admin-root]_&]:rounded-[10px] [.admin-drawer_&]:rounded-[10px] border border-border/70 bg-surface-subtle/45 p-4";
 export const settingsToggleClassName =
-  "flex min-h-10 items-center gap-3 rounded-xl border border-border/75 bg-surface-subtle/45 px-3.5 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-surface-hover/60";
+  "flex min-h-10 items-center gap-3 rounded-xl [[data-admin-root]_&]:rounded-[10px] [.admin-drawer_&]:rounded-[10px] border border-border/75 bg-surface-subtle/45 px-3.5 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-surface-hover/60";
 export const settingsInlineToggleClassName =
-  "flex min-h-9 items-center gap-3 rounded-xl border border-border/75 bg-surface-subtle/45 px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-surface-hover/60";
+  "flex min-h-9 items-center gap-3 rounded-xl [[data-admin-root]_&]:rounded-[10px] [.admin-drawer_&]:rounded-[10px] border border-border/75 bg-surface-subtle/45 px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-surface-hover/60";
 
 export function SettingsCard({
   action,
@@ -80,12 +80,14 @@ export function SettingsCard({
 }: SettingsCardProps) {
   return (
     <Card
+      data-settings-card=""
       className={cn(
         "flex flex-col overflow-hidden rounded-[14px] border border-border/80 bg-surface p-5 shadow-2xs",
+        "[[data-admin-root]_&]:rounded-[10px] [[data-admin-root]_&]:border-[var(--admin-border)] [[data-admin-root]_&]:bg-[var(--admin-surface)] [[data-admin-root]_&]:shadow-none",
         className
       )}
     >
-      <CardHeader className="gap-3.5 border-b border-border/60 bg-transparent p-0 pb-3.5 sm:flex-row sm:items-center sm:justify-between">
+      <CardHeader className="gap-3.5 border-b border-border/60 [[data-admin-root]_&]:border-[var(--admin-border)] bg-transparent p-0 pb-3.5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center gap-3">
           <div
             className={cn(
@@ -117,7 +119,7 @@ export function SettingsCard({
         {children}
       </CardContent>
       {footer ? (
-        <div className="-mx-5 -mb-5 mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-border/65 bg-surface-subtle/55 px-5 py-3">
+        <div className="-mx-5 -mb-5 mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-border/65 [[data-admin-root]_&]:border-[var(--admin-border)] bg-surface-subtle/55 [[data-admin-root]_&]:bg-[var(--admin-surface-2)]/65 px-5 py-3">
           {footer}
         </div>
       ) : null}
@@ -296,7 +298,7 @@ export function SettingsSwitchRow({
         if (!disabled) onCheckedChange(!checked);
       }}
       className={cn(
-        "flex items-center justify-between gap-3.5 rounded-xl border border-border/75 bg-surface-subtle/45 px-3.5 py-2.5 transition-colors",
+        "flex items-center justify-between gap-3.5 rounded-xl [[data-admin-root]_&]:rounded-[10px] [.admin-drawer_&]:rounded-[10px] border border-border/75 bg-surface-subtle/45 px-3.5 py-2.5 transition-colors",
         disabled
           ? "cursor-not-allowed opacity-60"
           : "cursor-pointer hover:border-border-strong/75 hover:bg-surface-hover/55",
@@ -620,7 +622,7 @@ export function SettingsNotice({
   return (
     <div
       className={cn(
-        "rounded-xl border px-4 py-3 text-xs leading-5 sm:text-[13px]",
+        "rounded-xl [[data-admin-root]_&]:rounded-[10px] [.admin-drawer_&]:rounded-[10px] border px-4 py-3 text-xs leading-5 sm:text-[13px]",
         noticeToneClassNames[tone],
         className
       )}
@@ -647,11 +649,10 @@ export function SettingsEmptyState({
       title={title}
       description={description}
       action={action}
-      className="rounded-xl border border-dashed border-border/70 bg-surface-subtle/40 py-10"
+      className="rounded-xl [[data-admin-root]_&]:rounded-[10px] border border-dashed border-border/70 bg-surface-subtle/40 py-10"
     />
   );
 }
-
 
 /**
  * Horizontal key-control row inspired by ddcat-ai/open-ai-canvas `SettingsRow`,

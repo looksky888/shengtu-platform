@@ -11,4 +11,3 @@ logs/
 **/test_*.py
 _legacy_app_package/
 upstream/app/statics/
-upstream/services/register/node_modules/

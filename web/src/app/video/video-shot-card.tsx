@@ -7,11 +7,10 @@ import {
   Clock3,
   Copy,
   CornerUpLeft,
-  Film,
   Maximize2,
+  Plus,
   Sparkles,
   Trash2,
-  Wand2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -47,64 +46,65 @@ async function copyShotTaskId(taskId: string) {
 }
 
 export function VideoEmptyShowcase({
-  frameRatio,
-  resolutionLabel,
-  seconds,
   onSelectInspiration,
   onSelectCameraChip,
 }: {
-  frameRatio: string;
-  resolutionLabel: string;
-  seconds: number;
+  frameRatio?: string;
+  resolutionLabel?: string;
+  seconds?: number;
   onSelectInspiration: (card: VideoInspirationCard) => void;
   onSelectCameraChip: (descriptor: string) => void;
 }) {
   return (
-    <div className="mx-auto flex w-full max-w-[880px] flex-col items-center px-2 pt-4 pb-6 sm:pt-8">
-      <div className="flex flex-col items-center text-center">
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-border/80 bg-surface/90 px-3 py-1 font-mono text-[11px] font-medium text-muted-foreground shadow-2xs">
-          <Film className="size-3.5 text-foreground/80" />
-          <span>GROK IMAGINE · {frameRatio} · {resolutionLabel} · {seconds}S</span>
-        </span>
-        <h1 className="mt-3.5 text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
-          从一段镜头语言开始调度画面
-        </h1>
-        <p className="mt-1.5 max-w-lg text-xs leading-5 text-muted-foreground sm:text-sm">
-          支持文生视频、首帧图生与最多 7 张多图角色一致性参考。点击下方分镜模板快速开拍，或在底部导演台自由构思。
-        </p>
+    <div className="mx-auto flex w-full max-w-[960px] flex-col gap-4">
+      {/* Quick Camera Motion Chips (aligned with /image QUICK_STYLE_CHIPS) */}
+      <div className="flex flex-wrap items-center justify-center gap-1.5">
+        {cameraMotionPresets.map((chip) => (
+          <button
+            key={chip.label}
+            type="button"
+            onClick={() => onSelectCameraChip(chip.descriptor)}
+            title={`向提示词追加：${chip.descriptor}`}
+            className="inline-flex h-7 items-center gap-1 rounded-full border border-border/60 bg-surface px-2.5 text-[11px] font-medium text-muted-foreground transition-all duration-150 hover:-translate-y-[1px] hover:border-foreground/30 hover:text-foreground active:scale-[0.98] dark:border-white/[0.06] dark:bg-[#17181c]"
+          >
+            <Plus className="size-3 text-subtle-foreground" aria-hidden="true" />
+            <span>{chip.label}</span>
+          </button>
+        ))}
       </div>
 
-      {/* Storyboard Inspiration Grid (aligned with open-ai-canvas & /image studio cards) */}
-      <div className="mt-6 grid w-full grid-cols-1 gap-2.5 sm:grid-cols-2">
-        {videoInspirationPrompts.map((card) => (
+      {/* Storyboard Inspiration Grid (aligned with /image darkroom inspiration plates) */}
+      <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2">
+        {videoInspirationPrompts.map((card, idx) => (
           <button
             key={card.id}
             type="button"
             onClick={() => onSelectInspiration(card)}
-            className="group relative flex flex-col justify-between gap-2.5 rounded-2xl border border-border/80 bg-surface/95 p-4 text-left shadow-2xs transition-all duration-150 hover:-translate-y-0.5 hover:border-border-strong hover:bg-surface hover:shadow-sm"
+            className="group relative flex flex-col justify-between gap-2.5 rounded-xl border border-border/50 bg-surface p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-foreground/25 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 dark:border-white/[0.06] dark:bg-[#17181c]"
           >
             <div className="flex items-center justify-between gap-2">
-              <span className="inline-flex items-center gap-1 rounded-md bg-surface-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+              <span className="inline-flex items-center gap-1 rounded-md bg-surface-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground dark:bg-white/[0.06]">
                 <Sparkles className="size-3 text-foreground/70" />
                 <span>{card.category}</span>
               </span>
               <div className="flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground tabular-nums">
-                <span className="inline-flex items-center gap-1 rounded border border-border/75 bg-surface-muted/60 px-1.5 py-0.5">
+                <span className="inline-flex items-center gap-1 rounded border border-border/75 bg-surface-muted/60 px-1.5 py-0.5 dark:border-white/[0.08] dark:bg-white/[0.04]">
                   <span
                     style={ratioPreviewStyle(card.ratio, 10)}
                     className="inline-block rounded-[1.5px] border border-current opacity-75"
                   />
                   <span>{card.ratio}</span>
                 </span>
-                <span className="rounded border border-border/75 bg-surface-muted/60 px-1.5 py-0.5">
+                <span className="rounded border border-border/75 bg-surface-muted/60 px-1.5 py-0.5 dark:border-white/[0.08] dark:bg-white/[0.04]">
                   {card.seconds}s
                 </span>
+                <span className="text-[10px] text-subtle-foreground">0{idx + 1}</span>
               </div>
             </div>
 
             <div>
               <div className="flex items-center justify-between gap-2">
-                <h2 className="text-sm font-semibold text-foreground group-hover:text-foreground">
+                <h2 className="text-sm font-semibold tracking-[-0.01em] text-foreground">
                   {card.title}
                 </h2>
                 <ArrowUpRight className="size-3.5 shrink-0 text-muted-foreground opacity-0 transition-all group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-foreground group-hover:opacity-100" />
@@ -113,25 +113,6 @@ export function VideoEmptyShowcase({
                 {card.prompt}
               </p>
             </div>
-          </button>
-        ))}
-      </div>
-
-      {/* Quick Camera Motion Chips */}
-      <div className="mt-5 flex max-w-2xl flex-wrap items-center justify-center gap-1.5">
-        <span className="mr-1 inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground">
-          <Wand2 className="size-3" />
-          <span>叠加运镜：</span>
-        </span>
-        {cameraMotionPresets.map((chip) => (
-          <button
-            key={chip.label}
-            type="button"
-            onClick={() => onSelectCameraChip(chip.descriptor)}
-            title={chip.descriptor}
-            className="inline-flex items-center gap-1 rounded-full border border-border/80 bg-surface/90 px-2.5 py-1 text-[11px] font-medium text-muted-foreground shadow-2xs transition-colors hover:border-border-strong hover:bg-surface hover:text-foreground"
-          >
-            <span>+ {chip.label}</span>
           </button>
         ))}
       </div>
@@ -278,7 +259,7 @@ export function VideoShotCard({
                 <span>详情与下载</span>
               </Button>
             </div>
-          ) : isRunning ? (
+          ) : isRunning && controller.canCancelCreationTasks ? (
             <CreationTaskCancelButton
               tone="light"
               label="终止渲染"

@@ -161,37 +161,43 @@
   --sidebar-accent-foreground: #09090b;
   --sidebar-border: rgba(24, 24, 27, 0.08);
   --sidebar-ring: #18181b;
+
+  /* 6. Yingce WCAG-AA Semantic Top Banner Tones (Light) */
+  --banner-notice-bg: #5c67e2;
+  --banner-activity-bg: #da2470;
+  --banner-update-bg: #138279;
+  --banner-warning-bg: #b55b0c;
 }
 
 .dark {
-  --background: #09090b;
-  --stage: #101013;
-  --surface: #16161a;
-  --surface-raised: #1c1c21;
-  --surface-subtle: #1b1b20;
-  --surface-muted: #222228;
+  --background: #0b0b0d;
+  --stage: #0b0b0d;
+  --surface: #17181c;
+  --surface-raised: #1e2026;
+  --surface-subtle: #141519;
+  --surface-muted: #22242b;
   --surface-hover: rgba(255, 255, 255, 0.06);
   --surface-active: rgba(255, 255, 255, 0.11);
 
-  --foreground: #fafafa;
+  --foreground: #f5f5f5;
   --muted-foreground: #a1a1aa;
   --subtle-foreground: #71717a;
 
-  --card: #16161a;
-  --card-foreground: #fafafa;
-  --popover: #1c1c21;
-  --popover-foreground: #fafafa;
-  --primary: #fafafa;
+  --card: #17181c;
+  --card-foreground: #f5f5f5;
+  --popover: #1e2026;
+  --popover-foreground: #f5f5f5;
+  --primary: #f5f5f5;
   --primary-hover: #e4e4e7;
-  --primary-foreground: #09090b;
-  --secondary: #1c1c1f;
-  --secondary-foreground: #fafafa;
-  --muted: #18181b;
-  --accent: #222226;
-  --accent-foreground: #fafafa;
+  --primary-foreground: #0b0b0d;
+  --secondary: #1e2026;
+  --secondary-foreground: #f5f5f5;
+  --muted: #141519;
+  --accent: #22242b;
+  --accent-foreground: #f5f5f5;
   --destructive: #f43f5e;
 
-  --brand: #fafafa;
+  --brand: #f5f5f5;
   --brand-hover: #e4e4e7;
   --brand-soft: rgba(255, 255, 255, 0.08);
   --brand-border: rgba(255, 255, 255, 0.16);
@@ -211,25 +217,31 @@
   --status-danger: #fb7185;
   --status-danger-soft: rgba(244, 63, 94, 0.15);
 
-  --surface-card-gradient: #111113;
+  --surface-card-gradient: #141519;
   --shadow-card: 0 2px 12px rgba(0, 0, 0, 0.4);
   --shadow-ambient: 0 20px 54px rgba(0, 0, 0, 0.6);
   --shadow-brand: 0 4px 18px rgba(0, 0, 0, 0.5);
   --shadow-elevated: 0 16px 36px -6px rgba(0, 0, 0, 0.65);
 
-  --chart-1: #fafafa;
+  --chart-1: #f5f5f5;
   --chart-2: #a1a1aa;
   --chart-3: #52525b;
   --chart-4: #34d399;
   --chart-5: #fbbf24;
-  --sidebar: #09090b;
-  --sidebar-foreground: #fafafa;
-  --sidebar-primary: #fafafa;
-  --sidebar-primary-foreground: #09090b;
+  --sidebar: #0b0b0d;
+  --sidebar-foreground: #f5f5f5;
+  --sidebar-primary: #f5f5f5;
+  --sidebar-primary-foreground: #0b0b0d;
   --sidebar-accent: rgba(255, 255, 255, 0.07);
-  --sidebar-accent-foreground: #fafafa;
+  --sidebar-accent-foreground: #f5f5f5;
   --sidebar-border: rgba(255, 255, 255, 0.08);
   --sidebar-ring: #d4d4d8;
+
+  /* 6. Yingce WCAG-AA Semantic Top Banner Tones (Dark) */
+  --banner-notice-bg: #3f4590;
+  --banner-activity-bg: #7b3552;
+  --banner-update-bg: #235450;
+  --banner-warning-bg: #6a4424;
 }
 
 @layer base {

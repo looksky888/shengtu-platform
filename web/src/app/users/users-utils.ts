@@ -6,6 +6,9 @@ import type {
   ManagedUserUsage,
 } from "@/lib/api";
 import { formatDateTime as formatBizDateTime, isWithinChinaTimeFilter, type TimeRangeFilter } from "@/lib/datetime";
+import { formatCreditNumber } from "@/lib/format";
+
+export { formatCreditNumber };
 
 export const USER_TABLE_PAGE_SIZE_OPTIONS = [10, 20, 50] as const;
 
@@ -130,10 +133,6 @@ export function numeric(value: unknown) {
 
 export function formatCompactNumber(value: unknown) {
   return compactNumberFormatter.format(numeric(value));
-}
-
-export function formatCreditNumber(value: unknown) {
-  return new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 2 }).format(numeric(value));
 }
 
 export function formatUsageDate(value?: string) {

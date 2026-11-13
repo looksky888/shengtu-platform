@@ -1,6 +1,7 @@
 export type ColorTheme = "light" | "dark";
 
-export const COLOR_THEME_STORAGE_KEY = "chatgpt2api:color-theme";
+export const COLOR_THEME_STORAGE_KEY = "shengtu:v6:color-theme";
+export const COLOR_THEME_CHANGE_EVENT = "shengtu:color-theme-change";
 
 type ThemeTransitionOptions = {
   force?: boolean;
@@ -19,7 +20,7 @@ const THEME_TRANSITION_MAX_TABLE_ROWS = 80;
 
 export function getPreferredColorTheme(): ColorTheme {
   if (typeof window === "undefined") {
-    return "light";
+    return "dark";
   }
 
   try {
@@ -28,10 +29,10 @@ export function getPreferredColorTheme(): ColorTheme {
       return storedTheme;
     }
   } catch {
-    return "light";
+    return "dark";
   }
 
-  return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  return "dark";
 }
 
 function applyColorThemeToRoot(theme: ColorTheme) {
@@ -86,5 +87,12 @@ export function saveColorTheme(theme: ColorTheme) {
     window.localStorage.setItem(COLOR_THEME_STORAGE_KEY, theme);
   } catch {
     // The theme still applies for the current page even when storage is unavailable.
+  }
+  if (
+    typeof window !== "undefined" &&
+    typeof window.dispatchEvent === "function" &&
+    typeof CustomEvent === "function"
+  ) {
+    window.dispatchEvent(new CustomEvent(COLOR_THEME_CHANGE_EVENT, { detail: theme }));
   }
 }

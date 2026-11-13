@@ -33,7 +33,7 @@ import { isTurnBusy } from "@/lib/image-turn-state";
 import { AUTH_SESSION_CHANGE_EVENT, getCachedAuthSession } from "@/lib/session";
 import { usePageVisible } from "@/lib/use-page-visible";
 import { cn } from "@/lib/utils";
-import { canAccessPath } from "@/store/auth";
+import { canAccessPath, hasAPIPermission } from "@/store/auth";
 import {
   activeImageConversationStorageKey,
   IMAGE_ACTIVE_CONVERSATION_REQUEST_EVENT,
@@ -58,6 +58,11 @@ type RecentVideoCompletion = {
   take: RecentVideoTake;
   completedAt: number;
 };
+
+const VIDEO_QUEUE_COMPLETION_EVENT = "shengtu:video-queue-completed";
+
+let activeVideoPollerOwner: symbol | null = null;
+const videoPollerWaiters = new Set<() => void>();
 
 function useActiveVideoTakes(open: boolean): RecentVideoTake[] {
   const [takes, setTakes] = useState<RecentVideoTake[]>([]);
@@ -106,6 +111,7 @@ export function ImageTaskQueue({ className }: { className?: string }) {
     () => getTaskQueueItems(conversations),
     [conversations],
   );
+  const [session, setSession] = useState(() => getCachedAuthSession());
   const [recentCompletions, setRecentCompletions] = useState<
     RecentQueueCompletion[]
   >([]);
@@ -114,37 +120,110 @@ export function ImageTaskQueue({ className }: { className?: string }) {
   >([]);
   const [open, setOpen] = useState(false);
   const [now, setNow] = useState(Date.now());
+  const [pollerRetryTick, setPollerRetryTick] = useState(0);
+  const pollerIdRef = useRef<symbol | null>(null);
+  if (pollerIdRef.current === null) {
+    pollerIdRef.current = Symbol("ImageTaskQueueVideoPoller");
+  }
   const activeVideoTakes = useActiveVideoTakes(open);
   const pageVisible = usePageVisible();
   const previousQueueItemsRef = useRef<Map<string, TaskQueueItem>>(new Map());
   const activeCount = queueItems.length + activeVideoTakes.length;
   const hasRecentCompletion =
     recentCompletions.length > 0 || recentVideoCompletions.length > 0;
-  const session = getCachedAuthSession();
-  const canOpenTaskCenter = Boolean(
-    session && canAccessPath(session, "/task-queue"),
+  const canReadCreationTasks = Boolean(
+    session && hasAPIPermission(session, "GET", "/api/creation-tasks"),
   );
-  const isOnVideoPage = location.pathname.startsWith("/video") && !location.pathname.startsWith("/video-library");
-  const activeVideoTaskIdsKey = activeVideoTakes.map((item) => item.taskId).join(",");
+  const canOpenImage = Boolean(session && canAccessPath(session, "/image"));
+  const canOpenVideo = Boolean(session && canAccessPath(session, "/video"));
+  const canOpenTaskCenter = Boolean(
+    session && canAccessPath(session, "/tasks"),
+  );
+  const canOpenAssets = Boolean(session && canAccessPath(session, "/assets"));
+  const isOnVideoPage =
+    location.pathname.startsWith("/video") &&
+    !location.pathname.startsWith("/video-library");
+  const activeVideoTaskIdsKey = activeVideoTakes
+    .map((item) => item.taskId)
+    .join(",");
 
   useEffect(() => {
     const handleSessionChange = () => {
+      setSession(getCachedAuthSession());
       previousQueueItemsRef.current = new Map();
       setRecentCompletions([]);
       setRecentVideoCompletions([]);
     };
     window.addEventListener(AUTH_SESSION_CHANGE_EVENT, handleSessionChange);
-    return () => window.removeEventListener(AUTH_SESSION_CHANGE_EVENT, handleSessionChange);
+    return () =>
+      window.removeEventListener(AUTH_SESSION_CHANGE_EVENT, handleSessionChange);
   }, []);
 
-  // Background polling for active video tasks when the user switches away from /video.
   useEffect(() => {
-    if (isOnVideoPage || !pageVisible || !activeVideoTaskIdsKey) return;
+    const handleSharedCompletion = (event: Event) => {
+      const detail = (event as CustomEvent<RecentVideoCompletion[]>).detail;
+      if (!Array.isArray(detail) || detail.length === 0) return;
+      setRecentVideoCompletions((current) => {
+        const existingKeys = new Set(
+          current.map((item) => `${item.take.taskId}:${item.completedAt}`),
+        );
+        const fresh = detail.filter(
+          (item) => !existingKeys.has(`${item.take.taskId}:${item.completedAt}`),
+        );
+        if (fresh.length === 0) return current;
+        return [...fresh, ...current].slice(0, 3);
+      });
+    };
+    window.addEventListener(
+      VIDEO_QUEUE_COMPLETION_EVENT,
+      handleSharedCompletion,
+    );
+    return () =>
+      window.removeEventListener(
+        VIDEO_QUEUE_COMPLETION_EVENT,
+        handleSharedCompletion,
+      );
+  }, []);
+
+  // Singleton background polling for active video tasks when the user switches away from /video.
+  useEffect(() => {
+    const pollerId = pollerIdRef.current!;
+    if (
+      isOnVideoPage ||
+      !pageVisible ||
+      !activeVideoTaskIdsKey ||
+      !canReadCreationTasks
+    ) {
+      if (activeVideoPollerOwner === pollerId) {
+        activeVideoPollerOwner = null;
+        videoPollerWaiters.forEach((notify) => notify());
+      }
+      return;
+    }
+
+    if (
+      activeVideoPollerOwner !== null &&
+      activeVideoPollerOwner !== pollerId
+    ) {
+      const retry = () => setPollerRetryTick((v) => v + 1);
+      videoPollerWaiters.add(retry);
+      return () => {
+        videoPollerWaiters.delete(retry);
+      };
+    }
+
+    activeVideoPollerOwner = pollerId;
     let disposed = false;
     let timer: number | undefined;
 
     const pollVideoTasks = async () => {
       const currentSession = getCachedAuthSession();
+      if (
+        !currentSession ||
+        !hasAPIPermission(currentSession, "GET", "/api/creation-tasks")
+      ) {
+        return;
+      }
       const recentKey = recentVideoTakesStorageKey(currentSession);
       const lastTaskKey = videoTaskStorageKey(currentSession);
       const ids = activeVideoTaskIdsKey.split(",").filter(Boolean);
@@ -169,7 +248,9 @@ export function ImageTaskQueue({ className }: { className?: string }) {
         };
 
         for (const remote of result.items || []) {
-          const existing = updatedTakes.find((item) => item.taskId === remote.id);
+          const existing = updatedTakes.find(
+            (item) => item.taskId === remote.id,
+          );
           if (!existing) continue;
           const videoAsset = remote.data?.find(
             (item) => item.url && item.content_type?.startsWith("video/"),
@@ -206,7 +287,9 @@ export function ImageTaskQueue({ className }: { className?: string }) {
           }
         }
 
-        const returnedIds = new Set((result.items || []).map((item) => item.id));
+        const returnedIds = new Set(
+          (result.items || []).map((item) => item.id),
+        );
         const missingIds = Array.from(
           new Set([
             ...(Array.isArray(result.missing_ids) ? result.missing_ids : []),
@@ -217,10 +300,15 @@ export function ImageTaskQueue({ className }: { className?: string }) {
           for (const missingId of missingIds) {
             clearStoredLastTaskId(missingId);
           }
-          const missingResult = markMissingVideoTakesError(updatedTakes, missingIds);
+          const missingResult = markMissingVideoTakesError(
+            updatedTakes,
+            missingIds,
+          );
           if (missingResult.changed) {
             for (const item of missingResult.takes) {
-              const previous = updatedTakes.find((prev) => prev.taskId === item.taskId);
+              const previous = updatedTakes.find(
+                (prev) => prev.taskId === item.taskId,
+              );
               if (
                 previous &&
                 !isTerminalVideoStatus(previous.status) &&
@@ -241,6 +329,12 @@ export function ImageTaskQueue({ className }: { className?: string }) {
           setRecentVideoCompletions((current) =>
             [...newlyCompleted, ...current].slice(0, 3),
           );
+          window.dispatchEvent(
+            new CustomEvent<RecentVideoCompletion[]>(
+              VIDEO_QUEUE_COMPLETION_EVENT,
+              { detail: newlyCompleted },
+            ),
+          );
         }
         const stillHasActive = updatedTakes.some(
           (item) => !isTerminalVideoStatus(item.status),
@@ -260,8 +354,18 @@ export function ImageTaskQueue({ className }: { className?: string }) {
     return () => {
       disposed = true;
       if (timer !== undefined) window.clearTimeout(timer);
+      if (activeVideoPollerOwner === pollerId) {
+        activeVideoPollerOwner = null;
+        videoPollerWaiters.forEach((notify) => notify());
+      }
     };
-  }, [activeVideoTaskIdsKey, isOnVideoPage, pageVisible]);
+  }, [
+    activeVideoTaskIdsKey,
+    canReadCreationTasks,
+    isOnVideoPage,
+    pageVisible,
+    pollerRetryTick,
+  ]);
 
   useEffect(() => {
     const currentItems = new Map(
@@ -296,7 +400,8 @@ export function ImageTaskQueue({ className }: { className?: string }) {
   }, [conversations, queueItems]);
 
   useEffect(() => {
-    if (recentCompletions.length === 0 && recentVideoCompletions.length === 0) return;
+    if (recentCompletions.length === 0 && recentVideoCompletions.length === 0)
+      return;
     const timer = window.setTimeout(() => {
       const cutoff = Date.now() - 8000;
       setRecentCompletions((current) =>
@@ -309,24 +414,34 @@ export function ImageTaskQueue({ className }: { className?: string }) {
     return () => window.clearTimeout(timer);
   }, [recentCompletions, recentVideoCompletions]);
 
+  const hasProgressEntries = Object.keys(progressByTurnKey).length > 0;
+
   useEffect(() => {
     if (
       !pageVisible ||
       (!open &&
         activeCount === 0 &&
-        Object.keys(progressByTurnKey).length === 0 &&
+        !hasProgressEntries &&
         !hasRecentCompletion)
     )
       return;
     setNow(Date.now());
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
-  }, [activeCount, hasRecentCompletion, open, pageVisible, progressByTurnKey]);
+  }, [activeCount, hasProgressEntries, hasRecentCompletion, open, pageVisible]);
 
   const openConversation = (conversationId: string) => {
+    const currentSession = getCachedAuthSession();
+    if (!canAccessPath(currentSession, "/image")) {
+      setOpen(false);
+      if (canAccessPath(currentSession, "/tasks")) {
+        navigate("/tasks");
+      }
+      return;
+    }
     try {
       window.localStorage.setItem(
-        activeImageConversationStorageKey(getCachedAuthSession()),
+        activeImageConversationStorageKey(currentSession),
         conversationId,
       );
     } catch {
@@ -339,6 +454,16 @@ export function ImageTaskQueue({ className }: { className?: string }) {
     );
     setOpen(false);
     navigate("/image");
+  };
+
+  const openVideoStudio = () => {
+    const currentSession = getCachedAuthSession();
+    setOpen(false);
+    if (canAccessPath(currentSession, "/video")) {
+      navigate("/video");
+    } else if (canAccessPath(currentSession, "/tasks")) {
+      navigate("/tasks");
+    }
   };
 
   const hasAnyItems =
@@ -383,10 +508,7 @@ export function ImageTaskQueue({ className }: { className?: string }) {
                 <VideoCompletionItem
                   key={`${entry.take.taskId}:${entry.completedAt}`}
                   take={entry.take}
-                  onOpenVideo={() => {
-                    setOpen(false);
-                    navigate("/video");
-                  }}
+                  onOpenVideo={openVideoStudio}
                 />
               ))}
               {recentCompletions.map((item) => (
@@ -400,10 +522,7 @@ export function ImageTaskQueue({ className }: { className?: string }) {
                 <VideoQueueItem
                   key={take.taskId}
                   take={take}
-                  onOpenVideo={() => {
-                    setOpen(false);
-                    navigate("/video");
-                  }}
+                  onOpenVideo={openVideoStudio}
                 />
               ))}
               {queueItems.map((item) => (
@@ -418,14 +537,22 @@ export function ImageTaskQueue({ className }: { className?: string }) {
           </div>
         ) : (
           <EmptyQueueState
-            onOpenImage={() => {
-              setOpen(false);
-              navigate("/image");
-            }}
-            onOpenVideo={() => {
-              setOpen(false);
-              navigate("/video");
-            }}
+            onOpenImage={
+              canOpenImage
+                ? () => {
+                    setOpen(false);
+                    navigate("/image");
+                  }
+                : undefined
+            }
+            onOpenVideo={
+              canOpenVideo
+                ? () => {
+                    setOpen(false);
+                    navigate("/video");
+                  }
+                : undefined
+            }
           />
         )}
         <div className="flex items-center justify-between gap-2 border-t border-border/70 bg-surface px-3.5 py-2 text-xs text-muted-foreground">
@@ -436,26 +563,26 @@ export function ImageTaskQueue({ className }: { className?: string }) {
                 type="button"
                 onClick={() => {
                   setOpen(false);
-                  navigate("/task-queue");
+                  navigate("/tasks");
                 }}
                 className="inline-flex items-center gap-1 rounded-md px-2 py-1 font-medium text-foreground transition-colors hover:bg-surface-hover"
               >
                 <span>前往任务中心</span>
                 <ArrowUpRight className="size-3.5" />
               </button>
-            ) : (
+            ) : canOpenAssets ? (
               <button
                 type="button"
                 onClick={() => {
                   setOpen(false);
-                  navigate("/image-manager");
+                  navigate("/assets?type=image");
                 }}
                 className="inline-flex items-center gap-1 rounded-md px-2 py-1 font-medium text-foreground transition-colors hover:bg-surface-hover"
               >
-                <span>打开素材中心</span>
+                <span>打开素材云盘</span>
                 <ArrowUpRight className="size-3.5" />
               </button>
-            )}
+            ) : null}
           </div>
         </div>
       </PopoverContent>
@@ -579,13 +706,19 @@ function VideoCompletionItem({
               : "bg-rose-500/15 text-rose-700 ring-rose-500/25 dark:text-rose-300",
           )}
         >
-          {succeeded ? <CheckCircle2 className="size-4" /> : <AlertCircle className="size-4" />}
+          {succeeded ? (
+            <CheckCircle2 className="size-4" />
+          ) : (
+            <AlertCircle className="size-4" />
+          )}
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
             <span className="inline-flex min-w-0 items-center gap-1.5 truncate text-sm font-semibold text-foreground">
               <Film className="size-3.5 shrink-0 text-muted-foreground" />
-              <span className="truncate">{succeeded ? "视频渲染完成" : "视频任务已结束"}</span>
+              <span className="truncate">
+                {succeeded ? "视频渲染完成" : "视频任务已结束"}
+              </span>
             </span>
             <span className="shrink-0 text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
               点击查看
@@ -675,8 +808,8 @@ function EmptyQueueState({
   onOpenImage,
   onOpenVideo,
 }: {
-  onOpenImage: () => void;
-  onOpenVideo: () => void;
+  onOpenImage?: () => void;
+  onOpenVideo?: () => void;
 }) {
   return (
     <div className="flex flex-col items-center justify-center px-6 py-9 text-center">
@@ -687,27 +820,33 @@ function EmptyQueueState({
       <div className="mt-1 max-w-[260px] text-xs leading-5 text-muted-foreground">
         提交图片或视频生成任务后，这里将实时追踪排队与渲染进度。
       </div>
-      <div className="mt-4 flex items-center gap-2">
-        <Button
-          type="button"
-          size="sm"
-          className="h-8 rounded-lg px-3 text-xs"
-          onClick={onOpenImage}
-        >
-          <Sparkles className="size-3.5" />
-          图片创作
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="h-8 rounded-lg px-3 text-xs"
-          onClick={onOpenVideo}
-        >
-          <Film className="size-3.5" />
-          视频创作
-        </Button>
-      </div>
+      {onOpenImage || onOpenVideo ? (
+        <div className="mt-4 flex items-center gap-2">
+          {onOpenImage ? (
+            <Button
+              type="button"
+              size="sm"
+              className="h-8 rounded-lg px-3 text-xs"
+              onClick={onOpenImage}
+            >
+              <Sparkles className="size-3.5" />
+              图片创作
+            </Button>
+          ) : null}
+          {onOpenVideo ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 rounded-lg px-3 text-xs"
+              onClick={onOpenVideo}
+            >
+              <Film className="size-3.5" />
+              视频创作
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -318,13 +318,26 @@ class XaiCliOAuthService:
             job["updated_at"] = _now_epoch()
 
     def _select_protocol_source_account(self, account_id: str = "") -> dict[str, Any]:
-        from services.register.grok_account_store import grok_account_store
+        from services.config import DATA_DIR
+        from services.json_file import read_json_file
+
+        raw = read_json_file(
+            DATA_DIR / "grok_accounts.json",
+            default_factory=list,
+            expected_types=(list, dict),
+        )
+        archive_items = raw.get("accounts") if isinstance(raw, dict) else raw
+        all_items = [dict(item) for item in archive_items if isinstance(item, dict)] if isinstance(archive_items, list) else []
 
         requested_id = _clean_text(account_id)
         if requested_id:
-            candidates = grok_account_store.get_accounts_by_ids([requested_id])
+            candidates = [item for item in all_items if _clean_text(item.get("id")) == requested_id]
         else:
-            candidates = grok_account_store.list_accounts(redacted=False, status="active")
+            candidates = [
+                item
+                for item in all_items
+                if (_clean_text(item.get("status")) or "active").lower() == "active"
+            ]
             linked_emails = {
                 _clean_text(item.get("email")).lower()
                 for item in self.store.list_accounts(redacted=False)
@@ -387,33 +400,17 @@ class XaiCliOAuthService:
         return {"reused": False, "job": self._protocol_job_view(job)}, source
 
     async def start_protocol_authorization(self, account_id: str = "") -> dict[str, Any]:
-        result, source = self._prepare_protocol_authorization(account_id)
-        if source is None:
-            return result
-
-        job_id = _clean_text(result["job"].get("id"))
-        task = asyncio.create_task(self._run_protocol_authorization(job_id, source))
-        self._protocol_tasks.add(task)
-        task.add_done_callback(self._protocol_tasks.discard)
-        return result
+        del account_id
+        raise ValidationError(
+            "Headless Grok registration protocol is unavailable; import OAuth tokens directly"
+        )
 
     def start_protocol_authorization_background(self, account_id: str = "") -> dict[str, Any]:
-        """Start a protocol job from synchronous registration workers."""
-        result, source = self._prepare_protocol_authorization(account_id)
-        if source is None:
-            return result
-
-        job_id = _clean_text(result["job"].get("id"))
-        runner = threading.Thread(
-            target=self._run_protocol_authorization_thread,
-            args=(job_id, source),
-            daemon=True,
-            name=f"xai-protocol-{job_id.removeprefix('xai-protocol-')[:8]}",
+        """Reject protocol jobs synchronously now that headless registration is removed."""
+        del account_id
+        raise ValidationError(
+            "Headless Grok registration protocol is unavailable; import OAuth tokens directly"
         )
-        with self._protocol_job_lock:
-            self._protocol_threads.add(runner)
-        runner.start()
-        return result
 
     def _run_protocol_authorization_thread(self, job_id: str, source: dict[str, Any]) -> None:
         try:
@@ -423,14 +420,19 @@ class XaiCliOAuthService:
                 self._protocol_threads.discard(threading.current_thread())
 
     async def _run_protocol_authorization(self, job_id: str, source: dict[str, Any]) -> None:
-        from services.register_service import register_service
+        import os
+
+        from services.config import config
         from services.xai_device_oauth_protocol import XaiDeviceOAuthProtocol
         from services.xai_oauth_delivery_service import deliver_xai_oauth_account
 
         self._update_protocol_job(job_id, status="running", stage="bootstrap", message="发现当前 Castle SDK 和登录参数")
-        runtime = register_service.get()
-        grok_config = runtime.get("grok") if isinstance(runtime.get("grok"), dict) else {}
-        proxy = _clean_text(runtime.get("proxy")) or "direct"
+        grok_config: dict[str, Any] = {}
+        proxy = (
+            _clean_text(config.get_proxy_settings())
+            or _clean_text(os.getenv("CHATGPT2API_PROXY"))
+            or "direct"
+        )
 
         def progress(stage: str, message: str) -> None:
             self._update_protocol_job(job_id, status="running", stage=stage, message=message)

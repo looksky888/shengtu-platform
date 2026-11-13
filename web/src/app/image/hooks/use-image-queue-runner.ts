@@ -129,6 +129,7 @@ export function useImageQueueRunner({
         const totalPlannedCount = pendingTaskGroups.length;
         let submittedCount = 0;
         let consecutiveIdleCapacityWaits = 0;
+        let consecutivePollErrors = 0;
         const missingResubmitCount = new Map<string, number>();
 
         while (true) {
@@ -283,7 +284,25 @@ export function useImageQueueRunner({
             continue;
           }
 
-          const taskList = await fetchCreationTasks(pollIds);
+          let taskList;
+          try {
+            taskList = await fetchCreationTasks(pollIds);
+            consecutivePollErrors = 0;
+          } catch (pollError) {
+            if (pollError instanceof ImageQueueSessionChangedError) {
+              throw pollError;
+            }
+            consecutivePollErrors += 1;
+            if (consecutivePollErrors >= 5) {
+              throw pollError;
+            }
+            updateTurnProgress(conversationId, activeTurn.id, {
+              message: activeTurn.mode === "chat" ? "网络连接波动，正在重试" : "网络波动，正在自动重连查询",
+              detail: `第 ${consecutivePollErrors}/5 次重试...`,
+            });
+            await sleep(Math.min(6000, 1500 * consecutivePollErrors));
+            continue;
+          }
           assertCurrentSession();
           if (taskList.items.length > 0) {
             await applyTasks(taskList.items);
@@ -363,7 +382,10 @@ export function useImageQueueRunner({
       sessionGenerationRef.current += 1;
     };
     window.addEventListener(AUTH_SESSION_CHANGE_EVENT, handleSessionChange);
-    return () => window.removeEventListener(AUTH_SESSION_CHANGE_EVENT, handleSessionChange);
+    return () => {
+      sessionGenerationRef.current += 1;
+      window.removeEventListener(AUTH_SESSION_CHANGE_EVENT, handleSessionChange);
+    };
   }, []);
 
   useEffect(() => {

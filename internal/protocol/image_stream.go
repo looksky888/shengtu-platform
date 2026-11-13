@@ -74,7 +74,10 @@ func (e *Engine) StreamImageOutputs(ctx context.Context, client *backend.Client,
 		for event := range events {
 			last = event
 			if event["type"] == "conversation.delta" {
-				out <- ImageOutput{Kind: "progress", Model: request.Model, Index: index, Total: total, Created: time.Now().Unix(), Text: util.Clean(event["delta"]), UpstreamEventType: "conversation.delta"}
+				if !sendChan(ctx, out, ImageOutput{Kind: "progress", Model: request.Model, Index: index, Total: total, Created: time.Now().Unix(), Text: util.Clean(event["delta"]), UpstreamEventType: "conversation.delta"}) {
+					errCh <- ctx.Err()
+					return
+				}
 				continue
 			}
 			if event["type"] == "conversation.event" {
@@ -82,7 +85,10 @@ func (e *Engine) StreamImageOutputs(ctx context.Context, client *backend.Client,
 				if raw := util.StringMap(event["raw"]); raw != nil {
 					rawType = util.Clean(raw["type"])
 				}
-				out <- ImageOutput{Kind: "progress", Model: request.Model, Index: index, Total: total, Created: time.Now().Unix(), UpstreamEventType: rawType}
+				if !sendChan(ctx, out, ImageOutput{Kind: "progress", Model: request.Model, Index: index, Total: total, Created: time.Now().Unix(), UpstreamEventType: rawType}) {
+					errCh <- ctx.Err()
+					return
+				}
 			}
 		}
 		conversationID := util.Clean(last["conversation_id"])
@@ -122,7 +128,10 @@ func (e *Engine) StreamImageOutputs(ctx context.Context, client *backend.Client,
 				pollCtx, pollCancel := context.WithTimeout(imageAttemptParentContext(ctx), backend.ImagePollTimeout())
 				if result, ok, resolveErr := e.conversationImageResultOutput(pollCtx, client, request, conversationID, fileIDs, sedimentIDs, index, total, true); resolveErr == nil && ok {
 					pollCancel()
-					out <- result
+					if !sendChan(ctx, out, result) {
+						errCh <- ctx.Err()
+						return
+					}
 					errCh <- nil
 					return
 				} else if resolveErr != nil && e.Logger != nil {
@@ -134,7 +143,10 @@ func (e *Engine) StreamImageOutputs(ctx context.Context, client *backend.Client,
 			return
 		}
 		if message != "" && len(fileIDs) == 0 && len(sedimentIDs) == 0 && (util.ToBool(last["blocked"]) || isTextResponse) {
-			out <- ImageOutput{Kind: "message", Model: request.Model, Index: index, Total: total, Created: time.Now().Unix(), Text: message}
+			if !sendChan(ctx, out, ImageOutput{Kind: "message", Model: request.Model, Index: index, Total: total, Created: time.Now().Unix(), Text: message}) {
+				errCh <- ctx.Err()
+				return
+			}
 			errCh <- nil
 			return
 		}
@@ -149,12 +161,18 @@ func (e *Engine) StreamImageOutputs(ctx context.Context, client *backend.Client,
 			errCh <- err
 			return
 		} else if ok {
-			out <- result
+			if !sendChan(ctx, out, result) {
+				errCh <- ctx.Err()
+				return
+			}
 			errCh <- nil
 			return
 		}
 		if message != "" {
-			out <- ImageOutput{Kind: "message", Model: request.Model, Index: index, Total: total, Created: time.Now().Unix(), Text: message}
+			if !sendChan(ctx, out, ImageOutput{Kind: "message", Model: request.Model, Index: index, Total: total, Created: time.Now().Unix(), Text: message}) {
+				errCh <- ctx.Err()
+				return
+			}
 		}
 		errCh <- nil
 	}()
