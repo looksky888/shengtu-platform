@@ -23,12 +23,12 @@ import { cn } from "@/lib/utils";
 import {
   loadSharedAnnouncements,
   subscribeAnnouncementEvents,
-} from "./announcement-banner";
+} from "./announcement-events";
 
 const DISMISSED_BANNERS_STORAGE_KEY = "shengtu:v6:dismissed-banners";
 const BANNER_ROTATE_INTERVAL_MS = 4500;
 
-export const BANNER_TONE_META: Record<
+const BANNER_TONE_META: Record<
   AnnouncementBannerTone,
   {
     label: string;
@@ -68,7 +68,7 @@ export const BANNER_TONE_META: Record<
   },
 };
 
-export function normalizeBannerTone(
+function normalizeBannerTone(
   raw?: string | null,
 ): AnnouncementBannerTone {
   if (raw === "activity" || raw === "update" || raw === "warning") {
@@ -77,7 +77,7 @@ export function normalizeBannerTone(
   return "notice";
 }
 
-export function buildBannerSnapshotKey(item: Announcement): string {
+function buildBannerSnapshotKey(item: Announcement): string {
   const version = item.popup_version ?? 1;
   const tone = normalizeBannerTone(item.banner_tone);
   return [
@@ -91,7 +91,7 @@ export function buildBannerSnapshotKey(item: Announcement): string {
   ].join("|");
 }
 
-export function filterVisibleBannerAnnouncements(
+function filterVisibleBannerAnnouncements(
   items: Announcement[],
   dismissedSnapshots: ReadonlySet<string>,
 ): Announcement[] {

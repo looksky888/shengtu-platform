@@ -83,20 +83,27 @@ const API_PERMISSION_SUBTREE_ROOTS: ReadonlyArray<{ method: string; path: string
   { method: "delete", path: "/api/admin/roles" },
 ];
 
+export const OVERVIEW_ELIGIBLE_PATHS = [
+  "/overview",
+  "/admin",
+  "/settings",
+] as const;
+
+const SETTINGS_EQUIVALENT_PATHS = [
+  "/settings",
+  "/admin/settings",
+  "/admin/settings/appearance",
+  "/admin/settings/access",
+  "/admin/settings/storage",
+  "/admin/settings/system",
+  "/admin/channels",
+  "/admin/clearance",
+  "/admin/announcements",
+] as const;
+
 export const ADMIN_ROUTE_LEGACY_EQUIVALENTS: Record<string, readonly string[]> = {
-  "/admin": [
-    "/admin",
-    "/settings",
-    "/accounts",
-    "/icloud",
-    "/users",
-    "/rbac",
-    "/payment-admin",
-    "/credits-admin",
-    "/logs",
-    "/task-queue",
-    "/image-task-logs",
-  ],
+  "/overview": OVERVIEW_ELIGIBLE_PATHS,
+  "/admin": OVERVIEW_ELIGIBLE_PATHS,
   "/admin/channels": ["/admin/channels", "/settings"],
   "/admin/accounts": ["/admin/accounts", "/accounts", "/icloud", "/settings"],
   "/admin/clearance": ["/admin/clearance", "/settings"],
@@ -117,22 +124,34 @@ export const ADMIN_ROUTE_LEGACY_EQUIVALENTS: Record<string, readonly string[]> =
   "/admin/settings/access": ["/admin/settings/access", "/admin/settings", "/settings"],
   "/admin/settings/storage": ["/admin/settings/storage", "/admin/settings", "/settings"],
   "/admin/settings/system": ["/admin/settings/system", "/admin/settings", "/settings"],
+  "/settings": SETTINGS_EQUIVALENT_PATHS,
+  "/accounts": ["/accounts", "/admin/accounts"],
+  "/users": ["/users", "/admin/users"],
+  "/credits-admin": ["/credits-admin", "/admin/credits"],
+  "/payment-admin": ["/payment-admin", "/admin/payments"],
+  "/logs": ["/logs", "/admin/logs"],
+  "/task-queue": ["/task-queue", "/image-task-logs"],
 };
 
-const LEGACY_TO_DEFAULT_ROUTE: Record<string, string> = {
-  "/image-manager": "/assets?type=image",
-  "/video-library": "/assets?type=video",
-  "/recharge": "/wallet",
-  "/accounts": "/admin/accounts",
-  "/icloud": "/admin/accounts?tab=icloud",
-  "/users": "/admin/users",
-  "/rbac": "/admin/users?tab=rbac",
-  "/credits-admin": "/admin/credits",
-  "/payment-admin": "/admin/payments",
-  "/task-queue": "/admin/logs?tab=tasks",
-  "/image-task-logs": "/admin/logs?tab=tasks",
-  "/logs": "/admin/logs?tab=system",
-  "/settings": "/admin/settings/appearance",
+const V6_BOOKMARK_TO_CLASSIC_ROUTE: Record<string, string> = {
+  "/assets": "/image-manager",
+  "/wallet": "/recharge",
+  "/tasks": "/task-queue",
+  "/image-task-logs": "/task-queue",
+  "/admin": "/overview",
+  "/admin/channels": "/settings",
+  "/admin/clearance": "/settings",
+  "/admin/announcements": "/settings",
+  "/admin/settings": "/settings",
+  "/admin/settings/appearance": "/settings",
+  "/admin/settings/access": "/settings",
+  "/admin/settings/storage": "/settings",
+  "/admin/settings/system": "/settings",
+  "/admin/accounts": "/accounts",
+  "/admin/users": "/users",
+  "/admin/credits": "/credits-admin",
+  "/admin/payments": "/payment-admin",
+  "/admin/logs": "/logs",
 };
 
 function cleanRoutePath(path: string): string {
@@ -142,16 +161,34 @@ function cleanRoutePath(path: string): string {
   return withSlash !== "/" ? withSlash.replace(/\/+$/, "") : "/";
 }
 
+function hasBroadOverviewPermission(menuPaths: readonly string[]): boolean {
+  if (
+    OVERVIEW_ELIGIBLE_PATHS.some((candidate) => menuPaths.includes(candidate)) ||
+    SETTINGS_EQUIVALENT_PATHS.some((candidate) => menuPaths.includes(candidate))
+  ) {
+    return true;
+  }
+  const hasUsers =
+    menuPaths.includes("/users") || menuPaths.includes("/admin/users");
+  const hasAccounts =
+    menuPaths.includes("/accounts") || menuPaths.includes("/admin/accounts");
+  return hasUsers && hasAccounts;
+}
+
 export function canAccessPath(session: StoredAuthSession | null | undefined, path: string) {
   if (!session) return false;
   const cleanPath = cleanRoutePath(path);
-  if (cleanPath === "/profile" || cleanPath === "/wallet" || session.role === "admin") {
+  if (cleanPath === "/profile" || session.role === "admin") {
     return true;
   }
   const menuPaths = Array.isArray(session.menuPaths) ? session.menuPaths : [];
+  if (cleanPath === "/overview" || cleanPath === "/admin") {
+    return hasBroadOverviewPermission(menuPaths);
+  }
   if (cleanPath === "/tasks") {
     return (
       menuPaths.includes("/tasks") ||
+      menuPaths.includes("/task-queue") ||
       menuPaths.includes("/image") ||
       menuPaths.includes("/video")
     );
@@ -167,6 +204,16 @@ export function canAccessPath(session: StoredAuthSession | null | undefined, pat
   }
   if (cleanPath === "/video-library") {
     return menuPaths.includes("/video-library") || menuPaths.includes("/video");
+  }
+  if (cleanPath === "/image-manager") {
+    return (
+      menuPaths.includes("/image-manager") ||
+      menuPaths.includes("/image") ||
+      menuPaths.includes("/assets")
+    );
+  }
+  if (cleanPath === "/recharge" || cleanPath === "/wallet") {
+    return menuPaths.includes("/recharge") || menuPaths.includes("/wallet");
   }
   const adminEquivalents = ADMIN_ROUTE_LEGACY_EQUIVALENTS[cleanPath];
   if (adminEquivalents) {
@@ -221,12 +268,35 @@ export function hasAPIPermission(session: StoredAuthSession | null | undefined, 
   return false;
 }
 
+const CLASSIC_DEFAULT_ROUTE_PRIORITY = [
+  "/image",
+  "/video",
+  "/image-manager",
+  "/recharge",
+  "/overview",
+  "/accounts",
+  "/settings",
+  "/video-library",
+  "/task-queue",
+  "/icloud",
+  "/users",
+  "/credits-admin",
+  "/payment-admin",
+  "/rbac",
+  "/logs",
+] as const;
+
 export function getDefaultRouteForSession(session: StoredAuthSession) {
-  if (session.role === "admin") return "/admin";
   const menuPaths = Array.isArray(session.menuPaths) ? session.menuPaths : [];
-  for (const path of ["/image", "/video", "/assets", "/admin", ...menuPaths, "/wallet", "/profile"]) {
-    if (canAccessPath(session, path)) {
-      return LEGACY_TO_DEFAULT_ROUTE[path] || path;
+  for (const path of [
+    ...CLASSIC_DEFAULT_ROUTE_PRIORITY,
+    ...menuPaths,
+    "/profile",
+  ]) {
+    const clean = cleanRoutePath(path);
+    const mapped = V6_BOOKMARK_TO_CLASSIC_ROUTE[clean] || clean;
+    if (canAccessPath(session, mapped)) {
+      return mapped;
     }
   }
   return "/profile";

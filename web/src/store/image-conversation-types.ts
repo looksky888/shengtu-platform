@@ -9,10 +9,13 @@ export type ImageConversationMode = "chat" | "generate" | "image" | "edit";
 export type StoredReferenceImageSource = "upload" | "conversation";
 
 export type StoredReferenceImage = {
+  id?: string;
   name: string;
   type: string;
+  mimeType?: string;
   dataUrl: string;
   source?: StoredReferenceImageSource;
+  stripped?: boolean;
 };
 
 export type StoredImage = {
@@ -59,6 +62,8 @@ export type ImageTurn = {
   quality?: ImageQuality;
   outputFormat?: ImageOutputFormat;
   outputCompression?: number;
+  frameCount?: number;
+  frameDurationMs?: number;
   visibility?: ImageVisibility;
   images: StoredImage[];
   createdAt: string;

@@ -97,8 +97,14 @@ func (e *Engine) TextBackend(accessToken string) *backend.Client {
 
 func (e *Engine) ListModels(ctx context.Context) (map[string]any, error) {
 	result, err := e.listModels(ctx)
-	if err != nil {
-		return nil, err
+	if err != nil || result == nil {
+		if err != nil && e != nil && e.Logger != nil {
+			e.Logger.Warning("list upstream models failed; falling back to local model catalog", "error", err.Error())
+		}
+		result = map[string]any{"object": "list", "data": []map[string]any{}}
+	}
+	if util.Clean(result["object"]) == "" {
+		result["object"] = "list"
 	}
 	data := util.AsMapSlice(result["data"])
 	seen := map[string]struct{}{}
@@ -124,7 +130,9 @@ func (e *Engine) ListModels(ctx context.Context) (map[string]any, error) {
 
 func isWebImageCatalogModel(model string) bool {
 	switch strings.ToLower(strings.TrimSpace(model)) {
-	case util.ImageModelGPT, util.ImageModelGPT25, util.ImageModelGPT25Flare, util.ImageModelGPT25Sunburst:
+	case util.ImageModelGPT,
+		util.ImageModelGPT25, util.ImageModelGPT25Flare, util.ImageModelGPT25Sunburst,
+		util.ImageModelGPT26, util.ImageModelGPT26Flare, util.ImageModelGPT26Sunburst:
 		return true
 	default:
 		return false
@@ -179,14 +187,18 @@ func (e *Engine) CollectText(ctx context.Context, client *backend.Client, reques
 }
 
 func (e *Engine) ConversationEvents(ctx context.Context, client *backend.Client, messages []map[string]any, model, prompt string, images []string, size, quality string, forceImageToolValues ...bool) (<-chan ConversationEvent, <-chan error) {
-	return e.conversationEvents(ctx, client, messages, model, "", prompt, images, size, quality, forceImageToolValues...)
+	return e.conversationEvents(ctx, client, messages, model, "", prompt, images, size, quality, "", "", "", forceImageToolValues...)
 }
 
 func (e *Engine) ConversationEventsWithUpstreamModel(ctx context.Context, client *backend.Client, messages []map[string]any, model, upstreamModel, prompt string, images []string, size, quality string, forceImageToolValues ...bool) (<-chan ConversationEvent, <-chan error) {
-	return e.conversationEvents(ctx, client, messages, model, upstreamModel, prompt, images, size, quality, forceImageToolValues...)
+	return e.conversationEvents(ctx, client, messages, model, upstreamModel, prompt, images, size, quality, "", "", "", forceImageToolValues...)
 }
 
-func (e *Engine) conversationEvents(ctx context.Context, client *backend.Client, messages []map[string]any, model, upstreamModel, prompt string, images []string, size, quality string, forceImageToolValues ...bool) (<-chan ConversationEvent, <-chan error) {
+func (e *Engine) conversationEventsForImageRequest(ctx context.Context, client *backend.Client, request ConversationRequest) (<-chan ConversationEvent, <-chan error) {
+	return e.conversationEvents(ctx, client, request.Messages, request.Model, request.UpstreamModel, request.Prompt, request.Images, request.Size, request.Quality, request.OutputFormat, request.FrameCount, request.FrameDurationMS, request.ResponsesImageTool)
+}
+
+func (e *Engine) conversationEvents(ctx context.Context, client *backend.Client, messages []map[string]any, model, upstreamModel, prompt string, images []string, size, quality, outputFormat, frameCount, frameDurationMS string, forceImageToolValues ...bool) (<-chan ConversationEvent, <-chan error) {
 	out := make(chan ConversationEvent)
 	errCh := make(chan error, 1)
 	go func() {
@@ -204,7 +216,7 @@ func (e *Engine) conversationEvents(ctx context.Context, client *backend.Client,
 		systemHints := []string{}
 		streamImages := []string(nil)
 		if imageModel {
-			finalPrompt = BuildImageRequestPrompt(normalized, prompt, images, size, quality)
+			finalPrompt = BuildImageRequestPromptWithOptions(normalized, prompt, images, size, quality, outputFormat, frameCount, frameDurationMS)
 			systemHints = []string{"picture_v2"}
 			streamImages = images
 		} else {

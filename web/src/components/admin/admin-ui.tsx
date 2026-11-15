@@ -197,7 +197,7 @@ export function AdminSectionCard({
   return (
     <section
       className={cn(
-        "overflow-hidden rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-surface)]",
+        "admin-section-card overflow-hidden rounded-[10px] border border-[var(--admin-border)] bg-[var(--admin-surface)]",
         className,
       )}
     >

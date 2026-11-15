@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 
 import { ApiIntegrationQuickPanel } from "@/app/profile/profile-api-integration-panel";
+import { resolveProfileApiBaseOrigin } from "@/app/profile/profile-api-pricing";
 import { ProfileInfoRow } from "@/app/profile/profile-info-row";
 import { formatDateTime, maskKey } from "@/app/profile/profile-utils";
 import type { ApiKeyConnectivityResult } from "@/app/profile/use-profile-api-key";
@@ -29,6 +30,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import webConfig from "@/constants/common-env";
 import type { ProfileApiKeyRateLimits, UserKey } from "@/lib/api";
 
 type ProfileApiKeyCardProps = {
@@ -91,47 +93,53 @@ export function ProfileApiKeyCard({
   onGenerate,
   onTestConnectivity, onOpenDocs,
 }: ProfileApiKeyCardProps) {
-  const origin =
-    typeof window !== "undefined" && window.location.origin
-      ? window.location.origin
-      : "https://your-domain.example.com";
+  const origin = resolveProfileApiBaseOrigin(
+    webConfig.apiUrl,
+    typeof window !== "undefined" ? window.location.origin : "",
+  );
   const openAIBaseURL = `${origin}/v1`;
   const keyExists = Boolean(apiKey) || hasKey;
 
   return (
-    <Card>
+    <Card className="min-w-0 border-border bg-[#fbfdff] dark:bg-card">
       <CardHeader className="border-b border-border/70 pb-4">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-border/80 bg-surface-muted text-foreground">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-[#cfe0ff] bg-[#edf4ff] text-[#1456f0] dark:border-sky-500/30 dark:bg-sky-950/50 dark:text-sky-300">
               <KeyRound className="size-5" />
             </div>
             <div className="min-w-0">
               <CardTitle className="text-base font-semibold">
-                接口密钥（API Key）
+                我的 API Key（接口密钥）
               </CardTitle>
-              <CardDescription className="truncate">
-                兼容 OpenAI / Anthropic 协议与平台生图、视频创作接口
+              <CardDescription className="mt-0.5 leading-relaxed">
+                生成 sk- 开头的密钥后，就能在自己的代码或第三方客户端里调用本站生图、生成 GIF 与视频接口
               </CardDescription>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">{onOpenDocs ? (<Button type="button" variant="outline" size="xs" onClick={onOpenDocs}><BookOpen className="size-3.5" />查看接入文档</Button>) : null}
+          <div className="flex flex-wrap items-center gap-2">
+            {onOpenDocs ? (
+              <Button type="button" variant="outline" size="xs" onClick={onOpenDocs}>
+                <BookOpen className="size-3.5" />
+                看下面接入教程
+              </Button>
+            ) : null}
             {apiKey ? (
               <Badge
                 variant={apiKey.enabled ? "success" : "danger"}
                 className="w-fit rounded-md"
               >
-                {apiKey.enabled ? "已启用" : "已禁用"}
+                {apiKey.enabled ? "正在使用" : "已暂停"}
               </Badge>
             ) : (
               <Badge variant="secondary" className="w-fit rounded-md">
-                尚未生成
+                还没生成
               </Badge>
             )}
           </div>
         </div>
       </CardHeader>
-      <CardContent className="flex flex-col gap-4 pt-5">
+      <CardContent className="flex min-w-0 flex-col gap-4 pt-5">
         {isLoadingKey ? (
           <div className="flex min-h-[240px] items-center justify-center">
             <LoaderCircle className="size-5 animate-spin text-muted-foreground" />
@@ -143,16 +151,17 @@ export function ProfileApiKeyCard({
                 <div className="flex items-center justify-between gap-2 font-semibold">
                   <span className="inline-flex items-center gap-1.5">
                     <Sparkles className="size-4 text-emerald-600 dark:text-emerald-400" />
-                    新密钥已生成！服务端仅存储加密哈希，请立即复制妥善保管
+                    新密钥已生成！请现在复制保存好（服务器不会保存完整明文）
                   </span>
                   <Badge variant="success" className="rounded-md">
-                    明文已就绪
+                    可直接复制
                   </Badge>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <Button
                     type="button"
                     size="xs"
+                    className="bg-[#1456f0] text-white hover:bg-[#1048ce]"
                     onClick={() => onCopy(justGeneratedKey, "API Key")}
                   >
                     <Copy className="size-3.5" />
@@ -187,14 +196,14 @@ export function ProfileApiKeyCard({
               </div>
             ) : null}
 
-            <div className="grid items-stretch gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+            <div className="grid min-w-0 items-stretch gap-4 lg:grid-cols-[1.15fr_0.85fr]">
               {keyExists ? (
-                <div className="flex flex-col justify-between gap-4 rounded-xl border border-border/70 bg-surface-muted/25 p-4">
+                <div className="flex min-w-0 flex-col justify-between gap-4 rounded-xl border border-border/70 bg-surface-muted/25 p-4">
                   <div className="flex flex-col gap-3.5">
                     <div className="flex min-h-7 items-center justify-between gap-2">
                       <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-foreground">
-                        <KeyRound className="size-3.5 text-muted-foreground" />
-                        凭证管理与安全控制
+                        <KeyRound className="size-3.5 text-[#1456f0] dark:text-sky-400" />
+                        密钥查看与管理
                       </span>
                       <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
                         {apiKey?.id || "sk-token"}
@@ -313,53 +322,53 @@ function ApiKeyOnboardingPanel({
   onGenerate: () => void;
 }) {
   return (
-    <div className="flex flex-col justify-between gap-4 rounded-xl border border-border/70 bg-surface-muted/25 p-4">
-      <div className="space-y-4">
+    <div className="flex min-w-0 flex-col justify-between gap-4 rounded-xl border border-border/70 bg-surface-muted/25 p-4">
+      <div className="min-w-0 space-y-4">
         <div className="flex min-h-7 items-center justify-between gap-2">
           <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-foreground">
-            <KeyRound className="size-3.5 text-muted-foreground" />
-            专属 API 凭证初始化
+            <KeyRound className="size-3.5 text-[#1456f0] dark:text-sky-400" />
+            第一步：生成你的 API Key
           </span>
           <Badge variant="outline" className="rounded-md text-[10px]">
-            SHA-256 哈希托管
+            标准 sk- 格式
           </Badge>
         </div>
 
         <div className="rounded-xl border border-border/75 bg-surface p-4 shadow-2xs">
           <div className="flex items-start gap-3">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-foreground bg-foreground text-background">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-[#cfe0ff] bg-[#edf4ff] text-[#1456f0] dark:border-sky-500/30 dark:bg-sky-950/50 dark:text-sky-300">
               <KeyRound className="size-4.5" />
             </div>
             <div className="min-w-0 space-y-1">
               <h3 className="text-sm font-semibold text-foreground">
-                尚未生成个人 API 密钥
+                你还没有生成 API Key
               </h3>
               <p className="text-xs leading-relaxed text-muted-foreground">
-                一键签发标准 <code className="font-mono text-foreground">sk-</code> 令牌，即可在自有应用、工作流或第三方客户端中无缝调用平台模型。
+                点下面按钮就能拿到一个 <code className="font-mono text-foreground">sk-</code> 开头的密钥，填进 Cherry Studio、LobeChat、Dify 或自己的代码里直接用。
               </p>
             </div>
           </div>
 
           <div className="mt-4 grid gap-2.5 sm:grid-cols-2">
             <div className="flex items-start gap-2.5 rounded-lg border border-border/65 bg-surface-muted/35 p-2.5">
-              <Terminal className="mt-0.5 size-3.5 shrink-0 text-foreground" />
+              <Terminal className="mt-0.5 size-3.5 shrink-0 text-[#1456f0] dark:text-sky-400" />
               <div className="min-w-0">
                 <div className="text-xs font-semibold text-foreground">
-                  兼容 OpenAI Images / Chat SDK
+                  兼容 OpenAI 官方接口写法
                 </div>
                 <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
-                  原生支持文生图、局部重绘、异步视频与对话协议
+                  支持文生图、参考图改图、直出 GIF 动图、生成视频和对话生图
                 </p>
               </div>
             </div>
             <div className="flex items-start gap-2.5 rounded-lg border border-border/65 bg-surface-muted/35 p-2.5">
-              <Coins className="mt-0.5 size-3.5 shrink-0 text-foreground" />
+              <Coins className="mt-0.5 size-3.5 shrink-0 text-[#1456f0] dark:text-sky-400" />
               <div className="min-w-0">
                 <div className="text-xs font-semibold text-foreground">
-                  与当前账户共享算力积分池
+                  直接用当前账号的积分
                 </div>
                 <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
-                  统一扣费记账，上游任务异常失败自动退还预扣积分
+                  和网页端共用同一个积分余额，如果生成失败会自动退回积分
                 </p>
               </div>
             </div>
@@ -371,13 +380,13 @@ function ApiKeyOnboardingPanel({
             htmlFor="profile-api-key-onboarding-name"
             className="text-xs font-medium text-foreground"
           >
-            密钥备注名称（可选）
+            给密钥起个备注名（选填）
           </label>
           <Input
             id="profile-api-key-onboarding-name"
             value={keyName}
             onChange={(event) => onKeyNameChange(event.target.value)}
-            placeholder="例如：影策客户端 / 本地开发脚本"
+            placeholder="例如：我的 Python 脚本 / Cherry Studio"
             className="h-9 bg-surface"
           />
         </div>
@@ -385,15 +394,20 @@ function ApiKeyOnboardingPanel({
 
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-3">
         <span className="text-[11px] text-muted-foreground">
-          生成后支持随时禁用、轮换或销毁令牌
+          泄露了也别担心，随时可以暂停、重新生成或删除
         </span>
-        <Button type="button" onClick={onGenerate} disabled={isGenerating}>
+        <Button
+          type="button"
+          className="bg-[#1456f0] text-white hover:bg-[#1048ce]"
+          onClick={onGenerate}
+          disabled={isGenerating}
+        >
           {isGenerating ? (
             <LoaderCircle className="size-4 animate-spin" />
           ) : (
             <KeyRound className="size-4" />
           )}
-          立即生成专属密钥
+          生成 API Key
         </Button>
       </div>
     </div>
@@ -432,9 +446,9 @@ function BearerTokenBox({
         </span>
         <span>
           {canCopyPlaintext
-            ? "当前浏览器已缓存明文，可随时复制"
+            ? "当前浏览器已记住密钥，可直接复制"
             : hasKey
-              ? "服务端仅存哈希，重新生成后可获取新明文"
+              ? "浏览器未保存旧明文，点「重新生成」可换新密钥"
               : "点击下方按钮生成密钥"}
         </span>
       </div>
@@ -469,6 +483,7 @@ function BearerTokenBox({
             type="button"
             variant={canCopyPlaintext ? "default" : "outline"}
             size="sm"
+            className={canCopyPlaintext ? "bg-[#1456f0] text-white hover:bg-[#1048ce]" : undefined}
             onClick={() =>
               activePlaintextKey
                 ? onCopy(activePlaintextKey, "API Key")

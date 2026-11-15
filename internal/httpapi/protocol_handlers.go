@@ -15,7 +15,7 @@ func sanitizeClientImageRouteMetadata(body map[string]any) {
 		"image_credit_cost", "effective_provider", "effective_channel", "provider_source",
 		"effective_model", "upstream_host", "channel_id", "channel_name", "channel_base_url",
 		"channel_api_key", "channel_timeout_seconds", "channel_max_retries",
-		"channel_max_concurrency", "channel_download_urls",
+		"channel_max_concurrency", "channel_download_urls", "channel_formats",
 	} {
 		delete(body, key)
 	}
@@ -48,6 +48,38 @@ func applyImageRouteMetadataToBody(body, metadata map[string]any) {
 	if value, ok := metadata["channel_download_urls"]; ok {
 		body["channel_download_urls"] = util.ToBool(value)
 	}
+	if formats, ok := metadata["channel_formats"]; ok && formats != nil {
+		body["channel_formats"] = formats
+	}
+}
+
+func (a *App) defaultImageModel() string {
+	if a != nil && a.config != nil {
+		if m := strings.TrimSpace(a.config.ImageDefaultModel()); m != "" && m != util.ImageModelAuto {
+			return m
+		}
+	}
+	return util.ImageModelGPT26Flare
+}
+
+func (a *App) resolveImageRequestModel(raw string) string {
+	model := strings.TrimSpace(raw)
+	if model == "" || model == util.ImageModelAuto {
+		return a.defaultImageModel()
+	}
+	return model
+}
+
+func withGeneratedImageTracker(r *http.Request) (*http.Request, *protocol.GeneratedImageTracker) {
+	if r == nil {
+		return nil, nil
+	}
+	ctx, tracker := protocol.WithGeneratedImageTracker(r.Context())
+	return r.WithContext(ctx), tracker
+}
+
+func (a *App) validateImageGenerationResolution(body map[string]any, model string, editing bool) error {
+	return validateImageGenerationResolution(body, model, editing)
 }
 
 func (a *App) handleModels(w http.ResponseWriter, r *http.Request) {
@@ -64,6 +96,7 @@ func (a *App) handleImageGenerations(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	r, _ = withGeneratedImageTracker(r)
 	body, err := readJSONMap(r)
 	if err != nil {
 		util.WriteError(w, http.StatusBadRequest, "请求体不是合法 JSON")
@@ -82,13 +115,22 @@ func (a *App) handleImageGenerations(w http.ResponseWriter, r *http.Request) {
 		util.WriteError(w, http.StatusBadRequest, mapImageAPIError(err))
 		return
 	}
-	model := firstNonEmpty(util.Clean(body["model"]), util.ImageModelAuto)
+	model := a.resolveImageRequestModel(util.Clean(body["model"]))
+	body["model"] = model
+	if util.IsGrokImageModel(model) {
+		if err := validateGrokImageResolution(body, model, false); err != nil {
+			util.WriteError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+	}
 	metadata, err := a.imageTaskRequestMetadata(body, model, service.ImageCapabilityGenerate)
 	if err != nil {
 		util.WriteError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	applyImageRouteMetadataToBody(body, metadata)
+	a.billingWG.Add(1)
+	defer a.billingWG.Done()
 	charge, err := a.deductImageCredits(identity, body, service.CreditReasonImageGeneration, "/v1/images/generations")
 	if err != nil {
 		a.writeCreditBillingError(w, err)
@@ -114,6 +156,7 @@ func (a *App) handleImageEdits(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	r, _ = withGeneratedImageTracker(r)
 	body, images, err := readMultipartImageBody(w, r)
 	if err != nil {
 		util.WriteError(w, http.StatusBadRequest, err.Error())
@@ -135,13 +178,20 @@ func (a *App) handleImageEdits(w http.ResponseWriter, r *http.Request) {
 		util.WriteError(w, http.StatusBadRequest, mapImageAPIError(err))
 		return
 	}
-	model := firstNonEmpty(util.Clean(body["model"]), util.ImageModelAuto)
+	model := a.resolveImageRequestModel(util.Clean(body["model"]))
+	body["model"] = model
+	if err := a.validateImageGenerationResolution(body, model, true); err != nil {
+		util.WriteError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 	metadata, err := a.imageTaskRequestMetadata(body, model, service.ImageCapabilityEdit)
 	if err != nil {
 		util.WriteError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	applyImageRouteMetadataToBody(body, metadata)
+	a.billingWG.Add(1)
+	defer a.billingWG.Done()
 	charge, err := a.deductImageCredits(identity, body, service.CreditReasonImageEdit, "/v1/images/edits")
 	if err != nil {
 		a.writeCreditBillingError(w, err)
@@ -167,6 +217,7 @@ func (a *App) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	r, _ = withGeneratedImageTracker(r)
 	body, err := readJSONMap(r)
 	if err != nil {
 		util.WriteError(w, http.StatusBadRequest, "请求体不是合法 JSON")
@@ -179,6 +230,12 @@ func (a *App) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 	model := firstNonEmpty(util.Clean(body["model"]), "auto")
 	summary := "文本生成"
 	var charge *imageCreditCharge
+	billingTracked := false
+	defer func() {
+		if billingTracked {
+			a.billingWG.Done()
+		}
+	}()
 	defer func() {
 		if value := recover(); value != nil {
 			a.refundImageCredits(charge)
@@ -193,6 +250,8 @@ func (a *App) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 			util.WriteError(w, http.StatusBadRequest, fmt.Sprintf("生成数量 n 须在 %d–%d 之间", protocol.MinImageCount, protocol.MaxImageCount))
 			return
 		}
+		model = a.resolveImageRequestModel(model)
+		body["model"] = model
 		summary = "文生图"
 		imageStats = protocolImageStatsSpec{
 			Enabled:        true,
@@ -205,6 +264,8 @@ func (a *App) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		applyImageRouteMetadataToBody(body, metadata)
+		a.billingWG.Add(1)
+		billingTracked = true
 		if c, billingErr := a.deductImageCredits(identity, body, service.CreditReasonImageGeneration, "/v1/chat/completions"); billingErr != nil {
 			a.writeCreditBillingError(w, billingErr)
 			return
@@ -230,6 +291,7 @@ func (a *App) handleResponses(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	r, _ = withGeneratedImageTracker(r)
 	body, err := readJSONMap(r)
 	if err != nil {
 		util.WriteError(w, http.StatusBadRequest, "请求体不是合法 JSON")
@@ -242,6 +304,12 @@ func (a *App) handleResponses(w http.ResponseWriter, r *http.Request) {
 	model := firstNonEmpty(util.Clean(body["model"]), "auto")
 	summary := "Responses"
 	var charge *imageCreditCharge
+	billingTracked := false
+	defer func() {
+		if billingTracked {
+			a.billingWG.Done()
+		}
+	}()
 	defer func() {
 		if value := recover(); value != nil {
 			a.refundImageCredits(charge)
@@ -271,8 +339,8 @@ func (a *App) handleResponses(w http.ResponseWriter, r *http.Request) {
 		}
 		billingBody := util.CopyMap(body)
 		effectiveModel := firstNonEmpty(toolModel, model)
-		if effectiveModel == util.ImageModelAuto {
-			effectiveModel = util.ImageModelGPT
+		if effectiveModel == "" || effectiveModel == util.ImageModelAuto || !util.IsImageGenerationModel(effectiveModel) {
+			effectiveModel = a.defaultImageModel()
 		}
 		billingBody["model"] = effectiveModel
 		if toolSize := util.Clean(tool["size"]); toolSize != "" {
@@ -280,6 +348,15 @@ func (a *App) handleResponses(w http.ResponseWriter, r *http.Request) {
 		}
 		if toolQuality := util.Clean(tool["quality"]); toolQuality != "" {
 			billingBody["quality"] = toolQuality
+		}
+		if outFmt := firstNonEmpty(util.Clean(tool["output_format"]), util.Clean(body["output_format"])); outFmt != "" {
+			billingBody["output_format"] = outFmt
+		}
+		if fc := firstNonEmpty(util.Clean(tool["frame_count"]), util.Clean(body["frame_count"])); fc != "" {
+			billingBody["frame_count"] = fc
+		}
+		if fd := firstNonEmpty(util.Clean(tool["frame_duration_ms"]), util.Clean(body["frame_duration_ms"])); fd != "" {
+			billingBody["frame_duration_ms"] = fd
 		}
 		metadata, sizeErr := a.imageTaskRequestMetadata(billingBody, effectiveModel, service.ImageCapabilityGenerate)
 		if sizeErr != nil {
@@ -289,6 +366,8 @@ func (a *App) handleResponses(w http.ResponseWriter, r *http.Request) {
 		applyImageRouteMetadataToBody(billingBody, metadata)
 		applyImageRouteMetadataToBody(body, metadata)
 		summary = "文生图"
+		a.billingWG.Add(1)
+		billingTracked = true
 		c, billingErr := a.deductImageCredits(identity, billingBody, service.CreditReasonImageGeneration, "/v1/responses")
 		if billingErr != nil {
 			a.writeCreditBillingError(w, billingErr)
@@ -312,6 +391,7 @@ func (a *App) handleMessages(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	r, _ = withGeneratedImageTracker(r)
 	body, err := readJSONMap(r)
 	if err != nil {
 		util.WriteError(w, http.StatusBadRequest, "请求体不是合法 JSON")

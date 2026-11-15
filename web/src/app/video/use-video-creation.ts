@@ -42,7 +42,6 @@ import { createRequestId } from "@/lib/request-id";
 import { dispatchQuotaRefresh } from "@/lib/quota-events";
 
 export type VideoInputMode = "t2v" | "i2v" | "ref";
-export type VideoStageViewMode = "stream" | "stage";
 
 function readTaskID(storageKey: string) {
   if (typeof window === "undefined" || !storageKey) return "";
@@ -95,7 +94,6 @@ export function useVideoCreation(session: StoredAuthSession | null | undefined) 
   const [preset, setPreset] = useState<VideoGenerationRequest["preset"]>("custom");
   const [model, setModel] = useState<VideoGenerationRequest["model"]>("grok-imagine-video-1.5");
   const [inputMode, setInputMode] = useState<VideoInputMode>("t2v");
-  const [viewMode, setViewMode] = useState<VideoStageViewMode>("stream");
   const [inputReference, setInputReference] = useState("");
   const [uploadedReference, setUploadedReference] = useState<(VideoInputUpload & { preview_url: string }) | null>(null);
   const [uploadingReference, setUploadingReference] = useState(false);
@@ -825,11 +823,9 @@ export function useVideoCreation(session: StoredAuthSession | null | undefined) 
   return {
     session,
     composerTextareaRef,
-    focusComposer,
     prompt, setPrompt, seconds, setSeconds, size, setSize, resolutionName, setResolutionName,
     model, setModel,
     inputMode, setInputMode,
-    viewMode, setViewMode,
     preset, setPreset, inputReference, setInputReferenceURL, uploadedReference,
     uploadingReference, uploadReference, clearUploadedReference,
     uploadingReferences, uploadReferences,

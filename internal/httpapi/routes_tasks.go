@@ -27,9 +27,9 @@ func (a *App) handleCreationTasks(w http.ResponseWriter, r *http.Request) {
 		// Typed list pilot: stable ImageTaskPublic JSON (same wire shape as publicTask maps).
 		ids := util.ParseCommaList(r.URL.Query().Get("ids"))
 		if len(ids) > 0 {
-			util.WriteJSON(w, http.StatusOK, a.tasks.ListTasksTyped(identity, ids))
+			util.WriteJSON(w, http.StatusOK, a.signImageTaskListResponse(r, identity, a.tasks.ListTasksTyped(identity, ids)))
 		} else {
-			util.WriteJSON(w, http.StatusOK, a.tasks.ListRecentTasksTyped(identity, util.ToInt(r.URL.Query().Get("limit"), 20), r.URL.Query().Get("status")))
+			util.WriteJSON(w, http.StatusOK, a.signImageTaskListResponse(r, identity, a.tasks.ListRecentTasksTyped(identity, util.ToInt(r.URL.Query().Get("limit"), 20), r.URL.Query().Get("status"))))
 		}
 		return
 	}
@@ -43,7 +43,7 @@ func (a *App) handleCreationTasks(w http.ResponseWriter, r *http.Request) {
 			util.WriteError(w, creationTaskErrorStatus(err), mapCreationTaskError(err))
 			return
 		}
-		util.WriteJSON(w, http.StatusOK, service.ImageTaskPublicFromMap(task))
+		util.WriteJSON(w, http.StatusOK, a.signImageTaskPublic(r, identity, service.ImageTaskPublicFromMap(task)))
 		return
 	}
 	if r.URL.Path == "/api/creation-tasks/image-generations" && r.Method == http.MethodPost {
@@ -51,7 +51,8 @@ func (a *App) handleCreationTasks(w http.ResponseWriter, r *http.Request) {
 		if !ok {
 			return
 		}
-		model := firstNonEmpty(util.Clean(body["model"]), util.ImageModelAuto)
+		model := a.resolveImageRequestModel(util.Clean(body["model"]))
+		body["model"] = model
 		if err := validateImageGenerationResolution(body, model, false); err != nil {
 			util.WriteError(w, http.StatusBadRequest, err.Error())
 			return
@@ -66,7 +67,7 @@ func (a *App) handleCreationTasks(w http.ResponseWriter, r *http.Request) {
 			writeCreationTaskSubmitError(w, err)
 			return
 		}
-		util.WriteJSON(w, http.StatusOK, service.ImageTaskPublicFromMap(task))
+		util.WriteJSON(w, http.StatusOK, a.signImageTaskPublic(r, identity, service.ImageTaskPublicFromMap(task)))
 		return
 	}
 	if r.URL.Path == "/api/creation-tasks/response-image-generations" && r.Method == http.MethodPost {
@@ -74,7 +75,8 @@ func (a *App) handleCreationTasks(w http.ResponseWriter, r *http.Request) {
 		if !ok {
 			return
 		}
-		model := firstNonEmpty(util.Clean(body["model"]), util.ImageModelAuto)
+		model := a.resolveImageRequestModel(util.Clean(body["model"]))
+		body["model"] = model
 		if err := validateImageGenerationResolution(body, model, len(util.AsStringSlice(body["images"])) > 0); err != nil {
 			util.WriteError(w, http.StatusBadRequest, err.Error())
 			return
@@ -89,7 +91,7 @@ func (a *App) handleCreationTasks(w http.ResponseWriter, r *http.Request) {
 			writeCreationTaskSubmitError(w, err)
 			return
 		}
-		util.WriteJSON(w, http.StatusOK, service.ImageTaskPublicFromMap(task))
+		util.WriteJSON(w, http.StatusOK, a.signImageTaskPublic(r, identity, service.ImageTaskPublicFromMap(task)))
 		return
 	}
 	if r.URL.Path == "/api/creation-tasks/chat-completions" && r.Method == http.MethodPost {
@@ -106,7 +108,7 @@ func (a *App) handleCreationTasks(w http.ResponseWriter, r *http.Request) {
 			writeCreationTaskSubmitError(w, err)
 			return
 		}
-		util.WriteJSON(w, http.StatusOK, service.ImageTaskPublicFromMap(task))
+		util.WriteJSON(w, http.StatusOK, a.signImageTaskPublic(r, identity, service.ImageTaskPublicFromMap(task)))
 		return
 	}
 	if r.URL.Path == "/api/creation-tasks/video-generations" && r.Method == http.MethodPost {
@@ -129,7 +131,7 @@ func (a *App) handleCreationTasks(w http.ResponseWriter, r *http.Request) {
 			writeCreationTaskSubmitError(w, err)
 			return
 		}
-		util.WriteJSON(w, http.StatusOK, service.ImageTaskPublicFromMap(task))
+		util.WriteJSON(w, http.StatusOK, a.signImageTaskPublic(r, identity, service.ImageTaskPublicFromMap(task)))
 		return
 	}
 	if r.URL.Path == "/api/creation-tasks/image-edits" && r.Method == http.MethodPost {
@@ -138,7 +140,8 @@ func (a *App) handleCreationTasks(w http.ResponseWriter, r *http.Request) {
 			util.WriteError(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		model := firstNonEmpty(util.Clean(body["model"]), util.ImageModelAuto)
+		model := a.resolveImageRequestModel(util.Clean(body["model"]))
+		body["model"] = model
 		if err := validateImageGenerationResolution(body, model, true); err != nil {
 			util.WriteError(w, http.StatusBadRequest, err.Error())
 			return
@@ -153,7 +156,7 @@ func (a *App) handleCreationTasks(w http.ResponseWriter, r *http.Request) {
 			writeCreationTaskSubmitError(w, err)
 			return
 		}
-		util.WriteJSON(w, http.StatusOK, service.ImageTaskPublicFromMap(task))
+		util.WriteJSON(w, http.StatusOK, a.signImageTaskPublic(r, identity, service.ImageTaskPublicFromMap(task)))
 		return
 	}
 	http.NotFound(w, r)
@@ -166,6 +169,9 @@ func (a *App) imageTaskRequestMetadata(body map[string]any, model string, capabi
 		return nil, err
 	}
 	if err := validateImageSizeForProvider(util.Clean(metadata["effective_provider"]), size); err != nil {
+		return nil, err
+	}
+	if err := a.validateImageOutputFormatForRequest(body, model, metadata); err != nil {
 		return nil, err
 	}
 	resolution := strings.ToLower(strings.TrimSpace(util.Clean(body["image_resolution"])))
@@ -183,11 +189,44 @@ func (a *App) imageTaskRequestMetadata(body map[string]any, model string, capabi
 	return metadata, nil
 }
 
+func (a *App) validateImageOutputFormatForRequest(body map[string]any, model string, metadata map[string]any) error {
+	rawFormat := strings.ToLower(strings.TrimSpace(util.Clean(body["output_format"])))
+	if rawFormat != "gif" {
+		return nil
+	}
+	if util.ToBool(body["stream"]) {
+		return fmt.Errorf("GIF output does not support stream=true")
+	}
+	if formats := util.AsStringSlice(metadata["channel_formats"]); len(formats) > 0 {
+		for _, candidate := range formats {
+			if strings.EqualFold(strings.TrimSpace(candidate), "gif") {
+				return nil
+			}
+		}
+		return fmt.Errorf("当前生图模型不支持 GIF 动图输出，请切换至 gpt-image-2.6 系列模型")
+	}
+	effectiveModel := firstNonEmpty(strings.TrimSpace(util.Clean(metadata["effective_model"])), strings.TrimSpace(model))
+	if (effectiveModel == "" || effectiveModel == util.ImageModelAuto) &&
+		util.Clean(metadata["effective_provider"]) == service.ImageTaskProviderAccountPool &&
+		a != nil && a.config != nil {
+		effectiveModel = a.config.ImageDefaultModel()
+	}
+	if !util.SupportsGIFOutputModel(effectiveModel) {
+		return fmt.Errorf("当前生图模型不支持 GIF 动图输出，请切换至 gpt-image-2.6 系列模型")
+	}
+	return nil
+}
+
 func validateGrokImageResolution(body map[string]any, model string, editing bool) error {
 	if !util.IsGrokImageModel(model) {
 		return nil
 	}
 	resolution := strings.ToLower(strings.TrimSpace(util.Clean(body["image_resolution"])))
+	if (resolution == "" || resolution == "auto") && strings.TrimSpace(util.Clean(body["size"])) != "" {
+		if inferred := service.NormalizeImageResolutionPreset(util.Clean(body["size"])); inferred != "" {
+			resolution = inferred
+		}
+	}
 	if resolution == "" || resolution == "auto" {
 		body["image_resolution"] = "1k"
 		return nil
@@ -230,9 +269,17 @@ func validateImageGenerationResolution(body map[string]any, model string, editin
 }
 
 func imageOutputOptionsFromBody(body map[string]any) service.ImageOutputOptions {
-	format := service.NormalizeImageOutputFormat(util.Clean(body["output_format"]))
-	options := service.ImageOutputOptions{Format: format}
-	if format != "png" {
+	rawFormat := strings.TrimSpace(util.Clean(body["output_format"]))
+	format := ""
+	if rawFormat != "" {
+		format = service.NormalizeImageOutputFormat(rawFormat)
+	}
+	options := service.ImageOutputOptions{
+		Format:          format,
+		FrameCount:      strings.TrimSpace(util.Clean(body["frame_count"])),
+		FrameDurationMS: strings.TrimSpace(util.Clean(body["frame_duration_ms"])),
+	}
+	if format != "" && format != "png" && format != "gif" {
 		if compression, ok := imageOutputCompressionFromBody(body["output_compression"]); ok {
 			options.Compression = &compression
 		}

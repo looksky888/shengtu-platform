@@ -174,14 +174,18 @@ export function useImageTurnActions({
         toast.error("只有失败图片或模型文本回复可以单独重试");
         return;
       }
-      if (usesReferenceImages(targetTurn.mode) && targetTurn.referenceImages.length === 0) {
-        toast.error("未找到可用的参考图");
-        return;
+      if (usesReferenceImages(targetTurn.mode)) {
+        const usableRefs = targetTurn.referenceImages.filter((image) => !image.stripped && Boolean(image.dataUrl));
+        if (usableRefs.length === 0) {
+          const hasStripped = targetTurn.referenceImages.some((image) => Boolean(image.stripped) || !image.dataUrl);
+          toast.error(hasStripped ? "参考图较大未缓存，重试需重新上传" : "未找到可用的参考图");
+          return;
+        }
       }
 
       retryingImageIdsRef.current.add(retryKey);
       const now = new Date().toISOString();
-      const retryTaskId = imageTaskBatchId(`${targetTurn.id}-${createId()}`, imageIndex);
+      const retryPlannedId = imageTaskBatchId(`${targetTurn.id}-${createId()}`, imageIndex);
       try {
         await updateConversation(conversationId, (current) => {
           const conversation = current ?? targetConversation;
@@ -196,7 +200,8 @@ export function useImageTurnActions({
                 index === imageIndex
                   ? {
                       ...image,
-                      taskId: retryTaskId,
+                      id: retryPlannedId,
+                      taskId: undefined,
                       status: "loading" as const,
                       b64_json: undefined,
                       url: undefined,
@@ -247,9 +252,13 @@ export function useImageTurnActions({
         toast.error("当前轮次正在处理，稍后再重新生成");
         return;
       }
-      if (usesReferenceImages(targetTurn.mode) && targetTurn.referenceImages.length === 0) {
-        toast.error("未找到可用的参考图");
-        return;
+      if (usesReferenceImages(targetTurn.mode)) {
+        const usableRefs = targetTurn.referenceImages.filter((image) => !image.stripped && Boolean(image.dataUrl));
+        if (usableRefs.length === 0) {
+          const hasStripped = targetTurn.referenceImages.some((image) => Boolean(image.stripped) || !image.dataUrl);
+          toast.error(hasStripped ? "参考图较大未缓存，重试需重新上传" : "未找到可用的参考图");
+          return;
+        }
       }
 
       const now = new Date().toISOString();
@@ -274,8 +283,7 @@ export function useImageTurnActions({
               status: "queued",
               error: undefined,
               images: Array.from({ length: imageCount }, (_, index) => ({
-                id: `${turn.id}-${regenerationId}-${index}`,
-                taskId: imageTaskBatchId(`${turn.id}-${regenerationId}`, index),
+                id: imageTaskBatchId(`${turn.id}-${regenerationId}`, index),
                 status: "loading" as const,
                 visibility,
               })),

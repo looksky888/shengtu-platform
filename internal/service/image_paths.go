@@ -96,6 +96,12 @@ func imageRelativePathFromValue(value string) (string, error) {
 			return cleanImageRelativePath(rel)
 		}
 	}
+	if before, _, ok := strings.Cut(text, "?"); ok {
+		text = before
+	}
+	if before, _, ok := strings.Cut(text, "#"); ok {
+		text = before
+	}
 	return cleanImageRelativePath(text)
 }
 

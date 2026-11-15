@@ -35,6 +35,8 @@ type ConversationRequest struct {
 	Quality            string
 	OutputFormat       string
 	OutputCompression  *int
+	FrameCount         string
+	FrameDurationMS    string
 	ResponseFormat     string
 	BaseURL            string
 	OwnerID            string
@@ -71,8 +73,14 @@ func (r ConversationRequest) Normalized() ConversationRequest {
 	r.N = normalizeImageCount(r.N)
 	r.Size = NormalizeImageGenerationSize(r.Size)
 	r.Quality = ImageQualityForModel(r.Model, r.Quality)
-	r.OutputFormat = NormalizeImageOutputFormat(r.OutputFormat)
-	if r.OutputFormat == "png" {
+	if strings.TrimSpace(r.OutputFormat) != "" {
+		r.OutputFormat = NormalizeImageOutputFormat(r.OutputFormat)
+	} else {
+		r.OutputFormat = ""
+	}
+	r.FrameCount = strings.TrimSpace(r.FrameCount)
+	r.FrameDurationMS = strings.TrimSpace(r.FrameDurationMS)
+	if r.OutputFormat == "" || r.OutputFormat == "png" || r.OutputFormat == "gif" {
 		r.OutputCompression = nil
 	} else if r.OutputCompression != nil {
 		compression := *r.OutputCompression
@@ -97,14 +105,24 @@ func NormalizeImageOutputFormat(format string) string {
 }
 
 type ImageOutputOptions struct {
-	Format      string
-	Compression *int
+	Format          string
+	Compression     *int
+	FrameCount      string
+	FrameDurationMS string
 }
 
 func ImageOutputOptionsFromPayload(payload map[string]any) ImageOutputOptions {
-	format := NormalizeImageOutputFormat(util.Clean(payload["output_format"]))
-	options := ImageOutputOptions{Format: format}
-	if format == "png" {
+	rawFormat := strings.TrimSpace(util.Clean(payload["output_format"]))
+	format := ""
+	if rawFormat != "" {
+		format = NormalizeImageOutputFormat(rawFormat)
+	}
+	options := ImageOutputOptions{
+		Format:          format,
+		FrameCount:      strings.TrimSpace(util.Clean(payload["frame_count"])),
+		FrameDurationMS: strings.TrimSpace(util.Clean(payload["frame_duration_ms"])),
+	}
+	if format == "" || format == "png" || format == "gif" {
 		return options
 	}
 	if compression, ok := normalizedImageOutputCompression(payload["output_compression"]); ok {
@@ -192,6 +210,10 @@ func imageSizeDimensions(size string) (int, int, bool) {
 }
 
 func BuildImagePrompt(prompt, size, quality string) string {
+	return BuildImagePromptWithOptions(prompt, size, quality, "", "", "")
+}
+
+func BuildImagePromptWithOptions(prompt, size, quality, outputFormat, frameCount, frameDurationMS string) string {
 	prompt = strings.TrimSpace(prompt)
 	size = NormalizeImageGenerationSize(size)
 	if strings.EqualFold(size, "auto") {
@@ -224,6 +246,15 @@ func BuildImagePrompt(prompt, size, quality string) string {
 	}
 	if hint, ok := qualityHints[strings.ToLower(strings.TrimSpace(quality))]; ok {
 		hintsList = append(hintsList, hint)
+	}
+	if NormalizeImageOutputFormat(outputFormat) == "gif" {
+		hintsList = append(hintsList, "生成格式为 gif。")
+	}
+	if fc := strings.TrimSpace(frameCount); fc != "" {
+		hintsList = append(hintsList, "frame_count: "+fc)
+	}
+	if fd := strings.TrimSpace(frameDurationMS); fd != "" {
+		hintsList = append(hintsList, "frame_duration_ms: "+fd)
 	}
 	if len(hintsList) == 0 {
 		return prompt

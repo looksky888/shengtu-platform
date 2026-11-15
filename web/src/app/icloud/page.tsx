@@ -1,5 +1,6 @@
 "use client";
 
+import { useContext } from "react";
 import { AlertCircle, ArrowRight, LoaderCircle, Mail, RefreshCw, ShieldCheck } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 
@@ -7,7 +8,9 @@ import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SubNav, type SubNavItem } from "@/components/ui/sub-nav";
-import { useAuthGuard } from "@/lib/use-auth-guard";
+import { getCachedAuthSession } from "@/lib/session";
+import { ResolvedAuthSessionContext, useAuthGuard } from "@/lib/use-auth-guard";
+import { canAccessPath } from "@/store/auth";
 
 import { MetricCard } from "./icloud-cards";
 import { ICloudCreatePanels } from "./icloud-create-panels";
@@ -24,6 +27,10 @@ function parseICloudTab(raw: string | null): ICloudTab {
 
 export function ICloudContent({ embedded = false }: { embedded?: boolean }) {
   const controller = useICloudPage(true);
+  const contextSession = useContext(ResolvedAuthSessionContext);
+  const session =
+    contextSession !== undefined ? contextSession : getCachedAuthSession();
+  const canOpenSettings = canAccessPath(session, "/settings");
   const [searchParams, setSearchParams] = useSearchParams();
   const paramKey = embedded ? "subtab" : "tab";
   const activeTab = parseICloudTab(searchParams.get(paramKey));
@@ -99,15 +106,19 @@ export function ICloudContent({ embedded = false }: { embedded?: boolean }) {
           <div className="flex items-start gap-2.5 text-xs leading-5 text-foreground sm:items-center sm:text-[13px]">
             <AlertCircle className="mt-0.5 size-4 shrink-0 text-status-warning sm:mt-0" />
             <span>
-              iCloud 隐私邮箱模块当前未启用 · 请前往「系统配置 → 注册与邮件」开启后再执行取码与生成操作
+              {canOpenSettings
+                ? "iCloud 隐私邮箱模块当前未启用 · 请前往「设置 → 邮件与风控」开启后再执行取码与生成操作"
+                : "iCloud 隐私邮箱模块当前未启用 · 请联系管理员开启后再执行取码与生成操作"}
             </span>
           </div>
-          <Button asChild variant="outline" size="sm" className="shrink-0 bg-surface">
-            <Link to="/admin/settings/access?tab=email">
-              前往开启
-              <ArrowRight className="size-3.5" />
-            </Link>
-          </Button>
+          {canOpenSettings ? (
+            <Button asChild variant="outline" size="sm" className="shrink-0 bg-surface">
+              <Link to="/settings?tab=email">
+                前往开启
+                <ArrowRight className="size-3.5" />
+              </Link>
+            </Button>
+          ) : null}
         </div>
       ) : hasBridgeWarning ? (
         <div className="flex flex-col gap-3 rounded-[14px] border border-status-warning/30 bg-status-warning-soft/55 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between">

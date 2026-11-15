@@ -68,7 +68,18 @@ func (s *ImageChannelService) loadOrSeed(legacy ImageChannelLegacyConfig) error 
 		if s.state.Version != 1 {
 			return fmt.Errorf("不支持的生图渠道数据版本: %d", s.state.Version)
 		}
-		return s.validateStoredState()
+		if err := s.validateStoredState(); err != nil {
+			return err
+		}
+		if s.ensureBuiltinAccountPoolModelsLocked(legacy) {
+			if err := s.validateStoredState(); err != nil {
+				return err
+			}
+			if err := s.saveLocked(); err != nil {
+				return fmt.Errorf("保存补齐后的生图渠道模型: %w", err)
+			}
+		}
+		return nil
 	}
 	s.state = seedImageChannelState(legacy)
 	if err := s.migrateLegacyProxyLocked(legacy); err != nil {
@@ -236,6 +247,100 @@ func (s *ImageChannelService) ResolveSystemModelByUpstream(upstreamModel, capabi
 	return resolved, true, err
 }
 
+// ResolveEnabledModelByUpstream resolves an upstream image model name when no
+// explicit channel_model_id is supplied (e.g. external /v1/images/* callers).
+// It prefers an enabled built-in system channel model first, then falls back
+// to enabled custom openai_compatible channels sorted by channel/model sort.
+func (s *ImageChannelService) ResolveEnabledModelByUpstream(upstreamModel, capability string) (ResolvedImageChannelModel, bool, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	upstreamModel = strings.TrimSpace(upstreamModel)
+	if upstreamModel == "" {
+		return ResolvedImageChannelModel{}, false, nil
+	}
+
+	channelsByID := make(map[string]ImageChannel, len(s.state.Channels))
+	for _, ch := range s.state.Channels {
+		channelsByID[ch.ID] = ch
+	}
+
+	var sysMatched *ImageChannelModel
+	for index := range s.state.Models {
+		model := &s.state.Models[index]
+		ch, ok := channelsByID[model.ChannelID]
+		if !ok || !ch.System || !strings.EqualFold(model.UpstreamModel, upstreamModel) {
+			continue
+		}
+		if sysMatched != nil {
+			return ResolvedImageChannelModel{}, true, errors.New("本地生图模型配置重复，请联系管理员")
+		}
+		sysMatched = model
+	}
+
+	var sysErr error
+	if sysMatched != nil {
+		if !containsImageCapability(sysMatched.Capabilities, capability) {
+			sysErr = errors.New("所选生图模型不支持当前操作")
+		} else {
+			resolved, err := s.resolveModelLocked(*sysMatched)
+			if err == nil {
+				return resolved, true, nil
+			}
+			sysErr = err
+		}
+	}
+
+	type customCandidate struct {
+		channel ImageChannel
+		model   ImageChannelModel
+	}
+	candidates := make([]customCandidate, 0)
+	for _, model := range s.state.Models {
+		ch, ok := channelsByID[model.ChannelID]
+		if !ok || ch.System || ch.Type != ImageChannelTypeOpenAICompatible {
+			continue
+		}
+		if !strings.EqualFold(model.UpstreamModel, upstreamModel) {
+			continue
+		}
+		candidates = append(candidates, customCandidate{channel: ch, model: model})
+	}
+	sort.SliceStable(candidates, func(i, j int) bool {
+		if candidates[i].channel.Sort != candidates[j].channel.Sort {
+			return candidates[i].channel.Sort < candidates[j].channel.Sort
+		}
+		if candidates[i].model.Sort != candidates[j].model.Sort {
+			return candidates[i].model.Sort < candidates[j].model.Sort
+		}
+		return candidates[i].model.DisplayName < candidates[j].model.DisplayName
+	})
+
+	var customErr error
+	for _, cand := range candidates {
+		if !containsImageCapability(cand.model.Capabilities, capability) {
+			if customErr == nil {
+				customErr = errors.New("所选生图模型不支持当前操作")
+			}
+			continue
+		}
+		resolved, err := s.resolveModelLocked(cand.model)
+		if err == nil {
+			return resolved, true, nil
+		}
+		if customErr == nil {
+			customErr = err
+		}
+	}
+
+	if sysErr != nil {
+		return ResolvedImageChannelModel{}, true, sysErr
+	}
+	if customErr != nil {
+		return ResolvedImageChannelModel{}, true, customErr
+	}
+	return ResolvedImageChannelModel{}, false, nil
+}
+
 func (s *ImageChannelService) resolveModelLocked(model ImageChannelModel) (ResolvedImageChannelModel, error) {
 	if !model.Enabled {
 		return ResolvedImageChannelModel{}, errors.New("所选生图模型已停用")
@@ -347,11 +452,14 @@ func cloneImageChannelCreditCosts(costs map[string]int) map[string]int {
 // ImageChannelModelCreditCost returns the resolution-specific price and falls
 // back to the model base price for upstreams that use one flat rate.
 func ImageChannelModelCreditCost(model ResolvedImageChannelModel, resolution string) int {
-	resolution = strings.ToLower(strings.TrimSpace(resolution))
-	if resolution == "1080p" {
-		resolution = "1k"
+	normalized := NormalizeImageResolutionPreset(resolution)
+	if normalized == "" {
+		normalized = strings.ToLower(strings.TrimSpace(resolution))
 	}
-	if cost := model.CreditCosts[resolution]; cost > 0 {
+	if normalized == "1080p" {
+		normalized = "1k"
+	}
+	if cost := model.CreditCosts[normalized]; cost > 0 {
 		return cost
 	}
 	return model.CreditCost

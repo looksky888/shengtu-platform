@@ -28,10 +28,17 @@ func (a *App) Close() error {
 			a.logger.Error("image task shutdown persistence failed", "error", taskErr)
 		}
 	}
+	a.waitInFlightBilling(30 * time.Second)
 	if a.cancel != nil {
 		a.cancel()
 	}
 	a.cleanupWG.Wait()
+	if a.creditRefunds != nil {
+		if _, refundErr := a.creditRefunds.RetryPending(); refundErr != nil && a.logger != nil {
+			a.logger.Warning("credit refund queue flush before shutdown failed", "error", refundErr)
+		}
+	}
+	closeCachedSSRFTransports()
 	if a.media != nil {
 		a.media.Close()
 	}
@@ -84,6 +91,30 @@ func (a *App) Close() error {
 		wrapCloseError("close logger", loggerErr),
 		wrapCloseError("close storage backend", storageErr),
 	)
+}
+
+func (a *App) waitInFlightBilling(timeout time.Duration) {
+	if a == nil {
+		return
+	}
+	done := make(chan struct{})
+	go func() {
+		a.billingWG.Wait()
+		close(done)
+	}()
+	if timeout <= 0 {
+		<-done
+		return
+	}
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	select {
+	case <-done:
+	case <-timer.C:
+		if a.logger != nil {
+			a.logger.Warning("timed out waiting for in-flight billed requests during shutdown", "timeout", timeout.String())
+		}
+	}
 }
 
 func wrapCloseError(operation string, err error) error {

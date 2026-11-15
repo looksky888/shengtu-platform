@@ -69,6 +69,25 @@ func (e *Engine) streamImageOutputsWithPool(ctx context.Context, request Convers
 					return
 				}
 				attemptedTokens[token] = struct{}{}
+				accountSettled := false
+				releaseAccount := func() {
+					if !accountSettled {
+						accountSettled = true
+						e.Accounts.ReleaseImageReservation(token)
+					}
+				}
+				markAccountResult := func(success bool) {
+					if !accountSettled {
+						accountSettled = true
+						e.Accounts.MarkImageResult(token, success)
+					}
+				}
+				cooldownAccountModelUnavailable := func() {
+					if !accountSettled {
+						accountSettled = true
+						e.Accounts.CooldownImageModelUnavailable(token)
+					}
+				}
 				if sink := service.TaskProgressFromContext(ctx); sink != nil {
 					sink.SetProgress(62, "正在启动生成", "上游会话已启动")
 				}
@@ -81,7 +100,11 @@ func (e *Engine) streamImageOutputsWithPool(ctx context.Context, request Convers
 				rateLimitMessage := ""
 				cloudflareChallengeForToken := false
 				cloudflareChallengeMessage := ""
-				client := backend.NewClient(token, e.Accounts, e.Proxy).SetLogger(e.Logger)
+				client := backend.NewClient(token, e.Accounts, e.Proxy).
+					SetLogger(e.Logger).
+					SetImageResolver(func(resolveCtx context.Context, rel string) ([]byte, error) {
+						return e.resolveLocalImageBytesForScope(resolveCtx, request.OwnerID, rel)
+					})
 				attemptRequest := request
 				attemptRequest.UpstreamModel = request.upstreamModelForAttempt(streamRetryCount)
 				if fixedUpstreamModel != "" {
@@ -137,7 +160,22 @@ func (e *Engine) streamImageOutputsWithPool(ctx context.Context, request Convers
 					returnedMessage = output.Kind == "message"
 					returnedResult = returnedResult || output.Kind == "result"
 					emittedResult = emittedResult || output.Kind == "result"
-					out <- output
+					if ctx != nil {
+						select {
+						case out <- output:
+						case <-ctx.Done():
+							cancelAttempt()
+							if returnedResult {
+								markAccountResult(true)
+							} else {
+								releaseAccount()
+							}
+							errCh <- ctx.Err()
+							return
+						}
+					} else {
+						out <- output
+					}
 				}
 				err = <-imageErr
 				attemptTimedOut := attemptCtx.Err() == context.DeadlineExceeded && ctx.Err() == nil
@@ -147,7 +185,7 @@ func (e *Engine) streamImageOutputsWithPool(ctx context.Context, request Convers
 				}
 				if err == nil {
 					if cloudflareChallengeForToken {
-						e.Accounts.MarkImageResult(token, false)
+						markAccountResult(false)
 						cooldown := e.Accounts.MarkImageChallenge(token)
 						lastError = firstNonEmpty(cloudflareChallengeMessage, lastError)
 						if streamRetryCount < maxImageStreamTransientRetries {
@@ -165,17 +203,17 @@ func (e *Engine) streamImageOutputsWithPool(ctx context.Context, request Convers
 						return
 					}
 					if rateLimitedForToken {
-						e.Accounts.MarkImageResult(token, false)
+						markAccountResult(false)
 						e.Accounts.ApplyAccountErrorMessage(token, "image_stream", rateLimitMessage)
 						continue
 					}
 					if !returnedResult {
 						if returnedMessage {
-							e.Accounts.ReleaseImageReservation(token)
+							releaseAccount()
 							errCh <- &ImageGenerationError{Message: lastError, StatusCode: 400, Type: "invalid_request_error", Code: "image_generation_text_response"}
 							return
 						}
-						e.Accounts.MarkImageResult(token, false)
+						markAccountResult(false)
 						if !returnedResult && streamRetryCount < maxImageStreamTransientRetries {
 							streamRetryCount++
 							lastError = "image generation failed"
@@ -191,12 +229,12 @@ func (e *Engine) streamImageOutputsWithPool(ctx context.Context, request Convers
 						errCh <- newImageStreamGenerationError(firstNonEmpty(lastError, "image generation failed"))
 						return
 					}
-					e.Accounts.MarkImageResult(token, true)
+					markAccountResult(true)
 					break
 				}
 				if !returnedResult && errors.Is(err, backend.ErrAutoImageModelNotFound) {
 					fixedUpstreamModel = util.ImageModelAuto
-					e.Accounts.CooldownImageModelUnavailable(token)
+					cooldownAccountModelUnavailable()
 					lastError = err.Error()
 					if streamRetryCount < maxImageStreamTransientRetries && ctx.Err() == nil {
 						streamRetryCount++
@@ -213,7 +251,7 @@ func (e *Engine) streamImageOutputsWithPool(ctx context.Context, request Convers
 					return
 				}
 				if !returnedResult && service.IsSentinelSolverSignal(err.Error()) {
-					e.Accounts.ReleaseImageReservation(token)
+					releaseAccount()
 					lastError = err.Error()
 					proxyKey := service.ProxyURLHash(client.ProxyURL())
 					failedSolverProxies[proxyKey]++
@@ -234,7 +272,7 @@ func (e *Engine) streamImageOutputsWithPool(ctx context.Context, request Convers
 					errCh <- newSentinelSolverGenerationError(lastError)
 					return
 				}
-				e.Accounts.MarkImageResult(token, false)
+				markAccountResult(false)
 				lastError = err.Error()
 				if !returnedResult && isCloudflareChallengeMessage(lastError) {
 					cooldown := e.Accounts.MarkImageChallenge(token)

@@ -3,14 +3,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 
-import webConfig from "@/constants/common-env";
-import {
-  fetchVisibleAnnouncements,
-  type Announcement,
-  type AnnouncementTarget,
+import type {
+  Announcement,
+  AnnouncementTarget,
 } from "@/lib/api";
 
 import { AnnouncementDialog } from "./announcement-dialog";
+import {
+  loadSharedAnnouncements,
+  subscribeAnnouncementEvents,
+} from "./announcement-events";
 import { AnnouncementPopover } from "./announcement-popover";
 import {
   hasUnseenBroadcast,
@@ -20,22 +22,25 @@ import {
   todayKey,
 } from "./announcement-utils";
 
-const announcementsCache = new Map<
-  AnnouncementTarget,
-  { items: Announcement[]; fetchedAt: number }
->();
-const announcementsInFlight = new Map<
-  AnnouncementTarget,
-  Promise<Announcement[]>
->();
-const ANNOUNCEMENTS_CACHE_TTL_MS = 15_000;
+const ADMIN_POPUP_MUTED_ROUTE_PREFIXES = [
+  "/admin",
+  "/settings",
+  "/overview",
+  "/task-queue",
+  "/accounts",
+  "/icloud",
+  "/users",
+  "/credits-admin",
+  "/payment-admin",
+  "/rbac",
+  "/logs",
+] as const;
 
-type StreamHub = {
-  source: EventSource;
-  listeners: Set<(items?: Announcement[]) => void>;
-};
-
-const targetStreams = new Map<AnnouncementTarget, StreamHub>();
+function isAdminPopupMutedRoute(pathname: string): boolean {
+  return ADMIN_POPUP_MUTED_ROUTE_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
+}
 
 // Singleton auto-open owner per target so multiple mounted AnnouncementNotifications
 // (e.g. desktop rail + mobile header) can never stack duplicate modal dialogs.
@@ -46,95 +51,6 @@ function notifyAutoOpenWaiters(target: AnnouncementTarget) {
   const set = autoOpenWaiters.get(target);
   if (!set) return;
   set.forEach((listener) => listener());
-}
-
-function buildAnnouncementEventsUrl(target: AnnouncementTarget): string {
-  const base = webConfig.apiUrl.replace(/\/$/, "");
-  return `${base}/api/announcements/events?target=${encodeURIComponent(target)}`;
-}
-
-export function subscribeAnnouncementEvents(
-  target: AnnouncementTarget,
-  onUpdate: (items?: Announcement[]) => void,
-): () => void {
-  if (typeof window === "undefined" || typeof EventSource === "undefined") {
-    return () => {};
-  }
-
-  let hub = targetStreams.get(target);
-  if (!hub) {
-    const source = new EventSource(buildAnnouncementEventsUrl(target), {
-      withCredentials: true,
-    });
-    const listeners = new Set<(items?: Announcement[]) => void>();
-    const dispatchInvalidate = () => {
-      announcementsCache.delete(target);
-      listeners.forEach((listener) => listener());
-    };
-    const handleMessage = (event: MessageEvent) => {
-      try {
-        const parsed = JSON.parse(String(event.data || "{}")) as {
-          items?: Announcement[];
-        };
-        if (Array.isArray(parsed.items)) {
-          announcementsCache.set(target, {
-            items: parsed.items,
-            fetchedAt: Date.now(),
-          });
-          listeners.forEach((listener) => listener(parsed.items));
-          return;
-        }
-      } catch {
-        // Fall through to cache invalidation if payload is non-JSON.
-      }
-      dispatchInvalidate();
-    };
-    source.addEventListener("message", handleMessage);
-    source.addEventListener("announcement_updated", dispatchInvalidate);
-    hub = { source, listeners };
-    targetStreams.set(target, hub);
-  }
-
-  hub.listeners.add(onUpdate);
-
-  return () => {
-    const currentHub = targetStreams.get(target);
-    if (!currentHub) return;
-    currentHub.listeners.delete(onUpdate);
-    if (currentHub.listeners.size === 0) {
-      currentHub.source.close();
-      targetStreams.delete(target);
-    }
-  };
-}
-
-export function loadSharedAnnouncements(
-  target: AnnouncementTarget,
-  options: { force?: boolean } = {},
-): Promise<Announcement[]> {
-  if (options.force) {
-    announcementsCache.delete(target);
-  } else {
-    const cached = announcementsCache.get(target);
-    if (cached && Date.now() - cached.fetchedAt < ANNOUNCEMENTS_CACHE_TTL_MS) {
-      return Promise.resolve(cached.items);
-    }
-  }
-  const existing = announcementsInFlight.get(target);
-  if (existing) return existing;
-  const req = fetchVisibleAnnouncements(target)
-    .then((data) => {
-      const items = Array.isArray(data.items) ? data.items : [];
-      announcementsCache.set(target, { items, fetchedAt: Date.now() });
-      return items;
-    })
-    .finally(() => {
-      if (announcementsInFlight.get(target) === req) {
-        announcementsInFlight.delete(target);
-      }
-    });
-  announcementsInFlight.set(target, req);
-  return req;
 }
 
 export function AnnouncementNotifications({
@@ -267,10 +183,7 @@ export function AnnouncementNotifications({
   }, [pathname, target]);
 
   useEffect(() => {
-    const isAdminRoute =
-      pathname === "/admin" ||
-      pathname.startsWith("/admin/") ||
-      pathname.startsWith("/settings");
+    const isAdminRoute = isAdminPopupMutedRoute(pathname);
     const isAutoOpenOwner =
       autoOpen &&
       (autoOpenOwners.get(target) === instanceId ||

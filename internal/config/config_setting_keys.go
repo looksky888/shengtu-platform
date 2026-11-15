@@ -4,6 +4,7 @@ import "regexp"
 
 var settingEnvKeys = map[string]string{
 	"base_url":                            "CHATGPT2API_BASE_URL",
+	"session_secret":                      "CHATGPT2API_SESSION_SECRET",
 	"proxy":                               "CHATGPT2API_PROXY",
 	"refresh_account_interval_minute":     "CHATGPT2API_REFRESH_ACCOUNT_INTERVAL_MINUTE",
 	"image_concurrent_limit":              "CHATGPT2API_IMAGE_CONCURRENT_LIMIT",
@@ -34,6 +35,9 @@ var settingEnvKeys = map[string]string{
 	"gpt_image_2_5_credit_cost":           "CHATGPT2API_GPT_IMAGE_2_5_CREDIT_COST",
 	"gpt_image_2_5_flare_credit_cost":     "CHATGPT2API_GPT_IMAGE_2_5_FLARE_CREDIT_COST",
 	"gpt_image_2_5_sunburst_credit_cost":  "CHATGPT2API_GPT_IMAGE_2_5_SUNBURST_CREDIT_COST",
+	"gpt_image_2_6_credit_cost":           "CHATGPT2API_GPT_IMAGE_2_6_CREDIT_COST",
+	"gpt_image_2_6_flare_credit_cost":     "CHATGPT2API_GPT_IMAGE_2_6_FLARE_CREDIT_COST",
+	"gpt_image_2_6_sunburst_credit_cost":  "CHATGPT2API_GPT_IMAGE_2_6_SUNBURST_CREDIT_COST",
 	"grok_image_credit_cost_1k":           "CHATGPT2API_GROK_IMAGE_CREDIT_COST_1K",
 	"grok_image_credit_cost_2k":           "CHATGPT2API_GROK_IMAGE_CREDIT_COST_2K",
 	"video_credit_cost_per_second":        "CHATGPT2API_VIDEO_CREDIT_COST_PER_SECOND",

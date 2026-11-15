@@ -15,13 +15,16 @@ export function normalizeImageAccountSchedule(value: unknown): "least_loaded" | 
 export function normalizeImageDefaultModel(value: unknown): string {
   const raw = String(value || "").trim();
   const allowed = new Set([
+    "gpt-image-2.6-flare",
+    "gpt-image-2.6",
+    "gpt-image-2.6-sunburst",
     "gpt-image-2",
     "gpt-image-2.5",
     "gpt-image-2.5-flare",
     "gpt-image-2.5-sunburst",
     "auto",
   ]);
-  return allowed.has(raw) ? raw : "gpt-image-2.5-flare";
+  return allowed.has(raw) ? raw : "gpt-image-2.6-flare";
 }
 
 export function normalizeConfig(config: SettingsConfig): SettingsConfig {
@@ -50,7 +53,7 @@ export function normalizeConfig(config: SettingsConfig): SettingsConfig {
     image_proxy_api_key: "",
     image_proxy_api_key_configured: Boolean(config.image_proxy_api_key_configured),
     image_proxy_api_key_masked: typeof config.image_proxy_api_key_masked === "string" ? config.image_proxy_api_key_masked : "",
-    image_proxy_model: typeof config.image_proxy_model === "string" ? config.image_proxy_model : "gpt-image-2.5-flare",
+    image_proxy_model: typeof config.image_proxy_model === "string" ? config.image_proxy_model : "gpt-image-2.6-flare",
     image_proxy_models: Array.isArray(config.image_proxy_models) ? config.image_proxy_models.map(String).filter(Boolean) : [],
     image_proxy_timeout_seconds: Math.min(3600, Math.max(30, Number(config.image_proxy_timeout_seconds) || 600)),
     image_proxy_max_retries: normalizeImageProxyMaxRetries(config.image_proxy_max_retries),
@@ -62,6 +65,9 @@ export function normalizeConfig(config: SettingsConfig): SettingsConfig {
     gpt_image_2_5_credit_cost: Math.max(1, Number(config.gpt_image_2_5_credit_cost) || Number(config.image_credit_cost_2k) || 2),
     gpt_image_2_5_flare_credit_cost: Math.max(1, Number(config.gpt_image_2_5_flare_credit_cost) || Number(config.image_credit_cost_4k) || 3),
     gpt_image_2_5_sunburst_credit_cost: Math.max(1, Number(config.gpt_image_2_5_sunburst_credit_cost) || Number(config.image_credit_cost_4k) || 3),
+    gpt_image_2_6_credit_cost: Math.max(1, Number(config.gpt_image_2_6_credit_cost) || 5),
+    gpt_image_2_6_flare_credit_cost: Math.max(1, Number(config.gpt_image_2_6_flare_credit_cost) || 5),
+    gpt_image_2_6_sunburst_credit_cost: Math.max(1, Number(config.gpt_image_2_6_sunburst_credit_cost) || 5),
     grok_image_credit_cost_1k: Math.max(1, Number(config.grok_image_credit_cost_1k) || 1),
     grok_image_credit_cost_2k: Math.max(1, Number(config.grok_image_credit_cost_2k) || 2),
     video_credit_cost_per_second: Math.max(1, Number(config.video_credit_cost_per_second) || 1),
@@ -127,7 +133,7 @@ export function normalizeImageProxyMaxRetries(value: unknown) {
 export function normalizeImageInternalModelSlug(value: unknown) {
   const model = String(value || "").trim();
   const allowed = new Set(["auto", "gpt-5-5-thinking", "gpt-5-3", "gpt-5-3-mini", "gpt-5.5", "gpt-5.4", "gpt-5", "gpt-5-1", "gpt-5-2", "gpt-5-mini"]);
-  if (!model || model === "gpt-image-2" || model === "gpt-image-2.5" || model === "gpt-image-2.5-flare" || model === "gpt-image-2.5-sunburst") {
+  if (!model || isGPTImageModel(model)) {
     return "gpt-5-3";
   }
   return allowed.has(model) ? model : "gpt-5-3";

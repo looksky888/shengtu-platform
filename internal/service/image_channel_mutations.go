@@ -228,10 +228,14 @@ func normalizeImageChannelModelInput(input ImageChannelModelInput) (ImageChannel
 		}
 		creditCosts[resolution] = cost
 	}
+	formats := uniqueAllowedValues(input.Formats, []string{"png", "jpeg", "webp", "gif"})
+	if len(formats) == 0 {
+		formats = defaultModelFormats(upstream)
+	}
 	return ImageChannelModel{
 		DisplayName: firstNonEmpty(strings.TrimSpace(input.DisplayName), upstream), UpstreamModel: upstream,
 		Capabilities: capabilities, Resolutions: uniqueAllowedValues(input.Resolutions, []string{"1k", "2k", "4k"}),
-		Formats: uniqueAllowedValues(input.Formats, []string{"png", "jpeg", "webp"}), CreditCost: input.CreditCost,
+		Formats: formats, CreditCost: input.CreditCost,
 		CreditCosts: creditCosts,
 		Enabled:     input.Enabled, Sort: input.Sort,
 	}, nil
@@ -310,7 +314,7 @@ func (s *ImageChannelService) migrateLegacyProxyLocked(legacy ImageChannelLegacy
 		s.state.Models = append(s.state.Models, ImageChannelModel{
 			ID: newImageChannelID("model"), ChannelID: channel.ID, DisplayName: modelID, UpstreamModel: modelID,
 			Capabilities: []string{ImageCapabilityGenerate, ImageCapabilityEdit}, Resolutions: []string{"1k", "2k", "4k"},
-			Formats: []string{"png", "jpeg", "webp"}, CreditCost: cost, CreditCosts: map[string]int{"1k": cost},
+			Formats: defaultModelFormats(modelID), CreditCost: cost, CreditCosts: map[string]int{"1k": cost},
 			Enabled: true, Sort: (index + 1) * 10,
 			CreatedAt: now, UpdatedAt: now,
 		})

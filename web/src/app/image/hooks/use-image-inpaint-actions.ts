@@ -2,7 +2,7 @@ import { useCallback, useState, type Dispatch, type SetStateAction } from "react
 
 import type { ImageInpaintSource, ImageInpaintSubmit } from "@/app/image/components/image-inpaint-dialog";
 import { getStoredImageSrc } from "@/app/image/components/image-results-utils";
-import { readFileAsDataUrl } from "@/app/image/lib/reference-image-utils";
+import { extensionFromOutputFormatOrUrl, readFileAsDataUrl } from "@/app/image/lib/reference-image-utils";
 import type { StoredImage, StoredReferenceImage } from "@/store/image-conversations";
 
 import type { SubmitImageTurnOverrides } from "./use-submit-image-turn";
@@ -10,21 +10,24 @@ import type { SubmitImageTurnOverrides } from "./use-submit-image-turn";
 type UseImageInpaintActionsOptions = {
   handleSubmit: (overrides?: SubmitImageTurnOverrides) => Promise<void>;
   setSelectedConversationId: Dispatch<SetStateAction<string | null>>;
+  canOutputGif: boolean;
 };
 
 export function useImageInpaintActions({
   handleSubmit,
   setSelectedConversationId,
+  canOutputGif,
 }: UseImageInpaintActionsOptions) {
   const [inpaintSource, setInpaintSource] = useState<ImageInpaintSource | null>(null);
 
   const handleLocalEdit = useCallback((conversationId: string, image: StoredImage) => {
     const src = getStoredImageSrc(image);
     if (!src) return;
+    const ext = extensionFromOutputFormatOrUrl(image.outputFormat, src);
     setInpaintSource({
       image,
       src,
-      name: `局部修改-${image.id.slice(0, 8)}.png`,
+      name: `局部修改-${image.id.slice(0, 8)}.${ext}`,
     });
     setSelectedConversationId(conversationId);
   }, [setSelectedConversationId]);
@@ -46,9 +49,17 @@ export function useImageInpaintActions({
       { name: payload.originalFile.name, type: payload.originalFile.type || "image/png", dataUrl: originalDataUrl, source: "conversation" },
       { name: payload.markedFile.name, type: payload.markedFile.type || "image/png", dataUrl: markedDataUrl, source: "conversation" },
     ];
-    await handleSubmit({ prompt: requestPrompt, composerMode: "image", referenceImages });
+    const isGifSource =
+      source.image.outputFormat === "gif" ||
+      extensionFromOutputFormatOrUrl(source.image.outputFormat, source.src) === "gif";
+    await handleSubmit({
+      prompt: requestPrompt,
+      composerMode: "image",
+      referenceImages,
+      ...(isGifSource && canOutputGif ? { outputFormat: "gif" as const } : {}),
+    });
     setInpaintSource(null);
-  }, [handleSubmit, inpaintSource]);
+  }, [canOutputGif, handleSubmit, inpaintSource]);
 
   return { inpaintSource, setInpaintSource, handleLocalEdit, handleInpaintSubmit };
 }

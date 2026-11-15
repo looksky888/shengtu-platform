@@ -6,7 +6,7 @@ import { LoginFormPanel } from "@/app/login/login-form-panel";
 import { LoginLoadingScreen } from "@/app/login/login-loading-screen";
 import { LoginTopActions } from "@/app/login/login-top-actions";
 import { loginBackgroundClass, loginCardClass } from "@/app/login/login-utils";
-import { LoginMobileVisualBanner, LoginVisualPanel } from "@/app/login/login-visual-panel";
+import { LoginVisualPanel } from "@/app/login/login-visual-panel";
 import { useLoginPage } from "@/app/login/use-login-page";
 import { BannerAnnouncementsBar } from "@/components/banner-announcements-bar";
 import { useAppMeta } from "@/lib/use-app-meta";
@@ -25,7 +25,7 @@ export default function LoginPage() {
 
   if (state.isCheckingAuth) return <LoginLoadingScreen />;
 
-  const modeLabel = state.isRegisterMode ? "注册账号" : "账号登录";
+  const modeLabel = state.isRegisterMode ? "注册" : "登录";
 
   return (
     <div
@@ -33,15 +33,9 @@ export default function LoginPage() {
     >
       <BannerAnnouncementsBar target="login" className="shrink-0" />
 
-      {/* Subtle radial vignette softening the perimeter of the 32px hairline grid */}
-      <div
-        className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_at_center,transparent_38%,var(--background)_100%)]"
-        aria-hidden="true"
-      />
-
       <a
         href="#login-form"
-        className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[60] focus:rounded-lg focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-primary-foreground focus:shadow-lg focus:outline-none"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:rounded-full focus:bg-[#1456f0] focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white focus:shadow-lg focus:outline-none"
       >
         跳到{modeLabel}表单
       </a>
@@ -59,9 +53,8 @@ export default function LoginPage() {
             role="main"
             aria-label={modeLabel}
           >
-            <LoginMobileVisualBanner appMeta={appMeta} />
-            <LoginVisualPanel appMeta={appMeta} isRegisterMode={state.isRegisterMode} />
             <LoginFormPanel appMeta={appMeta} state={state} />
+            <LoginVisualPanel appMeta={appMeta} isRegisterMode={state.isRegisterMode} />
           </div>
         </div>
       </div>

@@ -9,35 +9,35 @@ const PROTOCOL_CAPABILITY_LABELS: Array<{
   label: string;
   endpoint: string;
 }> = [
-  { perm: "get/v1/models", label: "模型列表", endpoint: "GET /v1/models" },
+  { perm: "get/v1/models", label: "查询模型列表", endpoint: "GET /v1/models" },
   {
     perm: "post/v1/images/generations",
-    label: "文生图",
+    label: "文生图 / GIF 动图",
     endpoint: "POST /v1/images/generations",
   },
   {
     perm: "post/v1/images/edits",
-    label: "图生图 / 局部重绘",
+    label: "上传参考图改图",
     endpoint: "POST /v1/images/edits",
   },
   {
     perm: "post/v1/videos",
-    label: "异步视频生成",
+    label: "生成视频",
     endpoint: "POST /v1/videos",
   },
   {
     perm: "post/v1/chat/completions",
-    label: "Chat Completions",
+    label: "对话方式生图",
     endpoint: "POST /v1/chat/completions",
   },
   {
     perm: "post/v1/responses",
-    label: "Responses API",
+    label: "Responses 接口",
     endpoint: "POST /v1/responses",
   },
   {
     perm: "post/v1/messages",
-    label: "Anthropic Messages",
+    label: "Anthropic 接口",
     endpoint: "POST /v1/messages",
   },
 ];
@@ -71,12 +71,12 @@ export function ApiIntegrationQuickPanel({
   );
 
   return (
-    <div className="flex flex-col justify-between gap-4 rounded-xl border border-border/70 bg-surface-muted/25 p-4">
-      <div className="space-y-3.5">
+    <div className="flex min-w-0 flex-col justify-between gap-4 rounded-xl border border-border/70 bg-surface-muted/25 p-4">
+      <div className="min-w-0 space-y-3.5">
         <div className="flex min-h-7 items-center justify-between gap-2">
           <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-foreground">
-            <Globe className="size-3.5 text-muted-foreground" />
-            快速接入信息与配额速览
+            <Globe className="size-3.5 text-[#1456f0] dark:text-sky-400" />
+            接口地址与调用限速
           </span>
           <Button
             type="button"
@@ -88,9 +88,9 @@ export function ApiIntegrationQuickPanel({
             {isTesting ? (
               <LoaderCircle className="size-3.5 animate-spin" />
             ) : (
-              <Activity className="size-3.5 text-muted-foreground" />
+              <Activity className="size-3.5 text-[#1456f0] dark:text-sky-400" />
             )}
-            <span>{isTesting ? "测试中…" : "测试连通性"}</span>
+            <span>{isTesting ? "测试中…" : "测试密钥能否连通"}</span>
           </Button>
         </div>
 
@@ -127,18 +127,18 @@ export function ApiIntegrationQuickPanel({
 
         <div className="space-y-2">
           <EndpointCopyRow
-            label="OpenAI SDK Base URL"
+            label="接口地址 Base URL（带 /v1，大多数 SDK 填这个）"
             value={openAIBaseURL}
-            onCopy={() => onCopy(openAIBaseURL, "OpenAI Base URL")}
+            onCopy={() => onCopy(openAIBaseURL, "接口地址 Base URL")}
           />
           <EndpointCopyRow
-            label="服务端根地址 (Host)"
+            label="网站根地址（Cherry Studio 等会自动补 /v1 的填这个）"
             value={origin}
-            onCopy={() => onCopy(origin, "服务端根地址")}
+            onCopy={() => onCopy(origin, "网站根地址")}
           />
         </div>
 
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid min-w-0 grid-cols-3 gap-2">
           <RateLimitMiniStat
             label="每分钟请求 (RPM)"
             value={
@@ -175,8 +175,8 @@ export function ApiIntegrationQuickPanel({
       <div className="space-y-1.5 border-t border-border/60 pt-2.5">
         <div className="flex items-center justify-between text-[11px] text-muted-foreground">
           <span className="inline-flex items-center gap-1">
-            <ShieldCheck className="size-3.5 text-muted-foreground" />
-            已授权协议能力
+            <ShieldCheck className="size-3.5 text-[#1456f0] dark:text-sky-400" />
+            当前密钥可用的接口
           </span>
           <span>{apiKey?.role_name || (isAdmin ? "管理员" : "普通用户")}</span>
         </div>
@@ -185,7 +185,7 @@ export function ApiIntegrationQuickPanel({
             <span
               key={cap.perm}
               title={cap.endpoint}
-              className="rounded-md border border-border/75 bg-surface px-2 py-0.5 text-[11px] font-medium text-foreground"
+              className="rounded-md border border-[#cfe0ff] bg-[#edf4ff] px-2 py-0.5 text-[11px] font-medium text-[#1456f0] dark:border-sky-500/30 dark:bg-sky-950/50 dark:text-sky-200"
             >
               {cap.label}
             </span>
@@ -229,7 +229,7 @@ function EndpointCopyRow({
 
 function RateLimitMiniStat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-border/70 bg-surface px-2.5 py-1.5">
+    <div className="min-w-0 rounded-lg border border-border/70 bg-surface px-2.5 py-1.5">
       <div className="truncate text-[10px] text-muted-foreground">{label}</div>
       <div className="mt-0.5 font-mono text-xs font-semibold text-foreground tabular-nums">
         {value}

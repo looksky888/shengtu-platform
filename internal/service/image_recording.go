@@ -46,7 +46,9 @@ func (s *ImageService) RecordGeneratedImages(values []string, ownerID, ownerName
 		return nil
 	}
 	for _, ref := range s.imageFileRefs(values) {
-		s.ensureThumbnailForRef(ref)
+		if !isGIFRel(ref.rel) {
+			s.ensureThumbnailForRef(ref)
+		}
 		if ownerID != "" && ownerID != "anonymous" {
 			if err := s.writeImageMetadataForRef(ref, ownerID, ownerName, visibility, metadata); err != nil {
 				return err

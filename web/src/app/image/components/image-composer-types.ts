@@ -21,6 +21,8 @@ export type ImageComposerProps = {
   imageQualityOptions: ReadonlyArray<{ value: ImageQuality; label: string; description: string }>;
   imageOutputFormat: ImageOutputFormat;
   imageOutputCompression: string;
+  imageFrameCount: string;
+  imageFrameDurationMs: string;
   imageOutputHint: ReactNode;
   estimatedCreditCost: number;
   estimatedCreditCostDetail: string;
@@ -40,6 +42,8 @@ export type ImageComposerProps = {
   onImageQualityChange: (value: ImageQuality) => void;
   onImageOutputFormatChange: (value: ImageOutputFormat) => void;
   onImageOutputCompressionChange: (value: string) => void;
+  onImageFrameCountChange: (value: string) => void;
+  onImageFrameDurationMsChange: (value: string) => void;
   onSubmit: () => void | Promise<void>;
   onReferenceImageChange: (files: File[]) => void | Promise<void>;
   onRemoveReferenceImage: (index: number) => void;

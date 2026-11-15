@@ -60,11 +60,23 @@ function normalizeReferenceImage(image: StoredReferenceImage & Record<string, un
     image.source === "upload" || image.source === "conversation"
       ? image.source
       : undefined;
+  const id = typeof image.id === "string" && image.id.trim() ? image.id.trim() : undefined;
+  const mimeType =
+    typeof image.mimeType === "string" && image.mimeType.trim()
+      ? image.mimeType.trim()
+      : typeof image.type === "string" && image.type.trim()
+        ? image.type.trim()
+        : "image/png";
+  const dataUrl = typeof image.dataUrl === "string" ? image.dataUrl : "";
+  const stripped = Boolean(image.stripped) || dataUrl.length === 0;
   return {
+    ...(id ? { id } : {}),
     name: image.name || "reference.png",
-    type: image.type || "image/png",
-    dataUrl: image.dataUrl,
+    type: image.type || mimeType,
+    ...(typeof image.mimeType === "string" || stripped ? { mimeType } : {}),
+    dataUrl,
     ...(source ? { source } : {}),
+    ...(stripped ? { stripped: true } : {}),
   };
 }
 
@@ -79,7 +91,7 @@ function normalizeImageMode(value: unknown, referenceImages: StoredReferenceImag
     return "image";
   }
   if (value === "edit") {
-    return referenceImages.some((image) => image.source === "conversation") ? "edit" : "image";
+    return "edit";
   }
   return referenceImages.length > 0 ? "image" : "generate";
 }
@@ -121,6 +133,17 @@ function normalizeOutputCompression(value: unknown): number | undefined {
   return Math.min(100, Math.round(numeric));
 }
 
+function normalizeBoundedGifInt(value: unknown, min: number, max: number): number | undefined {
+  if (value === undefined || value === null || String(value).trim() === "") {
+    return undefined;
+  }
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    return undefined;
+  }
+  return Math.min(max, Math.max(min, Math.round(numeric)));
+}
+
 function dataUrlMimeType(dataUrl: string) {
   const match = dataUrl.match(/^data:(.*?);base64,/);
   return match?.[1] || "image/png";
@@ -129,12 +152,20 @@ function dataUrlMimeType(dataUrl: string) {
 function getLegacyReferenceImages(source: Record<string, unknown>): StoredReferenceImage[] {
   if (Array.isArray(source.referenceImages)) {
     return source.referenceImages
-      .filter((image): image is StoredReferenceImage => {
+      .filter((image): image is StoredReferenceImage & Record<string, unknown> => {
         if (!image || typeof image !== "object") {
           return false;
         }
-        const candidate = image as StoredReferenceImage;
-        return typeof candidate.dataUrl === "string" && candidate.dataUrl.length > 0;
+        const candidate = image as StoredReferenceImage & Record<string, unknown>;
+        if (typeof candidate.dataUrl === "string" && candidate.dataUrl.length > 0) {
+          return true;
+        }
+        return (
+          candidate.stripped === true ||
+          (typeof candidate.dataUrl === "string" &&
+            candidate.dataUrl.length === 0 &&
+            Boolean(candidate.name || candidate.type || candidate.mimeType || candidate.id))
+        );
       })
       .map(normalizeReferenceImage);
   }
@@ -184,6 +215,16 @@ function normalizeTurn(turn: ImageTurn & Record<string, unknown>): ImageTurn {
             ? "message"
             : "success";
 
+  const normalizedOutputFormat = isImageOutputFormat(turn.outputFormat) ? turn.outputFormat : undefined;
+  const normalizedOutputCompression =
+    normalizedOutputFormat === "png" || normalizedOutputFormat === "gif"
+      ? undefined
+      : normalizeOutputCompression(turn.outputCompression);
+  const normalizedFrameCount =
+    normalizedOutputFormat === "gif" ? normalizeBoundedGifInt(turn.frameCount, 2, 60) : undefined;
+  const normalizedFrameDurationMs =
+    normalizedOutputFormat === "gif" ? normalizeBoundedGifInt(turn.frameDurationMs, 20, 2000) : undefined;
+
   return {
     id: String(turn.id || `${Date.now()}`),
     prompt: String(turn.prompt || ""),
@@ -197,8 +238,10 @@ function normalizeTurn(turn: ImageTurn & Record<string, unknown>): ImageTurn {
     size: typeof turn.size === "string" ? turn.size : "",
     ...(sizeSelection ? { sizeSelection } : {}),
     quality: isImageQuality(turn.quality) ? turn.quality : undefined,
-    outputFormat: isImageOutputFormat(turn.outputFormat) ? turn.outputFormat : undefined,
-    outputCompression: normalizeOutputCompression(turn.outputCompression),
+    outputFormat: normalizedOutputFormat,
+    outputCompression: normalizedOutputCompression,
+    ...(normalizedFrameCount !== undefined ? { frameCount: normalizedFrameCount } : {}),
+    ...(normalizedFrameDurationMs !== undefined ? { frameDurationMs: normalizedFrameDurationMs } : {}),
     visibility,
     images,
     createdAt: String(turn.createdAt || new Date().toISOString()),

@@ -23,7 +23,7 @@ import {
   type InpaintMark,
   type InpaintPoint,
 } from "@/app/image/lib/image-inpaint-overlay";
-import { dataUrlToFile } from "@/app/image/lib/reference-image-utils";
+import { dataUrlToFile, mimeTypeFromOutputFormat } from "@/app/image/lib/reference-image-utils";
 
 export type ImageInpaintSource = { image: StoredImage; src: string; name: string };
 export type ImageInpaintSubmit = { prompt: string; originalFile: File; markedFile: File };
@@ -134,7 +134,7 @@ export function ImageInpaintDialog({ source, onClose, onSubmit }: ImageInpaintDi
     try {
       let originalFile: File;
       if (source.image.b64_json) {
-        const mimeType = `image/${source.image.outputFormat || "png"}`;
+        const mimeType = mimeTypeFromOutputFormat(source.image.outputFormat);
         originalFile = dataUrlToFile(
           `data:${mimeType};base64,${source.image.b64_json}`,
           source.name || "source.png",
@@ -183,8 +183,8 @@ export function ImageInpaintDialog({ source, onClose, onSubmit }: ImageInpaintDi
           <aside className="flex flex-row flex-wrap content-start gap-2 md:flex-col">
             <Button size="sm" variant={tool === "rect" ? "default" : "outline"} onClick={() => setTool("rect")}><SquareDashed />矩形</Button>
             <Button size="sm" variant={tool === "brush" ? "default" : "outline"} onClick={() => setTool("brush")}><Brush />画笔</Button>
-            <label className="grid gap-1 text-xs text-muted-foreground">画笔 {brushSize}px<input type="range" min="8" max="160" step="2" value={brushSize} onChange={(event) => setBrushSize(Number(event.target.value))} className="accent-foreground" /></label>
-            <label className="grid gap-1 text-xs text-muted-foreground">羽化 {feather}px<input type="range" min="0" max="96" step="2" value={feather} onChange={(event) => setFeather(Number(event.target.value))} className="accent-foreground" /></label>
+            <label className="grid gap-1 text-xs text-muted-foreground">画笔 {brushSize}px<input type="range" min="8" max="160" step="2" value={brushSize} onChange={(event) => setBrushSize(Number(event.target.value))} className="accent-[#1456f0]" /></label>
+            <label className="grid gap-1 text-xs text-muted-foreground">羽化 {feather}px<input type="range" min="0" max="96" step="2" value={feather} onChange={(event) => setFeather(Number(event.target.value))} className="accent-[#1456f0]" /></label>
             <Button size="sm" variant={invert ? "default" : "outline"} onClick={() => setInvert((value) => !value)}><FlipHorizontal2 />反选</Button>
             <Button size="sm" variant={showOverlay ? "default" : "outline"} onClick={() => setShowOverlay((value) => !value)}><ScanEye />{showOverlay ? "隐藏" : "显示"}</Button>
             <Button size="sm" variant="outline" disabled={!marks.length} onClick={() => setMarks((current) => current.slice(0, -1))}><Undo2 />撤销</Button>

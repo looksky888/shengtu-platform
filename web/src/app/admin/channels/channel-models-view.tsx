@@ -14,14 +14,13 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-import {
-  ImageChannelModelForm,
-  toImageChannelModelInput,
-} from "@/app/settings/components/image-channel-model-form";
+import { ImageChannelModelForm } from "@/app/settings/components/image-channel-model-form";
+import { toImageChannelModelInput } from "@/app/settings/components/image-channel-model-utils";
 import {
   CAPABILITY_SHORT_LABELS,
   CHANNEL_TYPE_LABELS,
 } from "@/app/settings/components/image-channel-model-labels";
+import { SETTINGS_TAB_REFRESH_EVENT } from "@/app/settings/settings-tab-types";
 import {
   AdminPageFrame,
   AdminSlideDrawer,
@@ -106,10 +105,12 @@ function renderTierPricing(model: ImageChannelModel) {
 
 export function ChannelModelsView({
   channel,
+  embedded = false,
   onBack,
   onChanged,
 }: {
   channel: ImageChannel;
+  embedded?: boolean;
   onBack: () => void;
   onChanged: () => Promise<void>;
 }) {
@@ -141,6 +142,18 @@ export function ChannelModelsView({
 
   useEffect(() => {
     void loadModels();
+  }, [loadModels]);
+
+  useEffect(() => {
+    const handleTabRefresh = (event: Event) => {
+      const detail = (event as CustomEvent<{ tab?: string }>).detail;
+      if (!detail?.tab || detail.tab === "channels" || detail.tab === "image") {
+        void loadModels(true);
+      }
+    };
+    window.addEventListener(SETTINGS_TAB_REFRESH_EVENT, handleTabRefresh);
+    return () =>
+      window.removeEventListener(SETTINGS_TAB_REFRESH_EVENT, handleTabRefresh);
   }, [loadModels]);
 
   const handleDiscover = async () => {
@@ -259,6 +272,7 @@ export function ChannelModelsView({
 
   return (
     <AdminPageFrame
+      embedded={embedded}
       groupLabel="算力与号池 / 系统渠道"
       title={`${channel.name} · 模型与单价管理`}
       description={`管理渠道（${CHANNEL_TYPE_LABELS[channel.type] || channel.type}）下挂载的生图/视频模型、支持画幅与 1K / 2K / 4K 阶梯积分计价。`}
@@ -387,7 +401,7 @@ export function ChannelModelsView({
       </div>
 
       {/* Full-Width Hairline Models Table */}
-      <div className="overflow-x-auto rounded-[10px] border border-[var(--admin-border)] bg-[var(--admin-surface)]">
+      <div className="admin-table-card overflow-x-auto rounded-[10px] border border-[var(--admin-border)] bg-[var(--admin-surface)]">
         <table className="admin-table">
           <thead>
             <tr>

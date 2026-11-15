@@ -18,7 +18,7 @@ func (b *DatabaseBackend) ListPaymentOrdersDue(now string, limit int) ([]Payment
 	query := paymentOrderSelect + `(status IN (` + b.paymentPlaceholders(2) + `)
 		AND ` + b.utcSortableExpr("expires_at") + ` <= ` + b.placeholder(3) + ` OR status = ` + b.placeholder(4) + `)
 		ORDER BY last_query_at ASC, expires_at ASC LIMIT ` + b.placeholder(5)
-	rows, err := b.db.Query(query, PaymentOrderStatusCreated, PaymentOrderStatusPending,
+	rows, err := b.reader().Query(query, PaymentOrderStatusCreated, PaymentOrderStatusPending,
 		normalizeUTCSortableISO(now), PaymentOrderStatusClosing, limit)
 	if err != nil {
 		return nil, err

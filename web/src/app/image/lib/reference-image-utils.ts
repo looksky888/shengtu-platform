@@ -2,6 +2,7 @@ import { getStoredImageSrc } from "@/app/image/components/image-results-utils";
 import { formatDateTime } from "@/lib/datetime";
 import { fetchAuthorizedImageBlob } from "@/lib/media-fetch";
 import { createRequestId } from "@/lib/request-id";
+import type { ImageOutputFormat } from "@/lib/api";
 import type { StoredImage, StoredReferenceImage } from "@/store/image-conversations";
 
 export { buildConversationTitle } from "@/app/image/lib/image-conversation-mutations";
@@ -13,6 +14,47 @@ export function formatConversationTime(value: string) {
 
 export function createId() {
   return createRequestId("image");
+}
+
+export function mimeTypeFromOutputFormat(format?: ImageOutputFormat | string): string {
+  const normalized = String(format || "").trim().toLowerCase();
+  switch (normalized) {
+    case "gif":
+      return "image/gif";
+    case "webp":
+      return "image/webp";
+    case "jpeg":
+    case "jpg":
+      return "image/jpeg";
+    case "png":
+    default:
+      return "image/png";
+  }
+}
+
+export function extensionFromOutputFormatOrUrl(
+  outputFormat?: ImageOutputFormat | string,
+  urlOrSrc?: string,
+): "gif" | "webp" | "jpg" | "png" {
+  const normalizedFormat = String(outputFormat || "").trim().toLowerCase();
+  if (normalizedFormat === "gif") return "gif";
+  if (normalizedFormat === "webp") return "webp";
+  if (normalizedFormat === "jpeg" || normalizedFormat === "jpg") return "jpg";
+  if (normalizedFormat === "png") return "png";
+
+  const src = String(urlOrSrc || "").trim();
+  if (/^data:image\/gif(?:[;,]|$)/i.test(src) || /\.gif(?:$|[?#])/i.test(src)) return "gif";
+  if (/^data:image\/webp(?:[;,]|$)/i.test(src) || /\.webp(?:$|[?#])/i.test(src)) return "webp";
+  if (/^data:image\/jpe?g(?:[;,]|$)/i.test(src) || /\.jpe?g(?:$|[?#])/i.test(src)) return "jpg";
+  return "png";
+}
+
+export function extensionFromMimeType(mimeType?: string): "gif" | "webp" | "jpg" | "png" {
+  const normalized = String(mimeType || "").trim().toLowerCase();
+  if (normalized.includes("image/gif")) return "gif";
+  if (normalized.includes("image/webp")) return "webp";
+  if (normalized.includes("image/jpeg") || normalized.includes("image/jpg")) return "jpg";
+  return "png";
 }
 
 export function readFileAsDataUrl(file: File) {
@@ -40,10 +82,11 @@ export function buildReferenceImageFromResult(image: StoredImage, fileName: stri
     return null;
   }
 
+  const mimeType = mimeTypeFromOutputFormat(image.outputFormat);
   return {
     name: fileName,
-    type: "image/png",
-    dataUrl: `data:image/png;base64,${image.b64_json}`,
+    type: mimeType,
+    dataUrl: `data:${mimeType};base64,${image.b64_json}`,
   };
 }
 
@@ -53,7 +96,8 @@ export async function fetchImageAsFile(url: string, fileName: string, signal?: A
     throw new Error("读取结果图失败");
   }
   const blob = await response.blob();
-  return new File([blob], fileName, { type: blob.type || "image/png" });
+  const fallbackMime = mimeTypeFromOutputFormat(extensionFromOutputFormatOrUrl(undefined, fileName || url));
+  return new File([blob], fileName, { type: blob.type || fallbackMime });
 }
 
 function buildReferenceFileName(url: string, index: number, fallbackPrefix: string) {
@@ -65,10 +109,11 @@ function buildReferenceFileName(url: string, index: number, fallbackPrefix: stri
   } catch {
     name = rawName;
   }
+  const ext = extensionFromOutputFormatOrUrl(undefined, url);
   if (name) {
-    return name.includes(".") ? name : `${name}.png`;
+    return name.includes(".") ? name : `${name}.${ext}`;
   }
-  return `${fallbackPrefix}-${index + 1}.png`;
+  return `${fallbackPrefix}-${index + 1}.${ext}`;
 }
 
 export async function buildReferenceImageFromUrl(
@@ -107,7 +152,7 @@ export async function buildReferenceImageFromStoredImage(
   return {
     referenceImage: {
       name: file.name,
-      type: file.type || "image/png",
+      type: file.type || mimeTypeFromOutputFormat(image.outputFormat),
       dataUrl: await readFileAsDataUrl(file),
     },
     file,

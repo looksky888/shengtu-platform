@@ -57,12 +57,19 @@ type Client struct {
 	powDataBuild  string
 	logger        *service.Logger
 	sentinel      *sentinelContext
+	ImageResolver func(ctx context.Context, ref string) ([]byte, error)
 }
 
 // SetLogger attaches the application logger for redacted upstream diagnostics.
 // It returns the client so construction remains easy to chain in protocol code.
 func (c *Client) SetLogger(logger *service.Logger) *Client {
 	c.logger = logger
+	return c
+}
+
+// SetImageResolver attaches an optional safe local /images/... reference resolver.
+func (c *Client) SetImageResolver(resolver func(ctx context.Context, ref string) ([]byte, error)) *Client {
+	c.ImageResolver = resolver
 	return c
 }
 

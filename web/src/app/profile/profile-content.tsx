@@ -61,13 +61,13 @@ const PROFILE_TABS: SubNavItem<ProfileTab>[] = [
   },
   {
     value: "api",
-    label: "接口密钥与 API 文档（对接影策画布）",
+    label: "接口密钥与 API 文档",
     icon: KeyRound,
   },
   {
     value: "credits",
     label: "积分中心与流水",
-    title: "积分与卡密快捷入口",
+    title: "查看积分余额与使用记录",
     icon: Coins,
   },
 ];
@@ -122,26 +122,26 @@ function ProfileAppearanceCard() {
     icon: typeof Moon;
   }> = [
     {
-      value: "dark",
-      title: "暗房深色 #0B0B0D",
-      subtitle: "影策工作室默认沉浸暗房基调，突显画面光影细节",
-      swatchClass: "bg-[#0B0B0D] border-white/15 text-zinc-100",
-      icon: Moon,
+      value: "light",
+      title: "经典浅色蓝白",
+      subtitle: "清爽明亮的蓝白工作台，适合日常生图、改图与阅读文档",
+      swatchClass: "bg-[#fbfdff] border-[#cfe0ff] text-[#1456f0]",
+      icon: Sun,
     },
     {
-      value: "light",
-      title: "极简浅色 #F5F5F5",
-      subtitle: "明亮柔和纸感界面，适合日间文档查阅与资产整理",
-      swatchClass: "bg-[#F5F5F5] border-zinc-300 text-zinc-900",
-      icon: Sun,
+      value: "dark",
+      title: "夜间深色模式",
+      subtitle: "柔和护眼的深色界面，适合夜间长时间看图与创作",
+      swatchClass: "bg-slate-900 border-white/15 text-sky-300",
+      icon: Moon,
     },
   ];
 
   return (
-    <Card>
+    <Card className="border-border bg-[#fbfdff] dark:bg-card">
       <CardHeader className="pb-3">
         <div className="flex min-w-0 items-center gap-3">
-          <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border/80 bg-surface-muted text-foreground">
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-[#cfe0ff] bg-[#edf4ff] text-[#1456f0] dark:border-sky-500/30 dark:bg-sky-950/50 dark:text-sky-300">
             <Palette className="size-4.5" />
           </div>
           <div className="min-w-0">
@@ -149,7 +149,7 @@ function ProfileAppearanceCard() {
               界面外观主题
             </CardTitle>
             <CardDescription className="truncate">
-              切换创作工作台全局色彩风格，自动同步并保存在当前浏览器
+              切换浅色或深色界面，设置会自动保存在当前浏览器
             </CardDescription>
           </div>
         </div>
@@ -167,10 +167,10 @@ function ProfileAppearanceCard() {
                 handleSelectTheme(option.value, event.currentTarget)
               }
               className={cn(
-                "group relative flex flex-col gap-2.5 rounded-xl border p-3.5 text-left transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
+                "group relative flex flex-col gap-2.5 rounded-xl border p-3.5 text-left transition-all outline-none focus-visible:ring-2 focus-visible:ring-[#1456f0]/30",
                 active
-                  ? "border-foreground/80 bg-surface-muted/60 shadow-2xs"
-                  : "border-border/70 bg-surface/50 hover:border-border hover:bg-surface-muted/30",
+                  ? "border-[#1456f0] bg-[#edf4ff]/65 shadow-2xs dark:border-sky-400/55 dark:bg-sky-950/35"
+                  : "border-border/80 bg-surface/60 hover:border-[#1456f0]/35 hover:bg-surface-muted/40",
               )}
             >
               <div className="flex items-center justify-between gap-2">
@@ -188,7 +188,7 @@ function ProfileAppearanceCard() {
                   </span>
                 </div>
                 {active ? (
-                  <span className="inline-flex size-5 items-center justify-center rounded-full bg-foreground text-background">
+                  <span className="inline-flex size-5 items-center justify-center rounded-full bg-[#1456f0] text-white">
                     <Check className="size-3 stroke-[2.5]" />
                   </span>
                 ) : null}
@@ -214,7 +214,7 @@ export function ProfileContent({ session }: { session: StoredAuthSession }) {
   const invite = useProfileInvite();
   const accountPassword = useProfilePassword();
   const roleLabel = sessionRoleLabel(account.currentSession);
-  const canOpenWallet = canAccessPath(account.currentSession, "/wallet");
+  const canOpenRecharge = canAccessPath(account.currentSession, "/recharge");
   const isRefreshing =
     apiKey.isLoadingKey || credits.isLoadingCredits || invite.isLoadingInvite;
 
@@ -291,6 +291,21 @@ export function ProfileContent({ session }: { session: StoredAuthSession }) {
     }, 60);
   };
 
+  const scrollToInviteRedeem = () => {
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set("tab", "account");
+    setSearchParams(nextParams, { replace: true });
+    window.setTimeout(() => {
+      document
+        .getElementById("profile-invite-redeem")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+      const redeemInput = document.getElementById("profile-redeem-key");
+      if (redeemInput instanceof HTMLInputElement) {
+        redeemInput.focus({ preventScroll: true });
+      }
+    }, 60);
+  };
+
   return (
     <section className="mx-auto flex w-full max-w-[1280px] min-w-0 flex-col gap-5 pb-6">
       <PageHeader
@@ -298,11 +313,11 @@ export function ProfileContent({ session }: { session: StoredAuthSession }) {
         title="账号安全、外观偏好与接口密钥"
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            {canOpenWallet ? (
+            {canOpenRecharge ? (
               <Button variant="outline" size="sm" asChild>
                 <Link
-                  to="/wallet"
-                  onMouseEnter={() => preloadRoute("/wallet")}
+                  to="/recharge"
+                  onMouseEnter={() => preloadRoute("/recharge")}
                 >
                   <WalletCards className="size-3.5 text-muted-foreground" />
                   积分与权益中心
@@ -438,38 +453,42 @@ export function ProfileContent({ session }: { session: StoredAuthSession }) {
 
       {activeTab === "credits" ? (
         <div className="flex min-w-0 flex-col gap-4">
-          {canOpenWallet ? (
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/70 bg-card px-5 py-4 dark:border-white/[0.08] dark:bg-[#17181c]">
-              <div className="min-w-0 space-y-0.5">
-                <div className="text-sm font-semibold text-foreground">
-                  统一算力钱包与会员权益管理
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  前往「积分与权益中心」一站式办理算力补充、卡密核销与账户权益查询。
-                </p>
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-[#fbfdff] px-5 py-4 dark:bg-card">
+            <div className="min-w-0 space-y-0.5">
+              <div className="text-sm font-semibold text-foreground">
+                充值积分与兑换卡密
               </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <Button variant="outline" size="sm" asChild>
+              <p className="text-xs text-muted-foreground">
+                需要充值积分、使用兑换码或查看邀请奖励，可直接兑换卡密或前往积分充值页面。
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={scrollToInviteRedeem}
+              >
+                <KeyRound className="size-3.5" />
+                兑换码与邀请
+              </Button>
+              {canOpenRecharge ? (
+                <Button
+                  size="sm"
+                  className="bg-[#1456f0] text-white hover:bg-[#1048ce]"
+                  asChild
+                >
                   <Link
-                    to="/wallet?tab=redeem"
-                    onMouseEnter={() => preloadRoute("/wallet")}
+                    to="/recharge"
+                    onMouseEnter={() => preloadRoute("/recharge")}
                   >
-                    <KeyRound className="size-3.5" />
-                    卡密核销与邀请
-                  </Link>
-                </Button>
-                <Button size="sm" asChild>
-                  <Link
-                    to="/wallet"
-                    onMouseEnter={() => preloadRoute("/wallet")}
-                  >
-                    前往积分与权益中心
+                    去充值或兑换积分
                     <ArrowUpRight className="size-3.5" />
                   </Link>
                 </Button>
-              </div>
+              ) : null}
             </div>
-          ) : null}
+          </div>
 
           <ProfileCreditsCard
             credits={credits.credits}

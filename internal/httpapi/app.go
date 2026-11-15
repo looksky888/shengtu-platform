@@ -69,7 +69,9 @@ type App struct {
 	cpaImport         *service.CPAImportService
 	credits           *service.CreditService
 	creditRefunds     *service.CreditRefundQueue
-	imageChannels     *service.ImageChannelService
+	imageChannels         *service.ImageChannelService
+	imageURLSigningOnce   sync.Once
+	imageURLSigningSecret []byte
 	regQuota          *service.RegistrationQuotaService
 	email             *service.RegistrationEmailService
 	paymentAdmin      *service.PaymentAdminService
@@ -83,6 +85,7 @@ type App struct {
 	shutdownRequested chan struct{}
 	shutdownOnce      sync.Once
 	cleanupWG         sync.WaitGroup
+	billingWG         sync.WaitGroup
 	cancel            context.CancelFunc
 	rootCtx           context.Context
 	closeTasks        func(context.Context) error
@@ -172,8 +175,13 @@ func NewApp() (*App, error) {
 		TimeoutSeconds: cfg.ImageProxyTimeoutSeconds(), MaxRetries: cfg.ImageProxyMaxRetries(), DownloadURLs: cfg.ImageProxyDownloadURLs(),
 		MaxConcurrency: cfg.ImageConcurrentLimit(),
 		GPTModelCosts: map[string]int{
-			util.ImageModelGPT: cfg.GPTImage2CreditCost(), util.ImageModelGPT25: cfg.GPTImage25CreditCost(),
-			util.ImageModelGPT25Flare: cfg.GPTImage25FlareCreditCost(), util.ImageModelGPT25Sunburst: cfg.GPTImage25SunburstCreditCost(),
+			util.ImageModelGPT:           cfg.GPTImage2CreditCost(),
+			util.ImageModelGPT25:         cfg.GPTImage25CreditCost(),
+			util.ImageModelGPT25Flare:    cfg.GPTImage25FlareCreditCost(),
+			util.ImageModelGPT25Sunburst: cfg.GPTImage25SunburstCreditCost(),
+			util.ImageModelGPT26:         cfg.GPTImage26CreditCost(),
+			util.ImageModelGPT26Flare:    cfg.GPTImage26FlareCreditCost(),
+			util.ImageModelGPT26Sunburst: cfg.GPTImage26SunburstCreditCost(),
 		}, GrokImageCost1K: cfg.GrokImageCreditCost1K(), GrokImageCost2K: cfg.GrokImageCreditCost2K(),
 	})
 	if err != nil {

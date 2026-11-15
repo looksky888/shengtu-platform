@@ -29,7 +29,7 @@ export function ProfileApiKeyDialogs({
         open={isRotateDialogOpen}
         onClose={() => onRotateOpenChange(false)}
         title="重新生成密钥"
-        description="重新生成后旧密钥将立即失效，请确认所有外部调用方（SDK、客户端或自动化工作流）已准备好更新为新密钥。"
+        description="生成新密钥后，原来的旧密钥会马上失效。请记得把 Cherry Studio、脚本或其他工具里的旧密钥换成新的。"
         confirmLabel="确认重新生成"
         pendingLabel="生成中…"
         tone="warning"
@@ -41,7 +41,7 @@ export function ProfileApiKeyDialogs({
         open={isDeleteDialogOpen}
         onClose={() => onDeleteOpenChange(false)}
         title="删除接口密钥"
-        description={`确认删除「${keyName || "我的 API 令牌"}」吗？删除后使用该密钥的所有外部 API 请求将立即被拒绝。`}
+        description={`确认删除「${keyName || "我的 API 令牌"}」吗？删除后正在用这个密钥的程序或客户端将无法继续调用接口。`}
         confirmLabel="确认删除"
         pendingLabel="删除中…"
         destructive

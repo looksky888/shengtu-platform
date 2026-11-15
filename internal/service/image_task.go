@@ -25,8 +25,10 @@ const (
 type ImageTaskHandler func(context.Context, Identity, map[string]any) (map[string]any, error)
 
 type ImageOutputOptions struct {
-	Format      string
-	Compression *int
+	Format          string
+	Compression     *int
+	FrameCount      string
+	FrameDurationMS string
 }
 
 type ImageTaskService struct {

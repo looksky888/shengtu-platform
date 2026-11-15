@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type ChangeEvent, type ReactNode } from "react";
+import { useContext, useRef, useState, type ChangeEvent, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { Upload } from "lucide-react";
 import { toast } from "sonner";
@@ -13,6 +13,9 @@ import { getCpaAccessToken, getSessionAccessToken, readFileAsText, splitTokens }
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { createAccounts, type Account } from "@/lib/api";
+import { getCachedAuthSession } from "@/lib/session";
+import { ResolvedAuthSessionContext } from "@/lib/use-auth-guard";
+import { canAccessPath } from "@/store/auth";
 
 type AccountImportDialogProps = {
   disabled?: boolean;
@@ -29,6 +32,10 @@ const dialogCopy: Record<ImportMethod, { title: string; description: string }> =
 
 export function AccountImportDialog({ disabled, trigger, onImported }: AccountImportDialogProps) {
   const navigate = useNavigate();
+  const contextSession = useContext(ResolvedAuthSessionContext);
+  const session =
+    contextSession !== undefined ? contextSession : getCachedAuthSession();
+  const canOpenSettings = canAccessPath(session, "/settings");
   const [open, setOpen] = useState(false);
   const [method, setMethod] = useState<ImportMethod>("menu");
   const [tokenInput, setTokenInput] = useState("");
@@ -150,11 +157,15 @@ export function AccountImportDialog({ disabled, trigger, onImported }: AccountIm
             onSessionChange={setSessionInput}
             onTxtSelected={handleTxtSelected}
             onCpaSelected={handleCpaSelected}
-            onRemoteCpa={() => {
-              setOpen(false);
-              resetState();
-              navigate("/admin/accounts?tab=cpa");
-            }}
+            onRemoteCpa={
+              canOpenSettings
+                ? () => {
+                    setOpen(false);
+                    resetState();
+                    navigate("/settings?tab=cpa");
+                  }
+                : undefined
+            }
           />
           <AccountImportFooter
             method={method}

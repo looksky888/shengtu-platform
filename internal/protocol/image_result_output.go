@@ -3,6 +3,7 @@ package protocol
 import (
 	"context"
 	"encoding/base64"
+	"strings"
 	"time"
 
 	"chatgpt2api/internal/backend"
@@ -20,13 +21,17 @@ func (e *Engine) conversationImageResultOutput(ctx context.Context, client *back
 	}
 	var imageItems []map[string]any
 	for _, data := range bytesItems {
-		imageItems = append(imageItems, map[string]any{
-			"b64_json":      base64.StdEncoding.EncodeToString(data),
-			"output_format": NormalizeImageOutputFormat(request.OutputFormat),
-		})
+		item := map[string]any{
+			"b64_json": base64.StdEncoding.EncodeToString(data),
+		}
+		if strings.TrimSpace(request.OutputFormat) != "" {
+			item["output_format"] = NormalizeImageOutputFormat(request.OutputFormat)
+		}
+		imageItems = append(imageItems, item)
 	}
 	created := time.Now().Unix()
-	result, formatErr := e.FormatImageResultWithOptions(
+	result, formatErr := e.FormatImageResultWithContext(
+		ctx,
 		imageItems,
 		request.Prompt,
 		request.ResponseFormat,

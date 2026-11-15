@@ -43,7 +43,7 @@ func (a *App) downloadProxyImageURL(ctx context.Context, imageURL string, reques
 	// 2) On 401/403, retry with Bearer only when URL is on the configured proxy host.
 	data, contentType, status, err := doProxyImageGET(publicClient, req)
 	if err == nil && status >= 200 && status < 300 && len(data) > 0 {
-		return a.saveDownloadedProxyImage(data, contentType, parsed.Path, request)
+		return a.saveDownloadedProxyImage(ctx, data, contentType, parsed.Path, request)
 	}
 	if apiKey != "" && (status == http.StatusUnauthorized || status == http.StatusForbidden || err != nil) {
 		if keyErr := validateOutboundProxyURL(parsed.String(), proxyBase, true); keyErr != nil {
@@ -60,7 +60,7 @@ func (a *App) downloadProxyImageURL(ctx context.Context, imageURL string, reques
 		keyClient := ssrfSafeHTTPClient(baseClient, proxyBase, true)
 		data2, contentType2, status2, err2 := doProxyImageGET(keyClient, req2)
 		if err2 == nil && status2 >= 200 && status2 < 300 && len(data2) > 0 {
-			return a.saveDownloadedProxyImage(data2, contentType2, parsed.Path, request)
+			return a.saveDownloadedProxyImage(ctx, data2, contentType2, parsed.Path, request)
 		}
 		if err2 != nil {
 			return "", "", err2
@@ -100,9 +100,24 @@ func doProxyImageGET(client *http.Client, req *http.Request) (data []byte, conte
 	return raw, contentType, status, nil
 }
 
-func (a *App) saveDownloadedProxyImage(data []byte, contentType, rawPath string, request map[string]any) (string, string, error) {
-	outputFormat := proxyImageOutputFormat(contentType, rawPath, util.Clean(request["output_format"]))
-	localURL, err := a.engine.SaveImageBytesForOwnerWithFormat(
+func (a *App) saveDownloadedProxyImage(ctx context.Context, data []byte, contentType, rawPath string, request map[string]any) (string, string, error) {
+	requestedFormat := strings.TrimSpace(util.Clean(request["output_format"]))
+	outputFormat := proxyImageOutputFormat(contentType, rawPath, requestedFormat)
+	if protocol.IsGIFBytes(data) && requestedFormat == "" {
+		outputFormat = "gif"
+	}
+	if strings.EqualFold(requestedFormat, "gif") {
+		outputFormat = "gif"
+		if !protocol.IsGIFBytes(data) {
+			encoded, err := protocol.EncodeImageBytes(data, protocol.ImageOutputOptions{Format: "gif"})
+			if err != nil {
+				return "", "", fmt.Errorf("转换下载图片为 GIF 失败: %w", err)
+			}
+			data = encoded
+		}
+	}
+	localURL, err := a.engine.SaveImageBytesForOwnerWithFormatContext(
+		ctx,
 		data,
 		util.Clean(request["base_url"]),
 		util.Clean(request["owner_id"]),
@@ -132,6 +147,8 @@ func proxyImageOutputFormat(contentType, rawPath, fallback string) string {
 		return "jpeg"
 	case "image/webp":
 		return "webp"
+	case "image/gif":
+		return "gif"
 	case "image/png":
 		return "png"
 	}
@@ -140,6 +157,8 @@ func proxyImageOutputFormat(contentType, rawPath, fallback string) string {
 		return "jpeg"
 	case ".webp":
 		return "webp"
+	case ".gif":
+		return "gif"
 	case ".png":
 		return "png"
 	default:

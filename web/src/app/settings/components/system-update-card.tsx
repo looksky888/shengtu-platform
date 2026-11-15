@@ -235,7 +235,7 @@ export function SystemUpdateCard() {
   useEffect(() => {
     const handleTabRefresh = (event: Event) => {
       const detail = (event as CustomEvent<{ tab?: string }>).detail;
-      if (detail?.tab === "system-update") {
+      if (detail?.tab === "system" || detail?.tab === "system-update") {
         void load({ silent: true });
       }
     };

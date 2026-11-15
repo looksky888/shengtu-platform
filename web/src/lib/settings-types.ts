@@ -41,6 +41,9 @@ export type SettingsConfig = {
   gpt_image_2_5_credit_cost?: number | string;
   gpt_image_2_5_flare_credit_cost?: number | string;
   gpt_image_2_5_sunburst_credit_cost?: number | string;
+  gpt_image_2_6_credit_cost?: number | string;
+  gpt_image_2_6_flare_credit_cost?: number | string;
+  gpt_image_2_6_sunburst_credit_cost?: number | string;
   grok_image_credit_cost_1k?: number | string;
   grok_image_credit_cost_2k?: number | string;
   video_credit_cost_per_second?: number | string;

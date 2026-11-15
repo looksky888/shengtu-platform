@@ -1,5 +1,5 @@
 import type { ImageSizeSelection } from "@/app/image/image-options";
-import type { ImageModel } from "@/lib/api";
+import type { ImageModel, ImageOutputFormat } from "@/lib/api";
 import type { ImageTurn, StoredReferenceImage } from "@/store/image-conversations";
 
 export type ComposerRecallState = {
@@ -10,8 +10,10 @@ export type ComposerRecallState = {
   count: string;
   sizeSelection: ImageSizeSelection;
   quality: "low" | "medium" | "high";
-  outputFormat: "png" | "jpeg" | "webp";
+  outputFormat: ImageOutputFormat;
   outputCompression: string;
+  frameCount: string;
+  frameDurationMs: string;
   visibility: "private" | "public";
   referenceImages: StoredReferenceImage[];
 };
@@ -21,6 +23,24 @@ export function buildComposerRecallState(turn: ImageTurn, fallbackImageModel: Im
   const sizeSelection = recalledSizeSelection(isChat ? undefined : turn.sizeSelection, turn.size);
   const rawCount = Math.floor(Number(turn.count || turn.images.length || 1));
   const safeCount = Number.isFinite(rawCount) && rawCount >= 1 ? Math.min(15, rawCount) : 1;
+  const outputFormat: ImageOutputFormat = turn.outputFormat || "png";
+  const outputCompression =
+    outputFormat === "png" || outputFormat === "gif" || turn.outputCompression == null
+      ? ""
+      : String(turn.outputCompression);
+  const frameCount =
+    outputFormat === "gif" && turn.frameCount != null && Number.isFinite(Number(turn.frameCount)) && Number(turn.frameCount) > 0
+      ? String(Math.round(Number(turn.frameCount)))
+      : "";
+  const frameDurationMs =
+    outputFormat === "gif" && turn.frameDurationMs != null && Number.isFinite(Number(turn.frameDurationMs)) && Number(turn.frameDurationMs) > 0
+      ? String(Math.round(Number(turn.frameDurationMs)))
+      : "";
+
+  const usableReferenceImages = isChat
+    ? []
+    : turn.referenceImages.filter((image) => !image.stripped && Boolean(image.dataUrl));
+
   return {
     prompt: turn.prompt,
     composerMode: isChat ? "chat" : "image",
@@ -29,10 +49,12 @@ export function buildComposerRecallState(turn: ImageTurn, fallbackImageModel: Im
     count: isChat ? "1" : String(safeCount),
     sizeSelection,
     quality: turn.quality || "high",
-    outputFormat: turn.outputFormat || "png",
-    outputCompression: turn.outputCompression == null ? "" : String(turn.outputCompression),
+    outputFormat,
+    outputCompression,
+    frameCount,
+    frameDurationMs,
     visibility: turn.visibility || "private",
-    referenceImages: isChat ? [] : turn.referenceImages,
+    referenceImages: usableReferenceImages,
   };
 }
 

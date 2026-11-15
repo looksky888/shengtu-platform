@@ -13,7 +13,6 @@ import {
 import { LoaderCircle } from "lucide-react";
 
 import { appRoutes } from "@/app/route-config";
-import { isStudioWorkspaceRoute } from "@/components/workspace/workspace-navigation";
 import { buildLoginRedirectUrl } from "@/lib/request-unauthorized";
 import {
   AUTH_SESSION_CHANGE_EVENT,
@@ -24,7 +23,7 @@ import { ResolvedAuthSessionContext } from "@/lib/use-auth-guard";
 import { canAccessPath, getDefaultRouteForSession, type StoredAuthSession } from "@/store/auth";
 
 const routeTransition: Transition = {
-  duration: 0.14,
+  duration: 0.16,
   ease: [0.22, 1, 0.36, 1],
 };
 
@@ -40,7 +39,6 @@ function PermissionRoute({ requiredPath, children }: { requiredPath?: string; ch
     let active = true;
     const syncFromCache = () => {
       const cached = getCachedAuthSession();
-      // Only promote when cache is resolved (null | session); keep waiting while undefined.
       if (cached !== undefined) {
         setSession(cached);
       }
@@ -62,7 +60,6 @@ function PermissionRoute({ requiredPath, children }: { requiredPath?: string; ch
   if (!requiredPath) {
     return children;
   }
-  // P1-15: do not render protected pages until session is resolved.
   if (session === undefined) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center">
@@ -87,15 +84,13 @@ export function AnimatedRoutes() {
   const location = useLocation();
   const prefersReducedMotion = useReducedMotion();
 
-  const isStudio = isStudioWorkspaceRoute(location.pathname);
-
   return (
     <motion.div
       key={location.pathname}
       initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0, y: 3 }}
       animate={{ opacity: 1, y: 0 }}
       transition={prefersReducedMotion ? reducedRouteTransition : routeTransition}
-      className={isStudio ? "flex h-full min-h-0 min-w-0 flex-1 flex-col" : "min-w-0"}
+      className="min-w-0"
     >
       <Routes location={location}>
         {appRoutes.map((route) => (

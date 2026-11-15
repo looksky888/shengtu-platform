@@ -85,7 +85,7 @@ func (e *Engine) StreamResponsesImageToolOutputs(ctx context.Context, client *ba
 			return
 		}
 		if len(imageItems) > 0 {
-			result, formatErr := e.FormatImageResultWithOptions(imageItems, request.Prompt, request.ResponseFormat, request.BaseURL, request.OwnerID, request.OwnerName, created, "", ImageOutputOptions{Format: request.OutputFormat, Compression: request.OutputCompression})
+			result, formatErr := e.FormatImageResultWithContext(ctx, imageItems, request.Prompt, request.ResponseFormat, request.BaseURL, request.OwnerID, request.OwnerName, created, "", ImageOutputOptions{Format: request.OutputFormat, Compression: request.OutputCompression})
 			if formatErr != nil {
 				errCh <- formatErr
 				return
@@ -179,7 +179,7 @@ func shouldForceResponsesImageToolChoice(model string) bool {
 func responseImageToolModel(model string) string {
 	model = strings.TrimSpace(model)
 	if model == "" || model == util.ImageModelAuto {
-		return util.ImageModelGPT
+		return util.ImageModelGPT26Flare
 	}
 	// Grok and pure image-generation models should not attach a nested tool model name
 	// when this Responses path is accidentally invoked; callers should route Grok elsewhere.
@@ -282,7 +282,11 @@ func appendResponseImageOutputItems(items []map[string]any, output []map[string]
 			continue
 		}
 		seen[b64] = struct{}{}
-		items = append(items, map[string]any{"b64_json": b64, "revised_prompt": util.Clean(item["revised_prompt"])})
+		entry := map[string]any{"b64_json": b64, "revised_prompt": util.Clean(item["revised_prompt"])}
+		if outFmt := strings.TrimSpace(util.Clean(item["output_format"])); outFmt != "" {
+			entry["output_format"] = NormalizeImageOutputFormat(outFmt)
+		}
+		items = append(items, entry)
 	}
 	return items
 }

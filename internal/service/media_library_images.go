@@ -103,7 +103,12 @@ func (m *MediaLibrary) UpdateGeneratedImage(value, ownerID, ownerName, visibilit
 	if !ok {
 		return fmt.Errorf("图片不存在: %s", rel)
 	}
-	if ownerID = strings.TrimSpace(ownerID); ownerID != "" {
+	ownerID = strings.TrimSpace(ownerID)
+	existingOwner := strings.TrimSpace(asset.OwnerID)
+	if existingOwner != "" && ownerID != "" && existingOwner != ownerID {
+		return nil
+	}
+	if ownerID != "" {
 		asset.OwnerID = ownerID
 	}
 	if ownerName = strings.TrimSpace(ownerName); ownerName != "" {
@@ -127,8 +132,8 @@ func (m *MediaLibrary) UpdateGeneratedImage(value, ownerID, ownerName, visibilit
 	if requested := strings.TrimSpace(metadata.RequestedSize); requested != "" {
 		asset.RequestedSize = requested
 	}
-	if format := NormalizeImageOutputFormat(metadata.OutputFormat); format != "" {
-		asset.OutputFormat = format
+	if rawFormat := strings.TrimSpace(metadata.OutputFormat); rawFormat != "" {
+		asset.OutputFormat = NormalizeImageOutputFormat(rawFormat)
 	}
 	asset.UpdatedAt = util.NowISO()
 	return m.repo.SaveMediaAsset(asset)

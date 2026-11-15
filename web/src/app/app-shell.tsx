@@ -1,22 +1,20 @@
-import { Suspense, useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 
 import { AnimatedRoutes } from "@/app/animated-routes";
-import { isAdminRoutePath } from "@/components/admin/admin-navigation";
 import { resolveRoutePageTitle } from "@/components/top-nav-config";
 import { normalizeBrandTitle } from "@/lib/app-meta";
-import { lazyWithRetry } from "@/lib/lazy-with-retry";
 import { useAppMeta } from "@/lib/use-app-meta";
 
-const LazyWorkspaceShell = lazyWithRetry(() =>
-  import("@/components/workspace/workspace-shell").then((mod) => ({
-    default: mod.WorkspaceShell,
+const BannerAnnouncementsBar = lazy(() =>
+  import("@/components/banner-announcements-bar").then((m) => ({
+    default: m.BannerAnnouncementsBar,
   })),
 );
 
-const LazyAdminShell = lazyWithRetry(() =>
-  import("@/components/admin/admin-shell").then((mod) => ({
-    default: mod.AdminShell,
+const TopNav = lazy(() =>
+  import("@/components/top-nav").then((m) => ({
+    default: m.TopNav,
   })),
 );
 
@@ -25,7 +23,6 @@ export function AppShell() {
   const appMeta = useAppMeta();
   const pathname = location.pathname.replace(/\/+$/, "") || "/";
   const isPublicRoute = pathname === "/" || pathname === "/login";
-  const isAdminRoute = isAdminRoutePath(pathname);
 
   useEffect(() => {
     if (isPublicRoute) return;
@@ -34,46 +31,26 @@ export function AppShell() {
     document.title = pageTitle ? `${pageTitle} · ${brandTitle}` : brandTitle;
   }, [appMeta.app_title, isPublicRoute, pathname]);
 
-  if (isAdminRoute) {
-    return (
-      <Suspense
-        fallback={
-          <div
-            data-admin-root=""
-            className="flex h-dvh w-full items-center justify-center bg-[var(--admin-canvas,#0f0f0f)] text-xs text-[var(--admin-text-muted,#8a8a8a)]"
-          >
-            正在进入管理控制台…
-          </div>
-        }
-      >
-        <LazyAdminShell>
-          <AnimatedRoutes />
-        </LazyAdminShell>
-      </Suspense>
-    );
-  }
-
   if (isPublicRoute) {
     return (
-      <main className="flex min-h-screen min-w-0 flex-col bg-background text-foreground">
-        <div className="flex w-full min-w-0 flex-1 flex-col">
-          <AnimatedRoutes />
-        </div>
+      <main className="min-h-screen min-w-0 bg-background text-foreground">
+        <AnimatedRoutes />
       </main>
     );
   }
 
   return (
-    <Suspense
-      fallback={
-        <div className="flex h-dvh w-full items-center justify-center bg-background text-xs text-muted-foreground">
-          正在加载创作工作台…
-        </div>
-      }
-    >
-      <LazyWorkspaceShell>
+    <main className="min-h-screen min-w-0 bg-background text-foreground">
+      <div className="mx-auto flex min-h-screen w-full min-w-0 max-w-[1440px] flex-col gap-2 px-3 py-3 sm:px-5 lg:px-6">
+        <Suspense fallback={null}>
+          <BannerAnnouncementsBar
+            target="image"
+            className="overflow-hidden rounded-2xl border border-black/10 shadow-2xs dark:border-white/10"
+          />
+          <TopNav />
+        </Suspense>
         <AnimatedRoutes />
-      </LazyWorkspaceShell>
-    </Suspense>
+      </div>
+    </main>
   );
 }

@@ -48,7 +48,17 @@ export function ImageTurnResultSummary({
         {resultSizeLabel ? <span className="rounded-md bg-surface-muted px-2.5 py-0.5 font-mono">{resultSizeLabel}</span> : null}
         {turn.quality ? <span className="rounded-md bg-surface-muted px-2.5 py-0.5 font-mono">Quality {turn.quality}</span> : null}
         {turn.outputFormat ? <span className="rounded-md bg-surface-muted px-2.5 py-0.5 font-mono">{turn.outputFormat.toUpperCase()}</span> : null}
-        {turn.outputCompression != null && turn.outputFormat && turn.outputFormat !== "png" ? (
+        {turn.outputFormat === "gif" && turn.frameCount ? (
+          <span className="rounded-md bg-[#edf4ff] px-2.5 py-0.5 font-mono text-[#1456f0] dark:bg-sky-950/50 dark:text-sky-300">
+            帧数 {turn.frameCount}
+          </span>
+        ) : null}
+        {turn.outputFormat === "gif" && turn.frameDurationMs ? (
+          <span className="rounded-md bg-[#edf4ff] px-2.5 py-0.5 font-mono text-[#1456f0] dark:bg-sky-950/50 dark:text-sky-300">
+            间隔 {turn.frameDurationMs}ms
+          </span>
+        ) : null}
+        {turn.outputCompression != null && turn.outputFormat && turn.outputFormat !== "png" && turn.outputFormat !== "gif" ? (
           <span className="rounded-md bg-surface-muted px-2.5 py-0.5 font-mono">压缩 {turn.outputCompression}</span>
         ) : null}
         {outcomeLabel ? <span className="rounded-md bg-surface-muted px-2.5 py-0.5">{outcomeLabel}</span> : null}
@@ -57,8 +67,8 @@ export function ImageTurnResultSummary({
       {turnBusy || downloadableImages.length > 0 ? (
         <div className="flex flex-wrap items-center justify-end gap-2">
           {turnBusy ? (
-            <span className="inline-flex w-fit items-center gap-1.5 whitespace-nowrap rounded-md border border-border/75 bg-surface-muted px-2.5 py-1 text-[11px] font-medium text-foreground/85 sm:text-xs">
-              <span className="size-1.5 animate-pulse rounded-full bg-foreground" />
+            <span className="inline-flex w-fit items-center gap-1.5 whitespace-nowrap rounded-md border border-[#cfe0ff] bg-[#edf4ff] px-2.5 py-1 text-[11px] font-medium text-[#1456f0] sm:text-xs dark:border-sky-500/30 dark:bg-sky-950/50 dark:text-sky-300">
+              <span className="size-1.5 animate-pulse rounded-full bg-[#1456f0] dark:bg-sky-400" />
               {progressMessage}
             </span>
           ) : null}
@@ -67,7 +77,7 @@ export function ImageTurnResultSummary({
               <Button
                 type="button"
                 size="sm"
-                className="h-8 rounded-lg px-2.5 text-[11px]"
+                className="h-8 rounded-full bg-[#1456f0] px-3 text-[11px] text-white hover:bg-[#1048ce] disabled:bg-[#e5e7eb] disabled:text-[#9ca3af] dark:disabled:bg-muted dark:disabled:text-muted-foreground"
                 disabled={selectedDownloadableImages.length === 0 || downloadingKey !== null}
                 onClick={() => onDownloadItems(selectedDownloadKey, selectedDownloadableImages)}
               >
@@ -78,7 +88,7 @@ export function ImageTurnResultSummary({
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-8 rounded-lg px-2.5 text-[11px]"
+                className="h-8 rounded-full px-3 text-[11px]"
                 disabled={downloadingKey !== null}
                 onClick={() => onDownloadItems(allDownloadKey, downloadableImages)}
               >

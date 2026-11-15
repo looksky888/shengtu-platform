@@ -2,23 +2,8 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import {
-  getAssetsTypeTabOptions,
-  parseAssetsScope,
-  parseAssetsTypeTab,
-  resolveAssetOrientation,
-  resolveImageExpiryBadge,
-} from "../src/app/assets/assets-cloud-policy.ts";
 import { resolveRoutePageTitle } from "../src/components/top-nav-config.ts";
-import {
-  buildWorkspaceNavItems,
-  getMobileWorkspaceNavItems,
-  isStudioWorkspaceRoute,
-  isWorkspaceNavItemActive,
-  resolveLegacyImageManagerRedirect,
-  resolveLegacyVideoLibraryRedirect,
-  resolveWorkspaceCanvasUrl,
-} from "../src/components/workspace/workspace-navigation.ts";
+import { resolveImageExpiryBadge } from "../src/lib/media-cloud-policy.ts";
 import {
   canAccessPath,
   getDefaultRouteForSession,
@@ -41,105 +26,44 @@ function buildSession(
   };
 }
 
-test("workspace navigation builds rail items, dynamic canvas link, and mobile bar", () => {
-  const session = buildSession(["/image", "/video"]);
-  const items = buildWorkspaceNavItems({
-    session,
-    checkAccess: canAccessPath,
-    canvasUrl: "https://canvas.example.com/studio",
-  });
-
-  assert.deepEqual(
-    items.map((item) => item.id),
-    ["create", "canvas", "tasks", "assets", "wallet", "settings"],
-  );
-  assert.equal(items.find((item) => item.id === "create")?.href, "/image");
-  assert.equal(
-    items.find((item) => item.id === "canvas")?.href,
-    "https://canvas.example.com/studio",
-  );
-  assert.equal(items.find((item) => item.id === "canvas")?.external, true);
-
-  const mobile = getMobileWorkspaceNavItems(items);
-  assert.deepEqual(
-    mobile.map((item) => item.id),
-    ["create", "tasks", "assets", "wallet", "settings"],
-  );
-
-  const createItem = items.find((item) => item.id === "create")!;
-  assert.equal(isWorkspaceNavItemActive("/image", createItem), true);
-  assert.equal(isWorkspaceNavItemActive("/video", createItem), true);
-  assert.equal(isWorkspaceNavItemActive("/assets", createItem), false);
-
-  assert.equal(isStudioWorkspaceRoute("/image"), true);
-  assert.equal(isStudioWorkspaceRoute("/video"), true);
-  assert.equal(isStudioWorkspaceRoute("/assets"), false);
-  assert.equal(isStudioWorkspaceRoute("/tasks"), false);
-  assert.equal(isStudioWorkspaceRoute("/wallet"), false);
-});
-
-test("resolveWorkspaceCanvasUrl rejects malformed or credentialed URLs", () => {
-  assert.equal(
-    resolveWorkspaceCanvasUrl("https://canvas.yingce.ai/app"),
-    "https://canvas.yingce.ai/app",
-  );
-  assert.equal(resolveWorkspaceCanvasUrl("javascript:alert(1)"), "");
-  assert.equal(resolveWorkspaceCanvasUrl("https://user:pass@example.com"), "");
-  assert.equal(resolveWorkspaceCanvasUrl("   "), "");
-});
-
-test("legacy user library routes redirect cleanly to unified /assets tabs", () => {
-  assert.equal(resolveLegacyImageManagerRedirect(""), "/assets?type=image");
-  assert.equal(
-    resolveLegacyImageManagerRedirect("?view=public"),
-    "/assets?type=image&view=public",
-  );
-  assert.equal(
-    resolveLegacyImageManagerRedirect("?scope=all"),
-    "/assets?type=image&view=all",
-  );
-  assert.equal(resolveLegacyVideoLibraryRedirect(""), "/assets?type=video");
-  assert.equal(
-    resolveLegacyVideoLibraryRedirect("?view=public"),
-    "/assets?type=video&view=public",
-  );
-});
-
-test("RBAC permissions and default route support /tasks, /assets, /wallet with legacy menuPaths", () => {
+test("RBAC permissions align /wallet with /recharge, /image-manager with /image, and Classic default route priority", () => {
   const videoOnlySession = buildSession(["/video"]);
+  assert.equal(canAccessPath(videoOnlySession, "/video-library"), true);
+  assert.equal(canAccessPath(videoOnlySession, "/image-manager"), false);
   assert.equal(canAccessPath(videoOnlySession, "/tasks"), true);
   assert.equal(canAccessPath(videoOnlySession, "/assets"), true);
-  assert.equal(canAccessPath(videoOnlySession, "/wallet"), true);
+  assert.equal(canAccessPath(videoOnlySession, "/wallet"), false);
+  assert.equal(canAccessPath(videoOnlySession, "/recharge"), false);
   assert.equal(canAccessPath(videoOnlySession, "/profile"), true);
   assert.equal(getDefaultRouteForSession(videoOnlySession), "/video");
 
-  const legacyGallerySession = buildSession(["/image-manager", "/recharge"]);
-  assert.equal(canAccessPath(legacyGallerySession, "/assets"), true);
-  assert.equal(canAccessPath(legacyGallerySession, "/tasks"), false);
-  assert.equal(canAccessPath(legacyGallerySession, "/wallet"), true);
-  assert.equal(
-    getDefaultRouteForSession(legacyGallerySession),
-    "/assets",
-  );
+  const imageOnlySession = buildSession(["/image"]);
+  assert.equal(canAccessPath(imageOnlySession, "/image-manager"), true);
+  assert.equal(canAccessPath(imageOnlySession, "/assets"), true);
+  assert.equal(getDefaultRouteForSession(imageOnlySession), "/image");
+
+  const gallerySession = buildSession(["/image-manager", "/recharge"]);
+  assert.equal(canAccessPath(gallerySession, "/image-manager"), true);
+  assert.equal(canAccessPath(gallerySession, "/recharge"), true);
+  assert.equal(canAccessPath(gallerySession, "/wallet"), true);
+  assert.equal(canAccessPath(gallerySession, "/assets"), true);
+  assert.equal(getDefaultRouteForSession(gallerySession), "/image-manager");
 
   const rechargeOnlySession = buildSession(["/recharge"]);
-  assert.equal(getDefaultRouteForSession(rechargeOnlySession), "/wallet");
+  assert.equal(canAccessPath(rechargeOnlySession, "/wallet"), true);
+  assert.equal(getDefaultRouteForSession(rechargeOnlySession), "/recharge");
 
-  assert.equal(resolveRoutePageTitle("/tasks"), "任务中心");
-  assert.equal(resolveRoutePageTitle("/assets"), "素材云库");
-  assert.equal(resolveRoutePageTitle("/wallet"), "积分与权益中心");
+  assert.equal(resolveRoutePageTitle("/image-manager"), "图片库");
+  assert.equal(resolveRoutePageTitle("/video-library"), "视频库");
+  assert.equal(resolveRoutePageTitle("/recharge"), "充值中心");
 });
 
-test("assets cloud policy strictly hides expiring tabs and countdown badges when cloudStorageEnabled is false", () => {
+test("media cloud policy strictly hides countdown badges when cloudStorageEnabled is false or scope is public", () => {
   const nowMs = Date.parse("2026-05-01T00:00:00Z");
   const inTwoDays = "2026-05-03T00:00:00Z";
   const inSixHours = "2026-05-01T06:00:00Z";
+  const expired = "2026-04-30T23:00:00Z";
 
-  assert.deepEqual(
-    getAssetsTypeTabOptions(false).map((item) => item.value),
-    ["all", "image", "video"],
-  );
-  assert.equal(parseAssetsTypeTab("expiring", false), "all");
   assert.equal(
     resolveImageExpiryBadge({
       cloudStorageEnabled: false,
@@ -150,11 +74,6 @@ test("assets cloud policy strictly hides expiring tabs and countdown badges when
     null,
   );
 
-  assert.deepEqual(
-    getAssetsTypeTabOptions(true).map((item) => item.value),
-    ["all", "image", "video", "expiring"],
-  );
-  assert.equal(parseAssetsTypeTab("expiring", true), "expiring");
   assert.deepEqual(
     resolveImageExpiryBadge({
       cloudStorageEnabled: true,
@@ -173,6 +92,15 @@ test("assets cloud policy strictly hides expiring tabs and countdown badges when
     }),
     { label: "不足 6 小时", urgent: true },
   );
+  assert.deepEqual(
+    resolveImageExpiryBadge({
+      cloudStorageEnabled: true,
+      scope: "mine",
+      expiresAt: expired,
+      nowMs,
+    }),
+    { label: "即将清理", urgent: true },
+  );
   assert.equal(
     resolveImageExpiryBadge({
       cloudStorageEnabled: true,
@@ -182,15 +110,9 @@ test("assets cloud policy strictly hides expiring tabs and countdown badges when
     }),
     null,
   );
-
-  assert.equal(parseAssetsScope("all", false), "mine");
-  assert.equal(parseAssetsScope("all", true), "all");
-  assert.equal(resolveAssetOrientation({ size: "1536x1024" }), "landscape");
-  assert.equal(resolveAssetOrientation({ aspectRatio: "9:16" }), "portrait");
-  assert.equal(resolveAssetOrientation({ width: 1024, height: 1024 }), "square");
 });
 
-test("storage admin fallback uses free_retention_days = 3 and user views gate VIP UI on cloudStorageEnabled", async () => {
+test("storage admin fallback uses free_retention_days = 3 and payment-admin always enforces hideCloudStorageToggle", async () => {
   const adminStorageSource = await readFile(
     new URL("../src/app/admin/settings/storage/page.tsx", import.meta.url),
     "utf8",
@@ -200,26 +122,40 @@ test("storage admin fallback uses free_retention_days = 3 and user views gate VI
   assert.match(adminStorageSource, /historical_grace_days:\s*7/);
 
   const vipCardSource = await readFile(
-    new URL("../src/app/assets/assets-vip-status-card.tsx", import.meta.url),
+    new URL("../src/components/assets-vip-status-card.tsx", import.meta.url),
     "utf8",
   );
   assert.match(vipCardSource, /if\s*\(!cloudStorageEnabled\)\s*\{\s*return\s+null;/);
+  assert.match(vipCardSource, /\/recharge\?tab=storage/);
 
-  const walletSource = await readFile(
-    new URL("../src/app/wallet/page.tsx", import.meta.url),
+  const rechargePageSource = await readFile(
+    new URL("../src/app/recharge/page.tsx", import.meta.url),
     "utf8",
   );
-  assert.match(walletSource, /cloudStorageEnabled\s*&&\s*activeTab\s*===\s*"storage"/);
+  assert.match(rechargePageSource, /cloudStorageEnabled/);
+  assert.match(rechargePageSource, /StorageEntitlementPanel/);
 
-  const adminPaymentsSource = await readFile(
-    new URL("../src/app/admin/payments/page.tsx", import.meta.url),
+  const paymentAdminSource = await readFile(
+    new URL("../src/app/payment-admin/payment-admin-content.tsx", import.meta.url),
     "utf8",
   );
-  assert.match(adminPaymentsSource, /free_retention_days\s*\?\?\s*3/);
-  assert.match(adminPaymentsSource, /hideCloudStorageToggle/);
+  assert.match(paymentAdminSource, /free_retention_days\s*\?\?\s*3/);
+  assert.match(paymentAdminSource, /hideCloudStorageToggle=\{true\}/);
+  assert.doesNotMatch(paymentAdminSource, /hideCloudStorageToggle=\{!cloudStorageEnabled\}/);
+  assert.match(paymentAdminSource, /\/settings\?tab=media/);
+
+  const paymentSettingsSectionSource = await readFile(
+    new URL("../src/app/payment-admin/payment-settings-section.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(paymentSettingsSectionSource, /hideCloudStorageToggle\s*=\s*true/);
+  assert.match(
+    paymentSettingsSectionSource,
+    /cloud_storage_enabled:\s*latest\.cloud_storage_enabled/,
+  );
 });
 
-test("post-overhaul polish fixes login banner z-index, user task popover links, studio CTA, and admin slide drawers", async () => {
+test("Classic AppShell lazy-loads chrome, LoginPage, LandingCTA, standalone routes, GIF/R2 image-manager, and Light-First admin tokens are wired cleanly", async () => {
   const appShellSource = await readFile(
     new URL("../src/app/app-shell.tsx", import.meta.url),
     "utf8",
@@ -228,17 +164,17 @@ test("post-overhaul polish fixes login banner z-index, user task popover links, 
     new URL("../src/app/login/page.tsx", import.meta.url),
     "utf8",
   );
-  assert.doesNotMatch(appShellSource, /BannerAnnouncementsBar/);
+  assert.match(appShellSource, /BannerAnnouncementsBar\s+target="image"/);
+  assert.match(appShellSource, /TopNav/);
+  assert.match(appShellSource, /lazy\(/);
   assert.match(loginPageSource, /BannerAnnouncementsBar\s+target="login"/);
 
   const taskQueueSource = await readFile(
     new URL("../src/components/image-task-queue.tsx", import.meta.url),
     "utf8",
   );
-  assert.doesNotMatch(taskQueueSource, /navigate\(["']\/task-queue["']\)/);
-  assert.doesNotMatch(taskQueueSource, /navigate\(["']\/image-manager["']\)/);
-  assert.match(taskQueueSource, /navigate\(["']\/tasks["']\)/);
-  assert.match(taskQueueSource, /navigate\(["']\/assets\?type=image["']\)/);
+  assert.match(taskQueueSource, /\/image-manager/);
+  assert.match(taskQueueSource, /\/task-queue/);
 
   const landingCtaSource = await readFile(
     new URL("../src/app/landing/landing-cta.tsx", import.meta.url),
@@ -246,56 +182,40 @@ test("post-overhaul polish fixes login banner z-index, user task popover links, 
   );
   assert.match(landingCtaSource, /returnTo=%2Fimage/);
 
-  const channelDialogSource = await readFile(
-    new URL("../src/app/settings/components/image-channel-dialog.tsx", import.meta.url),
-    "utf8",
-  );
-  const productDialogSource = await readFile(
-    new URL("../src/app/payment-admin/payment-product-dialog.tsx", import.meta.url),
-    "utf8",
-  );
-  assert.match(channelDialogSource, /AdminSlideDrawer/);
-  assert.match(productDialogSource, /AdminSlideDrawer/);
-
   const routeComponentsSource = await readFile(
     new URL("../src/app/route-components.tsx", import.meta.url),
     "utf8",
   );
-  assert.doesNotMatch(routeComponentsSource, /ImageManagerPage|RechargePage|VideoLibraryPage/);
-});
+  assert.match(routeComponentsSource, /ImageManagerPage/);
+  assert.match(routeComponentsSource, /RechargePage/);
+  assert.match(routeComponentsSource, /VideoLibraryPage/);
+  assert.doesNotMatch(routeComponentsSource, /RegisterPage/);
 
-test("stage-6 QA fixes config deadlock, admin token aliases, R2 same-origin proxy, assets RBAC delete, and single modal", async () => {
-  const settingsStoreConfig = await readFile(
-    new URL("../src/app/settings/settings-store-config.ts", import.meta.url),
+  const imageManagerCardSource = await readFile(
+    new URL("../src/app/image-manager/image-manager-image-card.tsx", import.meta.url),
     "utf8",
   );
-  assert.match(settingsStoreConfig, /isLoadingConfig:\s*false/);
-  assert.match(settingsStoreConfig, /media_r2_secret_access_key_configured/);
+  assert.match(imageManagerCardSource, /buildSameOriginImageProxySrc/);
+  assert.match(imageManagerCardSource, /copyText/);
+  assert.match(imageManagerCardSource, /GIF/);
+
+  const imageManagerPageSource = await readFile(
+    new URL("../src/app/image-manager/page.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(
+    imageManagerPageSource,
+    /hasAPIPermission\(session,\s*"DELETE",\s*"\/api\/images"\)/,
+  );
 
   const adminTokensCss = await readFile(
     new URL("../src/styles/admin-tokens.css", import.meta.url),
     "utf8",
   );
+  assert.match(adminTokensCss, /--admin-canvas:\s*#f6f8fc/i);
+  assert.match(adminTokensCss, /--admin-accent:\s*#1456f0/i);
   assert.match(adminTokensCss, /--admin-bg:\s*var\(--admin-canvas\)/);
   assert.match(adminTokensCss, /--admin-text-subtle:\s*var\(--admin-text-placeholder\)/);
   assert.match(adminTokensCss, /--admin-success:\s*var\(--admin-status-success\)/);
   assert.match(adminTokensCss, /--admin-danger:\s*var\(--admin-status-error\)/);
-
-  const mediaFetchSource = await readFile(
-    new URL("../src/lib/media-fetch.ts", import.meta.url),
-    "utf8",
-  );
-  assert.match(mediaFetchSource, /proxy/);
-
-  const assetsPageSource = await readFile(
-    new URL("../src/app/assets/page.tsx", import.meta.url),
-    "utf8",
-  );
-  assert.match(assetsPageSource, /hasAPIPermission\(session,\s*"DELETE",\s*"\/api\/images"\)/);
-
-  const workspaceShellSource = await readFile(
-    new URL("../src/components/workspace/workspace-shell.tsx", import.meta.url),
-    "utf8",
-  );
-  assert.match(workspaceShellSource, /triggerless/);
 });

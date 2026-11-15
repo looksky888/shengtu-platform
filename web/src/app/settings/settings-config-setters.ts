@@ -168,6 +168,42 @@ export function createConfigSetters(set: SetSettingsState) {
           : {}
       );
     },
+    setGPTImage26CreditCost: (value: string) => {
+      set((state) =>
+        state.config
+          ? {
+              config: {
+                ...state.config,
+                gpt_image_2_6_credit_cost: value,
+              },
+            }
+          : {}
+      );
+    },
+    setGPTImage26FlareCreditCost: (value: string) => {
+      set((state) =>
+        state.config
+          ? {
+              config: {
+                ...state.config,
+                gpt_image_2_6_flare_credit_cost: value,
+              },
+            }
+          : {}
+      );
+    },
+    setGPTImage26SunburstCreditCost: (value: string) => {
+      set((state) =>
+        state.config
+          ? {
+              config: {
+                ...state.config,
+                gpt_image_2_6_sunburst_credit_cost: value,
+              },
+            }
+          : {}
+      );
+    },
     setImageCreditCost2k: (value: string) => {
       set((state) =>
         state.config

@@ -1,82 +1,21 @@
 "use client";
 
-import { motion, useReducedMotion } from "motion/react";
+import { useEffect, useState } from "react";
+import { useReducedMotion } from "motion/react";
+import { Layers, Sparkles, Zap } from "lucide-react";
 
-import {
-  normalizeBrandTitle,
-  resolveDarkroomVersionLabel,
-  type LoginAppMeta,
-} from "@/app/login/login-utils";
+import { HeroSphereCanvas } from "@/app/landing/hero-sphere-canvas";
 import { LoginPageImageStage } from "@/components/login-page-image-stage";
 import { resolveLoginPageImageSrc } from "@/lib/app-meta";
+import { cn } from "@/lib/utils";
+import type { LoginAppMeta } from "./login-utils";
 
-const DARKROOM_SECONDARY_PLATES = [
-  {
-    plate: "PL.02",
-    src: "/presets/stellar-poster.webp",
-    title: "暗曜石星穹拱门",
-    tag: "2:3 PRINT",
-  },
-  {
-    plate: "PL.03",
-    src: "/presets/forza-horizon-shenzhen.webp",
-    title: "滨海雨夜超跑追焦",
-    tag: "16:10 RAW",
-  },
-] as const;
+const CHANNELS = [
+  { label: "GPT 号池", icon: Layers },
+  { label: "Grok 渠道", icon: Zap },
+  { label: "登录即用", icon: Sparkles },
+];
 
-/**
- * Compact mobile banner (<1024px) rendered only when an admin custom poster is configured.
- */
-export function LoginMobileVisualBanner({ appMeta }: { appMeta: LoginAppMeta }) {
-  const customImageUrl = String(appMeta.login_page_image_url || "").trim();
-  if (!customImageUrl) return null;
-  const brand = normalizeBrandTitle(appMeta.app_title);
-  const versionLabel = resolveDarkroomVersionLabel();
-
-  return (
-    <div
-      className="relative h-36 w-full overflow-hidden border-b border-border/80 bg-[#0c0c0e] text-zinc-100 sm:h-44 lg:hidden"
-      aria-hidden="true"
-    >
-      <div className="absolute inset-0">
-        <LoginPageImageStage
-          src={resolveLoginPageImageSrc(customImageUrl)}
-          mode={appMeta.login_page_image_mode}
-          zoom={appMeta.login_page_image_zoom}
-          positionX={appMeta.login_page_image_position_x}
-          positionY={appMeta.login_page_image_position_y}
-          fillParent
-          className="h-full w-full"
-          frameClassName="rounded-none"
-        />
-      </div>
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#0c0c0e]/85 via-[#0c0c0e]/30 to-[#0c0c0e]/45" />
-      <div className="relative z-[2] flex h-full items-end justify-between gap-2 px-5 py-3.5 sm:px-9">
-        <div className="flex items-center gap-2">
-          <img
-            src="/logo-mark.svg"
-            alt=""
-            aria-hidden="true"
-            className="size-7 rounded-lg ring-1 ring-white/20"
-          />
-          <span className="truncate text-xs font-semibold tracking-[-0.02em] text-zinc-100">
-            {brand}
-          </span>
-        </div>
-        <span className="rounded-md border border-white/15 bg-black/45 px-2 py-0.5 font-mono text-[9.5px] tracking-[0.08em] text-zinc-300 backdrop-blur-xs">
-          {versionLabel}
-        </span>
-      </div>
-    </div>
-  );
-}
-
-/**
- * Left Showcase Panel — Obsidian Darkroom Curatorial Gallery (#0c0c0e).
- * Preserves admin custom `login_page_image_url` + transform controls when configured;
- * renders the curated 3-artwork exhibition mosaic by default.
- */
 export function LoginVisualPanel({
   appMeta,
   isRegisterMode = false,
@@ -85,176 +24,102 @@ export function LoginVisualPanel({
   isRegisterMode?: boolean;
 }) {
   const prefersReducedMotion = useReducedMotion();
-  const brand = normalizeBrandTitle(appMeta.app_title);
+  const [dark, setDark] = useState(() =>
+    typeof document !== "undefined" ? document.documentElement.classList.contains("dark") : false,
+  );
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const sync = () => setDark(root.classList.contains("dark"));
+    sync();
+    const obs = new MutationObserver(sync);
+    obs.observe(root, { attributes: true, attributeFilter: ["class"] });
+    return () => obs.disconnect();
+  }, []);
+
   const customImageUrl = String(appMeta.login_page_image_url || "").trim();
   const hasCustomImage = Boolean(customImageUrl);
 
   return (
     <section
-      className="relative hidden min-h-[41rem] flex-col justify-between overflow-hidden bg-[#0c0c0e] p-7 text-zinc-100 lg:flex xl:p-8"
+      className={cn(
+        "relative hidden min-h-[39rem] overflow-hidden border-l lg:flex",
+        "border-[#dfe7f1] bg-[#fff7ed] dark:border-amber-900/35 dark:bg-[#1a120e]",
+      )}
       aria-hidden="true"
     >
-      {/* Subtle darkroom 32px hairline grid + neutral silver spotlight */}
       <div
-        className="pointer-events-none absolute inset-0 opacity-100"
-        style={{
-          backgroundSize: "32px 32px",
-          backgroundImage:
-            "linear-gradient(to right, rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.03) 1px, transparent 1px)",
-          maskImage: "radial-gradient(ellipse 85% 80% at 50% 45%, black 35%, transparent 100%)",
-        }}
-      />
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            "radial-gradient(circle at 30% 22%, rgba(255,255,255,0.055), transparent 52%), radial-gradient(circle at 75% 78%, rgba(244,244,245,0.035), transparent 48%)",
-        }}
+        className={cn(
+          "pointer-events-none absolute inset-0",
+          dark
+            ? "bg-[radial-gradient(circle_at_40%_35%,rgba(251,191,36,0.14),transparent_55%),radial-gradient(circle_at_70%_80%,rgba(180,83,9,0.12),transparent_50%)]"
+            : "bg-[radial-gradient(circle_at_40%_35%,rgba(251,191,36,0.2),transparent_55%),radial-gradient(circle_at_70%_80%,rgba(249,115,22,0.1),transparent_50%)]",
+        )}
       />
 
-      {/* Architectural Viewfinder Registration Marks (+) */}
-      <span className="pointer-events-none absolute top-3.5 left-4 z-[3] select-none font-mono text-xs leading-none text-zinc-600">+</span>
-      <span className="pointer-events-none absolute top-3.5 right-4 z-[3] select-none font-mono text-xs leading-none text-zinc-600">+</span>
-      <span className="pointer-events-none absolute bottom-3.5 left-4 z-[3] select-none font-mono text-xs leading-none text-zinc-600">+</span>
-      <span className="pointer-events-none absolute bottom-3.5 right-4 z-[3] select-none font-mono text-xs leading-none text-zinc-600">+</span>
+      <div className="absolute inset-0 opacity-95">
+        <HeroSphereCanvas quality="lite" reducedMotion={!!prefersReducedMotion} dark={dark} />
+      </div>
+
+      <div
+        className={cn(
+          "pointer-events-none absolute inset-x-0 bottom-0 h-[55%] bg-gradient-to-t to-transparent",
+          dark ? "from-[#1a120e] via-[#1a120e]/85" : "from-[#fff7ed] via-[#fff7ed]/80",
+        )}
+      />
 
       {hasCustomImage ? (
-        <>
-          {/* Admin Custom Configured Showcase Image Stage */}
-          <div className="absolute inset-0 z-[1]">
-            <LoginPageImageStage
-              src={resolveLoginPageImageSrc(customImageUrl)}
-              mode={appMeta.login_page_image_mode}
-              zoom={appMeta.login_page_image_zoom}
-              positionX={appMeta.login_page_image_position_x}
-              positionY={appMeta.login_page_image_position_y}
-              fillParent
-              className="h-full w-full"
-              frameClassName="rounded-none"
-            />
-          </div>
-          <div className="pointer-events-none absolute inset-x-0 top-0 z-[2] h-28 bg-gradient-to-b from-[#0c0c0e]/80 to-transparent" />
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[2] h-48 bg-gradient-to-t from-[#0c0c0e]/92 via-[#0c0c0e]/60 to-transparent" />
+        <div className="absolute right-5 top-5 z-[2] h-36 w-44 overflow-hidden rounded-2xl border border-white/50 shadow-[0_16px_40px_rgba(120,53,15,0.18)] dark:border-amber-900/40">
+          <LoginPageImageStage
+            src={resolveLoginPageImageSrc(customImageUrl)}
+            mode={appMeta.login_page_image_mode}
+            zoom={appMeta.login_page_image_zoom}
+            positionX={appMeta.login_page_image_position_x}
+            positionY={appMeta.login_page_image_position_y}
+            fillParent
+            frameClassName="rounded-2xl"
+            imageClassName="rounded-2xl"
+          />
+        </div>
+      ) : null}
 
-          <DarkroomBrandHeader brand={brand} />
-          <DarkroomCaptionFooter isRegisterMode={isRegisterMode} />
-        </>
-      ) : (
-        <>
-          {/* Top Brand & Darkroom Archive Header */}
-          <DarkroomBrandHeader brand={brand} />
-
-          {/* Center Curated Exhibition Mosaic */}
-          <div className="relative z-[2] my-5 flex flex-col gap-3">
-            {/* Featured Primary Exhibition Plate */}
-            <motion.div
-              initial={prefersReducedMotion ? false : { opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-              className="overflow-hidden rounded-xl border border-white/[0.1] bg-[#141417] p-1.5 shadow-[0_18px_40px_rgba(0,0,0,0.55)]"
+      <div className="relative z-[2] mt-auto flex w-full flex-col gap-3 p-8">
+        <div
+          className={cn(
+            "inline-flex w-fit items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em]",
+            dark
+              ? "border-amber-800/50 bg-amber-950/50 text-amber-100/80"
+              : "border-amber-200/90 bg-white/75 text-amber-900/80",
+          )}
+        >
+          <Sparkles className="size-3.5 text-amber-500" />
+          AI Image Studio
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <p className={cn("text-2xl font-semibold tracking-[-0.03em]", dark ? "text-amber-50" : "text-stone-900")}>
+            {isRegisterMode ? "加入多模型生图工作台" : "多模型生图工作台"}
+          </p>
+          <p className={cn("max-w-xs text-sm leading-6", dark ? "text-amber-100/55" : "text-stone-500")}>
+            GPT 与 Grok 渠道一体接入，登录后即用。
+          </p>
+        </div>
+        <ul className="flex flex-wrap gap-2 pt-1">
+          {CHANNELS.map(({ label, icon: Icon }) => (
+            <li
+              key={label}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium",
+                dark
+                  ? "border-amber-900/45 bg-stone-950/50 text-amber-100/70"
+                  : "border-amber-100 bg-white/80 text-stone-600",
+              )}
             >
-              <div className="relative aspect-[16/9.4] w-full overflow-hidden rounded-[8px] bg-zinc-900">
-                <img
-                  src="/presets/editorial-fashion.webp"
-                  alt="东方高定暗调人像"
-                  loading="eager"
-                  decoding="async"
-                  draggable={false}
-                  className="h-full w-full select-none object-cover object-center"
-                />
-                <div className="pointer-events-none absolute inset-0 rounded-[8px] ring-1 ring-inset ring-white/[0.08]" />
-                <span className="absolute top-2 right-2 rounded bg-black/70 px-1.5 py-0.5 font-mono text-[9px] font-medium tracking-[0.08em] text-zinc-200 backdrop-blur-xs">
-                  35MM EDITORIAL
-                </span>
-              </div>
-              <div className="flex items-center justify-between px-1.5 pt-2 pb-0.5">
-                <div className="flex items-center gap-1.5">
-                  <span className="font-mono text-[10px] text-zinc-500">PL.01</span>
-                  <span className="text-xs font-medium text-zinc-200">东方高定暗调人像</span>
-                </div>
-                <span className="font-mono text-[10px] text-zinc-500">ISO 400 · RAW 4K</span>
-              </div>
-            </motion.div>
-
-            {/* Secondary Diptych Exhibition Plates */}
-            <div className="grid grid-cols-2 gap-3">
-              {DARKROOM_SECONDARY_PLATES.map((item, idx) => (
-                <motion.div
-                  key={item.plate}
-                  initial={prefersReducedMotion ? false : { opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={
-                    prefersReducedMotion
-                      ? { duration: 0 }
-                      : { duration: 0.45, delay: 0.08 * (idx + 1), ease: [0.22, 1, 0.36, 1] }
-                  }
-                  className="overflow-hidden rounded-xl border border-white/[0.1] bg-[#141417] p-1.5 shadow-[0_12px_28px_rgba(0,0,0,0.45)]"
-                >
-                  <div className="relative aspect-[16/10] w-full overflow-hidden rounded-[7px] bg-zinc-900">
-                    <img
-                      src={item.src}
-                      alt={item.title}
-                      loading="eager"
-                      decoding="async"
-                      draggable={false}
-                      className="h-full w-full select-none object-cover object-center"
-                    />
-                    <div className="pointer-events-none absolute inset-0 rounded-[7px] ring-1 ring-inset ring-white/[0.08]" />
-                    <span className="absolute top-1.5 right-1.5 rounded bg-black/70 px-1.5 py-0.5 font-mono text-[8.5px] font-medium tracking-[0.08em] text-zinc-200 backdrop-blur-xs">
-                      {item.tag}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between gap-1 px-1 pt-1.5 pb-0.5">
-                    <span className="truncate text-[11px] font-medium text-zinc-300">{item.title}</span>
-                    <span className="shrink-0 font-mono text-[9.5px] text-zinc-500">{item.plate}</span>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-
-          {/* Bottom Editorial Quote & Capability Caption */}
-          <DarkroomCaptionFooter isRegisterMode={isRegisterMode} />
-        </>
-      )}
+              <Icon className="size-3 text-amber-500" />
+              {label}
+            </li>
+          ))}
+        </ul>
+      </div>
     </section>
-  );
-}
-
-function DarkroomBrandHeader({ brand }: { brand: string }) {
-  const versionLabel = resolveDarkroomVersionLabel();
-  return (
-    <div className="relative z-[2] flex items-center justify-between gap-3">
-      <div className="flex items-center gap-2.5">
-        <img
-          src="/logo-mark.svg"
-          alt=""
-          aria-hidden="true"
-          className="size-8 rounded-lg ring-1 ring-white/15"
-        />
-        <span className="text-sm font-semibold tracking-[-0.02em] text-zinc-100">
-          {brand}
-        </span>
-      </div>
-      <span className="rounded-md border border-white/10 bg-white/[0.04] px-2 py-0.5 font-mono text-[10px] tracking-[0.1em] text-zinc-400">
-        {versionLabel}
-      </span>
-    </div>
-  );
-}
-
-function DarkroomCaptionFooter({ isRegisterMode }: { isRegisterMode: boolean }) {
-  return (
-    <div className="relative z-[2] flex flex-col gap-2.5 border-t border-white/[0.08] pt-4">
-      <p className="text-[13px] leading-relaxed font-normal text-zinc-200/95">
-        {isRegisterMode
-          ? "“开启专属数字暗房工作台，让每一次灵感推演都凝练为典藏级视觉作品。”"
-          : "“以纸墨之静承载光影之变，让每一次提示词推演都凝练为典藏级视觉作品。”"}
-      </p>
-      <div className="flex flex-wrap items-center justify-between gap-2 font-mono text-[10px] tracking-[0.08em] text-zinc-500">
-        <span>文生图 · 局部蒙版重绘 · 多轨视频生成 · 云端归档</span>
-        <span>CALIBRATED STUDIO</span>
-      </div>
-    </div>
   );
 }

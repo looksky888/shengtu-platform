@@ -157,11 +157,19 @@ func turnstileDecodeBase64String(raw string) (string, error) {
 	return string(decoded), nil
 }
 
+const (
+	maxTurnstileRegisterStringBytes = 512 << 10
+	maxTurnstileRegisterArrayLen    = 16384
+)
+
 // solveTurnstileToken executes the ChatGPT Sentinel Turnstile dx bytecode in-process.
 // Ported from yukkcat/chatgpt2api utils/turnstile.py.
 func solveTurnstileToken(dx, p string) (string, error) {
 	if strings.TrimSpace(dx) == "" || strings.TrimSpace(p) == "" {
 		return "", fmt.Errorf("missing turnstile dx or p token")
+	}
+	if len(dx) > maxTurnstileRegisterStringBytes*2 || len(p) > maxTurnstileRegisterStringBytes {
+		return "", fmt.Errorf("turnstile token exceeds maximum size")
 	}
 	decoded, err := turnstileDecodeBase64String(dx)
 	if err != nil {
@@ -172,15 +180,42 @@ func solveTurnstileToken(dx, p string) (string, error) {
 	if err := json.Unmarshal([]byte(xored), &tokenList); err != nil {
 		return "", fmt.Errorf("parse turnstile bytecode: %w", err)
 	}
+	if len(tokenList) > maxTurnstileRegisterArrayLen {
+		return "", fmt.Errorf("turnstile instruction queue exceeds limit")
+	}
 
 	processMap := make(map[any]any, 64)
 	startTime := time.Now()
 	result := ""
+	var vmErr error
 
 	getValue := func(key any) any {
 		return processMap[turnstileNormKey(key)]
 	}
 	setValue := func(key, value any) {
+		switch v := value.(type) {
+		case string:
+			if len(v) > maxTurnstileRegisterStringBytes {
+				if vmErr == nil {
+					vmErr = fmt.Errorf("turnstile_vm_string_limit")
+				}
+				return
+			}
+		case []any:
+			if len(v) > maxTurnstileRegisterArrayLen {
+				if vmErr == nil {
+					vmErr = fmt.Errorf("turnstile_vm_array_limit")
+				}
+				return
+			}
+		case []string:
+			if len(v) > maxTurnstileRegisterArrayLen {
+				if vmErr == nil {
+					vmErr = fmt.Errorf("turnstile_vm_array_limit")
+				}
+				return
+			}
+		}
 		processMap[turnstileNormKey(key)] = value
 	}
 
@@ -313,7 +348,6 @@ func solveTurnstileToken(dx, p string) (string, error) {
 	var (
 		vmDepth    int
 		totalSteps int
-		vmErr      error
 	)
 	var runQueue func(limit int) error
 	runQueue = func(limit int) error {
@@ -408,7 +442,14 @@ func solveTurnstileToken(dx, p string) (string, error) {
 				val = regVal
 			}
 		}
-		result = base64.StdEncoding.EncodeToString([]byte(turnstileToStr(val)))
+		raw := turnstileToStr(val)
+		if base64.StdEncoding.EncodedLen(len(raw)) > maxTurnstileRegisterStringBytes {
+			if vmErr == nil {
+				vmErr = fmt.Errorf("turnstile_vm_string_limit")
+			}
+			return nil
+		}
+		result = base64.StdEncoding.EncodeToString([]byte(raw))
 		return nil
 	}))
 
@@ -421,6 +462,12 @@ func solveTurnstileToken(dx, p string) (string, error) {
 		current := getValue(e)
 		incoming := getValue(t)
 		if list, ok := current.([]any); ok {
+			if len(list) >= maxTurnstileRegisterArrayLen {
+				if vmErr == nil {
+					vmErr = fmt.Errorf("turnstile_vm_array_limit")
+				}
+				return nil
+			}
 			next := make([]any, len(list)+1)
 			copy(next, list)
 			next[len(list)] = incoming
@@ -432,7 +479,15 @@ func solveTurnstileToken(dx, p string) (string, error) {
 		_, incIsStr := incoming.(string)
 		_, incIsFloat := turnstileToFloat(incoming)
 		if curIsStr || curIsFloat || incIsStr || incIsFloat {
-			setValue(e, turnstileToStr(current)+turnstileToStr(incoming))
+			curText := turnstileToStr(current)
+			incText := turnstileToStr(incoming)
+			if len(curText)+len(incText) > maxTurnstileRegisterStringBytes {
+				if vmErr == nil {
+					vmErr = fmt.Errorf("turnstile_vm_string_limit")
+				}
+				return nil
+			}
+			setValue(e, curText+incText)
 			return nil
 		}
 		setValue(e, "NaN")
@@ -561,7 +616,14 @@ func solveTurnstileToken(dx, p string) (string, error) {
 		if len(args) < 1 {
 			return nil
 		}
-		setValue(args[0], base64.StdEncoding.EncodeToString([]byte(turnstileToStr(getValue(args[0])))))
+		raw := turnstileToStr(getValue(args[0]))
+		if base64.StdEncoding.EncodedLen(len(raw)) > maxTurnstileRegisterStringBytes {
+			if vmErr == nil {
+				vmErr = fmt.Errorf("turnstile_vm_string_limit")
+			}
+			return nil
+		}
+		setValue(args[0], base64.StdEncoding.EncodeToString([]byte(raw)))
 		return nil
 	}))
 

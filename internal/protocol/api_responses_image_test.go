@@ -116,8 +116,8 @@ func TestResponseImageGenerationRequestDefaultsImageModelForAuto(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ResponseImageGenerationRequest() error = %v", err)
 	}
-	if request.Model != util.ImageModelGPT {
-		t.Fatalf("model = %q, want %q", request.Model, util.ImageModelGPT)
+	if request.Model != util.ImageModelGPT26Flare {
+		t.Fatalf("model = %q, want %q", request.Model, util.ImageModelGPT26Flare)
 	}
 	if request.ResponsesImageTool {
 		t.Fatal("ResponsesImageTool = true, want false for auto picture_v2 route")

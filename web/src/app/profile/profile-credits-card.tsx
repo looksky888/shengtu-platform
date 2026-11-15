@@ -45,19 +45,19 @@ export function ProfileCreditsCard({
   const checkedIn = Boolean(credits?.checked_in_today);
 
   return (
-    <Card>
+    <Card className="border-border bg-[#fbfdff] dark:bg-card">
       <CardHeader className="pb-3">
         <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-border/80 bg-surface-muted text-foreground">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-[#cfe0ff] bg-[#edf4ff] text-[#1456f0] dark:border-sky-500/30 dark:bg-sky-950/50 dark:text-sky-300">
               <Coins className="size-5" />
             </div>
             <div className="min-w-0">
               <CardTitle className="text-base font-semibold">
-                积分中心
+                积分余额与使用明细
               </CardTitle>
               <CardDescription className="truncate">
-                余额、每日签到奖励与账户收支流水
+                查看剩余积分、每日签到和每一笔扣费 / 退费记录
               </CardDescription>
             </div>
           </div>
@@ -66,6 +66,7 @@ export function ProfileCreditsCard({
               type="button"
               size="sm"
               variant={checkedIn ? "outline" : "default"}
+              className={!checkedIn ? "bg-[#1456f0] text-white hover:bg-[#1048ce]" : undefined}
               disabled={isLoadingCredits || isCheckingIn || checkedIn}
               onClick={onCheckin}
             >

@@ -129,7 +129,8 @@ func TestResponsesImageTaskResultExtractsImagesAndText(t *testing.T) {
 	app := newTestApp(t)
 	defer app.Close()
 
-	imageData := "cG5n"
+	// Valid 1x1 PNG so FormatImageResultWithOptions preserves PNG bytes verbatim.
+	imageData := "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
 	completed := map[string]any{
 		"created_at": float64(1700000000),
 		"output": []map[string]any{

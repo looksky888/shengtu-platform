@@ -1,10 +1,13 @@
 "use client";
 
-import { LoaderCircle } from "lucide-react";
+import { Film, Library, LoaderCircle } from "lucide-react";
+import { Link } from "react-router-dom";
 
 import { useVideoCreation } from "@/app/video/use-video-creation";
+import { VideoForm } from "@/app/video/video-form";
 import { VideoReferenceLibraryDialog } from "@/app/video/video-reference-library-dialog";
-import { VideoWorkspace } from "@/app/video/video-workspace";
+import { VideoResult } from "@/app/video/video-result";
+import { Button } from "@/components/ui/button";
 import { VideoPreviewDialog } from "@/components/video-preview-dialog";
 import { useAuthGuard } from "@/lib/use-auth-guard";
 
@@ -21,21 +24,38 @@ export default function VideoPage() {
   }
 
   return (
-    <>
-      <VideoWorkspace controller={controller} />
+    <section className="space-y-4 py-3 sm:py-5">
+      <header className="flex flex-col gap-3 px-1 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#1456f0] dark:text-blue-300">
+            <Film className="size-3.5" />
+            Grok Imagine
+          </p>
+          <h1 className="font-display mt-1.5 text-2xl font-semibold tracking-tight sm:text-3xl">视频创作</h1>
+        </div>
+        <Button asChild variant="outline" className="rounded-full bg-[#fbfdff]/90 backdrop-blur dark:bg-card/85">
+          <Link to="/video-library">
+            <Library />
+            视频库
+          </Link>
+        </Button>
+      </header>
+
+      <div className="grid items-start gap-4 lg:grid-cols-[380px_minmax(0,1fr)] xl:grid-cols-[400px_minmax(0,1fr)]">
+        <VideoForm controller={controller} />
+        <VideoResult controller={controller} />
+      </div>
+
       <VideoPreviewDialog
-        variant="studio"
         video={controller.previewVideo}
         downloadName={
-          controller.previewVideo
-            ? `grok-video-${controller.previewVideo.taskID}.mp4`
-            : undefined
+          controller.previewVideo ? `grok-video-${controller.previewVideo.taskID}.mp4` : undefined
         }
         onOpenChange={(open) => {
           if (!open) controller.closePreview();
         }}
       />
       <VideoReferenceLibraryDialog controller={controller} />
-    </>
+    </section>
   );
 }

@@ -25,7 +25,7 @@ test("selected images start one original-file download per item", async () => {
   try {
     await triggerImageDownloads([
       { src: "/images/2026/08/first.png", fileName: "first.png" },
-      { src: "/images/2026/08/second.webp", fileName: "second.webp" },
+      { src: "/images/2026/08/second.gif", fileName: "second.gif" },
     ], 0);
   } finally {
     globalThis.document = originalDocument;
@@ -33,14 +33,15 @@ test("selected images start one original-file download per item", async () => {
   }
   assert.deepEqual(clicks, [
     { href: "https://www.shengtu.xyz/images/2026/08/first.png?download=1", download: "first.png" },
-    { href: "https://www.shengtu.xyz/images/2026/08/second.webp?download=1", download: "second.webp" },
+    { href: "https://www.shengtu.xyz/images/2026/08/second.gif?download=1", download: "second.gif" },
   ]);
 });
 
-test("directory download writes every selected image without browser redirects", async () => {
+test("directory download streams same-origin images with download=1&proxy=1 and Bearer auth", async () => {
   const originalFetch = globalThis.fetch;
   const originalWindow = globalThis.window;
   const writes: Array<{ name: string; body: string }> = [];
+  const authHeaders: Array<string | null> = [];
   const directory = {
     async getFileHandle(name: string) {
       return {
@@ -55,22 +56,30 @@ test("directory download writes every selected image without browser redirects",
       };
     },
   };
-  globalThis.fetch = async (input) => new Response(`payload:${String(input)}`, { status: 200 });
+  globalThis.fetch = async (input, init) => {
+    authHeaders.push(new Headers(init?.headers).get("Authorization"));
+    return new Response(`payload:${String(input)}`, { status: 200 });
+  };
   globalThis.window = {
     isSecureContext: true,
     location: { href: "https://www.shengtu.xyz/image-manager" },
     showDirectoryPicker: async () => directory,
   } as unknown as Window & typeof globalThis;
   try {
-    const result = await downloadImageFiles([
-      { src: "/images/a.png", fileName: "same.png" },
-      { src: "/images/b.png", fileName: "same.png" },
-    ]);
+    const result = await downloadImageFiles(
+      [
+        { src: "/images/a.gif", fileName: "same.gif" },
+        { src: "/images/b.gif", fileName: "same.gif" },
+      ],
+      undefined,
+      { getToken: () => "jwt-token-abc" },
+    );
     assert.deepEqual(result, { mode: "directory", completed: 2, total: 2, failed: [] });
     assert.deepEqual(writes, [
-      { name: "same.png", body: "payload:https://www.shengtu.xyz/images/a.png?download=1" },
-      { name: "same-2.png", body: "payload:https://www.shengtu.xyz/images/b.png?download=1" },
+      { name: "same.gif", body: "payload:https://www.shengtu.xyz/images/a.gif?download=1&proxy=1" },
+      { name: "same-2.gif", body: "payload:https://www.shengtu.xyz/images/b.gif?download=1&proxy=1" },
     ]);
+    assert.deepEqual(authHeaders, ["Bearer jwt-token-abc", "Bearer jwt-token-abc"]);
   } finally {
     globalThis.fetch = originalFetch;
     globalThis.window = originalWindow;

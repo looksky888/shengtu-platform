@@ -122,8 +122,8 @@ export function ImageSuccessResultCard({
   return (
     <figure
       className={cn(
-        "group mb-3 inline-block w-full break-inside-avoid overflow-hidden rounded-2xl border border-border/75 bg-surface shadow-2xs transition-all duration-200 hover:border-border-strong hover:shadow-md sm:mb-4 dark:border-white/[0.07]",
-        selected && "ring-2 ring-foreground ring-offset-2 ring-offset-background",
+        "soft-card-shadow group mb-3 inline-block w-full break-inside-avoid overflow-hidden rounded-[22px] border border-border bg-[#fbfdff] transition-all duration-200 hover:border-[#1456f0]/30 hover:shadow-md sm:mb-4 dark:bg-card",
+        selected && "ring-2 ring-[#1456f0] ring-offset-2 ring-offset-background",
       )}
     >
       {showExpiredPlaceholder ? (
@@ -143,13 +143,13 @@ export function ImageSuccessResultCard({
             <button
               type="button"
               onClick={() => void handleCopyPrompt()}
-              className="inline-flex h-7.5 items-center gap-1 rounded-full bg-primary px-3 text-[11px] font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+              className="inline-flex h-7.5 items-center gap-1 rounded-full bg-[#1456f0] px-3 text-[11px] font-semibold text-white transition-colors hover:bg-[#1048ce]"
             >
               <Copy className="size-3" />
               <span>复制提示词</span>
             </button>
             <Link
-              to="/assets"
+              to="/image-manager"
               className="inline-flex h-7.5 items-center gap-1 rounded-full border border-border/75 bg-surface px-3 text-[11px] font-medium text-foreground transition-colors hover:bg-surface-hover"
             >
               <span>管理素材与云存储</span>
@@ -195,7 +195,7 @@ export function ImageSuccessResultCard({
             className={cn(
               "absolute top-2.5 left-2.5 z-10 inline-flex size-7 items-center justify-center rounded-full border transition duration-150 focus-visible:pointer-events-auto focus-visible:opacity-100",
               selected
-                ? "border-foreground bg-foreground text-background opacity-100 shadow-sm"
+                ? "border-[#1456f0] bg-[#1456f0] text-white opacity-100 shadow-sm"
                 : "pointer-events-none border-white/80 bg-black/45 text-transparent opacity-0 shadow-sm backdrop-blur-md group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100 hover:bg-black/65",
             )}
             aria-label={selected ? "取消选择图片" : "选择图片"}

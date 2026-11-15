@@ -147,7 +147,8 @@ type ImageChannelLegacyConfig struct {
 }
 
 type imageChannelState struct {
-	Version  int                 `json:"version"`
-	Channels []ImageChannel      `json:"channels"`
-	Models   []ImageChannelModel `json:"models"`
+	Version            int                 `json:"version"`
+	SeededSystemModels []string            `json:"seeded_system_models,omitempty"`
+	Channels           []ImageChannel      `json:"channels"`
+	Models             []ImageChannelModel `json:"models"`
 }

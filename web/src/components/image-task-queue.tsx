@@ -137,9 +137,13 @@ export function ImageTaskQueue({ className }: { className?: string }) {
   const canOpenImage = Boolean(session && canAccessPath(session, "/image"));
   const canOpenVideo = Boolean(session && canAccessPath(session, "/video"));
   const canOpenTaskCenter = Boolean(
-    session && canAccessPath(session, "/tasks"),
+    session && canAccessPath(session, "/task-queue"),
   );
-  const canOpenAssets = Boolean(session && canAccessPath(session, "/assets"));
+  const canOpenImageManager = Boolean(
+    session &&
+      (canAccessPath(session, "/image-manager") ||
+        canAccessPath(session, "/image")),
+  );
   const isOnVideoPage =
     location.pathname.startsWith("/video") &&
     !location.pathname.startsWith("/video-library");
@@ -434,8 +438,10 @@ export function ImageTaskQueue({ className }: { className?: string }) {
     const currentSession = getCachedAuthSession();
     if (!canAccessPath(currentSession, "/image")) {
       setOpen(false);
-      if (canAccessPath(currentSession, "/tasks")) {
-        navigate("/tasks");
+      if (canAccessPath(currentSession, "/task-queue")) {
+        navigate("/task-queue");
+      } else if (canAccessPath(currentSession, "/image-manager")) {
+        navigate("/image-manager");
       }
       return;
     }
@@ -461,8 +467,10 @@ export function ImageTaskQueue({ className }: { className?: string }) {
     setOpen(false);
     if (canAccessPath(currentSession, "/video")) {
       navigate("/video");
-    } else if (canAccessPath(currentSession, "/tasks")) {
-      navigate("/tasks");
+    } else if (canAccessPath(currentSession, "/task-queue")) {
+      navigate("/task-queue");
+    } else if (canAccessPath(currentSession, "/image")) {
+      navigate("/image");
     }
   };
 
@@ -563,23 +571,23 @@ export function ImageTaskQueue({ className }: { className?: string }) {
                 type="button"
                 onClick={() => {
                   setOpen(false);
-                  navigate("/tasks");
+                  navigate("/task-queue");
                 }}
-                className="inline-flex items-center gap-1 rounded-md px-2 py-1 font-medium text-foreground transition-colors hover:bg-surface-hover"
+                className="inline-flex items-center gap-1 rounded-md px-2 py-1 font-medium text-[#1456f0] transition-colors hover:bg-surface-hover dark:text-sky-300"
               >
                 <span>前往任务中心</span>
                 <ArrowUpRight className="size-3.5" />
               </button>
-            ) : canOpenAssets ? (
+            ) : canOpenImageManager ? (
               <button
                 type="button"
                 onClick={() => {
                   setOpen(false);
-                  navigate("/assets?type=image");
+                  navigate("/image-manager");
                 }}
-                className="inline-flex items-center gap-1 rounded-md px-2 py-1 font-medium text-foreground transition-colors hover:bg-surface-hover"
+                className="inline-flex items-center gap-1 rounded-md px-2 py-1 font-medium text-[#1456f0] transition-colors hover:bg-surface-hover dark:text-sky-300"
               >
-                <span>打开素材云盘</span>
+                <span>打开图片库</span>
                 <ArrowUpRight className="size-3.5" />
               </button>
             ) : null}

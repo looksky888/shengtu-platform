@@ -15,7 +15,7 @@ export function ComposerModeSwitch({
 }: ComposerModeSwitchProps) {
   return (
     <div className="inline-flex shrink-0 items-center gap-1">
-      <div className="inline-flex h-8 shrink-0 items-center rounded-full bg-surface-muted/85 p-0.5 text-xs font-medium text-muted-foreground dark:bg-white/[0.06]">
+      <div className="inline-flex h-8 shrink-0 items-center rounded-full bg-[#f2f5fa] p-0.5 text-xs font-medium text-muted-foreground dark:bg-muted/70">
         {[
           { value: "image" as const, label: "生图", icon: ImageIcon },
           { value: "chat" as const, label: "对话", icon: MessageCircle },
@@ -29,7 +29,7 @@ export function ComposerModeSwitch({
               className={cn(
                 "inline-flex h-7 items-center justify-center gap-1 rounded-full px-2.5 transition-all",
                 active
-                  ? "bg-surface font-semibold text-foreground shadow-2xs ring-1 ring-black/[0.04] dark:bg-white/[0.14] dark:ring-white/[0.08]"
+                  ? "bg-[#edf4ff] font-semibold text-[#1456f0] shadow-2xs ring-1 ring-[#cfe0ff] dark:bg-sky-950/55 dark:text-sky-300 dark:ring-sky-500/30"
                   : "text-muted-foreground hover:text-foreground",
               )}
               onClick={() => onComposerModeChange(option.value)}

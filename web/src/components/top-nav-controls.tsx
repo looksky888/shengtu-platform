@@ -1,18 +1,5 @@
-import * as React from "react";
-import {
-  ArrowUpRight,
-  BookOpen,
-  ChevronDown,
-  Coins,
-  ExternalLink,
-  LayoutGrid,
-  LogOut,
-  MoonStar,
-  ShieldCheck,
-  Sun,
-  UserCircle2,
-  WalletCards,
-} from "lucide-react";
+import { useState } from "react";
+import { ChevronDown, LogOut, MoonStar, Sun, UserCircle2 } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import { Link, NavLink } from "react-router-dom";
 
@@ -25,10 +12,7 @@ import { cn } from "@/lib/utils";
 import type { StoredAuthSession } from "@/store/auth";
 
 import {
-  getNavItemIcon,
-  groupNavItems,
   isActivePath,
-  isNavItemActive,
   NAV_ACTIVE_LAYOUT_ID,
   navActiveTransition,
   profileNavItem,
@@ -51,16 +35,13 @@ export function ThemeToggleButton({
       type="button"
       variant="ghost"
       size="icon"
-      className={cn(
-        "relative size-8 rounded-lg text-muted-foreground shadow-none hover:bg-surface-hover hover:text-foreground",
-        className,
-      )}
+      className={cn("relative size-8 rounded-full", className)}
       onClick={(event) => onToggle(event.currentTarget)}
       aria-label={dark ? "切换到浅色模式" : "切换到深色模式"}
       title={dark ? "浅色模式" : "深色模式"}
     >
-      <Sun className="size-3.5 scale-100 rotate-0 transition-all dark:scale-0 dark:-rotate-90" />
-      <MoonStar className="absolute size-3.5 scale-0 rotate-90 transition-all dark:scale-100 dark:rotate-0" />
+      <Sun className="scale-100 rotate-0 transition-all dark:scale-0 dark:-rotate-90" />
+      <MoonStar className="absolute scale-0 rotate-90 transition-all dark:scale-100 dark:rotate-0" />
       <span className="sr-only">切换界面主题</span>
     </Button>
   );
@@ -75,9 +56,8 @@ export function NavPill({
   pathname: string;
   onClick?: () => void;
 }) {
-  const active = isNavItemActive(pathname, item);
+  const active = isActivePath(pathname, item.href);
   const prefersReducedMotion = useReducedMotion();
-  const Icon = getNavItemIcon(item);
 
   if (item.external) {
     return (
@@ -88,11 +68,9 @@ export function NavPill({
         referrerPolicy="no-referrer"
         onClick={onClick}
         aria-label={`${item.label}（新标签页打开）`}
-        className="relative inline-flex h-7.5 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[7px] px-2.5 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+        className="relative shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-[13px] font-medium text-[#45515e] transition-colors hover:bg-black/[0.05] hover:text-[#18181b] sm:text-sm dark:text-muted-foreground dark:hover:bg-accent dark:hover:text-accent-foreground"
       >
-        <Icon className="size-3.5 text-muted-foreground" />
-        <span>{item.label}</span>
-        <ExternalLink className="size-3 opacity-60" />
+        {item.label}
       </a>
     );
   }
@@ -105,10 +83,10 @@ export function NavPill({
       onFocus={() => preloadRoute(item.href)}
       className={() =>
         cn(
-          "relative isolate inline-flex h-7.5 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[7px] px-2.5 text-[13px] font-medium transition-colors",
+          "relative isolate shrink-0 whitespace-nowrap rounded-full px-3.5 py-1.5 text-[13px] font-medium transition-colors sm:text-sm",
           active
-            ? "font-semibold text-foreground"
-            : "text-muted-foreground hover:text-foreground",
+            ? "text-white dark:text-white"
+            : "text-[#45515e] hover:bg-black/[0.05] hover:text-[#18181b] dark:text-muted-foreground dark:hover:bg-accent dark:hover:text-accent-foreground",
         )
       }
     >
@@ -118,51 +96,30 @@ export function NavPill({
           transition={
             prefersReducedMotion ? reducedNavActiveTransition : navActiveTransition
           }
-          className="absolute inset-0 -z-10 rounded-[7px] bg-surface shadow-xs ring-1 ring-black/[0.04] dark:bg-zinc-800/95 dark:ring-white/[0.08]"
+          className="absolute inset-0 -z-10 rounded-full bg-[#1456f0] shadow-[0_6px_16px_-6px_rgba(20,86,240,0.45)]"
         />
       ) : null}
-      <Icon
-        className={cn(
-          "relative z-10 size-3.5 shrink-0 transition-colors",
-          active ? "text-foreground" : "text-muted-foreground/85",
-        )}
-      />
-      <span className="relative z-10 block">{item.label}</span>
+      <motion.span
+        animate={{ scale: active && !prefersReducedMotion ? 1.02 : 1 }}
+        transition={
+          prefersReducedMotion
+            ? reducedNavActiveTransition
+            : { duration: 0.16, ease: [0.22, 1, 0.36, 1] }
+        }
+        className="relative z-10 block"
+      >
+        {item.label}
+      </motion.span>
     </NavLink>
   );
 }
 
-export function CreditBalanceBadge({
-  creditBalance,
-  canRecharge = true,
-  href = "/wallet",
-}: {
-  creditBalance: string;
-  canRecharge?: boolean;
-  href?: string;
-}) {
-  const content = (
-    <div
-      className={cn(
-        "inline-flex h-8 min-w-[76px] items-center justify-center gap-1.5 rounded-lg bg-surface-muted/85 px-2.5 text-xs font-medium text-foreground ring-1 ring-inset ring-border/75 transition-all duration-150",
-        canRecharge &&
-          "hover:-translate-y-px hover:bg-surface hover:shadow-2xs hover:ring-border-strong",
-      )}
-      title={canRecharge ? "当前算力积分余额，点击前往积分与权益中心" : "当前算力积分余额"}
-    >
-      <Coins className="size-3.5 text-amber-500 dark:text-amber-300" />
-      <span className="font-mono font-semibold tabular-nums">{creditBalance}</span>
+export function CreditBalanceBadge({ creditBalance }: { creditBalance: string }) {
+  return (
+    <div className="flex min-w-[84px] items-center justify-center rounded-full border border-border bg-muted/40 px-3 py-1 text-xs font-medium text-foreground tabular-nums">
+      积分 {creditBalance}
     </div>
   );
-
-  if (canRecharge) {
-    return (
-      <Link to={href} onMouseEnter={() => preloadRoute(href)}>
-        {content}
-      </Link>
-    );
-  }
-  return content;
 }
 
 export function MoreNavMenu({
@@ -172,130 +129,43 @@ export function MoreNavMenu({
   items: NavItem[];
   pathname: string;
 }) {
-  const [open, setOpen] = React.useState(false);
-  const prefersReducedMotion = useReducedMotion();
-
+  const [open, setOpen] = useState(false);
   if (items.length === 0) return null;
-  const activeItem = items.find((item) => isActivePath(pathname, item.href));
-  const active = Boolean(activeItem);
-  const grouped = groupNavItems(items);
+  const active = items.some((item) => isActivePath(pathname, item.href));
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button
+        <Button
           type="button"
+          variant="ghost"
           className={cn(
-            "relative isolate inline-flex h-7.5 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[7px] px-2.5 text-[13px] font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-foreground/20",
+            "h-8 shrink-0 rounded-full px-3 text-[13px] font-medium",
             active
-              ? "font-semibold text-foreground"
-              : "text-muted-foreground hover:text-foreground",
+              ? "bg-[#1456f0] text-white shadow-[0_6px_16px_-6px_rgba(20,86,240,0.45)] hover:bg-[#1048ce] hover:text-white"
+              : "text-[#45515e] hover:bg-black/[0.05] hover:text-[#18181b] dark:text-muted-foreground",
           )}
         >
-          {active ? (
-            <motion.span
-              layoutId={NAV_ACTIVE_LAYOUT_ID}
-              transition={
-                prefersReducedMotion ? reducedNavActiveTransition : navActiveTransition
-              }
-              className="absolute inset-0 -z-10 rounded-[7px] bg-surface shadow-xs ring-1 ring-black/[0.04] dark:bg-zinc-800/95 dark:ring-white/[0.08]"
-            />
-          ) : null}
-          <LayoutGrid
-            className={cn(
-              "relative z-10 size-3.5 shrink-0 transition-colors",
-              active ? "text-foreground" : "text-muted-foreground/85",
-            )}
-          />
-          <span className="relative z-10 inline-flex items-center gap-1.5">
-            <span>管理控制台</span>
-            {activeItem ? (
-              <span className="text-muted-foreground lg:hidden">
-                · {activeItem.label}
-              </span>
-            ) : null}
-            {active ? (
-              <span
-                aria-hidden="true"
-                className="hidden size-1.5 rounded-full bg-foreground lg:inline-block"
-              />
-            ) : null}
-          </span>
-          <ChevronDown
-            className={cn(
-              "relative z-10 size-3.5 opacity-65 transition-transform duration-150",
-              open && "rotate-180",
-            )}
-          />
-        </button>
+          更多 <ChevronDown className="size-3.5" />
+        </Button>
       </PopoverTrigger>
-      <PopoverContent
-        align="center"
-        sideOffset={8}
-        className="w-[min(37rem,calc(100vw-1.5rem))] rounded-2xl border-border/85 bg-surface-raised p-3.5 shadow-xl"
-      >
-        <div className="space-y-3">
-          {grouped.map((group, groupIndex) => (
-            <div
-              key={group.id}
+      <PopoverContent align="center" sideOffset={8} className="w-44 rounded-2xl p-1.5">
+        <div className="grid gap-1">
+          {items.map((item) => (
+            <Link
+              key={item.href}
+              to={item.href}
+              onMouseEnter={() => preloadRoute(item.href)}
+              onClick={() => setOpen(false)}
               className={cn(
-                "space-y-1.5",
-                groupIndex > 0 && "border-t border-border/60 pt-2.5",
+                "rounded-xl px-3 py-2 text-sm font-medium transition hover:bg-accent hover:text-accent-foreground",
+                isActivePath(pathname, item.href)
+                  ? "bg-[#edf4ff] text-[#1456f0] dark:bg-sky-950/30 dark:text-sky-300"
+                  : "text-foreground",
               )}
             >
-              <div className="flex items-center justify-between px-2 text-[11px] font-semibold tracking-[0.06em] uppercase text-muted-foreground/80">
-                <span>{group.label}</span>
-                <span className="font-mono text-[10px] font-normal tabular-nums text-muted-foreground/60">
-                  {group.items.length}
-                </span>
-              </div>
-              <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
-                {group.items.map((item) => {
-                  const Icon = getNavItemIcon(item);
-                  const itemActive = isActivePath(pathname, item.href);
-                  return (
-                    <Link
-                      key={item.href}
-                      to={item.href}
-                      onMouseEnter={() => preloadRoute(item.href)}
-                      onClick={() => setOpen(false)}
-                      className={cn(
-                        "group flex items-start gap-2.5 rounded-xl px-2.5 py-2 transition-colors",
-                        itemActive
-                          ? "bg-surface-muted text-foreground ring-1 ring-inset ring-border/70"
-                          : "text-foreground hover:bg-surface-hover",
-                      )}
-                    >
-                      <div
-                        className={cn(
-                          "mt-0.5 flex size-7.5 shrink-0 items-center justify-center rounded-lg border transition-colors",
-                          itemActive
-                            ? "border-foreground/20 bg-foreground text-background shadow-2xs"
-                            : "border-border/75 bg-surface-subtle text-muted-foreground group-hover:bg-surface group-hover:text-foreground",
-                        )}
-                      >
-                        <Icon className="size-3.5" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between gap-1.5">
-                          <span className="text-[13px] font-medium">
-                            {item.label}
-                          </span>
-                          {itemActive ? (
-                            <span className="size-1.5 shrink-0 rounded-full bg-foreground" />
-                          ) : null}
-                        </div>
-                        {item.description ? (
-                          <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground">
-                            {item.description}
-                          </p>
-                        ) : null}
-                      </div>
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
+              {item.label}
+            </Link>
           ))}
         </div>
       </PopoverContent>
@@ -307,181 +177,94 @@ export function AccountMenu({
   session,
   roleLabel,
   creditBalance,
-  canRecharge = true,
-  canAccessAdmin = false,
   pathname,
-  search = "",
   onLogout,
   compact = false,
-  popoverSide = "bottom",
+  popoverSide,
   popoverAlign = "end",
 }: {
   session: StoredAuthSession;
   roleLabel: string;
   creditBalance: string;
-  canRecharge?: boolean;
-  canAccessAdmin?: boolean;
   pathname: string;
-  search?: string;
   onLogout: () => Promise<void>;
   compact?: boolean;
+  canRecharge?: boolean;
+  canAccessAdmin?: boolean;
+  search?: string;
   popoverSide?: "top" | "right" | "bottom" | "left";
   popoverAlign?: "start" | "center" | "end";
 }) {
-  const [open, setOpen] = React.useState(false);
+  const [open, setOpen] = useState(false);
   const displayName = session.name || roleLabel;
   const initial = (displayName.trim() || "U").slice(0, 1).toUpperCase();
   const profileActive = isActivePath(pathname, profileNavItem.href);
-  const walletActive = isActivePath(pathname, "/wallet") || isActivePath(pathname, "/recharge");
-  const profileTab = React.useMemo(() => {
-    if (!profileActive) return "";
-    const raw = new URLSearchParams(search).get("tab") || "account";
-    return raw;
-  }, [profileActive, search]);
-  const showAdminEntry = canAccessAdmin || session.role === "admin";
-  const rbacActive = isActivePath(pathname, "/admin/users");
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
           type="button"
-          variant="ghost"
+          variant="outline"
           className={cn(
-            "rounded-lg shadow-none hover:bg-surface-hover",
-            compact ? "size-8 px-0" : "h-8 gap-1.5 px-1.5",
-            profileActive && "bg-surface-muted text-foreground",
+            "rounded-full shadow-none",
+            compact ? "size-8 px-0" : "h-9 px-2.5",
+            profileActive
+              ? "border-[#1456f0]/30 bg-[#edf4ff] text-[#1456f0] dark:bg-sky-950/30 dark:text-sky-300"
+              : "",
           )}
           aria-label="账号菜单"
         >
-          <span className="flex size-6.5 shrink-0 items-center justify-center rounded-lg bg-foreground text-[11px] font-semibold text-background shadow-2xs">
+          <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-[#1456f0] text-xs font-semibold text-white">
             {initial}
           </span>
-          {!compact ? (
-            <>
-              <span className="hidden max-w-[96px] truncate text-xs font-medium xl:inline">
-                {displayName}
-              </span>
-              <ChevronDown className="size-3.5 opacity-60" />
-            </>
-          ) : null}
+          <span className="hidden max-w-[120px] truncate lg:inline">
+            {displayName}
+          </span>
+          <ChevronDown className={compact ? "hidden" : "size-3.5"} />
         </Button>
       </PopoverTrigger>
       <PopoverContent
         side={popoverSide}
         align={popoverAlign}
-        sideOffset={10}
-        className="w-[296px] rounded-2xl border-border/85 bg-surface-raised p-3 shadow-xl"
+        sideOffset={8}
+        className="w-72 rounded-2xl border-border bg-card p-2 text-card-foreground shadow-[0_20px_60px_-30px_rgba(15,23,42,0.45)] dark:border-border dark:bg-card"
       >
-        <div className="flex flex-col gap-2.5">
+        <div className="flex flex-col gap-2">
           <AccountSummary
             session={session}
             roleLabel={roleLabel}
             displayName={displayName}
             initial={initial}
             creditBalance={creditBalance}
-            canRecharge={canRecharge}
-            onClose={() => setOpen(false)}
           />
-          <div className="grid gap-0.5 pt-0.5">
-            {showAdminEntry ? (
-              <Link
-                to="/admin"
-                onMouseEnter={() => preloadRoute("/admin")}
-                onClick={() => setOpen(false)}
-                className="group mb-1 flex min-h-9.5 items-center justify-between rounded-xl border border-foreground/15 bg-foreground/[0.07] px-2.5 py-2 text-[13px] font-semibold text-foreground transition-all hover:bg-foreground/[0.12] motion-safe:active:scale-[0.985]"
-              >
-                <span className="inline-flex items-center gap-2.5">
-                  <LayoutGrid className="size-4 text-foreground" />
-                  <span>进入管理后台</span>
-                </span>
-                <ArrowUpRight className="size-3.5 text-foreground/75 transition-transform duration-150 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-              </Link>
-            ) : null}
-            <AccountActionLink
-              to="/wallet"
-              icon={WalletCards}
-              label="积分与权益中心"
-              active={walletActive}
-              onClick={() => setOpen(false)}
-            />
-            <AccountActionLink
-              to={profileNavItem.href}
-              icon={UserCircle2}
-              label="账号与安全设置"
-              active={
-                profileActive &&
-                profileTab !== "api" &&
-                profileTab !== "credits"
-              }
-              onClick={() => setOpen(false)}
-            />
-            <AccountActionLink
-              to="/profile?tab=api"
-              icon={BookOpen}
-              label="账号与 API 密钥"
-              active={profileActive && profileTab === "api"}
-              onClick={() => setOpen(false)}
-            />
-            {session.role === "admin" ? (
-              <AccountActionLink
-                to="/admin/users?tab=rbac"
-                icon={ShieldCheck}
-                label="角色与权限矩阵"
-                active={rbacActive}
-                onClick={() => setOpen(false)}
-              />
-            ) : null}
-            <div className="my-1 h-px bg-border/70" />
-            <button
-              type="button"
-              className="flex min-h-9 items-center justify-between rounded-xl px-2.5 py-2 text-[13px] font-medium text-status-danger transition-all hover:bg-status-danger-soft/75 motion-safe:active:scale-[0.985]"
-              onClick={() => {
-                setOpen(false);
-                void onLogout();
-              }}
-            >
-              <span className="inline-flex items-center gap-2.5">
-                <LogOut className="size-4" />
-                <span>退出登录</span>
-              </span>
-            </button>
-          </div>
+          <Link
+            to={profileNavItem.href}
+            onClick={() => setOpen(false)}
+            className={cn(
+              "flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition hover:bg-accent hover:text-accent-foreground",
+              profileActive
+                ? "bg-[#edf4ff] text-[#1456f0] dark:bg-sky-950/30 dark:text-sky-300"
+                : "text-foreground",
+            )}
+          >
+            <UserCircle2 className="size-4" />
+            个人中心
+          </Link>
+          <button
+            type="button"
+            className="flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-rose-600 transition hover:bg-rose-50 hover:text-rose-700 dark:hover:bg-rose-950/30"
+            onClick={() => {
+              setOpen(false);
+              void onLogout();
+            }}
+          >
+            <LogOut className="size-4" />
+            退出登录
+          </button>
         </div>
       </PopoverContent>
     </Popover>
-  );
-}
-
-function AccountActionLink({
-  to,
-  icon: Icon,
-  label,
-  active,
-  onClick,
-}: {
-  to: string;
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  active?: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <Link
-      to={to}
-      onMouseEnter={() => preloadRoute(to)}
-      onClick={onClick}
-      className={cn(
-        "group flex min-h-9 items-center justify-between rounded-xl px-2.5 py-2 text-[13px] font-medium transition-all hover:bg-surface-hover motion-safe:active:scale-[0.985]",
-        active ? "bg-surface-muted font-semibold text-foreground" : "text-foreground",
-      )}
-    >
-      <span className="inline-flex items-center gap-2.5">
-        <Icon className="size-4 text-muted-foreground transition-colors group-hover:text-foreground" />
-        <span>{label}</span>
-      </span>
-      <ArrowUpRight className="size-3.5 text-muted-foreground/50 transition-transform duration-150 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-foreground" />
-    </Link>
   );
 }
 
@@ -491,62 +274,45 @@ function AccountSummary({
   displayName,
   initial,
   creditBalance,
-  canRecharge,
-  onClose,
 }: {
   session: StoredAuthSession;
   roleLabel: string;
   displayName: string;
   initial: string;
   creditBalance: string;
-  canRecharge: boolean;
-  onClose: () => void;
 }) {
+  const subjectText = session.subjectId || session.role || "user";
   return (
     <>
-      <div className="flex items-center gap-3 px-1 pt-0.5">
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-foreground text-sm font-semibold text-background shadow-2xs">
-          {initial}
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5">
-            <span className="truncate text-sm font-semibold text-foreground">
+      <div className="rounded-xl bg-muted/50 p-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#1456f0] text-sm font-semibold text-white">
+            {initial}
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-sm font-semibold text-foreground">
               {displayName}
-            </span>
-            <span className="shrink-0 rounded-full bg-surface-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-              {roleLabel}
-            </span>
+            </div>
+            <code className="block truncate font-mono text-xs text-muted-foreground">
+              {subjectText}
+            </code>
           </div>
-          <code
-            className="mt-0.5 block truncate font-mono text-[11px] text-muted-foreground"
-            title={webConfig.appVersion}
-          >
-            @{session.subjectId || session.role} · v{webConfig.appVersion.replace(/^v/i, "").split("-")[0]}
-          </code>
         </div>
       </div>
-
-      <div className="rounded-xl bg-surface-muted/85 p-3 ring-1 ring-inset ring-border/70">
-        <div className="flex items-center justify-between gap-2">
-          <div>
-            <div className="text-[11px] font-medium text-muted-foreground">
-              算力积分余额
-            </div>
-            <div className="mt-0.5 font-mono text-xl font-semibold tracking-tight text-foreground tabular-nums">
-              {creditBalance}
-            </div>
-          </div>
-          <Link
-            to={canRecharge ? "/wallet" : "/wallet?tab=redeem"}
-            onMouseEnter={() => preloadRoute("/wallet")}
-            onClick={onClose}
-            className="inline-flex h-7.5 items-center gap-1 rounded-lg bg-foreground px-2.5 text-xs font-medium text-background shadow-2xs transition-opacity hover:opacity-90"
-          >
-            <span>{canRecharge ? "充值" : "权益"}</span>
-            <ArrowUpRight className="size-3" />
-          </Link>
-        </div>
+      <div className="grid grid-cols-3 gap-2 text-xs">
+        <AccountMetric label="角色" value={roleLabel} />
+        <AccountMetric label="积分" value={creditBalance} />
+        <AccountMetric label="版本" value={`v${webConfig.appVersion}`} />
       </div>
     </>
+  );
+}
+
+function AccountMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg bg-muted/40 px-2 py-1.5">
+      <div className="text-muted-foreground">{label}</div>
+      <div className="truncate font-medium text-foreground">{value}</div>
+    </div>
   );
 }

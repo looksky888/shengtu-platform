@@ -1,52 +1,74 @@
 "use client";
 
-import { LoaderCircle } from "lucide-react";
-
 import { LandingBackground } from "@/app/landing/landing-background";
 import { LandingCTA } from "@/app/landing/landing-cta";
 import { LandingHeader } from "@/app/landing/landing-header";
 import { useLandingPage } from "@/app/landing/use-landing-page";
+import { cn } from "@/lib/utils";
 
-/** Full-screen pre-login editorial studio showcase. */
+/** Full-screen pre-login Classic 4.3 brand hero. */
 export function LandingPage() {
   const {
     brandTitle,
+    bgShiftRef,
     checking,
+    ctaRef,
     entered,
     handleThemeToggle,
     isDark,
+    parallaxRef,
     prefersReducedMotion,
     registrationEnabled,
     themeToggleRef,
+    watermarkRef,
   } = useLandingPage();
 
   if (checking) {
     return (
       <div
-        className="studio-grid-bg fixed inset-0 z-50 flex items-center justify-center bg-background text-foreground"
+        className={cn(
+          "fixed inset-0 flex items-center justify-center",
+          isDark ? "bg-[#0c0a09]" : "bg-[#fff8f0]",
+        )}
         role="status"
         aria-live="polite"
-        aria-label="正在加载工作台"
+        aria-label="加载中"
       >
-        <div className="flex items-center gap-2.5 rounded-full border border-border/80 bg-surface/90 px-4 py-2 text-xs font-medium text-muted-foreground shadow-2xs">
-          <LoaderCircle className="size-3.5 animate-spin text-foreground" aria-hidden="true" />
-          <span>正在准备创作空间…</span>
+        <div className="relative">
+          <div className={cn("size-10 animate-pulse rounded-full", isDark ? "bg-amber-500/30" : "bg-amber-300/40")} />
+          <div className={cn("absolute inset-0 animate-ping rounded-full", isDark ? "bg-amber-400/20" : "bg-amber-200/30")} />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col overflow-x-hidden overflow-y-auto bg-background font-sans text-foreground">
+    <div
+      className={cn(
+        "fixed inset-0 z-50 overflow-hidden font-login",
+        isDark ? "bg-[#0c0a09] text-amber-50" : "bg-[#fff8f0] text-stone-800",
+      )}
+    >
       <a
         href="#hero-main"
-        className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[70] focus:rounded-lg focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground focus:shadow-md focus:outline-none"
+        className={cn(
+          "sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[70]",
+          "focus:rounded-full focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:shadow-lg",
+          "focus:outline-none focus:ring-2 focus:ring-amber-400/60",
+          isDark ? "focus:bg-amber-100 focus:text-stone-900" : "focus:bg-stone-900 focus:text-white",
+        )}
       >
         跳到主要内容
       </a>
 
-      <LandingBackground isDark={isDark} />
-
+      <LandingBackground
+        bgShiftRef={bgShiftRef}
+        entered={entered}
+        isDark={isDark}
+        parallaxRef={parallaxRef}
+        prefersReducedMotion={prefersReducedMotion}
+        watermarkRef={watermarkRef}
+      />
       <LandingHeader
         brandTitle={brandTitle}
         entered={entered}
@@ -55,11 +77,10 @@ export function LandingPage() {
         registrationEnabled={registrationEnabled}
         themeToggleRef={themeToggleRef}
       />
-
       <LandingCTA
-        brandTitle={brandTitle}
+        ctaRef={ctaRef}
         entered={entered}
-        prefersReducedMotion={prefersReducedMotion}
+        isDark={isDark}
         registrationEnabled={registrationEnabled}
       />
     </div>

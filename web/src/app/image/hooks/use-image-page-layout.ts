@@ -14,6 +14,7 @@ export function useImagePageLayout({
   selectedTurnCount,
 }: UseImagePageLayoutOptions) {
   const [composerDockHeight, setComposerDockHeight] = useState(0);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   useEffect(() => {
     const node = composerDockRef.current;
@@ -46,5 +47,9 @@ export function useImagePageLayout({
     });
   }, [resultsViewportRef, selectedConversationId, selectedTurnCount]);
 
-  return composerDockHeight;
+  return {
+    composerDockHeight,
+    isSidebarOpen,
+    setIsSidebarOpen,
+  };
 }

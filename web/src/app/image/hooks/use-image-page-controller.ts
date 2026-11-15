@@ -2,13 +2,12 @@ import { useCallback, useEffect, useRef } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
-import { readFileAsDataUrl } from "@/app/image/lib/reference-image-utils";
+import { extensionFromMimeType, readFileAsDataUrl } from "@/app/image/lib/reference-image-utils";
 import { PENDING_STUDIO_PROMPT_STORAGE_KEY } from "@/app/landing/landing-brand";
 import { fetchAuthorizedImageBlob } from "@/lib/media-fetch";
 import { useImageComposerSettings } from "@/app/image/hooks/use-image-composer-settings";
 import { useImageComposerWorkflow } from "@/app/image/hooks/use-image-composer-workflow";
 import { useImageConversations } from "@/app/image/hooks/use-image-conversations";
-import { useImageEditDialogState } from "@/app/image/hooks/use-image-edit-dialog-state";
 import { useImageInpaintActions } from "@/app/image/hooks/use-image-inpaint-actions";
 import { useImageLightboxState } from "@/app/image/hooks/use-image-lightbox-state";
 import { useImagePageLayout } from "@/app/image/hooks/use-image-page-layout";
@@ -22,7 +21,6 @@ import { useImageTurnProgressState } from "@/app/image/hooks/use-image-turn-prog
 import { useImagePageHistoryController } from "@/app/image/hooks/use-image-page-history-controller";
 import { useImageVisibilityActions } from "@/app/image/hooks/use-image-visibility-actions";
 import { useReferenceImages } from "@/app/image/hooks/use-reference-images";
-import { useSaveEditingTurn } from "@/app/image/hooks/use-save-editing-turn";
 import { useSubmitImageTurn } from "@/app/image/hooks/use-submit-image-turn";
 import { usePublicModelChannel } from "@/lib/use-public-model-channel";
 
@@ -66,6 +64,11 @@ export function useImagePageController() {
     setImageOutputFormat,
     imageOutputCompression,
     setImageOutputCompression,
+    imageFrameCount,
+    setImageFrameCount,
+    imageFrameDurationMs,
+    setImageFrameDurationMs,
+    canOutputGif,
     defaultImageVisibility,
     setDefaultImageVisibility,
     parsedCount,
@@ -94,33 +97,24 @@ export function useImagePageController() {
   const { progressByTurnKey, progressNow, updateTurnProgress, clearTurnProgress } = useImageTurnProgressState({
     activeTaskCount,
   });
-  const { editingTurnDraft, setEditingTurnDraft, openEditTurnDialog } = useImageEditDialogState({
-    conversationsRef,
-    defaultImageModel,
-    defaultTextModel,
-  });
   const { lightboxImages, lightboxOpen, setLightboxOpen, lightboxIndex, setLightboxIndex, openLightbox } = useImageLightboxState();
   const {
     fileInputRef,
-    editFileInputRef,
     referenceImages,
     setReferenceImages,
     clearReferenceImages,
     handleReferenceImageChange,
     handleRemoveReferenceImage,
     handleContinueEdit,
-    handleEditReferenceImageChange,
-    handleRemoveEditReferenceImage,
   } = useReferenceImages({
     setSelectedConversationId,
     setComposerMode,
     setImagePrompt,
     textareaRef,
-    setEditingTurnDraft,
     cancelPromptApplyRequest,
   });
 
-  const composerDockHeight = useImagePageLayout({
+  const { composerDockHeight, isSidebarOpen, setIsSidebarOpen } = useImagePageLayout({
     composerDockRef,
     resultsViewportRef,
     selectedConversationId,
@@ -145,8 +139,6 @@ export function useImagePageController() {
     clearReferenceImages,
     setImagePrompt,
     setImageCount,
-    setImageOutputFormat,
-    setImageOutputCompression,
     setDefaultImageVisibility,
     setComposerMode,
   });
@@ -196,6 +188,8 @@ export function useImagePageController() {
     setImageQuality,
     setImageOutputFormat,
     setImageOutputCompression,
+    setImageFrameCount,
+    setImageFrameDurationMs,
     setDefaultImageVisibility,
     setReferenceImages,
     textareaRef,
@@ -218,6 +212,8 @@ export function useImagePageController() {
     setImageCustomHeight,
     setImageOutputFormat,
     setImageOutputCompression,
+    setImageFrameCount,
+    setImageFrameDurationMs,
     setDefaultImageVisibility,
   });
 
@@ -242,14 +238,6 @@ export function useImagePageController() {
     runConversationQueue,
     clearTurnProgress,
   });
-  const handleSaveEditingTurn = useSaveEditingTurn({
-    editingTurnDraft,
-    setEditingTurnDraft,
-    conversationsRef,
-    editFileInputRef,
-    updateConversation,
-    runConversationQueue,
-  });
 
   const handleSubmit = useSubmitImageTurn({
     isSubmitDispatchingRef,
@@ -270,6 +258,9 @@ export function useImagePageController() {
     imageQuality,
     imageOutputFormat,
     imageOutputCompression,
+    imageFrameCount,
+    imageFrameDurationMs,
+    canOutputGif,
     defaultImageVisibility,
     referenceImages,
     currentImageSizeSelection,
@@ -291,6 +282,7 @@ export function useImagePageController() {
   } = useImageInpaintActions({
     handleSubmit,
     setSelectedConversationId,
+    canOutputGif,
   });
 
   const location = useLocation();
@@ -423,13 +415,14 @@ export function useImagePageController() {
         const blob = await response.blob();
         if (abortController.signal.aborted) return;
 
+        const fallbackExt = extensionFromMimeType(blob.type);
         const fallbackName =
           remixName ||
           remixUrl.split(/[?#]/, 1)[0]?.split("/").filter(Boolean).pop() ||
-          "remix-reference.png";
+          `remix-reference.${fallbackExt}`;
         const normalizedName = fallbackName.includes(".")
           ? fallbackName
-          : `${fallbackName}.png`;
+          : `${fallbackName}.${fallbackExt}`;
         const file = new File([blob], normalizedName, {
           type: blob.type || "image/png",
         });
@@ -527,20 +520,22 @@ export function useImagePageController() {
     imageAspectRatio, setImageAspectRatio, imageResolution, setImageResolution, imageCustomRatio,
     setImageCustomRatio, imageCustomWidth, setImageCustomWidth, imageCustomHeight, setImageCustomHeight,
     imageQuality, setImageQuality, imageOutputFormat, setImageOutputFormat, imageOutputCompression,
-    setImageOutputCompression, defaultImageVisibility, setDefaultImageVisibility, parsedCount, estimatedCreditCost,
+    setImageOutputCompression, imageFrameCount, setImageFrameCount, imageFrameDurationMs, setImageFrameDurationMs,
+    canOutputGif, defaultImageVisibility, setDefaultImageVisibility, parsedCount, estimatedCreditCost,
     estimatedCreditCostDetail, imageSize, currentImageSizeSelection, composerModelOptions, imageQualityOptions,
     imageOutputHint, handleImageCountChange, restoreStoredComposerSettings, conversations, conversationsRef,
     selectedConversationId, setSelectedConversationId, selectedConversation, isLoadingHistory, activeTaskCount,
     replaceConversations, persistConversation, updateConversation, progressByTurnKey, progressNow,
-    updateTurnProgress, clearTurnProgress, editingTurnDraft, setEditingTurnDraft, openEditTurnDialog,
+    updateTurnProgress, clearTurnProgress,
     lightboxImages, lightboxOpen, setLightboxOpen, lightboxIndex, setLightboxIndex,
-    openLightbox, fileInputRef, editFileInputRef, referenceImages, setReferenceImages,
-    clearReferenceImages, handleReferenceImageChange, handleRemoveReferenceImage, handleContinueEdit, handleEditReferenceImageChange,
-    handleRemoveEditReferenceImage, composerDockHeight, clearComposerInputs, resetComposer, handleComposerModeChange,
+    openLightbox, fileInputRef, referenceImages, setReferenceImages,
+    clearReferenceImages, handleReferenceImageChange, handleRemoveReferenceImage, handleContinueEdit,
+    composerDockHeight, isSidebarOpen, setIsSidebarOpen,
+    clearComposerInputs, resetComposer, handleComposerModeChange,
     isHistoryOpen, setIsHistoryOpen, deleteConfirm, setDeleteConfirm, handleDeleteConversation, handleClearHistory, openDeleteConversationConfirm,
     openClearHistoryConfirm, openDeleteTurnConfirm, handleConfirmDelete, handleCreateDraft, handleRenameConversation, handleApplyPromptPreset, handleAppendStyleChip, visibilityMutatingImageKey,
     handleImageVisibilityChange, runConversationQueue, handleCancelTurn, handleRetryImage, handleRegenerateTurn,
-    handleSaveEditingTurn, handleSubmit, handleComposerModelChange, handleRecallTurn, handleDeleteTurn,
+    handleSubmit, handleComposerModelChange, handleRecallTurn, handleDeleteTurn,
     inpaintSource: activeInpaintSource, handleLocalEdit, handleInpaintSubmit, setInpaintSource: setActiveInpaintSource,
   };
 }

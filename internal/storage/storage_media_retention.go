@@ -32,7 +32,7 @@ func (b *DatabaseBackend) ListMediaAssetsBefore(policyStart, cutoff string, limi
 	}
 	args = append(args, limit)
 	query := `SELECT ` + mediaAssetColumns + ` FROM media_assets WHERE ` + strings.Join(where, " AND ") + ` ORDER BY ` + createdExpr + ` ASC, path ASC LIMIT ` + b.placeholder(len(args))
-	rows, err := b.db.Query(query, args...)
+	rows, err := b.reader().Query(query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list expired media assets: %w", err)
 	}
@@ -76,7 +76,7 @@ func (b *DatabaseBackend) ListPrePolicyMediaAssets(policyStart string, limit int
 	}
 	args = append(args, limit)
 	query := `SELECT ` + mediaAssetColumns + ` FROM media_assets WHERE ` + strings.Join(where, " AND ") + ` ORDER BY ` + createdExpr + ` ASC, path ASC LIMIT ` + b.placeholder(len(args))
-	rows, err := b.db.Query(query, args...)
+	rows, err := b.reader().Query(query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list pre-policy media assets: %w", err)
 	}

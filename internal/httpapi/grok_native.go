@@ -368,7 +368,7 @@ func (a *App) runSingleGrokNativeImageBatch(ctx context.Context, body map[string
 	if result == nil {
 		result = map[string]any{"data": []any{}}
 	}
-	result, err = a.formatGrokNativeImageResult(result, body, requestedResponseFormat)
+	result, err = a.formatGrokNativeImageResult(ctx, result, body, requestedResponseFormat)
 	if err != nil {
 		imageErr := &protocol.ImageGenerationError{
 			Message:    "保存 Grok 图片失败: " + err.Error(),
@@ -387,7 +387,7 @@ func (a *App) runSingleGrokNativeImageBatch(ctx context.Context, body map[string
 	return result, nil
 }
 
-func (a *App) formatGrokNativeImageResult(result, request map[string]any, responseFormat string) (map[string]any, error) {
+func (a *App) formatGrokNativeImageResult(ctx context.Context, result, request map[string]any, responseFormat string) (map[string]any, error) {
 	items := util.AsMapSlice(result["data"])
 	b64Items := make([]map[string]any, 0, len(items))
 	for _, item := range items {
@@ -398,9 +398,15 @@ func (a *App) formatGrokNativeImageResult(result, request map[string]any, respon
 	// Keep compatibility with an older sidecar that may ignore b64_json and
 	// return an already-public URL. New runtimes always take the branch below.
 	if len(b64Items) == 0 {
+		for _, item := range items {
+			if u := util.Clean(item["url"]); u != "" {
+				protocol.RecordGeneratedImageURL(ctx, u)
+			}
+		}
 		return result, nil
 	}
-	formatted, err := a.engine.FormatImageResultWithOptions(
+	formatted, err := a.engine.FormatImageResultWithContext(
+		ctx,
 		b64Items,
 		util.Clean(request["prompt"]),
 		responseFormat,

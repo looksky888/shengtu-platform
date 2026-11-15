@@ -3,21 +3,33 @@ import test from "node:test";
 
 import {
   CHAT_MODEL_OPTIONS,
+  DEFAULT_IMAGE_MODEL,
   IMAGE_CREATION_MODEL_OPTIONS,
   VIDEO_CREATION_MODEL_OPTIONS,
   isGrokChatModel,
   isGrokImageModel,
   isImageCreationModel,
+  isImageOutputFormat,
   isVideoCreationModel,
   filterStudioImageModelIds,
   normalizeChatModelId,
+  supportsGifOutputModel,
 } from "../src/lib/api-models.ts";
 
 test("model catalog separates Grok chat and image routes", () => {
+  assert.equal(DEFAULT_IMAGE_MODEL, "gpt-image-2.6-flare");
   assert.equal(isGrokChatModel("grok-4.5"), true);
   assert.equal(isGrokChatModel("grok-4.20-fast"), true);
   assert.equal(isGrokImageModel("grok-imagine-image-edit"), true);
+  assert.equal(supportsGifOutputModel("gpt-image-2.6-flare"), true);
+  assert.equal(supportsGifOutputModel("gpt-image-2.6"), true);
+  assert.equal(supportsGifOutputModel("gpt-image-2.6-sunburst"), true);
+  assert.equal(supportsGifOutputModel("gpt-image-2.5-flare"), false);
+  assert.equal(isImageOutputFormat("gif"), true);
   assert.deepEqual(IMAGE_CREATION_MODEL_OPTIONS.map((item) => item.value), [
+    "gpt-image-2.6-flare",
+    "gpt-image-2.6",
+    "gpt-image-2.6-sunburst",
     "gpt-image-2.5-flare",
     "gpt-image-2.5",
     "gpt-image-2",
@@ -25,6 +37,9 @@ test("model catalog separates Grok chat and image routes", () => {
     "grok-imagine-image",
   ]);
   assert.deepEqual(IMAGE_CREATION_MODEL_OPTIONS.map((item) => item.label), [
+    "GPT Images 2.6 Flare",
+    "GPT Images 2.6",
+    "GPT Images 2.6 Sunburst",
     "GPT Images 2.5 Flare",
     "GPT Images 2.5",
     "GPT Images 2",

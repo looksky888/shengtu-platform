@@ -36,7 +36,14 @@ export function imageTaskBatchId(turnId: string, imageIndex: number) {
 }
 
 export function imageTaskIdForImage(turnId: string, images: StoredImage[], imageIndex: number) {
-  return images[imageIndex]?.taskId || imageTaskBatchId(turnId, imageIndex);
+  const image = images[imageIndex];
+  if (image?.taskId) {
+    return image.taskId;
+  }
+  if (image?.id && image.id.includes("-task-")) {
+    return image.id;
+  }
+  return imageTaskBatchId(turnId, imageIndex);
 }
 
 export function imageDataIndexForTask(images: StoredImage[], imageIndex: number) {
@@ -148,6 +155,19 @@ export function taskDataToStoredImage(image: StoredImage, task: CreationTask, tu
   return updateStoredImage(image, { taskId: task.id, status: "loading", text_response: undefined, error: undefined });
 }
 
-export function sleep(ms: number) {
-  return new Promise((resolve) => window.setTimeout(resolve, ms));
+export function sleep(ms: number, signal?: AbortSignal) {
+  if (signal?.aborted) {
+    return Promise.resolve();
+  }
+  return new Promise<void>((resolve) => {
+    const timer = globalThis.setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    const onAbort = () => {
+      globalThis.clearTimeout(timer);
+      resolve();
+    };
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
 }

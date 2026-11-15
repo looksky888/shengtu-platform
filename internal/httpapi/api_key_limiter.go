@@ -25,7 +25,10 @@ type apiKeyLimiter struct {
 	logger  *service.Logger
 }
 
-const apiKeyLimitLeaseSeconds = 2 * 60 * 60
+const (
+	apiKeyLimitLeaseSeconds = 2 * 60 * 60
+	apiKeyLimitFixedLayout  = "2006-01-02T15:04:05.000000000Z"
+)
 
 func newAPIKeyLimiter(backend storage.Backend, logger *service.Logger) *apiKeyLimiter {
 	limiter := &apiKeyLimiter{states: map[string]*apiKeyLimitState{}, logger: logger}
@@ -43,7 +46,7 @@ func (l *apiKeyLimiter) acquire(identity service.Identity, rpm, concurrency, dai
 	key := strings.TrimSpace(identity.CredentialID)
 	if l.backend != nil {
 		day := now.In(util.ChinaLocation()).Format("2006-01-02")
-		reservationID, _, reason, err := l.backend.ReserveAPIKeyLimit(key, now.UTC().Format(time.RFC3339Nano), day, rpm, concurrency, daily, apiKeyLimitLeaseSeconds)
+		reservationID, _, reason, err := l.backend.ReserveAPIKeyLimit(key, now.UTC().Format(apiKeyLimitFixedLayout), day, rpm, concurrency, daily, apiKeyLimitLeaseSeconds)
 		if err != nil {
 			return nil, http.StatusServiceUnavailable, "API Key 限流存储暂不可用，请稍后重试"
 		}
@@ -62,6 +65,14 @@ func (l *apiKeyLimiter) acquire(identity service.Identity, rpm, concurrency, dai
 	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
+	day := now.In(util.ChinaLocation()).Format("2006-01-02")
+	if len(l.states) > 1024 {
+		for candidateKey, candidate := range l.states {
+			if candidateKey != key && (candidate == nil || (candidate.inFlight <= 0 && candidate.day != day && len(candidate.hits) == 0)) {
+				delete(l.states, candidateKey)
+			}
+		}
+	}
 	state := l.states[key]
 	if state == nil {
 		state = &apiKeyLimitState{}
@@ -75,7 +86,6 @@ func (l *apiKeyLimiter) acquire(identity service.Identity, rpm, concurrency, dai
 		}
 	}
 	state.hits = kept
-	day := now.In(util.ChinaLocation()).Format("2006-01-02")
 	if state.day != day {
 		state.day, state.dailyUsed = day, 0
 	}

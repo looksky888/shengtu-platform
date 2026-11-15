@@ -9,6 +9,8 @@ import {
   IMAGE_CUSTOM_HEIGHT_STORAGE_KEY,
   IMAGE_CUSTOM_RATIO_STORAGE_KEY,
   IMAGE_CUSTOM_WIDTH_STORAGE_KEY,
+  IMAGE_FRAME_COUNT_STORAGE_KEY,
+  IMAGE_FRAME_DURATION_MS_STORAGE_KEY,
   IMAGE_MODEL_STORAGE_KEY,
   IMAGE_MODEL_OPTION_STORAGE_KEY,
   IMAGE_OUTPUT_COMPRESSION_STORAGE_KEY,
@@ -20,7 +22,12 @@ import {
   safeRemoveLocalStorageItem,
   safeSetLocalStorageItem,
 } from "@/app/image/lib/image-storage-utils";
-import { normalizeOutputCompressionValue, normalizeRequestedImageCount } from "@/app/image/lib/image-turn-utils";
+import {
+  normalizeGifFrameCount,
+  normalizeGifFrameDurationMs,
+  normalizeOutputCompressionValue,
+  normalizeRequestedImageCount,
+} from "@/app/image/lib/image-turn-utils";
 import type { ImageModel, ImageOutputFormat, ImageQuality } from "@/lib/api";
 
 type UseImageComposerPersistenceParams = {
@@ -38,6 +45,8 @@ type UseImageComposerPersistenceParams = {
   imageQuality: ImageQuality;
   imageOutputFormat: ImageOutputFormat;
   imageOutputCompression: string;
+  imageFrameCount: string;
+  imageFrameDurationMs: string;
 };
 
 export function useImageComposerPersistence(params: UseImageComposerPersistenceParams) {
@@ -56,6 +65,8 @@ export function useImageComposerPersistence(params: UseImageComposerPersistenceP
     imageQuality,
     imageOutputFormat,
     imageOutputCompression,
+    imageFrameCount,
+    imageFrameDurationMs,
   } = params;
 
   useEffect(() => {
@@ -95,10 +106,26 @@ export function useImageComposerPersistence(params: UseImageComposerPersistenceP
   useEffect(() => {
     safeSetLocalStorageItem(IMAGE_OUTPUT_FORMAT_STORAGE_KEY, imageOutputFormat);
     const normalizedCompression = normalizeOutputCompressionValue(imageOutputCompression);
-    if (normalizedCompression === undefined || imageOutputFormat === "png") {
+    if (normalizedCompression === undefined || imageOutputFormat === "png" || imageOutputFormat === "gif") {
       safeRemoveLocalStorageItem(IMAGE_OUTPUT_COMPRESSION_STORAGE_KEY);
       return;
     }
     safeSetLocalStorageItem(IMAGE_OUTPUT_COMPRESSION_STORAGE_KEY, String(normalizedCompression));
   }, [imageOutputCompression, imageOutputFormat]);
+
+  useEffect(() => {
+    const normalizedFrameCount = normalizeGifFrameCount(imageFrameCount);
+    if (normalizedFrameCount === undefined) {
+      safeRemoveLocalStorageItem(IMAGE_FRAME_COUNT_STORAGE_KEY);
+    } else {
+      safeSetLocalStorageItem(IMAGE_FRAME_COUNT_STORAGE_KEY, String(normalizedFrameCount));
+    }
+
+    const normalizedFrameDurationMs = normalizeGifFrameDurationMs(imageFrameDurationMs);
+    if (normalizedFrameDurationMs === undefined) {
+      safeRemoveLocalStorageItem(IMAGE_FRAME_DURATION_MS_STORAGE_KEY);
+    } else {
+      safeSetLocalStorageItem(IMAGE_FRAME_DURATION_MS_STORAGE_KEY, String(normalizedFrameDurationMs));
+    }
+  }, [imageFrameCount, imageFrameDurationMs]);
 }

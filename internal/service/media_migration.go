@@ -1,13 +1,11 @@
 package service
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"image"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -154,7 +152,7 @@ func (m *MediaLibrary) migrateLegacyImage(ctx context.Context, rel string) (stri
 	if err != nil {
 		return "failed", err
 	}
-	decoded, format, err := image.DecodeConfig(bytes.NewReader(data))
+	decoded, format, err := util.ValidateImageBytesDimensions(data)
 	if err != nil {
 		return "skipped", nil
 	}

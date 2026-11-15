@@ -3,7 +3,12 @@ import { DEFAULT_IMAGE_MODEL, isChatModel, isGrokImageModel, isImageCreationMode
 import type { ImageConversation, StoredImageSizeSelection } from "@/store/image-conversations";
 
 import { DEFAULT_IMAGE_OUTPUT_FORMAT, DEFAULT_IMAGE_QUALITY, type ComposerMode } from "./image-page-types";
-import { normalizeOutputCompressionValue, normalizeRequestedImageCount } from "./image-turn-utils";
+import {
+  normalizeGifFrameCount,
+  normalizeGifFrameDurationMs,
+  normalizeOutputCompressionValue,
+  normalizeRequestedImageCount,
+} from "./image-turn-utils";
 
 export const COMPOSER_MODE_STORAGE_KEY = "chatgpt2api:image_composer_mode";
 export const IMAGE_MODEL_STORAGE_KEY = "chatgpt2api:image_last_model";
@@ -19,6 +24,8 @@ export const IMAGE_CUSTOM_HEIGHT_STORAGE_KEY = "chatgpt2api:image_last_custom_he
 export const IMAGE_QUALITY_STORAGE_KEY = "chatgpt2api:image_last_quality";
 export const IMAGE_OUTPUT_FORMAT_STORAGE_KEY = "chatgpt2api:image_last_output_format";
 export const IMAGE_OUTPUT_COMPRESSION_STORAGE_KEY = "chatgpt2api:image_last_output_compression";
+export const IMAGE_FRAME_COUNT_STORAGE_KEY = "chatgpt2api:image_last_frame_count";
+export const IMAGE_FRAME_DURATION_MS_STORAGE_KEY = "chatgpt2api:image_last_frame_duration_ms";
 
 function safeGetLocalStorageItem(key: string): string | null {
   if (typeof window === "undefined") {
@@ -115,6 +122,16 @@ export function getStoredImageOutputFormat(): ImageOutputFormat {
 
 export function getStoredImageOutputCompression(): string {
   const normalized = normalizeOutputCompressionValue(safeGetLocalStorageItem(IMAGE_OUTPUT_COMPRESSION_STORAGE_KEY));
+  return normalized === undefined ? "" : String(normalized);
+}
+
+export function getStoredImageFrameCount(): string {
+  const normalized = normalizeGifFrameCount(safeGetLocalStorageItem(IMAGE_FRAME_COUNT_STORAGE_KEY));
+  return normalized === undefined ? "" : String(normalized);
+}
+
+export function getStoredImageFrameDurationMs(): string {
+  const normalized = normalizeGifFrameDurationMs(safeGetLocalStorageItem(IMAGE_FRAME_DURATION_MS_STORAGE_KEY));
   return normalized === undefined ? "" : String(normalized);
 }
 

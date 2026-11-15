@@ -32,11 +32,11 @@ export function ProfileSummaryCard({
   onCheckin,
 }: ProfileSummaryCardProps) {
   return (
-    <Card>
+    <Card className="border-border bg-[#fbfdff] dark:bg-card">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-foreground bg-foreground text-background shadow-xs">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-[#cfe0ff] bg-[#edf4ff] text-[#1456f0] shadow-xs dark:border-sky-500/30 dark:bg-sky-950/50 dark:text-sky-300">
               <UserCircle2 className="size-4.5" />
             </div>
             <div className="min-w-0">
@@ -52,7 +52,7 @@ export function ProfileSummaryCard({
             variant={session.role === "admin" ? "default" : "secondary"}
             className={cn(
               "shrink-0 rounded-md",
-              session.role === "admin" && "border-foreground bg-foreground text-background",
+              session.role === "admin" && "border-[#1456f0] bg-[#1456f0] text-white",
             )}
           >
             {roleLabel}
@@ -63,16 +63,16 @@ export function ProfileSummaryCard({
         <div className="grid grid-cols-2 gap-2">
           <ProfileInfoRow label="用户 ID" value={session.subjectId} code />
           <ProfileInfoRow
-            label="登录来源"
+            label="登录方式"
             value={providerLabel(session.provider)}
           />
           <ProfileInfoRow
-            label="角色标识"
+            label="账号角色"
             value={session.roleId || session.role}
             code
           />
           <ProfileInfoRow
-            label="当前积分"
+            label="剩余积分"
             value={formatCreditBalance(credits?.balance)}
           />
         </div>
@@ -80,12 +80,12 @@ export function ProfileSummaryCard({
           <div className="flex items-center justify-between gap-3 rounded-lg border border-border/70 bg-surface-muted/35 px-3 py-2.5">
             <div className="min-w-0">
               <div className="text-xs font-semibold text-foreground">
-                每日签到奖励
+                每日签到领积分
               </div>
               <div className="text-[11px] text-muted-foreground">
                 {credits?.checked_in_today
-                  ? "今日已完成签到，明日可继续领取"
-                  : "每日签到免费领取算力积分"}
+                  ? "今天已经签过到了，明天再来领"
+                  : "每天点一下免费领积分"}
               </div>
             </div>
             <Button
@@ -93,6 +93,9 @@ export function ProfileSummaryCard({
               type="button"
               size="sm"
               variant={credits?.checked_in_today ? "outline" : "default"}
+              className={cn(
+                !credits?.checked_in_today && "bg-[#1456f0] text-white hover:bg-[#1048ce]",
+              )}
               onClick={onCheckin}
               disabled={isCheckingIn || Boolean(credits?.checked_in_today)}
             >

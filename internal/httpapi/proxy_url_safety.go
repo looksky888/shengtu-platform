@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -108,8 +109,12 @@ func isBlockedIP(ip net.IP) bool {
 		ip.IsMulticast() || ip.IsUnspecified() {
 		return true
 	}
-	// Cloud metadata common ranges
+	// Special-use & cloud metadata ranges
 	if ip4 := ip.To4(); ip4 != nil {
+		// 0.0.0.0/8 ("this network" — e.g. 0.0.0.1 routes to loopback on Linux)
+		if ip4[0] == 0 {
+			return true
+		}
 		// 169.254.0.0/16 already covered by link-local; keep explicit
 		if ip4[0] == 169 && ip4[1] == 254 {
 			return true
@@ -118,8 +123,69 @@ func isBlockedIP(ip net.IP) bool {
 		if ip4[0] == 100 && ip4[1] >= 64 && ip4[1] <= 127 {
 			return true
 		}
+		// 198.18.0.0/15 Benchmark network
+		if ip4[0] == 198 && (ip4[1] == 18 || ip4[1] == 19) {
+			return true
+		}
+		return false
+	}
+	if ip16 := ip.To16(); ip16 != nil {
+		// 64:ff9b::/96 (RFC 6052 Well-Known NAT64) and 64:ff9b:1::/48 (RFC 8215 Local-Use NAT64)
+		if ip16[0] == 0x00 && ip16[1] == 0x64 && ip16[2] == 0xff && ip16[3] == 0x9b {
+			if ip16[4] == 0x00 && ip16[5] == 0x01 {
+				return true
+			}
+			allZero := true
+			for i := 4; i < 12; i++ {
+				if ip16[i] != 0 {
+					allZero = false
+					break
+				}
+			}
+			if allZero {
+				return true
+			}
+		}
 	}
 	return false
+}
+
+type ssrfTransportCacheKey struct {
+	base       *http.Transport
+	baseHost   string
+	sendAPIKey bool
+}
+
+var (
+	ssrfTransportCache  sync.Map // map[ssrfTransportCacheKey]*http.Transport
+	ssrfTransportOrigin sync.Map // map[*http.Transport]*http.Transport (cloned -> root base)
+)
+
+func closeCachedSSRFTransports() {
+	ssrfTransportCache.Range(func(key, value any) bool {
+		if tr, ok := value.(*http.Transport); ok && tr != nil {
+			tr.CloseIdleConnections()
+			ssrfTransportOrigin.Delete(tr)
+		}
+		ssrfTransportCache.Delete(key)
+		return true
+	})
+}
+
+type ssrfValidatingRoundTripper struct {
+	base       http.RoundTripper
+	proxyBase  string
+	sendAPIKey bool
+}
+
+func (rt *ssrfValidatingRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	if req == nil || req.URL == nil {
+		return nil, fmt.Errorf("URL 为空")
+	}
+	if err := validateOutboundProxyURL(req.URL.String(), rt.proxyBase, rt.sendAPIKey); err != nil {
+		return nil, err
+	}
+	return rt.base.RoundTrip(req)
 }
 
 // ssrfSafeHTTPClient returns a client that:
@@ -155,16 +221,45 @@ func ssrfSafeHTTPClient(base *http.Client, proxyBase string, sendAPIKey bool) *h
 }
 
 func ssrfSafeTransport(base http.RoundTripper, proxyBase string, sendAPIKey bool) http.RoundTripper {
-	var tr *http.Transport
+	var baseTransport *http.Transport
 	switch t := base.(type) {
 	case nil:
-		tr = http.DefaultTransport.(*http.Transport).Clone()
+		baseTransport = http.DefaultTransport.(*http.Transport)
 	case *http.Transport:
-		tr = t.Clone()
+		if origin, ok := ssrfTransportOrigin.Load(t); ok {
+			if root, ok := origin.(*http.Transport); ok && root != nil {
+				baseTransport = root
+			}
+		}
+		if baseTransport == nil {
+			baseTransport = t
+		}
+	case *ssrfValidatingRoundTripper:
+		return &ssrfValidatingRoundTripper{
+			base:       t.base,
+			proxyBase:  proxyBase,
+			sendAPIKey: sendAPIKey,
+		}
 	default:
-		// Unknown RoundTripper: wrap DefaultTransport for dial safety only.
-		tr = http.DefaultTransport.(*http.Transport).Clone()
+		return &ssrfValidatingRoundTripper{
+			base:       base,
+			proxyBase:  proxyBase,
+			sendAPIKey: sendAPIKey,
+		}
 	}
+
+	key := ssrfTransportCacheKey{
+		base:       baseTransport,
+		baseHost:   strings.ToLower(proxyBaseHostname(proxyBase)),
+		sendAPIKey: sendAPIKey,
+	}
+	if cached, ok := ssrfTransportCache.Load(key); ok {
+		if tr, ok := cached.(*http.Transport); ok && tr != nil {
+			return tr
+		}
+	}
+
+	tr := baseTransport.Clone()
 	var allowedProxyHost string
 	if tr.Proxy != nil {
 		if parsed, err := url.Parse(strings.TrimSpace(proxyBase)); err == nil && parsed.Host != "" {
@@ -174,6 +269,13 @@ func ssrfSafeTransport(base http.RoundTripper, proxyBase string, sendAPIKey bool
 		}
 	}
 	tr.DialContext = makeSSRFSafeDialContext(proxyBase, sendAPIKey, allowedProxyHost)
+	actual, loaded := ssrfTransportCache.LoadOrStore(key, tr)
+	if loaded {
+		if existing, ok := actual.(*http.Transport); ok && existing != nil {
+			return existing
+		}
+	}
+	ssrfTransportOrigin.Store(tr, baseTransport)
 	return tr
 }
 

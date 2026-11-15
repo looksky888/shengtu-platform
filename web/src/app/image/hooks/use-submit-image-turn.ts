@@ -3,10 +3,10 @@ import { toast } from "sonner";
 
 import type { ImageAspectRatio, ImageSizeMode } from "@/app/image/image-options";
 import { requiresPaidAccountImageSize } from "@/app/image/image-paid-size";
-import { imageTaskBatchId } from "@/app/image/lib/image-task-utils";
 import {
   formatCreationTaskError,
   getComposerConversationMode,
+  gifFrameOptionsForFormat,
   imageOutputCompressionForFormat,
   imageQualityForModel,
   isInvalidCustomRatioSelection,
@@ -17,7 +17,7 @@ import { resolveImageModel } from "@/app/image/lib/image-model-selection";
 import { buildConversationTitle, createId } from "@/app/image/lib/reference-image-utils";
 import type { ImageModel, ImageOutputFormat, ImageQuality, ImageVisibility } from "@/lib/api";
 import type { ImageChannelType } from "@/lib/image-channel-api";
-import { fetchPublicPoolFreeSlots, isChatModel, isGrokImageModel, isImageCreationModel } from "@/lib/api";
+import { fetchPublicPoolFreeSlots, isChatModel, isGrokImageModel, isImageCreationModel, supportsGifOutputModel } from "@/lib/api";
 import { getCachedAuthSession } from "@/lib/session";
 import { touchConversation } from "@/store/image-conversation-revision";
 import {
@@ -47,6 +47,9 @@ type UseSubmitImageTurnOptions = {
   imageQuality: ImageQuality;
   imageOutputFormat: ImageOutputFormat;
   imageOutputCompression: string;
+  imageFrameCount: string;
+  imageFrameDurationMs: string;
+  canOutputGif: boolean;
   defaultImageVisibility: ImageVisibility;
   referenceImages: StoredReferenceImage[];
   currentImageSizeSelection: StoredImageSizeSelection;
@@ -68,6 +71,7 @@ export type SubmitImageTurnOverrides = {
   prompt?: string;
   composerMode?: "chat" | "image";
   referenceImages?: StoredReferenceImage[];
+  outputFormat?: ImageOutputFormat;
 };
 
 export function useSubmitImageTurn({
@@ -89,6 +93,9 @@ export function useSubmitImageTurn({
   imageQuality,
   imageOutputFormat,
   imageOutputCompression,
+  imageFrameCount,
+  imageFrameDurationMs,
+  canOutputGif,
   defaultImageVisibility,
   referenceImages,
   currentImageSizeSelection,
@@ -154,7 +161,21 @@ export function useSubmitImageTurn({
           );
         }
       }
-      const effectiveOutputCompression = imageOutputCompressionForFormat(imageOutputFormat, imageOutputCompression);
+
+      const rawOutputFormat = overrides.outputFormat ?? imageOutputFormat;
+      const modelAllowsGif = canOutputGif && supportsGifOutputModel(effectiveModel);
+      const effectiveOutputFormat: ImageOutputFormat =
+        rawOutputFormat === "gif" && !modelAllowsGif ? "png" : rawOutputFormat;
+      const effectiveOutputCompression = imageOutputCompressionForFormat(
+        effectiveOutputFormat,
+        imageOutputCompression,
+      );
+      const gifFrameOptions = gifFrameOptionsForFormat(
+        effectiveOutputFormat,
+        imageFrameCount,
+        imageFrameDurationMs,
+      );
+
       const targetConversation = selectedConversationId
         ? conversationsRef.current.find((conversation) => conversation.id === selectedConversationId) ?? null
         : null;
@@ -169,7 +190,9 @@ export function useSubmitImageTurn({
         channelModelId: effectiveImageMode === "chat" ? undefined : imageChannelModelId || undefined,
         channelName: effectiveImageMode === "chat" ? undefined : imageChannelName,
         mode: effectiveImageMode,
-        referenceImages: usesReferenceImages(effectiveImageMode) ? effectiveReferenceImages : [],
+        referenceImages: usesReferenceImages(effectiveImageMode)
+          ? effectiveReferenceImages.filter((image) => !image.stripped && Boolean(image.dataUrl))
+          : [],
         count: requestedCount,
         size:
           effectiveImageMode === "chat"
@@ -179,12 +202,17 @@ export function useSubmitImageTurn({
               : imageSize,
         sizeSelection: effectiveImageMode === "chat" ? undefined : currentImageSizeSelection,
         quality: effectiveImageMode === "chat" ? undefined : imageQualityForModel(effectiveModel, imageQuality),
-        outputFormat: effectiveImageMode === "chat" ? undefined : imageOutputFormat,
+        outputFormat: effectiveImageMode === "chat" ? undefined : effectiveOutputFormat,
         outputCompression: effectiveImageMode === "chat" ? undefined : effectiveOutputCompression,
+        ...(effectiveImageMode !== "chat" && gifFrameOptions.frameCount !== undefined
+          ? { frameCount: gifFrameOptions.frameCount }
+          : {}),
+        ...(effectiveImageMode !== "chat" && gifFrameOptions.frameDurationMs !== undefined
+          ? { frameDurationMs: gifFrameOptions.frameDurationMs }
+          : {}),
         visibility: effectiveImageMode === "chat" ? "private" : defaultImageVisibility,
         images: Array.from({ length: requestedCount }, (_, index) => ({
           id: `${turnId}-${index}`,
-          taskId: imageTaskBatchId(turnId, index),
           status: "loading" as const,
           visibility: effectiveImageMode === "chat" ? undefined : defaultImageVisibility,
         })),
@@ -240,6 +268,7 @@ export function useSubmitImageTurn({
       isSubmitDispatchingRef.current = false;
     }
   }, [
+    canOutputGif,
     clearComposerInputs,
     clearTurnProgress,
     composerMode,
@@ -250,6 +279,8 @@ export function useSubmitImageTurn({
     defaultTextModel,
     imageAspectRatio,
     imageCustomRatio,
+    imageFrameCount,
+    imageFrameDurationMs,
     imageModel,
     imageChannelModelId,
     imageModelLabel,

@@ -29,10 +29,12 @@ func (a *App) runLoggedImageTask(ctx context.Context, identity service.Identity,
 			panic(value)
 		}
 	}()
+	ctx, tracker := protocol.WithGeneratedImageTracker(ctx)
 	result, err := run(ctx, payload)
-	urls := collectURLs(result)
+	urls := dedupe(collectCountableURLs(result, tracker))
+	ownedURLs := a.filterNewlyGeneratedImageURLs(tracker, collectStructuredURLs(result))
 	dataCount := len(util.AsMapSlice(result["data"]))
-	a.recordGeneratedImagesForPayload(identity, urls, util.Clean(payload["visibility"]), payload)
+	a.recordGeneratedImagesForPayload(identity, ownedURLs, util.Clean(payload["visibility"]), payload)
 	if err != nil {
 		success := dataCount
 		if success == 0 {

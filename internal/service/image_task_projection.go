@@ -100,7 +100,7 @@ func publicTask(task *ImageTask) map[string]any {
 		}
 	}
 	if task.Data != nil {
-		item["data"] = task.Data
+		item["data"] = deepCloneTaskMapSlice(task.Data)
 	}
 	addTaskResultFields(item, task, true)
 	if task.Count != 0 {
@@ -189,11 +189,33 @@ func addTaskProgressFields(item map[string]any, task *ImageTask) {
 		item["account_switch_count"] = task.AccountSwitchCount
 	}
 	if len(task.Events) > 0 {
-		item["events"] = task.Events
+		item["events"] = deepCloneTaskMapSlice(task.Events)
 	}
 	if len(task.StageDurationsMS) > 0 {
-		item["stage_durations_ms"] = task.StageDurationsMS
+		item["stage_durations_ms"] = cloneStageDurationsMap(task.StageDurationsMS)
 	}
+}
+
+func deepCloneTaskMapSlice(src []map[string]any) []map[string]any {
+	if src == nil {
+		return nil
+	}
+	out := make([]map[string]any, len(src))
+	for i, entry := range src {
+		out[i] = util.CopyMap(entry)
+	}
+	return out
+}
+
+func cloneStageDurationsMap(src map[string]int64) map[string]int64 {
+	if src == nil {
+		return nil
+	}
+	out := make(map[string]int64, len(src))
+	for k, v := range src {
+		out[k] = v
+	}
+	return out
 }
 
 func addTaskObservabilityFields(item map[string]any, task *ImageTask) {

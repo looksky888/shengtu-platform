@@ -79,15 +79,30 @@ func mergeImageTaskMetadata(payload map[string]any, metadata map[string]any) {
 	if value, ok := metadata["channel_download_urls"]; ok {
 		payload["channel_download_urls"] = util.ToBool(value)
 	}
+	if formats, ok := metadata["channel_formats"]; ok && formats != nil {
+		payload["channel_formats"] = formats
+	}
 }
 
 func mergeImageOutputOptions(payload map[string]any, options ImageOutputOptions) {
-	format := NormalizeImageOutputFormat(options.Format)
-	if format == "" {
+	if frameCount := strings.TrimSpace(options.FrameCount); frameCount != "" {
+		payload["frame_count"] = frameCount
+	} else {
+		delete(payload, "frame_count")
+	}
+	if frameDuration := strings.TrimSpace(options.FrameDurationMS); frameDuration != "" {
+		payload["frame_duration_ms"] = frameDuration
+	} else {
+		delete(payload, "frame_duration_ms")
+	}
+	if strings.TrimSpace(options.Format) == "" {
+		delete(payload, "output_format")
+		delete(payload, "output_compression")
 		return
 	}
+	format := NormalizeImageOutputFormat(options.Format)
 	payload["output_format"] = format
-	if format == "png" || options.Compression == nil {
+	if format == "png" || format == "gif" || options.Compression == nil {
 		delete(payload, "output_compression")
 		return
 	}
@@ -108,6 +123,8 @@ func NormalizeImageOutputFormat(format string) string {
 		return "jpeg"
 	case "webp":
 		return "webp"
+	case "gif":
+		return "gif"
 	default:
 		return "png"
 	}

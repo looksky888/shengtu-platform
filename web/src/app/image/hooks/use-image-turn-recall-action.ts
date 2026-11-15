@@ -28,6 +28,8 @@ type UseImageTurnRecallActionOptions = {
   setImageQuality: Dispatch<SetStateAction<ImageQuality>>;
   setImageOutputFormat: Dispatch<SetStateAction<ImageOutputFormat>>;
   setImageOutputCompression: Dispatch<SetStateAction<string>>;
+  setImageFrameCount: Dispatch<SetStateAction<string>>;
+  setImageFrameDurationMs: Dispatch<SetStateAction<string>>;
   setDefaultImageVisibility: Dispatch<SetStateAction<ImageVisibility>>;
   setReferenceImages: Dispatch<SetStateAction<StoredReferenceImage[]>>;
 };
@@ -53,6 +55,8 @@ export function useImageTurnRecallAction({
   setImageQuality,
   setImageOutputFormat,
   setImageOutputCompression,
+  setImageFrameCount,
+  setImageFrameDurationMs,
   setDefaultImageVisibility,
   setReferenceImages,
 }: UseImageTurnRecallActionOptions) {
@@ -64,6 +68,9 @@ export function useImageTurnRecallAction({
       return;
     }
     const recalled = buildComposerRecallState(turn, defaultImageModel, defaultTextModel);
+    const hasStrippedReference =
+      turn.mode !== "chat" &&
+      turn.referenceImages.some((image) => Boolean(image.stripped) || !image.dataUrl);
     cancelPromptApplyRequest();
     setSelectedConversationId(conversationId);
     setComposerMode(recalled.composerMode);
@@ -80,9 +87,15 @@ export function useImageTurnRecallAction({
     setImageQuality(recalled.quality);
     setImageOutputFormat(recalled.outputFormat);
     setImageOutputCompression(recalled.outputCompression);
+    setImageFrameCount(recalled.frameCount);
+    setImageFrameDurationMs(recalled.frameDurationMs);
     setDefaultImageVisibility(recalled.visibility);
     setReferenceImages(recalled.referenceImages);
     window.requestAnimationFrame(() => textareaRef.current?.focus());
-    toast.success("已将本轮提示词和参数带回创作框");
-  }, [cancelPromptApplyRequest, conversationsRef, defaultImageModel, defaultTextModel, setComposerMode, setDefaultImageVisibility, setImageAspectRatio, setImageCount, setImageCustomHeight, setImageCustomRatio, setImageCustomWidth, setImageModel, setImageModelOptionId, setImageOutputCompression, setImageOutputFormat, setImagePrompt, setImageQuality, setImageResolution, setImageSizeMode, setReferenceImages, setSelectedConversationId, textareaRef]);
+    if (hasStrippedReference) {
+      toast.warning("原参考图未缓存，请重新添加参考图");
+    } else {
+      toast.success("已将本轮提示词和参数带回创作框");
+    }
+  }, [cancelPromptApplyRequest, conversationsRef, defaultImageModel, defaultTextModel, setComposerMode, setDefaultImageVisibility, setImageAspectRatio, setImageCount, setImageCustomHeight, setImageCustomRatio, setImageCustomWidth, setImageFrameCount, setImageFrameDurationMs, setImageModel, setImageModelOptionId, setImageOutputCompression, setImageOutputFormat, setImagePrompt, setImageQuality, setImageResolution, setImageSizeMode, setReferenceImages, setSelectedConversationId, textareaRef]);
 }

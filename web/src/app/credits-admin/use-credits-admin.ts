@@ -26,7 +26,7 @@ export type CreditsAdminTab = "cards" | "ledger" | "users";
 
 export function useCreditsAdmin(
   session: StoredAuthSession,
-  activeTab: CreditsAdminTab = "cards",
+  activeTab: CreditsAdminTab | "all" = "cards",
 ) {
   const permissions = useMemo(
     () => ({
@@ -36,12 +36,20 @@ export function useCreditsAdmin(
   );
 
   const [visitedTabs, setVisitedTabs] = useState<Record<CreditsAdminTab, boolean>>(() => ({
-    cards: activeTab === "cards",
-    ledger: activeTab === "ledger",
-    users: activeTab === "users",
+    cards: activeTab === "all" || activeTab === "cards",
+    ledger: activeTab === "all" || activeTab === "ledger",
+    users: activeTab === "all" || activeTab === "users",
   }));
 
   useEffect(() => {
+    if (activeTab === "all") {
+      setVisitedTabs((prev) =>
+        prev.cards && prev.ledger && prev.users
+          ? prev
+          : { cards: true, ledger: true, users: true },
+      );
+      return;
+    }
     setVisitedTabs((prev) =>
       prev[activeTab] ? prev : { ...prev, [activeTab]: true },
     );
@@ -77,9 +85,15 @@ export function useCreditsAdmin(
   const [usersSearchDebounced, setUsersSearchDebounced] = useState("");
   const [usersTime, setUsersTime] = useState<TimeFilter>("all");
 
-  const [isCardsLoading, setIsCardsLoading] = useState(() => activeTab === "cards");
-  const [isUsersLoading, setIsUsersLoading] = useState(() => activeTab === "users");
-  const [isLedgerLoading, setIsLedgerLoading] = useState(() => activeTab === "ledger");
+  const [isCardsLoading, setIsCardsLoading] = useState(
+    () => activeTab === "all" || activeTab === "cards",
+  );
+  const [isUsersLoading, setIsUsersLoading] = useState(
+    () => activeTab === "all" || activeTab === "users",
+  );
+  const [isLedgerLoading, setIsLedgerLoading] = useState(
+    () => activeTab === "all" || activeTab === "ledger",
+  );
   const [ledgerError, setLedgerError] = useState("");
 
   const cardsRequestSeq = useRef(0);
@@ -107,11 +121,13 @@ export function useCreditsAdmin(
   );
 
   const isLoading =
-    activeTab === "cards"
-      ? isCardsLoading
-      : activeTab === "users"
-        ? isUsersLoading
-        : isLedgerLoading;
+    activeTab === "all"
+      ? isCardsLoading || isUsersLoading || isLedgerLoading
+      : activeTab === "cards"
+        ? isCardsLoading
+        : activeTab === "users"
+          ? isUsersLoading
+          : isLedgerLoading;
 
   useEffect(() => {
     setCardsPage(1);

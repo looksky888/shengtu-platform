@@ -77,12 +77,41 @@ func (a *App) recordProtocolImageStats(r *http.Request, spec protocolImageStatsS
 	})
 }
 
+func (a *App) filterNewlyGeneratedImageURLs(tracker *protocol.GeneratedImageTracker, structuredURLs []string) []string {
+	if tracker != nil {
+		return dedupe(tracker.LocalURLs())
+	}
+	if a == nil || a.images == nil || len(structuredURLs) == 0 {
+		return nil
+	}
+	var out []string
+	for _, rawURL := range dedupe(structuredURLs) {
+		_, rel, ok := extractManagedImageRelFromURLWithBase(rawURL, a.configuredBaseURL())
+		if !ok {
+			continue
+		}
+		access, err := a.images.ImageFileAccess(rel, service.ImageAccessScope{All: true})
+		if err == nil && strings.TrimSpace(access.OwnerID) == "" {
+			out = append(out, rawURL)
+		}
+	}
+	return out
+}
+
+func requestTracker(r *http.Request) *protocol.GeneratedImageTracker {
+	if r == nil {
+		return nil
+	}
+	return protocol.GeneratedImageTrackerFromContext(r.Context())
+}
+
 func (a *App) writeProtocol(w http.ResponseWriter, r *http.Request, result map[string]any, stream *protocol.StreamResult, err error, sseKind, endpoint, model string, identity service.Identity, summary, visibility string, charge *imageCreditCharge) {
 	a.writeProtocolWithImageStats(w, r, result, stream, err, sseKind, endpoint, model, identity, summary, visibility, charge, defaultProtocolImageStats(endpoint, summary, charge))
 }
 
 func (a *App) writeProtocolWithImageStats(w http.ResponseWriter, r *http.Request, result map[string]any, stream *protocol.StreamResult, err error, sseKind, endpoint, model string, identity service.Identity, summary, visibility string, charge *imageCreditCharge, imageStats protocolImageStatsSpec) {
 	start := time.Now()
+	tracker := requestTracker(r)
 	if err != nil {
 		a.refundImageCredits(charge)
 		a.recordProtocolImageStats(r, imageStats, service.TaskStatusError, 0, err)
@@ -91,7 +120,8 @@ func (a *App) writeProtocolWithImageStats(w http.ResponseWriter, r *http.Request
 		return
 	}
 	if stream == nil {
-		urls := dedupe(collectURLs(result))
+		urls := dedupe(collectCountableURLs(result, tracker))
+		ownedURLs := a.filterNewlyGeneratedImageURLs(tracker, collectStructuredURLs(result))
 		maxN := statsMaxN(imageStats, charge)
 		delivered := countDeliveredProtocolImages(result, urls, maxN)
 		if charge != nil && delivered == 0 {
@@ -110,8 +140,9 @@ func (a *App) writeProtocolWithImageStats(w http.ResponseWriter, r *http.Request
 		} else {
 			a.recordProtocolImageStats(r, imageStats, service.TaskStatusSuccess, delivered, nil)
 		}
-		a.recordGeneratedImages(identity, urls, visibility)
+		a.recordGeneratedImages(identity, ownedURLs, visibility)
 		a.logCall(identity, summary, r.Method, endpoint, model, start, "success", http.StatusOK, "", urls)
+		a.signProtocolResultImageURLsForRequest(r, identity, result)
 		util.WriteJSON(w, http.StatusOK, result)
 		return
 	}
@@ -120,6 +151,7 @@ func (a *App) writeProtocolWithImageStats(w http.ResponseWriter, r *http.Request
 	flusher, _ := w.(http.Flusher)
 	if stream.Kind == "anthropic" || sseKind == "anthropic" {
 		var urls []string
+		var structuredURLs []string
 		inlineImages := inlineImageCounter{}
 		hasImageData := charge == nil
 		hasExplicitImageData := false
@@ -129,7 +161,9 @@ func (a *App) writeProtocolWithImageStats(w http.ResponseWriter, r *http.Request
 				hasImageData = true
 				hasExplicitImageData = true
 			}
-			urls = append(urls, collectURLs(item)...)
+			urls = append(urls, collectCountableURLs(item, tracker)...)
+			structuredURLs = append(structuredURLs, collectStructuredURLs(item)...)
+			a.signProtocolResultImageURLsForRequest(r, identity, item)
 			event := firstNonEmpty(util.Clean(item["type"]), "message_delta")
 			fmt.Fprintf(w, "event: %s\n", event)
 			fmt.Fprintf(w, "data: %s\n\n", jsonString(item))
@@ -138,13 +172,14 @@ func (a *App) writeProtocolWithImageStats(w http.ResponseWriter, r *http.Request
 			}
 		}
 		urls = dedupe(urls)
+		ownedURLs := a.filterNewlyGeneratedImageURLs(tracker, structuredURLs)
 		maxN := statsMaxN(imageStats, charge)
 		statsDelivered := inlineImages.count(urls, hasExplicitImageData, maxN)
 		if err := <-stream.Err; err != nil {
 			// Partial success: only refund images that never arrived.
 			a.refundImageCreditsForSuccess(charge, inlineImages.count(urls, hasImageData, chargeMaxN(charge)))
 			a.recordProtocolImageStats(r, imageStats, service.TaskStatusError, statsDelivered, err)
-			a.recordGeneratedImages(identity, urls, visibility)
+			a.recordGeneratedImages(identity, ownedURLs, visibility)
 			a.logCall(identity, summary, r.Method, endpoint, model, start, "failed", protocolErrorHTTPStatus(err), err.Error(), urls)
 			fmt.Fprint(w, "event: error\n")
 			fmt.Fprintf(w, "data: %s\n\n", jsonString(map[string]any{"type": "error", "error": map[string]any{"type": fmt.Sprintf("%T", err), "message": err.Error()}}))
@@ -165,7 +200,7 @@ func (a *App) writeProtocolWithImageStats(w http.ResponseWriter, r *http.Request
 		} else {
 			a.recordProtocolImageStats(r, imageStats, service.TaskStatusSuccess, statsDelivered, nil)
 		}
-		a.recordGeneratedImages(identity, urls, visibility)
+		a.recordGeneratedImages(identity, ownedURLs, visibility)
 		a.logCall(identity, summary, r.Method, endpoint, model, start, "success", http.StatusOK, "", urls)
 		return
 	}
@@ -174,6 +209,7 @@ func (a *App) writeProtocolWithImageStats(w http.ResponseWriter, r *http.Request
 		flusher.Flush()
 	}
 	var urls []string
+	var structuredURLs []string
 	inlineImages := inlineImageCounter{}
 	hasImageData := charge == nil
 	hasExplicitImageData := false
@@ -183,19 +219,22 @@ func (a *App) writeProtocolWithImageStats(w http.ResponseWriter, r *http.Request
 			hasImageData = true
 			hasExplicitImageData = true
 		}
-		urls = append(urls, collectURLs(item)...)
+		urls = append(urls, collectCountableURLs(item, tracker)...)
+		structuredURLs = append(structuredURLs, collectStructuredURLs(item)...)
+		a.signProtocolResultImageURLsForRequest(r, identity, item)
 		fmt.Fprintf(w, "data: %s\n\n", jsonString(item))
 		if flusher != nil {
 			flusher.Flush()
 		}
 	}
 	urls = dedupe(urls)
+	ownedURLs := a.filterNewlyGeneratedImageURLs(tracker, structuredURLs)
 	maxN := statsMaxN(imageStats, charge)
 	statsDelivered := inlineImages.count(urls, hasExplicitImageData, maxN)
 	if err := <-stream.Err; err != nil {
 		a.refundImageCreditsForSuccess(charge, inlineImages.count(urls, hasImageData, chargeMaxN(charge)))
 		a.recordProtocolImageStats(r, imageStats, service.TaskStatusError, statsDelivered, err)
-		a.recordGeneratedImages(identity, urls, visibility)
+		a.recordGeneratedImages(identity, ownedURLs, visibility)
 		a.logCall(identity, summary, r.Method, endpoint, model, start, "failed", protocolErrorHTTPStatus(err), err.Error(), urls)
 		fmt.Fprintf(w, "data: %s\n\n", jsonString(openAIErrorForStream(err)))
 	} else {
@@ -214,7 +253,7 @@ func (a *App) writeProtocolWithImageStats(w http.ResponseWriter, r *http.Request
 		} else {
 			a.recordProtocolImageStats(r, imageStats, service.TaskStatusSuccess, statsDelivered, nil)
 		}
-		a.recordGeneratedImages(identity, urls, visibility)
+		a.recordGeneratedImages(identity, ownedURLs, visibility)
 		a.logCall(identity, summary, r.Method, endpoint, model, start, "success", http.StatusOK, "", urls)
 	}
 	fmt.Fprint(w, "data: [DONE]\n\n")

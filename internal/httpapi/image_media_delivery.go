@@ -121,6 +121,9 @@ func (a *App) authorizeImageFileRequest(w http.ResponseWriter, r *http.Request, 
 	if ref.Visibility == service.ImageVisibilityPublic {
 		return ref, true
 	}
+	if a.verifySignedImageRequest(r, firstNonEmpty(ref.Rel, rel)) {
+		return ref, true
+	}
 	identity, ok := a.imageRequestIdentity(w, r)
 	if !ok {
 		return service.ImageFileAccess{}, false

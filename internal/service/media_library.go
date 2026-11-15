@@ -7,7 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"image"
+	_ "image/gif"
 	"image/jpeg"
 	"io"
 	"mime"
@@ -147,7 +147,7 @@ func (m *MediaLibrary) StoreImage(data []byte, baseURL, ownerID, ownerName, outp
 			}
 		}()
 	}
-	config, format, err := image.DecodeConfig(bytes.NewReader(data))
+	config, format, err := util.ValidateImageBytesDimensions(data)
 	if err != nil {
 		return "", fmt.Errorf("验证图片数据: %w", err)
 	}
@@ -166,12 +166,16 @@ func (m *MediaLibrary) StoreImage(data []byte, baseURL, ownerID, ownerName, outp
 	if err := storage.AtomicWriteFile(originalSpool, data, 0o600); err != nil {
 		return "", fmt.Errorf("写入媒体缓冲: %w", err)
 	}
-	thumbnailData, thumbnailErr := m.transformThumbnail(data)
-	if thumbnailErr != nil {
+	if outputFormat == "gif" || strings.EqualFold(format, "gif") {
 		thumbnailKey = ""
-	} else if err := storage.AtomicWriteFile(m.spoolPath(id, "thumbnail"), thumbnailData, 0o600); err != nil {
-		_ = os.Remove(originalSpool)
-		return "", fmt.Errorf("写入缩略图缓冲: %w", err)
+	} else {
+		thumbnailData, thumbnailErr := m.transformThumbnail(data)
+		if thumbnailErr != nil {
+			thumbnailKey = ""
+		} else if err := storage.AtomicWriteFile(m.spoolPath(id, "thumbnail"), thumbnailData, 0o600); err != nil {
+			_ = os.Remove(originalSpool)
+			return "", fmt.Errorf("写入缩略图缓冲: %w", err)
+		}
 	}
 	now := util.NowISO()
 	asset := storage.MediaAssetRecord{
@@ -230,6 +234,8 @@ func mediaImageExtension(outputFormat, decodedFormat string) string {
 		return ".jpg"
 	case "webp":
 		return ".webp"
+	case "gif":
+		return ".gif"
 	case "png":
 		return ".png"
 	}
@@ -238,13 +244,15 @@ func mediaImageExtension(outputFormat, decodedFormat string) string {
 		return ".jpg"
 	case "webp":
 		return ".webp"
+	case "gif":
+		return ".gif"
 	default:
 		return ".png"
 	}
 }
 
 func mediaThumbnailBytes(data []byte) ([]byte, error) {
-	img, _, err := image.Decode(bytes.NewReader(data))
+	img, err := decodeSafeImageBytes(data)
 	if err != nil {
 		return nil, err
 	}

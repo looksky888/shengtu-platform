@@ -5,6 +5,9 @@
  */
 export const IMAGE_MODEL_OPTIONS = [
   { value: "auto", label: "Auto" },
+  { value: "gpt-image-2.6-flare", label: "GPT Images 2.6 Flare" },
+  { value: "gpt-image-2.6", label: "GPT Images 2.6" },
+  { value: "gpt-image-2.6-sunburst", label: "GPT Images 2.6 Sunburst" },
   { value: "gpt-image-2.5-flare", label: "GPT Images 2.5 Flare" },
   { value: "gpt-image-2.5", label: "GPT Images 2.5" },
   { value: "gpt-image-2", label: "GPT Images 2" },
@@ -37,7 +40,7 @@ export const IMAGE_MODEL_OPTIONS = [
   { value: "gpt-5-mini", label: "gpt-5-mini" },
 ] as const;
 export type ImageModel = string;
-export const DEFAULT_IMAGE_MODEL: ImageModel = "gpt-image-2.5-flare";
+export const DEFAULT_IMAGE_MODEL: ImageModel = "gpt-image-2.6-flare";
 export const DEFAULT_CHAT_MODEL: ImageModel = "auto";
 export const GROK_IMAGE_MODEL: ImageModel = "grok-imagine-image";
 export const GROK_VIDEO_MODEL: ImageModel = "grok-imagine-video";
@@ -52,6 +55,9 @@ export const ENABLE_GROK_IMAGE_MODELS_IN_STUDIO = true;
 const IMAGE_MODEL_VALUES = new Set<string>(IMAGE_MODEL_OPTIONS.map((option) => option.value));
 const IMAGE_TASK_MODEL_VALUES = new Set<ImageModel>([
   "auto",
+  "gpt-image-2.6-flare",
+  "gpt-image-2.6",
+  "gpt-image-2.6-sunburst",
   "gpt-image-2",
   "gpt-image-2.5-flare",
   "gpt-image-2.5",
@@ -63,6 +69,9 @@ const IMAGE_TASK_MODEL_VALUES = new Set<ImageModel>([
 ]);
 const RESPONSE_IMAGE_TOOL_MODEL_VALUES = new Set<ImageModel>([
   "auto",
+  "gpt-image-2.6-flare",
+  "gpt-image-2.6",
+  "gpt-image-2.6-sunburst",
   "gpt-image-2",
   "gpt-image-2.5-flare",
   "gpt-image-2.5",
@@ -110,6 +119,9 @@ export function normalizeChatModelId(model: string): string {
  * - grok-imagine-image（唯一 Grok 生图入口；lite/pro 不进菜单，edit 由参考图路径自动映射）
  */
 const IMAGE_CREATION_VISIBLE_MODEL_VALUES = new Set<ImageModel>([
+  "gpt-image-2.6-flare",
+  "gpt-image-2.6",
+  "gpt-image-2.6-sunburst",
   "gpt-image-2",
   "gpt-image-2.5",
   "gpt-image-2.5-flare",
@@ -153,7 +165,25 @@ export function isGrokChatModel(value: unknown): boolean {
 export function isGPTImageModel(value: unknown): boolean {
   if (typeof value !== "string") return false;
   const normalized = value.trim().toLowerCase();
-  return normalized === "gpt-image-2" || normalized === "gpt-image-2.5" || normalized === "gpt-image-2.5-flare" || normalized === "gpt-image-2.5-sunburst";
+  return (
+    normalized === "gpt-image-2" ||
+    normalized === "gpt-image-2.5" ||
+    normalized === "gpt-image-2.5-flare" ||
+    normalized === "gpt-image-2.5-sunburst" ||
+    normalized === "gpt-image-2.6" ||
+    normalized === "gpt-image-2.6-flare" ||
+    normalized === "gpt-image-2.6-sunburst"
+  );
+}
+
+export function supportsGifOutputModel(value: unknown): boolean {
+  if (typeof value !== "string") return false;
+  const normalized = value.trim().toLowerCase();
+  return (
+    normalized === "gpt-image-2.6" ||
+    normalized === "gpt-image-2.6-flare" ||
+    normalized === "gpt-image-2.6-sunburst"
+  );
 }
 
 /** Canonical Grok studio image model (only one shown in 创作台). */
@@ -233,16 +263,17 @@ export function supportsImageQuality(model: ImageModel) {
 }
 
 export type ImageQuality = "low" | "medium" | "high";
-export type ImageOutputFormat = "png" | "jpeg" | "webp";
+export type ImageOutputFormat = "png" | "jpeg" | "webp" | "gif";
 export type ImageVisibility = "private" | "public";
 
 const IMAGE_QUALITY_VALUES = new Set<string>(["low", "medium", "high"]);
-const IMAGE_OUTPUT_FORMAT_VALUES = new Set<string>(["png", "jpeg", "webp"]);
+const IMAGE_OUTPUT_FORMAT_VALUES = new Set<string>(["png", "jpeg", "webp", "gif"]);
 
 export const IMAGE_OUTPUT_FORMAT_OPTIONS = [
   { value: "png", label: "PNG" },
   { value: "jpeg", label: "JPEG" },
   { value: "webp", label: "WebP" },
+  { value: "gif", label: "GIF" },
 ] as const satisfies ReadonlyArray<{ value: ImageOutputFormat; label: string }>;
 
 export function isImageQuality(value: unknown): value is ImageQuality {

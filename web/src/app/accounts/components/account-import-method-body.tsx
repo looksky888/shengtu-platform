@@ -20,7 +20,7 @@ type AccountImportMethodBodyProps = {
   onSessionChange: (value: string) => void;
   onTxtSelected: (event: ChangeEvent<HTMLInputElement>) => void;
   onCpaSelected: (event: ChangeEvent<HTMLInputElement>) => void;
-  onRemoteCpa: () => void;
+  onRemoteCpa?: () => void;
 };
 
 export function AccountImportMethodBody(props: AccountImportMethodBodyProps) {

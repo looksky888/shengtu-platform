@@ -1,4 +1,7 @@
 import type { CreationTask } from "@/lib/image-task-types";
+import { getCachedAuthSession } from "@/lib/session";
+import { canAccessPath } from "@/store/auth-permissions";
+import type { StoredAuthSession } from "@/store/auth-types";
 
 export type CreationTaskFailure = {
   title: string;
@@ -23,21 +26,101 @@ const retryableCodes = new Set([
   "video_content_empty",
 ]);
 
-export function creationTaskFailure(task: Pick<CreationTask, "error" | "error_code" | "troubleshooting">): CreationTaskFailure {
+const poolErrorCodes = new Set([
+  "account_pool_slot_busy",
+  "grok_account_pool_unavailable",
+  "no_available_image_quota",
+  "no_paid_image_account",
+]);
+
+export function creationTaskFailure(
+  task: Pick<CreationTask, "error" | "error_code" | "troubleshooting">,
+  session?: StoredAuthSession | null,
+): CreationTaskFailure {
   const code = String(task.error_code || "");
   const fallback = task.error || "创作任务失败";
-  if (code === "insufficient_credits") return { title: "积分不足", detail: task.troubleshooting || fallback, actionLabel: "前往充值", actionHref: "/recharge", retryable: false };
-  if (["account_pool_slot_busy", "grok_account_pool_unavailable", "no_available_image_quota", "no_paid_image_account"].includes(code)) {
-    return { title: fallback, detail: task.troubleshooting || "请检查账号状态、额度和可用槽位。", actionLabel: "查看号池", actionHref: "/accounts", retryable: code === "account_pool_slot_busy" };
+  const resolvedSession =
+    session !== undefined ? session : getCachedAuthSession();
+
+  if (code === "insufficient_credits") {
+    const canOpenRecharge = canAccessPath(resolvedSession, "/recharge");
+    return {
+      title: "积分不足",
+      detail: task.troubleshooting || fallback,
+      actionLabel: canOpenRecharge ? "前往充值" : "复制任务 ID",
+      actionHref: canOpenRecharge ? "/recharge" : undefined,
+      retryable: false,
+    };
   }
-  if (code === "upstream_safety_rejected") return { title: fallback, detail: task.troubleshooting || "请修改提示词或参考图后再提交。", actionLabel: "修改参数", retryable: false };
-  if (code === "upstream_rate_limited") return { title: "上游触发速率限制", detail: task.troubleshooting || fallback, actionLabel: "稍后重试", retryable: true };
-  if (code === "upstream_timeout") return { title: "生成任务超时", detail: task.troubleshooting || fallback, actionLabel: "降低参数后重试", retryable: true };
-  if (code === "upstream_gateway_error" || code === "upstream_connection_interrupted") return { title: "上游连接不稳定", detail: task.troubleshooting || fallback, actionLabel: "重新提交", retryable: true };
-  return { title: fallback, detail: task.troubleshooting || "请复制任务 ID 提交给管理员排查。", actionLabel: retryableCodes.has(code) ? "重新提交" : "复制任务 ID", retryable: retryableCodes.has(code) };
+
+  if (poolErrorCodes.has(code)) {
+    const retryable = code === "account_pool_slot_busy";
+    const canOpenAccounts = canAccessPath(resolvedSession, "/accounts");
+    if (canOpenAccounts) {
+      return {
+        title: fallback,
+        detail: task.troubleshooting || "请检查账号状态、额度和可用槽位。",
+        actionLabel: "查看号池",
+        actionHref: "/accounts",
+        retryable,
+      };
+    }
+    return {
+      title: fallback,
+      detail:
+        task.troubleshooting ||
+        (retryable
+          ? "当前生成通道繁忙，请稍后重试。"
+          : "当前生成通道暂不可用，请复制任务 ID 联系管理员排查。"),
+      actionLabel: retryable ? "稍后重试" : "复制任务 ID",
+      retryable,
+    };
+  }
+
+  if (code === "upstream_safety_rejected") {
+    return {
+      title: fallback,
+      detail: task.troubleshooting || "请修改提示词或参考图后再提交。",
+      actionLabel: "修改参数",
+      retryable: false,
+    };
+  }
+  if (code === "upstream_rate_limited") {
+    return {
+      title: "上游触发速率限制",
+      detail: task.troubleshooting || fallback,
+      actionLabel: "稍后重试",
+      retryable: true,
+    };
+  }
+  if (code === "upstream_timeout") {
+    return {
+      title: "生成任务超时",
+      detail: task.troubleshooting || fallback,
+      actionLabel: "降低参数后重试",
+      retryable: true,
+    };
+  }
+  if (code === "upstream_gateway_error" || code === "upstream_connection_interrupted") {
+    return {
+      title: "上游连接不稳定",
+      detail: task.troubleshooting || fallback,
+      actionLabel: "重新提交",
+      retryable: true,
+    };
+  }
+  return {
+    title: fallback,
+    detail: task.troubleshooting || "请复制任务 ID 提交给管理员排查。",
+    actionLabel: retryableCodes.has(code) ? "重新提交" : "复制任务 ID",
+    retryable: retryableCodes.has(code),
+  };
 }
 
 export function creationSubmitError(error: unknown): { code: string; message: string } {
   const value = error as { code?: unknown; message?: unknown };
-  return { code: typeof value?.code === "string" ? value.code : "", message: typeof value?.message === "string" ? value.message : "提交任务失败" };
+  return {
+    code: typeof value?.code === "string" ? value.code : "",
+    message: typeof value?.message === "string" ? value.message : "提交任务失败",
+  };
 }

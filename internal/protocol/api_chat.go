@@ -19,6 +19,9 @@ func (e *Engine) HandleChatCompletions(ctx context.Context, body map[string]any)
 		var items <-chan map[string]any
 		var errCh <-chan error
 		if IsImageChatRequest(body) {
+			if strings.EqualFold(strings.TrimSpace(util.Clean(body["output_format"])), "gif") {
+				return nil, nil, HTTPError{Status: 400, Message: "GIF output does not support stream=true"}
+			}
 			items, errCh = e.ImageChatEvents(ctx, body)
 		} else {
 			model, messages, err := TextChatParts(body)
@@ -80,11 +83,14 @@ func (e *Engine) StreamTextChatCompletion(ctx context.Context, client *backend.C
 		created := time.Now().Unix()
 		sentRole := false
 		for deltaText := range deltas {
+			chunkDelta := map[string]any{"content": deltaText}
 			if !sentRole {
 				sentRole = true
-				out <- CompletionChunk(model, map[string]any{"role": "assistant", "content": deltaText}, nil, id, created)
-			} else {
-				out <- CompletionChunk(model, map[string]any{"content": deltaText}, nil, id, created)
+				chunkDelta = map[string]any{"role": "assistant", "content": deltaText}
+			}
+			if !sendChan(ctx, out, CompletionChunk(model, chunkDelta, nil, id, created)) {
+				errOut <- ctx.Err()
+				return
 			}
 		}
 		if err := <-errCh; err != nil {
@@ -92,9 +98,15 @@ func (e *Engine) StreamTextChatCompletion(ctx context.Context, client *backend.C
 			return
 		}
 		if !sentRole {
-			out <- CompletionChunk(model, map[string]any{"role": "assistant", "content": ""}, nil, id, created)
+			if !sendChan(ctx, out, CompletionChunk(model, map[string]any{"role": "assistant", "content": ""}, nil, id, created)) {
+				errOut <- ctx.Err()
+				return
+			}
 		}
-		out <- CompletionChunk(model, map[string]any{}, "stop", id, created)
+		if !sendChan(ctx, out, CompletionChunk(model, map[string]any{}, "stop", id, created)) {
+			errOut <- ctx.Err()
+			return
+		}
 		errOut <- nil
 	}()
 	return out, errOut
@@ -136,10 +148,16 @@ func (e *Engine) ImageChatResponse(ctx context.Context, body map[string]any) (ma
 	if err != nil {
 		return nil, nil, err
 	}
+	model = e.normalizeDirectImageModel(model)
 	size := util.Clean(body["size"])
-	request := ConversationRequest{Prompt: prompt, Model: model, Messages: messages, N: n, Size: size, Quality: util.Clean(body["quality"]), ResponseFormat: "b64_json", OwnerID: util.Clean(body["owner_id"]), OwnerName: util.Clean(body["owner_name"]), Images: EncodeImages(images), RequirePaidAccount: RequiresPaidImageSize(size)}
+	request := ConversationRequest{Prompt: prompt, Model: model, Messages: messages, N: n, Size: size, Quality: util.Clean(body["quality"]), ResponseFormat: "b64_json", BaseURL: util.Clean(body["base_url"]), OwnerID: util.Clean(body["owner_id"]), OwnerName: util.Clean(body["owner_name"]), Images: EncodeImages(images), RequirePaidAccount: RequiresPaidImageSize(size)}
 	applyImageOutputOptionsToRequest(&request, ImageOutputOptionsFromPayload(body))
-	outputs, errCh := e.StreamImageOutputsWithPool(ctx, request.Normalized())
+	e.applyPictureModelRouting(&request)
+	request = request.Normalized()
+	if err := validateDirectImageOutputOptions(request, false, body); err != nil {
+		return nil, nil, err
+	}
+	outputs, errCh := e.StreamImageOutputsWithPool(ctx, request)
 	result, err := e.CollectImageOutputs(outputs, errCh)
 	if err != nil {
 		return nil, nil, err
@@ -158,10 +176,17 @@ func (e *Engine) ImageChatEvents(ctx context.Context, body map[string]any) (<-ch
 			errOut <- err
 			return
 		}
+		model = e.normalizeDirectImageModel(model)
 		size := util.Clean(body["size"])
-		request := ConversationRequest{Prompt: prompt, Model: model, Messages: messages, N: n, Size: size, Quality: util.Clean(body["quality"]), ResponseFormat: "b64_json", OwnerID: util.Clean(body["owner_id"]), OwnerName: util.Clean(body["owner_name"]), Images: EncodeImages(images), RequirePaidAccount: RequiresPaidImageSize(size)}
+		request := ConversationRequest{Prompt: prompt, Model: model, Messages: messages, N: n, Size: size, Quality: util.Clean(body["quality"]), ResponseFormat: "b64_json", BaseURL: util.Clean(body["base_url"]), OwnerID: util.Clean(body["owner_id"]), OwnerName: util.Clean(body["owner_name"]), Images: EncodeImages(images), RequirePaidAccount: RequiresPaidImageSize(size)}
 		applyImageOutputOptionsToRequest(&request, ImageOutputOptionsFromPayload(body))
-		outputs, errCh := e.StreamImageOutputsWithPool(ctx, request.Normalized())
+		e.applyPictureModelRouting(&request)
+		request = request.Normalized()
+		if err := validateDirectImageOutputOptions(request, true, body); err != nil {
+			errOut <- err
+			return
+		}
+		outputs, errCh := e.StreamImageOutputsWithPool(ctx, request)
 		id := "chatcmpl-" + util.NewHex(32)
 		created := time.Now().Unix()
 		sentRole := false
@@ -181,11 +206,14 @@ func (e *Engine) ImageChatEvents(ctx context.Context, body map[string]any) (<-ch
 			if content == "" {
 				continue
 			}
+			chunkDelta := map[string]any{"content": content}
 			if !sentRole {
 				sentRole = true
-				out <- CompletionChunk(model, map[string]any{"role": "assistant", "content": content}, nil, id, created)
-			} else {
-				out <- CompletionChunk(model, map[string]any{"content": content}, nil, id, created)
+				chunkDelta = map[string]any{"role": "assistant", "content": content}
+			}
+			if !sendChan(ctx, out, CompletionChunk(model, chunkDelta, nil, id, created)) {
+				errOut <- ctx.Err()
+				return
 			}
 		}
 		if err := <-errCh; err != nil {
@@ -193,9 +221,15 @@ func (e *Engine) ImageChatEvents(ctx context.Context, body map[string]any) (<-ch
 			return
 		}
 		if !sentRole {
-			out <- CompletionChunk(model, map[string]any{"role": "assistant", "content": ""}, nil, id, created)
+			if !sendChan(ctx, out, CompletionChunk(model, map[string]any{"role": "assistant", "content": ""}, nil, id, created)) {
+				errOut <- ctx.Err()
+				return
+			}
 		}
-		out <- CompletionChunk(model, map[string]any{}, "stop", id, created)
+		if !sendChan(ctx, out, CompletionChunk(model, map[string]any{}, "stop", id, created)) {
+			errOut <- ctx.Err()
+			return
+		}
 		errOut <- nil
 	}()
 	return out, errOut
@@ -207,6 +241,8 @@ func applyImageOutputOptionsToRequest(request *ConversationRequest, options Imag
 	}
 	request.OutputFormat = options.Format
 	request.OutputCompression = options.Compression
+	request.FrameCount = options.FrameCount
+	request.FrameDurationMS = options.FrameDurationMS
 }
 
 func ChatImageArgs(body map[string]any) (string, string, int, []UploadedImage, []map[string]any, error) {
@@ -250,7 +286,8 @@ func BuildChatImageMarkdownContent(imageResult map[string]any) string {
 	var parts []string
 	for index, item := range util.AsMapSlice(imageResult["data"]) {
 		if b64 := util.Clean(item["b64_json"]); b64 != "" {
-			parts = append(parts, fmt.Sprintf("![image_%d](data:image/png;base64,%s)", index+1, b64))
+			mimeFormat := NormalizeImageOutputFormat(util.Clean(item["output_format"]))
+			parts = append(parts, fmt.Sprintf("![image_%d](data:image/%s;base64,%s)", index+1, mimeFormat, b64))
 			continue
 		}
 		// Proxy/Grok channels often return url (local or remote) instead of b64_json.

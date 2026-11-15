@@ -35,7 +35,7 @@ export function ImageTurnPromptCard({
 }: ImageTurnPromptCardProps) {
   return (
     <div className="flex justify-end">
-      <article className="w-full max-w-[min(94%,760px)] rounded-2xl border border-border/75 bg-surface px-4 py-3.5 text-left text-sm leading-6 text-foreground shadow-2xs sm:px-5 sm:py-4">
+      <article className="soft-card-shadow w-full max-w-[min(94%,760px)] rounded-[22px] border border-border bg-[#fbfdff] px-4 py-3.5 text-left text-sm leading-6 text-foreground sm:px-5 sm:py-4 dark:bg-card">
         <div className="mb-3 flex items-start justify-between gap-3 border-b border-border/60 pb-2.5">
           <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-[11px] leading-5 text-muted-foreground">
             <span className="rounded-md bg-surface-muted px-2 py-0.5 font-medium text-foreground/85 tabular-nums">第 {turnIndex + 1} 轮</span>
@@ -96,21 +96,43 @@ export function ImageTurnPromptCard({
           <div className="whitespace-pre-wrap break-words">{turn.prompt}</div>
           {turn.referenceImages.length > 0 ? (
             <div className="mt-3 flex flex-wrap justify-start gap-2">
-              {turn.referenceImages.map((image, index) => (
-                <button
-                  key={`${turn.id}-${image.name}-${index}`}
-                  type="button"
-                  onClick={() => onOpenLightbox(referenceLightboxImages, index)}
-                  className="group relative size-20 shrink-0 overflow-hidden rounded-xl border border-border/75 bg-surface-muted text-left transition hover:border-foreground/30 sm:size-24"
-                  aria-label={`预览参考图 ${image.name || index + 1}`}
-                >
-                  <img
-                    src={image.dataUrl}
-                    alt={image.name || `参考图 ${index + 1}`}
-                    className="absolute inset-0 h-full w-full object-cover transition duration-200 group-hover:scale-[1.02]"
-                  />
-                </button>
-              ))}
+              {(() => {
+                let previewIndex = -1;
+                return turn.referenceImages.map((image, index) => {
+                  if (image.stripped || !image.dataUrl) {
+                    return (
+                      <div
+                        key={`${turn.id}-${image.id || image.name}-${index}`}
+                        className="flex min-h-20 max-w-full flex-col justify-center gap-1 rounded-xl border border-dashed border-border/80 bg-surface-muted/70 px-3 py-2 text-left text-xs text-muted-foreground sm:min-h-24"
+                      >
+                        <span className="max-w-[220px] truncate font-medium text-foreground/80" title={image.name}>
+                          {image.name || `参考图 ${index + 1}`}
+                        </span>
+                        <span className="text-[11px] leading-4 text-muted-foreground">
+                          参考图较大未缓存，重试需重新上传
+                        </span>
+                      </div>
+                    );
+                  }
+                  previewIndex += 1;
+                  const currentPreviewIndex = previewIndex;
+                  return (
+                    <button
+                      key={`${turn.id}-${image.id || image.name}-${index}`}
+                      type="button"
+                      onClick={() => onOpenLightbox(referenceLightboxImages, currentPreviewIndex)}
+                      className="group relative size-20 shrink-0 overflow-hidden rounded-xl border border-border/75 bg-surface-muted text-left transition hover:border-foreground/30 sm:size-24"
+                      aria-label={`预览参考图 ${image.name || index + 1}`}
+                    >
+                      <img
+                        src={image.dataUrl}
+                        alt={image.name || `参考图 ${index + 1}`}
+                        className="absolute inset-0 h-full w-full object-cover transition duration-200 group-hover:scale-[1.02]"
+                      />
+                    </button>
+                  );
+                });
+              })()}
             </div>
           ) : null}
         </div>

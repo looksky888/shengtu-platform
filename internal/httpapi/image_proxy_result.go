@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"path"
 	"strings"
 	"time"
 
@@ -42,6 +43,9 @@ func (a *App) formatProxyImageResult(ctx context.Context, payload map[string]any
 				"url":            resolvedURL,
 				"revised_prompt": firstNonEmpty(util.Clean(item["revised_prompt"]), util.Clean(request["prompt"])),
 			}
+			if knownFormat := proxyURLItemOutputFormat(item, resolvedURL, request); knownFormat != "" {
+				urlItem["output_format"] = knownFormat
+			}
 			if cfg.DownloadURLs {
 				localURL, outputFormat, err := a.downloadProxyImageURL(ctx, resolvedURL, request, cfg.TimeoutSeconds, cfg.APIKey, cfg.BaseURL)
 				if err == nil && localURL != "" {
@@ -57,6 +61,7 @@ func (a *App) formatProxyImageResult(ctx context.Context, payload map[string]any
 					continue
 				}
 			}
+			protocol.RecordGeneratedImageURL(ctx, resolvedURL)
 			urlItems = append(urlItems, urlItem)
 		}
 	}
@@ -87,7 +92,7 @@ func (a *App) formatProxyImageResult(ctx context.Context, payload map[string]any
 		}
 	}
 	if len(b64Items) > 0 {
-		result, formatErr := a.engine.FormatImageResultWithOptions(b64Items, util.Clean(request["prompt"]), firstNonEmpty(util.Clean(request["response_format"]), "url"), util.Clean(request["base_url"]), util.Clean(request["owner_id"]), util.Clean(request["owner_name"]), created, "", protocol.ImageOutputOptionsFromPayload(request))
+		result, formatErr := a.engine.FormatImageResultWithContext(ctx, b64Items, util.Clean(request["prompt"]), firstNonEmpty(util.Clean(request["response_format"]), "url"), util.Clean(request["base_url"]), util.Clean(request["owner_id"]), util.Clean(request["owner_name"]), created, "", protocol.ImageOutputOptionsFromPayload(request))
 		if formatErr != nil {
 			return nil, formatErr
 		}
@@ -104,6 +109,28 @@ func (a *App) formatProxyImageResult(ctx context.Context, payload map[string]any
 		out["size"] = size
 	}
 	return out, nil
+}
+
+func proxyURLItemOutputFormat(item map[string]any, resolvedURL string, request map[string]any) string {
+	if raw := strings.TrimSpace(util.Clean(item["output_format"])); raw != "" {
+		return protocol.NormalizeImageOutputFormat(raw)
+	}
+	if parsed, err := url.Parse(strings.TrimSpace(resolvedURL)); err == nil {
+		switch strings.ToLower(path.Ext(parsed.Path)) {
+		case ".gif":
+			return "gif"
+		case ".webp":
+			return "webp"
+		case ".jpg", ".jpeg":
+			return "jpeg"
+		case ".png":
+			return "png"
+		}
+	}
+	if raw := strings.TrimSpace(util.Clean(request["output_format"])); raw != "" {
+		return protocol.NormalizeImageOutputFormat(raw)
+	}
+	return ""
 }
 
 func errString(err error) string {

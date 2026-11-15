@@ -190,6 +190,10 @@ func MergeResponseContext(previous ResponseContext, messages []map[string]any, i
 }
 
 func BuildImageContextPrompt(messages []map[string]any, fallbackPrompt, size, quality string) string {
+	return BuildImageContextPromptWithOptions(messages, fallbackPrompt, size, quality, "", "", "")
+}
+
+func BuildImageContextPromptWithOptions(messages []map[string]any, fallbackPrompt, size, quality, outputFormat, frameCount, frameDurationMS string) string {
 	normalized := NormalizeMessages(messages, nil)
 	currentPrompt, currentIndex := latestUserPromptWithIndex(normalized)
 	fallbackPrompt = strings.TrimSpace(fallbackPrompt)
@@ -201,7 +205,7 @@ func BuildImageContextPrompt(messages []map[string]any, fallbackPrompt, size, qu
 	}
 	currentPrompt = sanitizeImageContextText(currentPrompt)
 	if len(normalized) == 0 || currentPrompt == "" {
-		return BuildImagePrompt(currentPrompt, size, quality)
+		return BuildImagePromptWithOptions(currentPrompt, size, quality, outputFormat, frameCount, frameDurationMS)
 	}
 
 	var history []string
@@ -216,7 +220,7 @@ func BuildImageContextPrompt(messages []map[string]any, fallbackPrompt, size, qu
 		history = append(history, roleLabel(util.Clean(message["role"]))+": "+text)
 	}
 	if len(history) == 0 {
-		return BuildImagePrompt(currentPrompt, size, quality)
+		return BuildImagePromptWithOptions(currentPrompt, size, quality, outputFormat, frameCount, frameDurationMS)
 	}
 	if len(history) > maxContextMessages {
 		history = history[len(history)-maxContextMessages:]
@@ -224,7 +228,7 @@ func BuildImageContextPrompt(messages []map[string]any, fallbackPrompt, size, qu
 	prompt := "请延续同一个图片生成对话，并把历史上下文用于理解代词、主体、风格、构图和连续修改意图。不要把历史说明文字原样画进画面，除非当前请求明确要求。\n\n历史上下文:\n" +
 		strings.Join(history, "\n") +
 		"\n\n当前请求:\n" + currentPrompt
-	return BuildImagePrompt(prompt, size, quality)
+	return BuildImagePromptWithOptions(prompt, size, quality, outputFormat, frameCount, frameDurationMS)
 }
 
 // BuildImageRequestPrompt chooses whether an image request may use prior turns.
@@ -233,10 +237,14 @@ func BuildImageContextPrompt(messages []map[string]any, fallbackPrompt, size, qu
 // wrong subject. Text-only continuation requests retain the existing context
 // behavior for pronouns and iterative edits.
 func BuildImageRequestPrompt(messages []map[string]any, fallbackPrompt string, images []string, size, quality string) string {
+	return BuildImageRequestPromptWithOptions(messages, fallbackPrompt, images, size, quality, "", "", "")
+}
+
+func BuildImageRequestPromptWithOptions(messages []map[string]any, fallbackPrompt string, images []string, size, quality, outputFormat, frameCount, frameDurationMS string) string {
 	if len(images) > 0 {
-		return BuildImagePrompt(strings.TrimSpace(fallbackPrompt), size, quality)
+		return BuildImagePromptWithOptions(strings.TrimSpace(fallbackPrompt), size, quality, outputFormat, frameCount, frameDurationMS)
 	}
-	return BuildImageContextPrompt(messages, fallbackPrompt, size, quality)
+	return BuildImageContextPromptWithOptions(messages, fallbackPrompt, size, quality, outputFormat, frameCount, frameDurationMS)
 }
 
 func LatestUserPrompt(messages []map[string]any) string {

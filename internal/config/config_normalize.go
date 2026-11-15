@@ -141,13 +141,16 @@ func normalizeUpstreamClearanceMode(value any) string {
 func normalizeImageDefaultModel(value any) string {
 	model := strings.TrimSpace(fmt.Sprint(value))
 	if util.IsGrokImageModel(model) {
-		return util.ImageModelGPT25Flare
+		return util.ImageModelGPT26Flare
 	}
 	switch model {
-	case util.ImageModelGPT, util.ImageModelGPT25, util.ImageModelGPT25Flare, util.ImageModelGPT25Sunburst, util.ImageModelAuto:
+	case util.ImageModelGPT,
+		util.ImageModelGPT25, util.ImageModelGPT25Flare, util.ImageModelGPT25Sunburst,
+		util.ImageModelGPT26, util.ImageModelGPT26Flare, util.ImageModelGPT26Sunburst,
+		util.ImageModelAuto:
 		return model
 	default:
-		return util.ImageModelGPT25Flare
+		return util.ImageModelGPT26Flare
 	}
 }
 

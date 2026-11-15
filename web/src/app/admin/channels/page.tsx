@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { ImageAccountPoolRoutingCard } from "@/app/settings/components/image-account-pool-routing-card";
 import { ImageChannelDialog } from "@/app/settings/components/image-channel-dialog";
 import { CHANNEL_TYPE_LABELS } from "@/app/settings/components/image-channel-model-labels";
+import { SETTINGS_TAB_REFRESH_EVENT } from "@/app/settings/settings-tab-types";
 import { useSettingsStore } from "@/app/settings/store";
 import {
   AdminPageFrame,
@@ -38,8 +39,15 @@ import { cn } from "@/lib/utils";
 
 import { ChannelModelsView } from "./channel-models-view";
 
-export default function AdminChannelsPage() {
-  const { isCheckingAuth, session } = useAuthGuard(undefined, "/admin/channels");
+export default function AdminChannelsPage({
+  embedded = false,
+}: {
+  embedded?: boolean;
+} = {}) {
+  const { isCheckingAuth, session } = useAuthGuard(
+    undefined,
+    embedded ? "/settings" : "/admin/channels",
+  );
   const [searchParams, setSearchParams] = useSearchParams();
   const activeChannelId = searchParams.get("channel") || "";
 
@@ -76,6 +84,19 @@ export default function AdminChannelsPage() {
       void loadConfig();
     }
   }, [configLoaded, loadChannels, loadConfig, session]);
+
+  useEffect(() => {
+    if (!session) return;
+    const handleTabRefresh = (event: Event) => {
+      const detail = (event as CustomEvent<{ tab?: string }>).detail;
+      if (!detail?.tab || detail.tab === "channels" || detail.tab === "image") {
+        void loadChannels(true);
+      }
+    };
+    window.addEventListener(SETTINGS_TAB_REFRESH_EVENT, handleTabRefresh);
+    return () =>
+      window.removeEventListener(SETTINGS_TAB_REFRESH_EVENT, handleTabRefresh);
+  }, [loadChannels, session]);
 
   const activeChannel = useMemo(
     () => channels.find((item) => item.id === activeChannelId) ?? null,
@@ -173,6 +194,7 @@ export default function AdminChannelsPage() {
     return (
       <ChannelModelsView
         channel={activeChannel}
+        embedded={embedded}
         onBack={closeChannelModels}
         onChanged={() => loadChannels(true)}
       />
@@ -188,21 +210,24 @@ export default function AdminChannelsPage() {
 
   return (
     <AdminPageFrame
+      embedded={embedded}
       groupLabel="算力与号池"
       title="系统渠道"
       description="统一编排内置 ChatGPT / Grok 本地号池与第三方 OpenAI 兼容中转渠道；点击「模型管理」进入全宽阶梯单价工作台。"
       actions={
         <div className="flex flex-wrap items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={loading}
-            onClick={() => void loadChannels()}
-          >
-            <RefreshCw className={cn("size-3.5", loading && "animate-spin")} />
-            刷新
-          </Button>
+          {!embedded ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={loading}
+              onClick={() => void loadChannels()}
+            >
+              <RefreshCw className={cn("size-3.5", loading && "animate-spin")} />
+              刷新
+            </Button>
+          ) : null}
           <Button
             type="button"
             size="sm"
@@ -237,7 +262,7 @@ export default function AdminChannelsPage() {
       </div>
 
       {/* Hairline Channels Table */}
-      <div className="overflow-x-auto rounded-[10px] border border-[var(--admin-border)] bg-[var(--admin-surface)]">
+      <div className="admin-table-card overflow-x-auto rounded-[10px] border border-[var(--admin-border)] bg-[var(--admin-surface)]">
         <table className="admin-table">
           <thead>
             <tr>

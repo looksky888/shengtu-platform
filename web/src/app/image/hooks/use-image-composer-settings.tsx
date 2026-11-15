@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type { ImageAspectRatio, ImageResolution, ImageSizeMode } from "@/app/image/image-options";
 import {
@@ -11,6 +11,8 @@ import { type ComposerMode } from "@/app/image/lib/image-page-types";
 import {
   getStoredComposerMode,
   getStoredImageCount,
+  getStoredImageFrameCount,
+  getStoredImageFrameDurationMs,
   getStoredImageModel,
   getStoredImageModelOptionId,
   getStoredImageOutputCompression,
@@ -19,7 +21,7 @@ import {
   getStoredImageSizeSelection,
 } from "@/app/image/lib/image-storage-utils";
 import { type ImageModel, type ImageOutputFormat, type ImageQuality, type ImageVisibility } from "@/lib/api";
-import { isGrokImageModel } from "@/lib/api-models";
+import { isGrokImageModel, supportsGifOutputModel } from "@/lib/api-models";
 import { normalizeStringArray } from "@/lib/model-catalog-normalizers";
 
 type UseImageComposerSettingsParams = {
@@ -50,6 +52,8 @@ export function useImageComposerSettings({
   const [imageQuality, setImageQuality] = useState<ImageQuality>(getStoredImageQuality);
   const [imageOutputFormat, setImageOutputFormat] = useState<ImageOutputFormat>(getStoredImageOutputFormat);
   const [imageOutputCompression, setImageOutputCompression] = useState(getStoredImageOutputCompression);
+  const [imageFrameCount, setImageFrameCount] = useState(getStoredImageFrameCount);
+  const [imageFrameDurationMs, setImageFrameDurationMs] = useState(getStoredImageFrameDurationMs);
   const [defaultImageVisibility, setDefaultImageVisibility] = useState<ImageVisibility>("private");
 
   const restoreStoredComposerSettings = useCallback(() => {
@@ -62,6 +66,8 @@ export function useImageComposerSettings({
     setImageCustomHeight(storedSelection.customHeight);
     setImageOutputFormat(getStoredImageOutputFormat());
     setImageOutputCompression(getStoredImageOutputCompression());
+    setImageFrameCount(getStoredImageFrameCount());
+    setImageFrameDurationMs(getStoredImageFrameDurationMs());
   }, []);
 
   const handleImageCountChange = useCallback((value: string) => setImageCount(value), []);
@@ -97,6 +103,52 @@ export function useImageComposerSettings({
       return;
     }
   }, [imageAspectRatio, imageModel, imageModelOptionId, imageModelOptions, imageResolution, imageSizeMode]);
+
+  const canOutputGif = useMemo(() => {
+    const selected =
+      imageModelOptions.find((option) => option.id === imageModelOptionId) ||
+      imageModelOptions.find((option) => option.value === imageModel);
+    const configuredFormats = normalizeStringArray(selected?.formats).map((item) => item.toLowerCase());
+    if (configuredFormats.length > 0) {
+      return configuredFormats.includes("gif");
+    }
+    return supportsGifOutputModel(selected?.value ?? imageModel);
+  }, [imageModel, imageModelOptionId, imageModelOptions]);
+
+  useEffect(() => {
+    const selected =
+      imageModelOptions.find((option) => option.id === imageModelOptionId) ||
+      imageModelOptions.find((option) => option.value === imageModel);
+    const configuredFormats = normalizeStringArray(selected?.formats).map((item) => item.toLowerCase());
+    if (configuredFormats.length > 0) {
+      if (!configuredFormats.includes(imageOutputFormat)) {
+        const nextFormat = (configuredFormats.includes("png") ? "png" : configuredFormats[0]) as ImageOutputFormat;
+        setImageOutputFormat(nextFormat);
+        if (nextFormat === "png" || nextFormat === "gif") {
+          setImageOutputCompression("");
+        }
+        if (nextFormat !== "gif") {
+          setImageFrameCount("");
+          setImageFrameDurationMs("");
+        }
+      } else if (imageOutputFormat !== "gif" && (imageFrameCount !== "" || imageFrameDurationMs !== "")) {
+        setImageFrameCount("");
+        setImageFrameDurationMs("");
+      }
+      return;
+    }
+    if (imageOutputFormat === "gif" && !supportsGifOutputModel(selected?.value ?? imageModel)) {
+      setImageOutputFormat("png");
+      setImageOutputCompression("");
+      setImageFrameCount("");
+      setImageFrameDurationMs("");
+      return;
+    }
+    if (imageOutputFormat !== "gif" && (imageFrameCount !== "" || imageFrameDurationMs !== "")) {
+      setImageFrameCount("");
+      setImageFrameDurationMs("");
+    }
+  }, [imageFrameCount, imageFrameDurationMs, imageModel, imageModelOptionId, imageModelOptions, imageOutputFormat]);
 
   const {
     parsedCount,
@@ -138,6 +190,8 @@ export function useImageComposerSettings({
     imageQuality,
     imageOutputFormat,
     imageOutputCompression,
+    imageFrameCount,
+    imageFrameDurationMs,
   });
 
   return {
@@ -169,6 +223,11 @@ export function useImageComposerSettings({
     setImageOutputFormat,
     imageOutputCompression,
     setImageOutputCompression,
+    imageFrameCount,
+    setImageFrameCount,
+    imageFrameDurationMs,
+    setImageFrameDurationMs,
+    canOutputGif,
     defaultImageVisibility,
     setDefaultImageVisibility,
     parsedCount,

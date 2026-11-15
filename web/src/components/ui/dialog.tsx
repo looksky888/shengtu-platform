@@ -5,8 +5,6 @@ import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { resolveDialogMaxWidthClass } from "./dialog-width";
 
-export { resolveDialogMaxWidthClass };
-
 function Dialog(props: React.ComponentProps<typeof DialogPrimitive.Root>) {
   return <DialogPrimitive.Root data-slot="dialog" {...props} />;
 }

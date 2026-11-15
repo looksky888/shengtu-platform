@@ -307,9 +307,11 @@ func iterSSEPayloads(ctx context.Context, reader io.Reader, out chan<- string) e
 	return iterSSEPayloadsUntil(ctx, reader, out, nil)
 }
 
+const maxSSEEventBufferBytes = 64 << 20
+
 func iterSSEPayloadsUntil(ctx context.Context, reader io.Reader, out chan<- string, shouldStop func(string) bool) error {
 	buf := make([]byte, 0, 4096)
-	tmp := make([]byte, 2048)
+	tmp := make([]byte, 4096)
 	for {
 		n, err := reader.Read(tmp)
 		if n > 0 {
@@ -318,6 +320,9 @@ func iterSSEPayloadsUntil(ctx context.Context, reader io.Reader, out chan<- stri
 				idx := bytes.IndexByte(buf, '\n')
 				if idx < 0 {
 					break
+				}
+				if idx > maxSSEEventBufferBytes {
+					return fmt.Errorf("sse line exceeded max size (%d bytes)", maxSSEEventBufferBytes)
 				}
 				line := strings.TrimSpace(string(buf[:idx]))
 				buf = buf[idx+1:]
@@ -334,6 +339,18 @@ func iterSSEPayloadsUntil(ctx context.Context, reader io.Reader, out chan<- stri
 						}
 					}
 				}
+			}
+			if len(buf) > maxSSEEventBufferBytes {
+				return fmt.Errorf("sse event buffer exceeded max size (%d bytes)", maxSSEEventBufferBytes)
+			}
+			if cap(buf) > 1<<20 && len(buf) < cap(buf)/8 {
+				nextCap := 4096
+				if needed := len(buf) * 2; needed > nextCap {
+					nextCap = needed
+				}
+				compacted := make([]byte, len(buf), nextCap)
+				copy(compacted, buf)
+				buf = compacted
 			}
 		}
 		if err == io.EOF {

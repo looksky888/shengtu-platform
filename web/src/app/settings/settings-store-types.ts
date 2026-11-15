@@ -8,7 +8,7 @@ import type {
   SettingsConfig,
 } from "@/lib/api";
 
-import type { SettingsTabKey } from "./settings-tab-types";
+import type { AnySettingsTabKey } from "./settings-tab-types";
 
 export const PAGE_SIZE_OPTIONS = ["50", "100", "200"] as const;
 
@@ -67,7 +67,7 @@ export type SettingsStore = {
   pageSize: PageSizeOption;
   isStartingImport: boolean;
 
-  loadTabData: (tab: SettingsTabKey) => Promise<void>;
+  loadTabData: (tab: AnySettingsTabKey) => Promise<void>;
   loadConfig: (options?: SettingsLoadOptions) => Promise<boolean>;
   saveConfig: () => Promise<boolean>;
   saveConfigSection: (
@@ -99,6 +99,9 @@ export type SettingsStore = {
   setGPTImage25CreditCost: (value: string) => void;
   setGPTImage25FlareCreditCost: (value: string) => void;
   setGPTImage25SunburstCreditCost: (value: string) => void;
+  setGPTImage26CreditCost: (value: string) => void;
+  setGPTImage26FlareCreditCost: (value: string) => void;
+  setGPTImage26SunburstCreditCost: (value: string) => void;
   setGrokImageCreditCost1k: (value: string) => void;
   setGrokImageCreditCost2k: (value: string) => void;
   setVideoCreditCostPerSecond: (value: string) => void;

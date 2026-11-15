@@ -107,6 +107,9 @@ func TestStoreUpdateImageCreditCostsAcceptsJSONNumbers(t *testing.T) {
 	unsetEnv(t, "CHATGPT2API_GPT_IMAGE_2_5_CREDIT_COST")
 	unsetEnv(t, "CHATGPT2API_GPT_IMAGE_2_5_FLARE_CREDIT_COST")
 	unsetEnv(t, "CHATGPT2API_GPT_IMAGE_2_5_SUNBURST_CREDIT_COST")
+	unsetEnv(t, "CHATGPT2API_GPT_IMAGE_2_6_CREDIT_COST")
+	unsetEnv(t, "CHATGPT2API_GPT_IMAGE_2_6_FLARE_CREDIT_COST")
+	unsetEnv(t, "CHATGPT2API_GPT_IMAGE_2_6_SUNBURST_CREDIT_COST")
 	unsetEnv(t, "CHATGPT2API_GROK_IMAGE_CREDIT_COST_1K")
 	unsetEnv(t, "CHATGPT2API_GROK_IMAGE_CREDIT_COST_2K")
 	unsetEnv(t, "CHATGPT2API_VIDEO_CREDIT_COST_PER_SECOND")
@@ -114,6 +117,9 @@ func TestStoreUpdateImageCreditCostsAcceptsJSONNumbers(t *testing.T) {
 	store, err := NewStore()
 	if err != nil {
 		t.Fatalf("NewStore() error = %v", err)
+	}
+	if store.GPTImage26CreditCost() != 5 || store.GPTImage26FlareCreditCost() != 5 || store.GPTImage26SunburstCreditCost() != 5 {
+		t.Fatalf("default 2.6 credit costs = %d/%d/%d, want 5/5/5", store.GPTImage26CreditCost(), store.GPTImage26FlareCreditCost(), store.GPTImage26SunburstCreditCost())
 	}
 	got, err := store.Update(map[string]any{
 		"image_credit_cost_1080p":            float64(2),
@@ -123,6 +129,9 @@ func TestStoreUpdateImageCreditCostsAcceptsJSONNumbers(t *testing.T) {
 		"gpt_image_2_5_credit_cost":          float64(12),
 		"gpt_image_2_5_flare_credit_cost":    float64(13),
 		"gpt_image_2_5_sunburst_credit_cost": float64(14),
+		"gpt_image_2_6_credit_cost":          float64(15),
+		"gpt_image_2_6_flare_credit_cost":    float64(16),
+		"gpt_image_2_6_sunburst_credit_cost": float64(17),
 		"grok_image_credit_cost_1k":          float64(3),
 		"grok_image_credit_cost_2k":          float64(7),
 		"video_credit_cost_per_second":       float64(4),
@@ -139,6 +148,9 @@ func TestStoreUpdateImageCreditCostsAcceptsJSONNumbers(t *testing.T) {
 	if got["gpt_image_2_credit_cost"] != 11 || got["gpt_image_2_5_credit_cost"] != 12 || got["gpt_image_2_5_flare_credit_cost"] != 13 || got["gpt_image_2_5_sunburst_credit_cost"] != 14 {
 		t.Fatalf("gpt model credit costs = %#v", got)
 	}
+	if got["gpt_image_2_6_credit_cost"] != 15 || got["gpt_image_2_6_flare_credit_cost"] != 16 || got["gpt_image_2_6_sunburst_credit_cost"] != 17 {
+		t.Fatalf("gpt 2.6 model credit costs = %#v", got)
+	}
 	if store.GrokImageCreditCost1K() != 3 || store.GrokImageCreditCost2K() != 7 || store.VideoCreditCostPerSecond() != 4 {
 		t.Fatalf("grok/video store costs = %d/%d/%d", store.GrokImageCreditCost1K(), store.GrokImageCreditCost2K(), store.VideoCreditCostPerSecond())
 	}
@@ -147,6 +159,9 @@ func TestStoreUpdateImageCreditCostsAcceptsJSONNumbers(t *testing.T) {
 	}
 	if store.GPTImage2CreditCost() != 11 || store.GPTImage25CreditCost() != 12 || store.GPTImage25FlareCreditCost() != 13 || store.GPTImage25SunburstCreditCost() != 14 {
 		t.Fatalf("gpt model store costs = %d/%d/%d/%d", store.GPTImage2CreditCost(), store.GPTImage25CreditCost(), store.GPTImage25FlareCreditCost(), store.GPTImage25SunburstCreditCost())
+	}
+	if store.GPTImage26CreditCost() != 15 || store.GPTImage26FlareCreditCost() != 16 || store.GPTImage26SunburstCreditCost() != 17 {
+		t.Fatalf("gpt 2.6 model store costs = %d/%d/%d", store.GPTImage26CreditCost(), store.GPTImage26FlareCreditCost(), store.GPTImage26SunburstCreditCost())
 	}
 }
 

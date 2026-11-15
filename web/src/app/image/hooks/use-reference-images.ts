@@ -1,8 +1,12 @@
 import { useCallback, useRef, useState, type Dispatch, type RefObject, type SetStateAction } from "react";
 import { toast } from "sonner";
 
-import type { ComposerMode, EditingTurnDraft } from "@/app/image/lib/image-page-types";
-import { buildReferenceImageFromStoredImage, readFileAsDataUrl } from "@/app/image/lib/reference-image-utils";
+import type { ComposerMode } from "@/app/image/lib/image-page-types";
+import {
+  buildReferenceImageFromStoredImage,
+  extensionFromOutputFormatOrUrl,
+  readFileAsDataUrl,
+} from "@/app/image/lib/reference-image-utils";
 import type { StoredImage, StoredReferenceImage } from "@/store/image-conversations";
 
 type UseReferenceImagesOptions = {
@@ -10,7 +14,6 @@ type UseReferenceImagesOptions = {
   setComposerMode: Dispatch<SetStateAction<ComposerMode>>;
   setImagePrompt: Dispatch<SetStateAction<string>>;
   textareaRef: RefObject<HTMLTextAreaElement | null>;
-  setEditingTurnDraft: Dispatch<SetStateAction<EditingTurnDraft | null>>;
   cancelPromptApplyRequest: () => void;
 };
 
@@ -36,11 +39,9 @@ export function useReferenceImages({
   setComposerMode,
   setImagePrompt,
   textareaRef,
-  setEditingTurnDraft,
   cancelPromptApplyRequest,
 }: UseReferenceImagesOptions) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const editFileInputRef = useRef<HTMLInputElement>(null);
   const [referenceImages, setReferenceImages] = useState<StoredReferenceImage[]>([]);
 
   const clearReferenceImages = useCallback(() => {
@@ -91,7 +92,10 @@ export function useReferenceImages({
         const nextReference =
           "dataUrl" in image
             ? { referenceImage: image }
-            : await buildReferenceImageFromStoredImage(image, `conversation-${conversationId}-${Date.now()}.png`);
+            : await buildReferenceImageFromStoredImage(
+                image,
+                `conversation-${conversationId}-${Date.now()}.${extensionFromOutputFormatOrUrl(image.outputFormat, image.url || image.path)}`,
+              );
         if (!nextReference) {
           return;
         }
@@ -116,47 +120,8 @@ export function useReferenceImages({
     [setComposerMode, setImagePrompt, setSelectedConversationId, textareaRef],
   );
 
-  const handleEditReferenceImageChange = useCallback(
-    async (files: File[]) => {
-      if (files.length === 0) {
-        return;
-      }
-      try {
-        const previews = await filesToReferenceImages(files);
-        setEditingTurnDraft((current) =>
-          current
-            ? {
-                ...current,
-                referenceImages: [...current.referenceImages, ...previews],
-              }
-            : current,
-        );
-        clearFileInput(editFileInputRef.current);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "读取参考图失败";
-        toast.error(message);
-      }
-    },
-    [setEditingTurnDraft],
-  );
-
-  const handleRemoveEditReferenceImage = useCallback(
-    (index: number) => {
-      setEditingTurnDraft((current) =>
-        current
-          ? {
-              ...current,
-              referenceImages: current.referenceImages.filter((_, currentIndex) => currentIndex !== index),
-            }
-          : current,
-      );
-    },
-    [setEditingTurnDraft],
-  );
-
   return {
     fileInputRef,
-    editFileInputRef,
     referenceImages,
     setReferenceImages,
     clearReferenceImages,
@@ -164,7 +129,5 @@ export function useReferenceImages({
     handleReferenceImageChange,
     handleRemoveReferenceImage,
     handleContinueEdit,
-    handleEditReferenceImageChange,
-    handleRemoveEditReferenceImage,
   };
 }

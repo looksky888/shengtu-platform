@@ -2,6 +2,7 @@ package protocol
 
 import (
 	"bytes"
+	"context"
 	"crypto/md5"
 	"encoding/base64"
 	"encoding/hex"
@@ -9,6 +10,7 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"image/gif"
 	"image/jpeg"
 	"image/png"
 	"os"
@@ -68,8 +70,17 @@ func (e *Engine) FormatImageResult(items []map[string]any, prompt, responseForma
 }
 
 func (e *Engine) FormatImageResultWithOptions(items []map[string]any, prompt, responseFormat, baseURL, ownerID, ownerName string, created int64, message string, options ImageOutputOptions) (map[string]any, error) {
-	defaultFormat := NormalizeImageOutputFormat(options.Format)
+	return e.FormatImageResultWithContext(context.Background(), items, prompt, responseFormat, baseURL, ownerID, ownerName, created, message, options)
+}
+
+func (e *Engine) FormatImageResultWithContext(ctx context.Context, items []map[string]any, prompt, responseFormat, baseURL, ownerID, ownerName string, created int64, message string, options ImageOutputOptions) (map[string]any, error) {
+	rawDefaultFormat := strings.TrimSpace(options.Format)
+	defaultFormat := ""
+	if rawDefaultFormat != "" {
+		defaultFormat = NormalizeImageOutputFormat(rawDefaultFormat)
+	}
 	data := make([]map[string]any, 0)
+	var firstEncodeErr error
 	for _, item := range items {
 		b64 := util.Clean(item["b64_json"])
 		if b64 == "" {
@@ -78,24 +89,29 @@ func (e *Engine) FormatImageResultWithOptions(items []map[string]any, prompt, re
 		revised := firstNonEmpty(util.Clean(item["revised_prompt"]), prompt)
 		imageBytes, err := base64.StdEncoding.DecodeString(b64)
 		if err != nil {
+			if firstEncodeErr == nil {
+				firstEncodeErr = err
+			}
 			continue
 		}
 		itemOptions := options
 		if itemFormat := strings.TrimSpace(util.Clean(item["output_format"])); itemFormat != "" {
 			itemOptions.Format = NormalizeImageOutputFormat(itemFormat)
-		}
-		if itemOptions.Format == "" {
+		} else {
 			itemOptions.Format = defaultFormat
 		}
 		if compression, ok := normalizedImageOutputCompression(item["output_compression"]); ok {
 			itemOptions.Compression = &compression
 		}
-		imageBytes, err = encodeImageBytes(imageBytes, itemOptions)
+		var outputFormat string
+		imageBytes, outputFormat, err = encodeImageBytesWithFormat(imageBytes, itemOptions)
 		if err != nil {
+			if firstEncodeErr == nil {
+				firstEncodeErr = err
+			}
 			continue
 		}
-		outputFormat := NormalizeImageOutputFormat(itemOptions.Format)
-		urlValue, err := e.SaveImageBytesForOwnerWithFormat(imageBytes, baseURL, ownerID, ownerName, outputFormat)
+		urlValue, err := e.SaveImageBytesForOwnerWithFormatContext(ctx, imageBytes, baseURL, ownerID, ownerName, outputFormat)
 		if err != nil {
 			return nil, fmt.Errorf("保存图片失败: %w", err)
 		}
@@ -104,6 +120,9 @@ func (e *Engine) FormatImageResultWithOptions(items []map[string]any, prompt, re
 			responseItem["b64_json"] = base64.StdEncoding.EncodeToString(imageBytes)
 		}
 		data = append(data, responseItem)
+	}
+	if len(data) == 0 && firstEncodeErr != nil {
+		return nil, firstEncodeErr
 	}
 	if created == 0 {
 		created = time.Now().Unix()
@@ -124,6 +143,10 @@ func (e *Engine) SaveImageBytesForOwner(imageData []byte, baseURL, ownerID, owne
 }
 
 func (e *Engine) SaveImageBytesForOwnerWithFormat(imageData []byte, baseURL, ownerID, ownerName, outputFormat string) (string, error) {
+	return e.SaveImageBytesForOwnerWithFormatContext(context.Background(), imageData, baseURL, ownerID, ownerName, outputFormat)
+}
+
+func (e *Engine) SaveImageBytesForOwnerWithFormatContext(ctx context.Context, imageData []byte, baseURL, ownerID, ownerName, outputFormat string) (string, error) {
 	if len(imageData) == 0 {
 		return "", fmt.Errorf("图片数据为空")
 	}
@@ -131,7 +154,12 @@ func (e *Engine) SaveImageBytesForOwnerWithFormat(imageData []byte, baseURL, own
 		return "", fmt.Errorf("图片配置未初始化")
 	}
 	if e.Media != nil {
-		return e.Media.StoreImage(imageData, baseURL, ownerID, ownerName, outputFormat)
+		urlValue, err := e.Media.StoreImage(imageData, baseURL, ownerID, ownerName, outputFormat)
+		if err != nil {
+			return "", err
+		}
+		RecordLocalGeneratedImage(ctx, urlValue)
+		return urlValue, nil
 	}
 	outputFormat = NormalizeImageOutputFormat(outputFormat)
 	sum := md5.Sum(imageData)
@@ -158,7 +186,9 @@ func (e *Engine) SaveImageBytesForOwnerWithFormat(imageData []byte, baseURL, own
 	if baseURL == "" {
 		baseURL = e.Config.BaseURL()
 	}
-	return strings.TrimRight(baseURL, "/") + "/images/" + filepath.ToSlash(rel), nil
+	urlValue := strings.TrimRight(baseURL, "/") + "/images/" + filepath.ToSlash(rel)
+	RecordLocalGeneratedImage(ctx, urlValue)
+	return urlValue, nil
 }
 
 func imageFileExtension(outputFormat string) string {
@@ -168,18 +198,102 @@ func imageFileExtension(outputFormat string) string {
 	return NormalizeImageOutputFormat(outputFormat)
 }
 
-func encodeImageBytes(data []byte, options ImageOutputOptions) ([]byte, error) {
-	format := NormalizeImageOutputFormat(options.Format)
-	if format == "png" {
-		return data, nil
-	}
-	img, _, err := image.Decode(bytes.NewReader(data))
-	if err != nil {
+func isGIFBytes(data []byte) bool {
+	return bytes.HasPrefix(data, []byte("GIF87a")) || bytes.HasPrefix(data, []byte("GIF89a"))
+}
+
+func IsGIFBytes(data []byte) bool {
+	return isGIFBytes(data)
+}
+
+func isPNGBytes(data []byte) bool {
+	return bytes.HasPrefix(data, []byte("\x89PNG\r\n\x1a\n"))
+}
+
+func isWebPBytes(data []byte) bool {
+	return len(data) >= 12 && bytes.Equal(data[:4], []byte("RIFF")) && bytes.Equal(data[8:12], []byte("WEBP"))
+}
+
+func decodeImageBytes(data []byte) (image.Image, error) {
+	if _, _, err := util.ValidateImageBytesDimensions(data); err != nil {
 		return nil, err
 	}
-	var buf bytes.Buffer
+	img, _, err := image.Decode(bytes.NewReader(data))
+	if err == nil {
+		return img, nil
+	}
+	if isWebPBytes(data) {
+		if webpImg, webpErr := nativewebp.Decode(bytes.NewReader(data)); webpErr == nil {
+			return webpImg, nil
+		}
+	}
+	return nil, err
+}
+
+func EncodeImageBytes(data []byte, options ImageOutputOptions) ([]byte, error) {
+	return encodeImageBytes(data, options)
+}
+
+func encodeImageBytes(data []byte, options ImageOutputOptions) ([]byte, error) {
+	encoded, _, err := encodeImageBytesWithFormat(data, options)
+	return encoded, err
+}
+
+func encodeImageBytesWithFormat(data []byte, options ImageOutputOptions) ([]byte, string, error) {
+	if _, _, err := util.ValidateImageBytesDimensions(data); err != nil {
+		return nil, "", err
+	}
+	if strings.TrimSpace(options.Format) == "" {
+		if isGIFBytes(data) {
+			return data, "gif", nil
+		}
+		if isPNGBytes(data) {
+			return data, "png", nil
+		}
+		img, err := decodeImageBytes(data)
+		if err != nil {
+			return nil, "", err
+		}
+		var buf bytes.Buffer
+		if err := png.Encode(&buf, img); err != nil {
+			return nil, "", err
+		}
+		return buf.Bytes(), "png", nil
+	}
+
+	format := NormalizeImageOutputFormat(options.Format)
 	switch format {
+	case "gif":
+		if isGIFBytes(data) {
+			return data, "gif", nil
+		}
+		img, err := decodeImageBytes(data)
+		if err != nil {
+			return nil, "", err
+		}
+		var buf bytes.Buffer
+		if err := gif.Encode(&buf, img, &gif.Options{NumColors: 256}); err != nil {
+			return nil, "", err
+		}
+		return buf.Bytes(), "gif", nil
+	case "png":
+		if isPNGBytes(data) {
+			return data, "png", nil
+		}
+		img, err := decodeImageBytes(data)
+		if err != nil {
+			return nil, "", err
+		}
+		var buf bytes.Buffer
+		if err := png.Encode(&buf, img); err != nil {
+			return nil, "", err
+		}
+		return buf.Bytes(), "png", nil
 	case "jpeg":
+		img, err := decodeImageBytes(data)
+		if err != nil {
+			return nil, "", err
+		}
 		quality := 90
 		if options.Compression != nil {
 			quality = 100 - *options.Compression
@@ -189,19 +303,35 @@ func encodeImageBytes(data []byte, options ImageOutputOptions) ([]byte, error) {
 				quality = 100
 			}
 		}
+		var buf bytes.Buffer
 		if err := jpeg.Encode(&buf, flattenAlpha(img), &jpeg.Options{Quality: quality}); err != nil {
-			return nil, err
+			return nil, "", err
 		}
+		return buf.Bytes(), "jpeg", nil
 	case "webp":
+		img, err := decodeImageBytes(data)
+		if err != nil {
+			return nil, "", err
+		}
+		var buf bytes.Buffer
 		if err := nativewebp.Encode(&buf, img, nil); err != nil {
-			return nil, err
+			return nil, "", err
 		}
+		return buf.Bytes(), "webp", nil
 	default:
-		if err := png.Encode(&buf, img); err != nil {
-			return nil, err
+		if isPNGBytes(data) {
+			return data, "png", nil
 		}
+		img, err := decodeImageBytes(data)
+		if err != nil {
+			return nil, "", err
+		}
+		var buf bytes.Buffer
+		if err := png.Encode(&buf, img); err != nil {
+			return nil, "", err
+		}
+		return buf.Bytes(), "png", nil
 	}
-	return buf.Bytes(), nil
 }
 
 func flattenAlpha(img image.Image) image.Image {
@@ -227,13 +357,47 @@ func blendOverWhite(channel, alpha int) uint8 {
 	return uint8(value >> 8)
 }
 
+func inferImageFormatFromPath(rel string) string {
+	switch strings.ToLower(filepath.Ext(rel)) {
+	case ".gif":
+		return "gif"
+	case ".webp":
+		return "webp"
+	case ".jpg", ".jpeg":
+		return "jpeg"
+	default:
+		return "png"
+	}
+}
+
 func (e *Engine) writeImageOwnerMetadata(rel, ownerID, ownerName string) error {
 	ownerID = strings.TrimSpace(ownerID)
 	ownerName = strings.TrimSpace(ownerName)
 	if e == nil || e.Config == nil || ownerID == "" {
 		return nil
 	}
-	value := map[string]any{"owner_id": ownerID, "updated_at": util.NowISO()}
+	metaPath := filepath.Join(e.Config.ImageMetadataDir(), filepath.FromSlash(filepath.ToSlash(rel))+".json")
+	if e.Storage != nil {
+		if existingVal, err := e.Storage.LoadJSONDocument(imageOwnerDocumentName(rel)); err == nil {
+			if existingMap, ok := existingVal.(map[string]any); ok {
+				if existingOwner := strings.TrimSpace(util.Clean(existingMap["owner_id"])); existingOwner != "" && existingOwner != ownerID {
+					return nil
+				}
+			}
+		}
+	} else if rawData, err := os.ReadFile(metaPath); err == nil {
+		var existingMap map[string]any
+		if json.Unmarshal(rawData, &existingMap) == nil {
+			if existingOwner := strings.TrimSpace(util.Clean(existingMap["owner_id"])); existingOwner != "" && existingOwner != ownerID {
+				return nil
+			}
+		}
+	}
+	value := map[string]any{
+		"owner_id":      ownerID,
+		"output_format": inferImageFormatFromPath(rel),
+		"updated_at":    util.NowISO(),
+	}
 	if ownerName != "" {
 		value["owner_name"] = ownerName
 	}
@@ -243,7 +407,6 @@ func (e *Engine) writeImageOwnerMetadata(rel, ownerID, ownerName string) error {
 		}
 		return nil
 	}
-	metaPath := filepath.Join(e.Config.ImageMetadataDir(), filepath.FromSlash(filepath.ToSlash(rel))+".json")
 	if err := os.MkdirAll(filepath.Dir(metaPath), 0o755); err != nil {
 		return err
 	}

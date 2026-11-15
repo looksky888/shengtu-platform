@@ -43,8 +43,8 @@ func TestImageTaskCreditsChargeOnSuccess(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Account() error = %v", err)
 	}
-	if account.Balance != 8 {
-		t.Fatalf("balance = %d, want 8", account.Balance)
+	if account.Balance != 5 {
+		t.Fatalf("balance = %d, want 5", account.Balance)
 	}
 }
 

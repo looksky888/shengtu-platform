@@ -40,6 +40,7 @@ type ModelOption = {
   creditCosts?: Record<string, number>;
   capabilities?: string[];
   resolutions?: string[];
+  formats?: string[];
 };
 
 /**
@@ -62,8 +63,12 @@ const ACCOUNT_POOL_MODEL_CHANNEL: PublicModelChannelSetting = {
     "gpt-5-6-terra",
     "gpt-5-6-luna",
     "gpt-5-mini",
+    "gpt-image-2.6-flare",
+    "gpt-image-2.6",
+    "gpt-image-2.6-sunburst",
     "gpt-image-2.5",
     "gpt-image-2.5-flare",
+    "gpt-image-2.5-sunburst",
     "grok-imagine-image",
     "grok-imagine-video",
     "grok-4.5",
@@ -217,6 +222,7 @@ function channelImageOptions(catalog: ModelCatalogResponse | null): ModelOption[
       creditCosts: model.credit_costs,
       capabilities: model.capabilities,
       resolutions: model.resolutions,
+      formats: model.formats,
     }));
 }
 

@@ -3,9 +3,10 @@
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
-import { imageDownloadFileName, triggerImageDownload } from "@/lib/image-download";
+import { downloadImageSrc, imageDownloadFileName } from "@/lib/image-download";
 
 import { ImageLightboxToolbar } from "./image-lightbox-toolbar";
 
@@ -134,10 +135,10 @@ export function ImageLightbox({
 
   const handleDownload = useCallback(() => {
     if (!current) return;
-    triggerImageDownload(
-      current.src,
-      current.downloadName || imageDownloadFileName(current.src, current.id)
-    );
+    const fileName = current.downloadName || imageDownloadFileName(current.src, current.id);
+    void downloadImageSrc(current.src, fileName).catch((error) => {
+      toast.error(error instanceof Error ? error.message : "图片下载失败");
+    });
   }, [current]);
 
   const handleImagePointerDown = useCallback(

@@ -21,8 +21,33 @@ func TestCanonicalImage25Model(t *testing.T) {
 	}
 }
 
+func TestCanonicalWebImageModelAndGIFSupport(t *testing.T) {
+	for _, tc := range []struct {
+		input   string
+		want    string
+		ok      bool
+		wantGIF bool
+	}{
+		{input: " GPT-IMAGE-2.6-FLARE ", want: ImageModelGPT26Flare, ok: true, wantGIF: true},
+		{input: ImageModelGPT26, want: ImageModelGPT26, ok: true, wantGIF: true},
+		{input: "GPT-IMAGE-2.6-SUNBURST", want: ImageModelGPT26Sunburst, ok: true, wantGIF: true},
+		{input: ImageModelGPT25, want: ImageModelGPT25Flare, ok: true, wantGIF: false},
+		{input: ImageModelGPT25Flare, want: ImageModelGPT25Flare, ok: true, wantGIF: false},
+		{input: ImageModelGPT, want: "", ok: false, wantGIF: false},
+		{input: "codex-gpt-image-2", want: "", ok: false, wantGIF: false},
+	} {
+		got, ok := CanonicalWebImageModel(tc.input)
+		if got != tc.want || ok != tc.ok {
+			t.Fatalf("CanonicalWebImageModel(%q) = %q, %v; want %q, %v", tc.input, got, ok, tc.want, tc.ok)
+		}
+		if gif := SupportsGIFOutputModel(tc.input); gif != tc.wantGIF {
+			t.Fatalf("SupportsGIFOutputModel(%q) = %v, want %v", tc.input, gif, tc.wantGIF)
+		}
+	}
+}
+
 func TestImageGenerationModelSetExcludesTextModels(t *testing.T) {
-	for _, model := range []string{ImageModelAuto, ImageModelGPT, ImageModelGPT25, ImageModelGrokImagine, ImageModelGrokLite, "GPT-IMAGE-2.5"} {
+	for _, model := range []string{ImageModelAuto, ImageModelGPT, ImageModelGPT25, ImageModelGPT26, ImageModelGPT26Flare, ImageModelGPT26Sunburst, ImageModelGrokImagine, ImageModelGrokLite, "GPT-IMAGE-2.5", "GPT-IMAGE-2.6-FLARE"} {
 		if !IsImageGenerationModel(model) {
 			t.Fatalf("IsImageGenerationModel(%q) = false, want true", model)
 		}
@@ -158,6 +183,9 @@ func TestModelListIncludesTextAndImageModels(t *testing.T) {
 		ImageModelGPT25,
 		ImageModelGPT25Flare,
 		ImageModelGPT25Sunburst,
+		ImageModelGPT26,
+		ImageModelGPT26Flare,
+		ImageModelGPT26Sunburst,
 		ImageModelGrokImagine,
 		ImageModelGPTMini,
 		ImageModelGPT53Mini,

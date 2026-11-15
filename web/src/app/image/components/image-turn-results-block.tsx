@@ -76,11 +76,17 @@ export function ImageTurnResultsBlock({
   onDownloadItems,
 }: ImageTurnResultsBlockProps) {
   const turnBusy = isTurnBusy(turn);
-  const referenceLightboxImages = turn.referenceImages.map((image, index) => ({
-    id: `${turn.id}-reference-${index}`,
-    src: image.dataUrl,
-    downloadName: image.name,
-  }));
+  const referenceLightboxImages = turn.referenceImages.flatMap((image, index) =>
+    !image.stripped && image.dataUrl
+      ? [
+          {
+            id: `${turn.id}-reference-${index}`,
+            src: image.dataUrl,
+            downloadName: image.name,
+          },
+        ]
+      : [],
+  );
   const downloadableImages = buildDownloadableImages(conversationId, turn);
   const selectedDownloadableImages = downloadableImages.filter((image) => selectedImageIds[image.selectionKey]);
   const successfulTurnImages = buildSuccessfulTurnImages(turn, imageDimensions, imageSizeLabels);

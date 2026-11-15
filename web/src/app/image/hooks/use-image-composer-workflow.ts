@@ -1,8 +1,8 @@
 ﻿import { useCallback } from "react";
 
-import { DEFAULT_IMAGE_OUTPUT_FORMAT, type ComposerMode } from "@/app/image/lib/image-page-types";
+import { type ComposerMode } from "@/app/image/lib/image-page-types";
 import { getStoredImageCount } from "@/app/image/lib/image-storage-utils";
-import type { ImageOutputFormat, ImageVisibility } from "@/lib/api";
+import type { ImageVisibility } from "@/lib/api";
 
 type StringSetter = (value: string) => void;
 
@@ -11,8 +11,6 @@ type UseImageComposerWorkflowParams = {
   clearReferenceImages: () => void;
   setImagePrompt: StringSetter;
   setImageCount: StringSetter;
-  setImageOutputFormat: (value: ImageOutputFormat) => void;
-  setImageOutputCompression: StringSetter;
   setDefaultImageVisibility: (value: ImageVisibility) => void;
   setComposerMode: (value: ComposerMode) => void;
 };
@@ -22,8 +20,6 @@ export function useImageComposerWorkflow({
   clearReferenceImages,
   setImagePrompt,
   setImageCount,
-  setImageOutputFormat,
-  setImageOutputCompression,
   setDefaultImageVisibility,
   setComposerMode,
 }: UseImageComposerWorkflowParams) {
@@ -31,11 +27,9 @@ export function useImageComposerWorkflow({
     promptApplyRequestIdRef.current += 1;
     setImagePrompt("");
     setImageCount(getStoredImageCount());
-    setImageOutputFormat(DEFAULT_IMAGE_OUTPUT_FORMAT);
-    setImageOutputCompression("");
     setDefaultImageVisibility("private");
     clearReferenceImages();
-  }, [clearReferenceImages, promptApplyRequestIdRef, setDefaultImageVisibility, setImageCount, setImageOutputCompression, setImageOutputFormat, setImagePrompt]);
+  }, [clearReferenceImages, promptApplyRequestIdRef, setDefaultImageVisibility, setImageCount, setImagePrompt]);
 
   const resetComposer = useCallback(() => {
     clearComposerInputs();

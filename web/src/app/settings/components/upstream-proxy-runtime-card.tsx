@@ -110,7 +110,11 @@ export function UpstreamProxyRuntimeCard({
     if (typeof window === "undefined") return;
     const handleRefresh = (event: Event) => {
       const detail = (event as CustomEvent<{ tab?: string }>).detail;
-      if (!detail?.tab || detail.tab === "register") {
+      if (
+        !detail?.tab ||
+        detail.tab === "proxy" ||
+        detail.tab === "register"
+      ) {
         void loadRuntimeStatus(true);
       }
     };

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"image"
@@ -11,7 +12,52 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"chatgpt2api/internal/util"
+
+	"github.com/HugoSmits86/nativewebp"
 )
+
+func decodeSafeImageBytes(data []byte) (image.Image, error) {
+	_, format, err := util.ValidateImageBytesDimensions(data)
+	if err != nil {
+		return nil, err
+	}
+	img, _, err := image.Decode(bytes.NewReader(data))
+	if err == nil {
+		return img, nil
+	}
+	if format == "webp" {
+		if webpImg, webpErr := nativewebp.Decode(bytes.NewReader(data)); webpErr == nil {
+			return webpImg, nil
+		}
+	}
+	return nil, err
+}
+
+func decodeSafeImageFile(path string) (image.Image, error) {
+	_, format, err := util.ValidateImageFileDimensions(path)
+	if err != nil {
+		return nil, err
+	}
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	img, _, err := image.Decode(file)
+	if err == nil {
+		return img, nil
+	}
+	if format == "webp" {
+		if _, seekErr := file.Seek(0, 0); seekErr == nil {
+			if webpImg, webpErr := nativewebp.Decode(file); webpErr == nil {
+				return webpImg, nil
+			}
+		}
+	}
+	return nil, err
+}
 
 func writeJPEGThumbnail(path string, img image.Image) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {

@@ -2,14 +2,17 @@
 
 import * as React from "react";
 
-import type { ExternalDirtyEntry } from "./settings-dirty-registry";
+import type {
+  ExternalDirtyEntry,
+  NormalizedDirtyEntry,
+} from "./settings-dirty-registry";
 import {
   DirtyRegistryStoreContext,
   type SettingsDirtyRegistryStore,
 } from "./settings-dirty-registry-store";
-import type { SettingsTabKey } from "./settings-tab-types";
+import { parseSettingsTab, type SettingsTabKey } from "./settings-tab-types";
 
-const EMPTY_ENTRIES: Record<string, ExternalDirtyEntry> = {};
+const EMPTY_ENTRIES: Record<string, NormalizedDirtyEntry> = {};
 const noopSubscribe = () => () => {};
 const getEmptyEntries = () => EMPTY_ENTRIES;
 
@@ -44,6 +47,8 @@ export function useRegisterSettingsDirty(entry: ExternalDirtyEntry) {
   const latestRef = React.useRef(entry);
   latestRef.current = entry;
 
+  const normalizedTab = parseSettingsTab(entry.tab);
+
   const stableValidate = React.useCallback(
     () => (latestRef.current.validate ? latestRef.current.validate() : true),
     [],
@@ -65,7 +70,7 @@ export function useRegisterSettingsDirty(entry: ExternalDirtyEntry) {
     if (!store) return;
     store.upsertEntry({
       id: entry.id,
-      tab: entry.tab,
+      tab: normalizedTab,
       label: entry.label,
       isDirty: entry.isDirty,
       validate: hasValidate ? stableValidate : undefined,
@@ -75,7 +80,7 @@ export function useRegisterSettingsDirty(entry: ExternalDirtyEntry) {
   }, [
     store,
     entry.id,
-    entry.tab,
+    normalizedTab,
     entry.label,
     entry.isDirty,
     hasValidate,

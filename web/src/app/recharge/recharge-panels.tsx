@@ -31,7 +31,7 @@ export function RechargeHeaderActions({
         </strong>
       </Badge>
       <Button variant="outline" size="sm" asChild>
-        <Link to="/wallet?tab=redeem">
+        <Link to="/profile">
           <History className="size-3.5 text-muted-foreground" />
           积分明细与卡密兑换
         </Link>

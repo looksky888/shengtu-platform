@@ -51,7 +51,7 @@ func (a *App) imageTaskRouteMetadataForRequest(body map[string]any, model, capab
 	channelModelID := strings.TrimSpace(util.Clean(body["channel_model_id"]))
 	if channelModelID == "" {
 		if a != nil && a.imageChannels != nil {
-			resolved, matched, err := a.imageChannels.ResolveSystemModelByUpstream(model, capability)
+			resolved, matched, err := a.imageChannels.ResolveEnabledModelByUpstream(model, capability)
 			if err != nil {
 				return nil, err
 			}
@@ -96,6 +96,7 @@ func imageTaskRouteMetadataFromResolved(resolved service.ResolvedImageChannelMod
 		"channel_api_key": resolved.APIKey, "channel_timeout_seconds": resolved.TimeoutSeconds,
 		"channel_max_retries": resolved.MaxRetries, "channel_download_urls": resolved.DownloadURLs,
 		"channel_max_concurrency": resolved.MaxConcurrency,
+		"channel_formats":         append([]string(nil), resolved.Formats...),
 	}
 }
 

@@ -1,6 +1,6 @@
 export type ColorTheme = "light" | "dark";
 
-export const COLOR_THEME_STORAGE_KEY = "shengtu:v6:color-theme";
+export const COLOR_THEME_STORAGE_KEY = "shengtu:classic:color-theme";
 export const COLOR_THEME_CHANGE_EVENT = "shengtu:color-theme-change";
 
 type ThemeTransitionOptions = {
@@ -20,7 +20,7 @@ const THEME_TRANSITION_MAX_TABLE_ROWS = 80;
 
 export function getPreferredColorTheme(): ColorTheme {
   if (typeof window === "undefined") {
-    return "dark";
+    return "light";
   }
 
   try {
@@ -29,10 +29,10 @@ export function getPreferredColorTheme(): ColorTheme {
       return storedTheme;
     }
   } catch {
-    return "dark";
+    return "light";
   }
 
-  return "dark";
+  return "light";
 }
 
 function applyColorThemeToRoot(theme: ColorTheme) {

@@ -32,7 +32,7 @@ import {
 } from "./settings-ui";
 import { useMediaStorage } from "./use-media-storage";
 
-export const STORAGE_CONFIG_KEYS: readonly (keyof SettingsConfig)[] = [
+const STORAGE_CONFIG_KEYS: readonly (keyof SettingsConfig)[] = [
   "media_storage_provider",
   "media_auto_cleanup_enabled",
   "image_retention_days",

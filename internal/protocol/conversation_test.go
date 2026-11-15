@@ -42,7 +42,13 @@ func (c testProtocolImageConfig) CleanupOldImages() int {
 func TestFormatImageResultStoresOwnerName(t *testing.T) {
 	config := testProtocolImageConfig{root: t.TempDir()}
 	engine := &Engine{Config: config}
-	imageData := base64.StdEncoding.EncodeToString([]byte("png-bytes"))
+	var pngBuf bytes.Buffer
+	onePx := image.NewNRGBA(image.Rect(0, 0, 1, 1))
+	onePx.Set(0, 0, color.NRGBA{R: 12, G: 34, B: 56, A: 255})
+	if err := png.Encode(&pngBuf, onePx); err != nil {
+		t.Fatalf("png.Encode() error = %v", err)
+	}
+	imageData := base64.StdEncoding.EncodeToString(pngBuf.Bytes())
 
 	result, err := engine.FormatImageResult(
 		[]map[string]any{{"b64_json": imageData}},

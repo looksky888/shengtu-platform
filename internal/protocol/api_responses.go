@@ -55,13 +55,30 @@ func (e *Engine) ResponseEventsScoped(ctx context.Context, body map[string]any, 
 		events = e.rememberResponseContextEventsScoped(ctx, scope, events, baseContext)
 		return events, errCh, nil
 	}
-	request, prompt, err := ResponseImageGenerationRequest(body, scope, &previous)
+	request, prompt, err := responseImageGenerationRequestWithDefault(body, scope, &previous, e.normalizeDirectImageModel(""))
 	if err != nil {
 		return nil, nil, err
 	}
+	e.applyPictureModelRouting(&request)
+	request = request.Normalized()
+	if err := validateDirectImageOutputOptions(request, util.ToBool(body["stream"]), body); err != nil {
+		return nil, nil, err
+	}
 	var currentImages []string
-	if inputImages := ExtractResponseImages(body["input"]); len(inputImages) > 0 {
+	if inputImages := e.extractScopedResponseImages(ctx, scope, body["input"]); len(inputImages) > 0 {
 		currentImages = EncodeImages(inputImages)
+	}
+	resolvedPrevImages := e.resolveScopedImageRefs(ctx, scope, previous.Images)
+	combinedImages := append([]string(nil), resolvedPrevImages...)
+	combinedImages = append(combinedImages, currentImages...)
+	if len(combinedImages) > maxContextImages {
+		combinedImages = combinedImages[len(combinedImages)-maxContextImages:]
+	}
+	if len(combinedImages) > 0 {
+		request.Images = combinedImages
+		if util.Clean(ResponseImageGenerationTool(body)["size"]) == "" && util.Clean(body["size"]) == "" {
+			request.Size = "auto"
+		}
 	}
 	baseContext = MergeResponseContext(previous, currentMessages, currentImages)
 	request.Messages = baseContext.Messages
@@ -73,6 +90,10 @@ func (e *Engine) ResponseEventsScoped(ctx context.Context, body map[string]any, 
 }
 
 func ResponseImageGenerationRequest(body map[string]any, scope string, previous *ResponseContext) (ConversationRequest, string, error) {
+	return responseImageGenerationRequestWithDefault(body, scope, previous, util.ImageModelGPT26Flare)
+}
+
+func responseImageGenerationRequestWithDefault(body map[string]any, scope string, previous *ResponseContext, defaultImageModel string) (ConversationRequest, string, error) {
 	responseModel := firstNonEmpty(util.Clean(body["model"]), util.ImageModelAuto)
 	if !util.IsResponsesImageToolModel(responseModel) {
 		return ConversationRequest{}, "", HTTPError{Status: 400, Message: "unsupported image_generation model: " + responseModel}
@@ -105,8 +126,12 @@ func ResponseImageGenerationRequest(body map[string]any, scope string, previous 
 	if !util.IsResponsesImageToolModel(validationModel) {
 		return ConversationRequest{}, "", HTTPError{Status: 400, Message: "unsupported image_generation model: " + validationModel}
 	}
-	requestModel := responseImageGenerationModel(responseModel, toolModel)
-	outputFormat := NormalizeImageOutputFormat(firstNonEmpty(util.Clean(tool["output_format"]), util.Clean(body["output_format"])))
+	requestModel := responseImageGenerationModel(responseModel, toolModel, defaultImageModel)
+	rawOutputFormat := strings.TrimSpace(firstNonEmpty(util.Clean(tool["output_format"]), util.Clean(body["output_format"])))
+	outputFormat := ""
+	if rawOutputFormat != "" {
+		outputFormat = NormalizeImageOutputFormat(rawOutputFormat)
+	}
 	request := ConversationRequest{
 		Prompt:             prompt,
 		Model:              requestModel,
@@ -115,27 +140,38 @@ func ResponseImageGenerationRequest(body map[string]any, scope string, previous 
 		Size:               size,
 		Quality:            firstNonEmpty(util.Clean(tool["quality"]), util.Clean(body["quality"])),
 		OutputFormat:       outputFormat,
+		FrameCount:         firstNonEmpty(util.Clean(tool["frame_count"]), util.Clean(body["frame_count"])),
+		FrameDurationMS:    firstNonEmpty(util.Clean(tool["frame_duration_ms"]), util.Clean(body["frame_duration_ms"])),
 		ResponseFormat:     firstNonEmpty(util.Clean(tool["response_format"]), util.Clean(body["response_format"]), "b64_json"),
+		BaseURL:            util.Clean(body["base_url"]),
 		OwnerID:            scope,
 		OwnerName:          util.Clean(body["owner_name"]),
 		Images:             images,
 		RequirePaidAccount: RequiresPaidImageSize(size),
 		ResponsesImageTool: responseImageGenerationUsesResponsesTool(responseModel, toolModel, requestModel),
 	}
-	if outputFormat != "png" {
+	if outputFormat != "" && outputFormat != "png" && outputFormat != "gif" {
 		if compression, ok := normalizedImageOutputCompression(firstNonNil(tool["output_compression"], body["output_compression"])); ok {
 			request.OutputCompression = &compression
 		}
 	}
-	return request.Normalized(), prompt, nil
+	normalized := request.Normalized()
+	if err := validateDirectImageOutputOptions(normalized, util.ToBool(body["stream"]), body); err != nil {
+		return ConversationRequest{}, "", err
+	}
+	return normalized, prompt, nil
 }
 
-func responseImageGenerationModel(responseModel, toolModel string) string {
+func responseImageGenerationModel(responseModel, toolModel string, defaultImageModel ...string) string {
 	responseModel = strings.TrimSpace(responseModel)
 	toolModel = strings.TrimSpace(toolModel)
 	model := firstNonEmpty(toolModel, responseModel)
-	if model == util.ImageModelAuto {
-		return util.ImageModelGPT
+	if model == "" || model == util.ImageModelAuto {
+		fallback := util.ImageModelGPT26Flare
+		if len(defaultImageModel) > 0 && strings.TrimSpace(defaultImageModel[0]) != "" && strings.TrimSpace(defaultImageModel[0]) != util.ImageModelAuto {
+			fallback = strings.TrimSpace(defaultImageModel[0])
+		}
+		return fallback
 	}
 	return model
 }
@@ -336,15 +372,23 @@ func TextOutputItem(text, itemID, status string) map[string]any {
 func ImageOutputItems(prompt string, data []map[string]any, itemID string) []map[string]any {
 	var out []map[string]any
 	for _, item := range data {
-		b64 := util.Clean(item["b64_json"])
-		if b64 == "" {
+		resultVal := firstNonEmpty(util.Clean(item["b64_json"]), util.Clean(item["url"]))
+		if resultVal == "" {
 			continue
 		}
 		id := itemID
 		if id == "" {
 			id = fmt.Sprintf("ig_%d", len(out)+1)
 		}
-		out = append(out, map[string]any{"id": id, "type": "image_generation_call", "status": "completed", "result": b64, "revised_prompt": firstNonEmpty(util.Clean(item["revised_prompt"]), prompt)})
+		entry := map[string]any{
+			"id":             id,
+			"type":           "image_generation_call",
+			"status":         "completed",
+			"result":         resultVal,
+			"revised_prompt": firstNonEmpty(util.Clean(item["revised_prompt"]), prompt),
+			"output_format":  NormalizeImageOutputFormat(util.Clean(item["output_format"])),
+		}
+		out = append(out, entry)
 	}
 	return out
 }

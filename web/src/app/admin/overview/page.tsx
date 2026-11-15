@@ -86,7 +86,7 @@ function periodToApiPeriod(period: OverviewPeriod): "day" | "week" | "month" {
 }
 
 export default function AdminOverviewPage() {
-  const { isCheckingAuth, session } = useAuthGuard(undefined, "/admin");
+  const { isCheckingAuth, session } = useAuthGuard(undefined, "/overview");
 
   const [period, setPeriod] = useState<OverviewPeriod>("7d");
   const [capability, setCapability] = useState<CapabilityFilter>("all");
@@ -555,7 +555,7 @@ export default function AdminOverviewPage() {
             </span>
           </div>
           <Link
-            to="/admin/users"
+            to="/users"
             className="text-[11px] text-[var(--admin-text-subtle)] hover:text-[var(--admin-text)]"
           >
             管理用户与 RBAC →

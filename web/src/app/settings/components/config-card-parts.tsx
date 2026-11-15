@@ -130,7 +130,7 @@ export function ProxySourceStatusStrip({ proxy }: { proxy: string }) {
         </div>
       </div>
       <Button asChild variant="outline" size="sm" className="h-8 gap-1 text-xs">
-        <Link to="/admin/clearance">
+        <Link to="/settings?tab=proxy">
           <span>前往「过盾与代理」统一管理</span>
           <ArrowUpRight className="size-3.5" />
         </Link>
@@ -176,8 +176,8 @@ export function CrossPageGovernanceStrips({
           </div>
         </div>
         <Button asChild variant="outline" size="sm" className="h-8 gap-1 text-xs">
-          <Link to="/admin/settings/system">
-            <span>前往「系统维护与更新」调整 Worker 队列与默认速率限制</span>
+          <Link to="/settings?tab=backup">
+            <span>前往「备份与日志」治理日志与保留周期</span>
             <ArrowUpRight className="size-3.5" />
           </Link>
         </Button>
@@ -199,8 +199,8 @@ export function CrossPageGovernanceStrips({
           </div>
         </div>
         <Button asChild variant="outline" size="sm" className="h-8 gap-1 text-xs">
-          <Link to="/admin/settings/storage">
-            <span>前往「存储与备份」调整媒体保留天数与 VIP 策略</span>
+          <Link to="/settings?tab=media">
+            <span>前往「媒体存储」调整媒体保留天数与 VIP 策略</span>
             <ArrowUpRight className="size-3.5" />
           </Link>
         </Button>

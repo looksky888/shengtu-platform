@@ -1,9 +1,12 @@
-import type { ReactNode } from "react";
+import { useContext, type ReactNode } from "react";
 import { AlertCircle, CheckCircle2, CircleStop, Clock3, Copy, LoaderCircle, RotateCcw } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
+import { getCachedAuthSession } from "@/lib/session";
+import { ResolvedAuthSessionContext } from "@/lib/use-auth-guard";
 import { cn } from "@/lib/utils";
+import { canAccessPath } from "@/store/auth";
 
 type StateTone = "light" | "dark";
 
@@ -127,16 +130,24 @@ export function CreationTaskMessageState({
   className,
 }: CreationTaskMessageStateProps) {
   const dark = tone === "dark";
-  const action = actionLabel && actionHref ? (
-    <Button asChild type="button" variant="outline" className={messageActionClass(dark)}>
-      <Link to={actionHref}>{actionLabel}</Link>
-    </Button>
-  ) : actionLabel && onAction ? (
-    <Button type="button" variant="outline" className={messageActionClass(dark)} disabled={actionDisabled} onClick={onAction}>
-      {actionDisabled ? <LoaderCircle className="animate-spin" /> : actionIcon || <RotateCcw />}
-      {actionLabel}
-    </Button>
-  ) : null;
+  const contextSession = useContext(ResolvedAuthSessionContext);
+  const session =
+    contextSession !== undefined ? contextSession : getCachedAuthSession();
+  const canOpenActionHref = Boolean(
+    actionHref &&
+      (!actionHref.startsWith("/") || canAccessPath(session, actionHref)),
+  );
+  const action =
+    actionLabel && canOpenActionHref && actionHref ? (
+      <Button asChild type="button" variant="outline" className={messageActionClass(dark)}>
+        <Link to={actionHref}>{actionLabel}</Link>
+      </Button>
+    ) : actionLabel && onAction ? (
+      <Button type="button" variant="outline" className={messageActionClass(dark)} disabled={actionDisabled} onClick={onAction}>
+        {actionDisabled ? <LoaderCircle className="animate-spin" /> : actionIcon || <RotateCcw />}
+        {actionLabel}
+      </Button>
+    ) : null;
 
   return (
     <div className={cn("flex flex-col items-center px-7 text-center", dark ? "text-zinc-100" : "text-foreground", className)}>

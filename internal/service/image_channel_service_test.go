@@ -34,7 +34,7 @@ func TestImageChannelServiceSeedsSystemChannels(t *testing.T) {
 	if len(channels) != 2 || channels[0].ID != "local-account-pool" || channels[1].ID != "local-grok-runtime" {
 		t.Fatalf("seeded channels = %#v", channels)
 	}
-	if channels[0].MaxConcurrency != 7 || channels[0].ModelCount != 4 {
+	if channels[0].MaxConcurrency != 7 || channels[0].ModelCount != 7 {
 		t.Fatalf("local channel = %#v", channels[0])
 	}
 	resolved, err := service.ResolveModel("local-gpt-image-2")
@@ -43,6 +43,71 @@ func TestImageChannelServiceSeedsSystemChannels(t *testing.T) {
 	}
 	if resolved.CreditCost != 11 || resolved.ChannelType != ImageChannelTypeAccountPool {
 		t.Fatalf("resolved model = %#v", resolved)
+	}
+	for _, modelID := range []string{"local-gpt-image-2-6-flare", "local-gpt-image-2-6", "local-gpt-image-2-6-sunburst"} {
+		resolved26, err := service.ResolveModel(modelID)
+		if err != nil {
+			t.Fatalf("ResolveModel(%s) error = %v", modelID, err)
+		}
+		if resolved26.CreditCost != 5 {
+			t.Fatalf("%s CreditCost = %d, want 5", modelID, resolved26.CreditCost)
+		}
+		if !strings.Contains(strings.Join(resolved26.Formats, ","), "gif") {
+			t.Fatalf("%s Formats = %#v, want gif included", modelID, resolved26.Formats)
+		}
+	}
+}
+
+func TestImageChannelServiceBackfills26ModelsIntoExistingAccountPoolOnce(t *testing.T) {
+	dir := t.TempDir()
+	backend := storage.NewJSONBackend(filepath.Join(dir, "accounts.json"), filepath.Join(dir, "auth_keys.json"))
+	if err := backend.SaveJSONDocument(imageChannelsDocumentName, map[string]any{
+		"version": 1,
+		"channels": []map[string]any{
+			{
+				"id": "local-account-pool", "name": "GPT 本地账号池", "alias": "渠道 1",
+				"type": "account_pool", "enabled": true, "system": true, "sort": 10, "max_concurrency": 4,
+			},
+		},
+		"models": []map[string]any{
+			{
+				"id": "local-gpt-image-2-5-flare", "channel_id": "local-account-pool",
+				"display_name": "GPT Images 2.5 Flare", "upstream_model": util.ImageModelGPT25Flare,
+				"capabilities": []string{"generate", "edit"}, "resolutions": []string{"1k"},
+				"formats": []string{"png", "jpeg", "webp"}, "credit_cost": 9, "enabled": true, "sort": 10,
+			},
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	service, err := NewImageChannelService(dir, backend, ImageChannelLegacyConfig{})
+	if err != nil {
+		t.Fatalf("NewImageChannelService() error = %v", err)
+	}
+	if existing, err := service.ResolveModel("local-gpt-image-2-5-flare"); err != nil || existing.CreditCost != 9 {
+		t.Fatalf("existing model overwritten: %#v err=%v", existing, err)
+	}
+	for _, modelID := range []string{"local-gpt-image-2-6-flare", "local-gpt-image-2-6", "local-gpt-image-2-6-sunburst"} {
+		resolved, err := service.ResolveModel(modelID)
+		if err != nil {
+			t.Fatalf("backfilled ResolveModel(%s) error = %v", modelID, err)
+		}
+		if resolved.CreditCost != 5 {
+			t.Fatalf("backfilled %s CreditCost = %d, want 5", modelID, resolved.CreditCost)
+		}
+	}
+
+	// Admin deletion must stick across reloads and not be re-seeded.
+	if err := service.DeleteModel("local-account-pool", "local-gpt-image-2-6-sunburst"); err != nil {
+		t.Fatalf("DeleteModel() error = %v", err)
+	}
+	reloaded, err := NewImageChannelService(dir, backend, ImageChannelLegacyConfig{})
+	if err != nil {
+		t.Fatalf("reload error = %v", err)
+	}
+	if _, err := reloaded.ResolveModel("local-gpt-image-2-6-sunburst"); err == nil {
+		t.Fatal("admin-deleted 2.6 model was resurrected on reload")
 	}
 }
 

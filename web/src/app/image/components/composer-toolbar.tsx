@@ -30,6 +30,7 @@ function buildSettingsProps({
     imageModel: composerProps.imageModel,
     imageChannelType: selectedOption?.channelType,
     imageResolutions: selectedOption?.resolutions,
+    imageFormats: selectedOption?.formats,
     imageCount: composerProps.imageCount,
     imageSizeMode: composerProps.imageSizeMode,
     imageAspectRatio: composerProps.imageAspectRatio,
@@ -41,6 +42,8 @@ function buildSettingsProps({
     imageQualityOptions: composerProps.imageQualityOptions,
     imageOutputFormat: composerProps.imageOutputFormat,
     imageOutputCompression: composerProps.imageOutputCompression,
+    imageFrameCount: composerProps.imageFrameCount,
+    imageFrameDurationMs: composerProps.imageFrameDurationMs,
     imageOutputHint: composerProps.imageOutputHint,
     estimatedCreditCost: composerProps.estimatedCreditCost,
     estimatedCreditCostDetail: composerProps.estimatedCreditCostDetail,
@@ -60,6 +63,8 @@ function buildSettingsProps({
     onImageQualityChange: composerProps.onImageQualityChange,
     onImageOutputFormatChange: composerProps.onImageOutputFormatChange,
     onImageOutputCompressionChange: composerProps.onImageOutputCompressionChange,
+    onImageFrameCountChange: composerProps.onImageFrameCountChange,
+    onImageFrameDurationMsChange: composerProps.onImageFrameDurationMsChange,
   };
 }
 
@@ -159,7 +164,7 @@ export function ComposerToolbar() {
           type="button"
           onClick={() => void composerProps.onSubmit()}
           disabled={!composerProps.prompt.trim() || paidSizeUnavailable}
-          className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full bg-primary px-3.5 text-xs font-semibold text-primary-foreground shadow-xs transition hover:bg-primary/90 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full bg-[#1456f0] px-3.5 text-xs font-semibold text-white shadow-[0_6px_16px_rgba(20,86,240,0.24)] transition hover:bg-[#1048ce] active:scale-[0.97] disabled:cursor-not-allowed disabled:bg-[#e5e7eb] disabled:text-[#9ca3af] disabled:shadow-none dark:disabled:bg-muted dark:disabled:text-muted-foreground"
           aria-label={submitLabel}
           title={submitTitle}
         >

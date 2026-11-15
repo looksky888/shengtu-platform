@@ -15,6 +15,7 @@ import type {
 import { isVideoChannelModelId } from "@/lib/model-catalog-normalizers";
 import { cn } from "@/lib/utils";
 
+import { toImageChannelModelInput } from "./image-channel-model-utils";
 import {
   SettingsNotice,
   SettingsSwitchRow,
@@ -40,65 +41,8 @@ const FORMAT_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
   { value: "png", label: "PNG" },
   { value: "jpeg", label: "JPEG" },
   { value: "webp", label: "WebP" },
+  { value: "gif", label: "GIF" },
 ];
-
-const defaultModelInput: ImageChannelModelInput = {
-  display_name: "",
-  upstream_model: "",
-  capabilities: ["generate", "edit"],
-  resolutions: ["1k"],
-  formats: ["png"],
-  credit_cost: 1,
-  credit_costs: { "1k": 1 },
-  enabled: true,
-  sort: 10,
-};
-
-export function toImageChannelModelInput(
-  model: ImageChannelModel | null,
-  overrides?: Partial<ImageChannelModelInput>,
-): ImageChannelModelInput {
-  if (!model) {
-    return {
-      ...defaultModelInput,
-      ...overrides,
-    };
-  }
-  const safeCapabilities = Array.isArray(model.capabilities)
-    ? [...model.capabilities]
-    : [];
-  const safeResolutions = Array.isArray(model.resolutions)
-    ? [...model.resolutions]
-    : [];
-  const safeFormats = Array.isArray(model.formats) ? [...model.formats] : [];
-  const videoOnly =
-    safeCapabilities.length === 0 && isVideoChannelModelId(model.upstream_model);
-
-  return {
-    display_name: model.display_name,
-    upstream_model: model.upstream_model,
-    capabilities: videoOnly
-      ? []
-      : safeCapabilities.length > 0
-        ? safeCapabilities
-        : ["generate"],
-    resolutions: videoOnly
-      ? safeResolutions
-      : safeResolutions.length > 0
-        ? safeResolutions
-        : ["1k"],
-    formats: videoOnly
-      ? safeFormats
-      : safeFormats.length > 0
-        ? safeFormats
-        : ["png"],
-    credit_cost: Math.max(1, Number(model.credit_cost) || 1),
-    credit_costs: { ...(model.credit_costs || {}) },
-    enabled: model.enabled,
-    sort: model.sort,
-    ...overrides,
-  };
-}
 
 function PillMultiSelect<T extends string>({
   label,

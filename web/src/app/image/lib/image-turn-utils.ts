@@ -84,6 +84,51 @@ export function isInvalidCustomRatioSelection(sizeMode: ImageSizeMode, aspectRat
   return sizeMode === "ratio" && aspectRatio === CUSTOM_IMAGE_ASPECT_RATIO && !parseImageRatio(customRatio);
 }
 
+export const MIN_GIF_FRAME_COUNT = 2;
+export const MAX_GIF_FRAME_COUNT = 60;
+export const MIN_GIF_FRAME_DURATION_MS = 20;
+export const MAX_GIF_FRAME_DURATION_MS = 2000;
+
+export function sanitizeGifPositiveIntInput(value: string): string {
+  return String(value || "").replace(/\D+/g, "");
+}
+
+export function normalizeGifFrameCount(value: unknown): number | undefined {
+  if (value === undefined || value === null || String(value).trim() === "") {
+    return undefined;
+  }
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    return undefined;
+  }
+  return Math.min(MAX_GIF_FRAME_COUNT, Math.max(MIN_GIF_FRAME_COUNT, Math.round(numeric)));
+}
+
+export function normalizeGifFrameDurationMs(value: unknown): number | undefined {
+  if (value === undefined || value === null || String(value).trim() === "") {
+    return undefined;
+  }
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    return undefined;
+  }
+  return Math.min(MAX_GIF_FRAME_DURATION_MS, Math.max(MIN_GIF_FRAME_DURATION_MS, Math.round(numeric)));
+}
+
+export function gifFrameOptionsForFormat(
+  format: ImageOutputFormat | undefined,
+  frameCount: unknown,
+  frameDurationMs: unknown,
+): { frameCount: number | undefined; frameDurationMs: number | undefined } {
+  if (format !== "gif") {
+    return { frameCount: undefined, frameDurationMs: undefined };
+  }
+  return {
+    frameCount: normalizeGifFrameCount(frameCount),
+    frameDurationMs: normalizeGifFrameDurationMs(frameDurationMs),
+  };
+}
+
 export function normalizeOutputCompressionValue(value: unknown): number | undefined {
   if (value === undefined || value === null || String(value).trim() === "") {
     return undefined;
@@ -96,7 +141,7 @@ export function normalizeOutputCompressionValue(value: unknown): number | undefi
 }
 
 export function imageOutputCompressionForFormat(format: ImageOutputFormat, value: unknown) {
-  if (format === "png") {
+  if (format === "png" || format === "gif") {
     return undefined;
   }
   return normalizeOutputCompressionValue(value);

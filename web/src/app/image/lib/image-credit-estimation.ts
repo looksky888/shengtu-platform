@@ -9,6 +9,9 @@ export const FALLBACK_IMAGE_CREDIT_COSTS: ImageCreditCosts = {
   gptImage25: 2,
   gptImage25Flare: 3,
   gptImage25Sunburst: 3,
+  gptImage26: 5,
+  gptImage26Flare: 5,
+  gptImage26Sunburst: 5,
   grok1k: 1,
   grok2k: 2,
 };
@@ -54,6 +57,12 @@ export function estimatedCreditsPerImageForModel(
       return costs.gptImage25Flare;
     case "gpt-image-2.5-sunburst":
       return costs.gptImage25Sunburst;
+    case "gpt-image-2.6":
+      return costs.gptImage26;
+    case "gpt-image-2.6-flare":
+      return costs.gptImage26Flare;
+    case "gpt-image-2.6-sunburst":
+      return costs.gptImage26Sunburst;
     default:
       break;
   }

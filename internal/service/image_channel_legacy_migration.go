@@ -130,5 +130,5 @@ func migrateLegacyImageFormats(model legacyImageChannelModelDocument) []string {
 	if strings.Contains(strings.ToLower(model.Protocol), "video") {
 		return nil
 	}
-	return []string{"png", "jpeg", "webp"}
+	return defaultModelFormats(model.ProviderModel)
 }

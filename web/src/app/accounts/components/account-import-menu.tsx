@@ -6,7 +6,7 @@ type AccountImportMenuProps = {
   onToken: () => void;
   onSession: () => void;
   onCpa: () => void;
-  onRemoteCpa: () => void;
+  onRemoteCpa?: () => void;
 };
 
 export function AccountImportMenu({ onToken, onSession, onCpa, onRemoteCpa }: AccountImportMenuProps) {
@@ -30,12 +30,14 @@ export function AccountImportMenu({ onToken, onSession, onCpa, onRemoteCpa }: Ac
         icon={Files}
         onClick={onCpa}
       />
-      <AccountImportMethodCard
-        title="从远程 CPA 服务器导入"
-        description="前往设置页面配置远程 CPA 服务器后再执行导入。"
-        icon={Files}
-        onClick={onRemoteCpa}
-      />
+      {onRemoteCpa ? (
+        <AccountImportMethodCard
+          title="从远程 CPA 服务器导入"
+          description="前往设置页面配置远程 CPA 服务器后再执行导入。"
+          icon={Files}
+          onClick={onRemoteCpa}
+        />
+      ) : null}
     </div>
   );
 }

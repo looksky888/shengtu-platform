@@ -70,7 +70,7 @@ func (e *Engine) StreamImageOutputs(ctx context.Context, client *backend.Client,
 		defer close(errCh)
 		var last ConversationEvent
 		startedAt := time.Now()
-		events, convErr := e.ConversationEventsWithUpstreamModel(ctx, client, request.Messages, request.Model, request.UpstreamModel, request.Prompt, request.Images, request.Size, request.Quality, request.ResponsesImageTool)
+		events, convErr := e.conversationEventsForImageRequest(ctx, client, request)
 		for event := range events {
 			last = event
 			if event["type"] == "conversation.delta" {

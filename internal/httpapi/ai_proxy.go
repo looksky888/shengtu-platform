@@ -3,8 +3,10 @@ package httpapi
 import (
 	"context"
 	"net/http"
+	"strings"
 
 	"chatgpt2api/internal/protocol"
+	"chatgpt2api/internal/service"
 	"chatgpt2api/internal/util"
 )
 
@@ -26,13 +28,124 @@ func (a *App) resolveImageChannel(model string) string {
 }
 
 func (a *App) listModelsWithChannels(ctx context.Context) (map[string]any, error) {
-	// Always expose built-in model IDs (including Grok). GPT proxy mode used to
-	// replace the entire list with only the GPT relay models, which would hide Grok.
-	result, err := a.engine.ListModels(ctx)
-	if err != nil {
-		// Surface failure instead of a silent empty catalog (hard to debug).
-		return nil, err
+	// Always expose built-in model IDs (including Grok) and merge enabled
+	// ImageChannelService models while filtering out disabled system image models.
+	var result map[string]any
+	if a != nil && a.engine != nil {
+		var err error
+		result, err = a.engine.ListModels(ctx)
+		if err != nil {
+			result = map[string]any{"object": "list", "data": []map[string]any{}}
+		}
 	}
+	if result == nil {
+		result = map[string]any{"object": "list", "data": []map[string]any{}}
+	}
+	if util.Clean(result["object"]) == "" {
+		result["object"] = "list"
+	}
+	if a == nil || a.imageChannels == nil {
+		return result, nil
+	}
+
+	publicModels := a.imageChannels.ListPublicModels()
+	enabledUpstream := make(map[string]struct{}, len(publicModels))
+	for _, pm := range publicModels {
+		if id := strings.ToLower(strings.TrimSpace(pm.UpstreamModel)); id != "" {
+			enabledUpstream[id] = struct{}{}
+		}
+	}
+
+	configuredUpstream := make(map[string]struct{})
+	grokChannelEnabled := false
+	grokChannelPresent := false
+	for _, ch := range a.imageChannels.ListAdmin() {
+		if ch.ID == "local-grok-runtime" || ch.Type == service.ImageChannelTypeGrokRuntime {
+			grokChannelPresent = true
+			if ch.Enabled {
+				grokChannelEnabled = true
+			}
+		}
+		for _, m := range a.imageChannels.ListModels(ch.ID, true) {
+			if id := strings.ToLower(strings.TrimSpace(m.UpstreamModel)); id != "" {
+				configuredUpstream[id] = struct{}{}
+			}
+		}
+	}
+	grokRuntimeAvailable := a.config != nil && strings.TrimSpace(a.config.GrokRuntimeBaseURL()) != ""
+
+	rawItems := util.AsMapSlice(result["data"])
+	merged := make([]map[string]any, 0, len(rawItems)+len(publicModels)+1)
+	seen := make(map[string]struct{}, len(rawItems)+len(publicModels)+1)
+
+	for _, item := range rawItems {
+		id := strings.TrimSpace(util.Clean(item["id"]))
+		if id == "" {
+			continue
+		}
+		key := strings.ToLower(id)
+		if _, dup := seen[key]; dup {
+			continue
+		}
+		if _, configured := configuredUpstream[key]; configured {
+			if _, enabled := enabledUpstream[key]; !enabled {
+				continue
+			}
+		}
+		if grokChannelPresent && !grokChannelEnabled && util.IsGrokImageModel(id) {
+			if _, enabled := enabledUpstream[key]; !enabled {
+				continue
+			}
+		}
+		seen[key] = struct{}{}
+		merged = append(merged, item)
+	}
+
+	for _, pm := range publicModels {
+		id := strings.TrimSpace(pm.UpstreamModel)
+		if id == "" {
+			continue
+		}
+		key := strings.ToLower(id)
+		if _, dup := seen[key]; dup {
+			continue
+		}
+		ownedBy := "chatgpt2api"
+		switch pm.ChannelType {
+		case service.ImageChannelTypeOpenAICompatible:
+			ownedBy = firstNonEmpty(strings.TrimSpace(pm.ChannelName), "openai-compatible")
+		case service.ImageChannelTypeGrokRuntime:
+			ownedBy = "grok-runtime"
+		}
+		seen[key] = struct{}{}
+		merged = append(merged, map[string]any{
+			"id":         id,
+			"object":     "model",
+			"created":    0,
+			"owned_by":   ownedBy,
+			"permission": []any{},
+			"root":       id,
+			"parent":     nil,
+		})
+	}
+
+	if grokChannelEnabled || (!grokChannelPresent && grokRuntimeAvailable) {
+		const grokVideoModel = "grok-imagine-video"
+		if _, dup := seen[grokVideoModel]; !dup {
+			seen[grokVideoModel] = struct{}{}
+			merged = append(merged, map[string]any{
+				"id":         grokVideoModel,
+				"object":     "model",
+				"created":    0,
+				"owned_by":   "grok-runtime",
+				"permission": []any{},
+				"root":       grokVideoModel,
+				"parent":     nil,
+			})
+		}
+	}
+
+	result["data"] = merged
 	return result, nil
 }
 

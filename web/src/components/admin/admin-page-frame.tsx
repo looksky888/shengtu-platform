@@ -64,7 +64,9 @@ export function AdminPageFrame({
   badge,
   back,
   actions,
+  embedded = false,
   scrollable = true,
+  hideThemeToggle = true,
   className,
   children,
 }: {
@@ -78,13 +80,54 @@ export function AdminPageFrame({
     onClick: () => void;
   };
   actions?: ReactNode;
+  embedded?: boolean;
   scrollable?: boolean;
+  hideThemeToggle?: boolean;
   className?: string;
   children: ReactNode;
 }) {
+  if (embedded) {
+    const hasEmbeddedToolbar = Boolean(back || badge || actions);
+    return (
+      <div
+        data-admin-embedded=""
+        className={cn("flex min-h-0 flex-col gap-4", className)}
+      >
+        {hasEmbeddedToolbar ? (
+          <div className="flex flex-wrap items-center justify-between gap-2.5">
+            {back || badge ? (
+              <div className="admin-page-location">
+                {back ? (
+                  <button
+                    type="button"
+                    onClick={back.onClick}
+                    aria-label={back.label}
+                    title={back.label}
+                    className="admin-icon-button mr-1 !size-7.5 !rounded-xl"
+                  >
+                    <ArrowLeft className="size-3.5" />
+                  </button>
+                ) : null}
+                {back ? (
+                  <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+                ) : null}
+                {badge ? <div className="flex items-center">{badge}</div> : null}
+              </div>
+            ) : null}
+            {actions ? (
+              <div className="admin-page-actions ml-auto">{actions}</div>
+            ) : null}
+          </div>
+        ) : null}
+        <div className="flex min-h-0 flex-1 flex-col gap-4">{children}</div>
+      </div>
+    );
+  }
+
   const resolvedSection = section ?? groupLabel;
   return (
     <div
+      data-admin-root=""
       className={cn(
         "admin-page-frame",
         scrollable && "admin-page-frame-scrollable",
@@ -118,10 +161,12 @@ export function AdminPageFrame({
             <p className="admin-page-description">{description}</p>
           ) : null}
         </div>
-        <div className="admin-page-actions">
-          {actions}
-          <AdminThemeButton />
-        </div>
+        {actions || !hideThemeToggle ? (
+          <div className="admin-page-actions">
+            {actions}
+            {!hideThemeToggle ? <AdminThemeButton /> : null}
+          </div>
+        ) : null}
       </header>
       <div className="flex min-h-0 flex-1 flex-col gap-3.5">{children}</div>
     </div>

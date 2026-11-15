@@ -15,6 +15,7 @@ import {
 import { toast } from "sonner";
 
 import { isSettingsRasterImage } from "@/app/settings/components/settings-raster-image";
+import { SETTINGS_TAB_REFRESH_EVENT } from "@/app/settings/settings-tab-types";
 import {
   AdminPageFrame,
   AdminSlideDrawer,
@@ -123,8 +124,15 @@ function formFromItem(item: Announcement): DrawerFormState {
   };
 }
 
-export default function AdminAnnouncementsPage() {
-  const { isCheckingAuth, session } = useAuthGuard(undefined, "/admin/announcements");
+export default function AdminAnnouncementsPage({
+  embedded = false,
+}: {
+  embedded?: boolean;
+} = {}) {
+  const { isCheckingAuth, session } = useAuthGuard(
+    undefined,
+    embedded ? "/settings" : "/admin/announcements",
+  );
   const [activeTab, setActiveTab] = useState<AnnouncementsTab>("popup");
 
   const [items, setItems] = useState<Announcement[]>([]);
@@ -155,6 +163,19 @@ export default function AdminAnnouncementsPage() {
 
   useEffect(() => {
     if (session) void loadAnnouncements();
+  }, [loadAnnouncements, session]);
+
+  useEffect(() => {
+    if (!session) return;
+    const handleTabRefresh = (event: Event) => {
+      const detail = (event as CustomEvent<{ tab?: string }>).detail;
+      if (!detail?.tab || detail.tab === "announcements" || detail.tab === "announcement") {
+        void loadAnnouncements(true);
+      }
+    };
+    window.addEventListener(SETTINGS_TAB_REFRESH_EVENT, handleTabRefresh);
+    return () =>
+      window.removeEventListener(SETTINGS_TAB_REFRESH_EVENT, handleTabRefresh);
   }, [loadAnnouncements, session]);
 
   const setPending = (id: string, value: boolean) => {
@@ -314,21 +335,24 @@ export default function AdminAnnouncementsPage() {
 
   return (
     <AdminPageFrame
+      embedded={embedded}
       groupLabel="商业与运营"
       title="通知与公告"
       description="统一管理实时全员广播弹窗与工作台顶部 4 色 WCAG-AA 常驻滚动通知横幅（通过 SSE 秒级推送至在线用户）。"
       actions={
         <div className="flex flex-wrap items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={loading}
-            onClick={() => void loadAnnouncements()}
-          >
-            <RefreshCw className={cn("size-3.5", loading && "animate-spin")} />
-            刷新
-          </Button>
+          {!embedded ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={loading}
+              onClick={() => void loadAnnouncements()}
+            >
+              <RefreshCw className={cn("size-3.5", loading && "animate-spin")} />
+              刷新
+            </Button>
+          ) : null}
           <Button
             type="button"
             size="sm"
@@ -368,12 +392,12 @@ export default function AdminAnnouncementsPage() {
         }))}
         value={activeTab}
         onValueChange={setActiveTab}
-        syncQueryParam="tab"
+        syncQueryParam={embedded ? "subtab" : "tab"}
         defaultValue="popup"
       />
 
       {activeTab === "popup" ? (
-        <div className="overflow-x-auto rounded-[10px] border border-[var(--admin-border)] bg-[var(--admin-surface)]">
+        <div className="admin-table-card overflow-x-auto rounded-[10px] border border-[var(--admin-border)] bg-[var(--admin-surface)]">
           <table className="admin-table">
             <thead>
               <tr>
@@ -493,7 +517,7 @@ export default function AdminAnnouncementsPage() {
             ))}
           </div>
 
-          <div className="overflow-x-auto rounded-[10px] border border-[var(--admin-border)] bg-[var(--admin-surface)]">
+          <div className="admin-table-card overflow-x-auto rounded-[10px] border border-[var(--admin-border)] bg-[var(--admin-surface)]">
             <table className="admin-table">
               <thead>
                 <tr>
@@ -728,14 +752,14 @@ export default function AdminAnnouncementsPage() {
           {form.display_mode === "banner" ? (
             <div className="space-y-1.5">
               <label className="text-[12px] font-medium text-[var(--admin-text)]">
-                点击跳转链接（可选，支持站内 `/wallet` 或外部 `https://...`）
+                点击跳转链接（可选，支持站内 `/recharge` 或外部 `https://...`）
               </label>
               <Input
                 value={form.link_url}
                 onChange={(event) =>
                   setForm((prev) => ({ ...prev, link_url: event.target.value }))
                 }
-                placeholder="例如：/wallet 或 https://docs.example.com"
+                placeholder="例如：/recharge 或 https://docs.example.com"
               />
             </div>
           ) : (

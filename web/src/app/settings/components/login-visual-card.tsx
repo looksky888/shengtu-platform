@@ -5,9 +5,11 @@ import {
   ChevronDown,
   ChevronUp,
   Image as ImageIcon,
+  Layers,
   RotateCcw,
   Sparkles,
   Upload,
+  Zap,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -47,7 +49,7 @@ const MAX_LOGIN_POSTER_BYTES = 10 * 1024 * 1024;
 
 const PRESET_GALLERY_ITEMS = [
   {
-    label: "默认暗房三联画",
+    label: "默认暖调粒子球舞台",
     url: "",
   },
   {
@@ -73,6 +75,12 @@ const MODE_ITEMS: ReadonlyArray<{ value: LoginPageImageMode; label: string }> = 
   { value: "contain", label: "完整留白" },
   { value: "fill", label: "拉伸填充" },
 ];
+
+const PREVIEW_CHANNELS = [
+  { label: "GPT 号池", icon: Layers },
+  { label: "Grok 渠道", icon: Zap },
+  { label: "登录即用", icon: Sparkles },
+] as const;
 
 export function LoginVisualCard({
   hideFooter = false,
@@ -127,7 +135,7 @@ export function LoginVisualCard({
   useRegisterSettingsDirty({
     id: "config:login-visual",
     tab: "base",
-    label: "登录页海报展示",
+    label: "登录页品牌视觉",
     isDirty,
     save: async () => {
       const currentState = useSettingsStore.getState();
@@ -158,7 +166,7 @@ export function LoginVisualCard({
       return;
     }
     if (file.size > MAX_LOGIN_POSTER_BYTES) {
-      toast.error("自定义海报不能超过 10MB，超大图请填写外部 CDN/R2 链接");
+      toast.error("自定义画作不能超过 10MB，超大图请填写外部 CDN/R2 链接");
       return;
     }
     stageLoginPageImageFile(file);
@@ -182,15 +190,15 @@ export function LoginVisualCard({
   return (
     <SettingsCard
       icon={ImageIcon}
-      title="登录页画廊海报配置"
-      description="配置登录页左侧视觉展板：留空使用内置暗房三联画廊，或上传最高 10MB 自定义典藏海报（自动存盘至静态目录）并微调构图。"
+      title="登录页品牌视觉配置"
+      description="配置登录页右侧品牌视觉舞台：留空展示默认暖奶油色（#fff7ed）粒子球舞台，或上传最高 10MB 自定义展示画作（右上角 11:9 悬浮卡片）并微调构图。"
       meta={
         <Badge variant="outline" className="rounded-md font-normal">
           {pendingFile
-            ? "待保存本地海报"
+            ? "待保存本地画作"
             : effectiveImageUrl
-              ? "自定义海报"
-              : "默认暗房三联画"}
+              ? "自定义悬浮画作"
+              : "默认暖调粒子球舞台"}
         </Badge>
       }
       action={
@@ -214,7 +222,7 @@ export function LoginVisualCard({
           <SettingsCardSaveFooter
             dirty={isDirty}
             saving={isSaving}
-            hint="保存后自动落盘静态文件并更新登录页视觉，无需重启服务"
+            hint="保存后自动落盘静态文件并更新登录页右侧品牌舞台视觉，无需重启服务"
             onReset={() => resetConfigSection(LOGIN_VISUAL_KEYS)}
             onSave={() => void handleSave()}
           />
@@ -224,7 +232,7 @@ export function LoginVisualCard({
       <div className="space-y-4">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs font-medium text-muted-foreground">
-            快捷画廊预设：
+            快捷视觉预设：
           </span>
           {PRESET_GALLERY_ITEMS.map((preset) => {
             const selected = !pendingFile && imageUrl === preset.url;
@@ -264,7 +272,7 @@ export function LoginVisualCard({
                   htmlFor="login-page-image-url-input"
                   className="text-xs font-medium text-foreground sm:text-[13px]"
                 >
-                  自定义海报地址（支持上传 ≤10MB 本地图片，留空恢复默认暗房三联画）
+                  自定义悬浮画作地址（支持上传 ≤10MB 本地图片，留空仅展示默认暖调粒子球舞台）
                 </label>
                 <div className="flex flex-wrap gap-2">
                   <Input
@@ -282,7 +290,7 @@ export function LoginVisualCard({
                         login_page_image_url: event.target.value,
                       })
                     }
-                    placeholder="https://example.com/poster.webp 或点击右侧上传本地图片"
+                    placeholder="https://example.com/showcase.webp 或点击右侧上传本地图片"
                     className={`min-w-[200px] flex-1 ${settingsInputClassName}`}
                   />
                   <input
@@ -325,7 +333,7 @@ export function LoginVisualCard({
                     </span>
                     <SubNav
                       size="sm"
-                      ariaLabel="登录页海报铺展模式"
+                      ariaLabel="登录页悬浮画作铺展模式"
                       layoutId="login-visual-mode-subnav"
                       value={mode}
                       items={MODE_ITEMS}
@@ -406,52 +414,73 @@ export function LoginVisualCard({
                 </div>
               ) : (
                 <p className="text-xs leading-5 text-muted-foreground">
-                  当前未指定单张覆盖图，登录页左侧将自动展示精调的「Shengtu
-                  Studio 暗房三联典藏画廊」。
+                  当前未指定右上角悬浮展示画作，登录页右侧将完整呈现暖奶油色（#fff7ed）动态粒子球舞台与品牌标语。
                 </p>
               )}
             </div>
 
-            <div className="flex flex-col justify-between rounded-[10px] border border-zinc-800/80 bg-[#0c0c0e] p-3 text-zinc-200">
-              <div className="mb-2 flex items-center justify-between text-[11px] text-zinc-400">
+            <div className="flex flex-col justify-between rounded-2xl border border-amber-200/75 bg-surface-subtle/50 p-3 dark:border-amber-900/35">
+              <div className="mb-2 flex items-center justify-between text-[11px] text-muted-foreground">
                 <span className="font-mono uppercase tracking-wider">
-                  LOGIN STAGE PREVIEW (4:5)
+                  LOGIN STAGE PREVIEW {effectiveImageUrl ? "(11:9 CARD)" : "(SPHERE)"}
                 </span>
                 <span>
                   {effectiveImageUrl
                     ? `${mode.toUpperCase()} · ${zoom.toFixed(1)}x`
-                    : "DEFAULT GALLERY"}
+                    : "WARM SPHERE STAGE"}
                 </span>
               </div>
-              {effectiveImageUrl ? (
-                <LoginPageImageStage
-                  src={effectiveImageUrl}
-                  mode={mode}
-                  zoom={zoom}
-                  positionX={posX}
-                  positionY={posY}
-                  className="mx-auto max-w-[270px]"
-                  frameClassName="aspect-[4/5] rounded-lg border border-white/10 bg-black/50"
-                />
-              ) : (
-                <div className="mx-auto grid aspect-[4/5] w-full max-w-[270px] grid-cols-3 gap-1.5 overflow-hidden rounded-lg border border-white/10 bg-zinc-950 p-1.5">
-                  <img
-                    src="/presets/editorial-fashion.webp"
-                    alt=""
-                    className="h-full w-full rounded object-cover"
-                  />
-                  <img
-                    src="/presets/stellar-poster.webp"
-                    alt=""
-                    className="h-full w-full rounded object-cover"
-                  />
-                  <img
-                    src="/presets/forza-horizon-shenzhen.webp"
-                    alt=""
-                    className="h-full w-full rounded object-cover"
-                  />
+
+              <div className="relative flex min-h-[240px] flex-col justify-end overflow-hidden rounded-2xl border border-[#dfe7f1] bg-[#fff7ed] p-4 text-stone-900 dark:border-amber-900/40 dark:bg-[#1a120e] dark:text-amber-50">
+                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_38%_34%,rgba(251,191,36,0.24),transparent_56%),radial-gradient(circle_at_70%_78%,rgba(249,115,22,0.12),transparent_52%)] dark:bg-[radial-gradient(circle_at_38%_34%,rgba(251,191,36,0.15),transparent_56%),radial-gradient(circle_at_70%_78%,rgba(180,83,9,0.14),transparent_52%)]" />
+
+                {/* Stylized warm particle-sphere motif mirroring HeroSphereCanvas */}
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute top-5 left-5 size-36 rounded-full border border-dashed border-amber-500/35 bg-[radial-gradient(circle_at_35%_35%,rgba(251,191,36,0.34),rgba(245,158,11,0.08)_62%,transparent_76%)] shadow-[inset_0_0_24px_rgba(245,158,11,0.16)]"
+                >
+                  <div className="absolute inset-3.5 rounded-full border border-dotted border-orange-500/30" />
+                  <div className="absolute inset-8 rounded-full border border-amber-500/25 bg-amber-400/10" />
                 </div>
-              )}
+
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[58%] bg-gradient-to-t from-[#fff7ed] via-[#fff7ed]/82 to-transparent dark:from-[#1a120e] dark:via-[#1a120e]/86" />
+
+                {effectiveImageUrl ? (
+                  <div className="absolute top-3.5 right-3.5 z-[2] aspect-[11/9] w-36 overflow-hidden rounded-2xl border border-white/65 shadow-[0_14px_32px_rgba(120,53,15,0.18)] dark:border-amber-900/45">
+                    <LoginPageImageStage
+                      src={effectiveImageUrl}
+                      mode={mode}
+                      zoom={zoom}
+                      positionX={posX}
+                      positionY={posY}
+                      fillParent
+                      frameClassName="rounded-2xl"
+                      imageClassName="rounded-2xl"
+                    />
+                  </div>
+                ) : null}
+
+                <div className="relative z-[2] mt-auto flex flex-col gap-1.5 pt-16">
+                  <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-amber-200/90 bg-white/80 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-amber-900/80 dark:border-amber-800/50 dark:bg-amber-950/55 dark:text-amber-100/80">
+                    <Sparkles className="size-3 text-amber-500" />
+                    AI Image Studio
+                  </span>
+                  <p className="text-base font-semibold tracking-tight">
+                    多模型生图工作台
+                  </p>
+                  <div className="flex flex-wrap gap-1.5 pt-0.5">
+                    {PREVIEW_CHANNELS.map(({ label, icon: Icon }) => (
+                      <span
+                        key={label}
+                        className="inline-flex items-center gap-1 rounded-full border border-amber-100 bg-white/80 px-2 py-0.5 text-[10px] font-medium text-stone-600 dark:border-amber-900/45 dark:bg-stone-950/55 dark:text-amber-100/70"
+                      >
+                        <Icon className="size-2.5 text-amber-500" />
+                        {label}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         ) : null}

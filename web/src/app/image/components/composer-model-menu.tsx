@@ -44,14 +44,14 @@ export function ComposerModelMenu({
           <button
             type="button"
             className={cn(
-              "inline-flex h-7.5 items-center justify-center gap-1.5 rounded-lg bg-surface-muted/90 px-2.5 text-xs font-medium text-foreground/85 transition-colors hover:bg-surface-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20",
-              open && "bg-surface-active text-foreground ring-1 ring-foreground/15",
+              "inline-flex h-8 items-center justify-center gap-1.5 rounded-full bg-[#f2f5fa] px-2.5 text-xs font-medium text-foreground/85 transition-colors hover:bg-[#e8eef9] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1456f0]/25 dark:bg-muted/70 dark:hover:bg-muted",
+              open && "bg-[#edf4ff] text-[#1456f0] ring-1 ring-[#cfe0ff] dark:bg-sky-950/50 dark:text-sky-300 dark:ring-sky-500/30",
             )}
             aria-expanded={open}
             aria-label={`选择模型，当前 ${label}`}
             title={`模型：${label}`}
           >
-            <Bot className="size-3.5 shrink-0 text-muted-foreground" />
+            <Bot className="size-3.5 shrink-0 text-current opacity-80" />
             <span className="max-w-[160px] truncate font-medium">{label}</span>
             <ChevronDown className={cn("size-3.5 shrink-0 opacity-60 transition", open && "rotate-180")} />
           </button>
@@ -62,7 +62,7 @@ export function ComposerModelMenu({
           sideOffset={8}
           collisionPadding={12}
           onOpenAutoFocus={(event) => event.preventDefault()}
-          className="z-[80] max-h-[min(45dvh,22rem)] w-[min(20rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-border/85 bg-surface p-1.5 shadow-xl sm:w-[320px]"
+          className="z-[80] max-h-[min(45dvh,22rem)] w-[min(20rem,calc(100vw-2rem))] overflow-y-auto rounded-[18px] border border-border bg-[#fbfdff] p-1.5 shadow-[0_18px_48px_-12px_rgba(24,40,72,0.14)] sm:w-[324px] dark:bg-card"
         >
           {imageModelOptions.map((option, index) => {
             const active = option.id === imageModelOptionId || (!imageModelOptionId && option.value === imageModel);
@@ -79,8 +79,8 @@ export function ComposerModelMenu({
                 <button
                   type="button"
                   className={cn(
-                    "grid w-full grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-xs text-muted-foreground transition hover:bg-surface-hover hover:text-foreground",
-                    active && "bg-surface-muted font-semibold text-foreground ring-1 ring-border/70",
+                    "grid w-full grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-xs text-muted-foreground transition hover:bg-surface-hover hover:text-foreground",
+                    active && "bg-[#edf4ff] font-semibold text-[#1456f0] ring-1 ring-[#cfe0ff] dark:bg-sky-950/50 dark:text-sky-200 dark:ring-sky-500/30",
                   )}
                   onClick={() => {
                     onImageModelChange(option.id);
@@ -94,7 +94,7 @@ export function ComposerModelMenu({
                       {option.creditCost} 积分/张
                     </span>
                   ) : null}
-                  {active ? <Check className="size-3.5 shrink-0 text-foreground" /> : null}
+                  {active ? <Check className="size-3.5 shrink-0 text-[#1456f0] dark:text-sky-300" /> : null}
                 </button>
               </Fragment>
             );

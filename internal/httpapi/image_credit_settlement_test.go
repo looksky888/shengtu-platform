@@ -17,8 +17,8 @@ func TestLoggedImageTaskSettlesActualSuccessCount(t *testing.T) {
 		err   error
 		want  int
 	}{
-		{"partial-success", 1, nil, 49}, {"all-success", 3, nil, 47},
-		{"partial-error", 1, errors.New("upstream stopped"), 49}, {"empty", 0, nil, 50},
+		{"partial-success", 1, nil, 45}, {"all-success", 3, nil, 35},
+		{"partial-error", 1, errors.New("upstream stopped"), 45}, {"empty", 0, nil, 50},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			app := newTestApp(t)

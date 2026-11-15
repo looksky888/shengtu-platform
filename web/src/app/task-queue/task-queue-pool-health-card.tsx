@@ -1,3 +1,4 @@
+import { useContext } from "react";
 import { Activity } from "lucide-react";
 import { Link } from "react-router-dom";
 
@@ -5,9 +6,16 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import type { AccountPoolHealth } from "@/lib/api";
+import { getCachedAuthSession } from "@/lib/session";
+import { ResolvedAuthSessionContext } from "@/lib/use-auth-guard";
 import { cn } from "@/lib/utils";
+import { canAccessPath } from "@/store/auth";
 
 export function TaskQueuePoolHealthCard({ pool }: { pool: AccountPoolHealth | null }) {
+  const contextSession = useContext(ResolvedAuthSessionContext);
+  const session =
+    contextSession !== undefined ? contextSession : getCachedAuthSession();
+  const canOpenAccounts = canAccessPath(session, "/accounts");
   const ops = pool?.ops || {};
   const dispose = pool?.dispose;
   const deleted = dispose?.deleted_permanent ?? ops.deleted_permanent ?? 0;
@@ -47,9 +55,13 @@ export function TaskQueuePoolHealthCard({ pool }: { pool: AccountPoolHealth | nu
           <div>今日处置 · 删除 <b className="text-foreground">{deleted}</b>{" · "}临时入仓 <b className="text-amber-600 dark:text-amber-400">{quarantinedToday}</b>{" · "}恢复 <b className="text-emerald-600 dark:text-emerald-400">{recovered}</b></div>
           <div className="mt-0.5">写仓失败 <b className={cn(qFail > 0 ? "text-rose-600 dark:text-rose-400" : "text-foreground")}>{qFail}</b>{qFailPct != null ? `（${qFailPct}%）` : ""}{recoverPct != null ? ` · 永久恢复率 ${recoverPct}%` : ""}</div>
         </div>
-        <div className="flex gap-2">
-          <Button asChild variant="outline" size="sm" className="flex-1 text-xs"><Link to="/admin/accounts">号池管理</Link></Button>
-        </div>
+        {canOpenAccounts ? (
+          <div className="flex gap-2">
+            <Button asChild variant="outline" size="sm" className="flex-1 text-xs">
+              <Link to="/accounts">号池管理</Link>
+            </Button>
+          </div>
+        ) : null}
       </CardContent>
     </Card>
   );

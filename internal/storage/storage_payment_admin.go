@@ -17,7 +17,7 @@ const rechargeProductSelect = `SELECT id, sku, name, description, amount_fen, cr
 	product_type, storage_days, storage_bytes, sort_order, created_by, updated_by, created_at, updated_at, archived_at FROM recharge_products`
 
 func (b *DatabaseBackend) ListPaymentChannels() ([]PaymentChannelRecord, error) {
-	rows, err := b.db.Query(paymentChannelSelect + ` ORDER BY is_default DESC, created_at ASC`)
+	rows, err := b.reader().Query(paymentChannelSelect + ` ORDER BY is_default DESC, created_at ASC`)
 	if err != nil {
 		return nil, err
 	}
@@ -34,7 +34,7 @@ func (b *DatabaseBackend) ListPaymentChannels() ([]PaymentChannelRecord, error) 
 }
 
 func (b *DatabaseBackend) LoadPaymentChannel(id string) (PaymentChannelRecord, error) {
-	item, err := scanPaymentChannel(b.db.QueryRow(paymentChannelSelect+` WHERE id = `+b.placeholder(1), strings.TrimSpace(id)))
+	item, err := scanPaymentChannel(b.reader().QueryRow(paymentChannelSelect+` WHERE id = `+b.placeholder(1), strings.TrimSpace(id)))
 	if errors.Is(err, sql.ErrNoRows) {
 		return PaymentChannelRecord{}, ErrPaymentRecordNotFound
 	}
@@ -180,7 +180,7 @@ func (b *DatabaseBackend) insertPaymentChannelVersionTx(tx *sql.Tx, version Paym
 }
 
 func (b *DatabaseBackend) ListRechargeProducts() ([]RechargeProductRecord, error) {
-	rows, err := b.db.Query(rechargeProductSelect + ` WHERE archived_at = '' ORDER BY sort_order ASC, created_at ASC`)
+	rows, err := b.reader().Query(rechargeProductSelect + ` WHERE archived_at = '' ORDER BY sort_order ASC, created_at ASC`)
 	if err != nil {
 		return nil, err
 	}
@@ -197,7 +197,7 @@ func (b *DatabaseBackend) ListRechargeProducts() ([]RechargeProductRecord, error
 }
 
 func (b *DatabaseBackend) LoadRechargeProduct(id string) (RechargeProductRecord, error) {
-	item, err := scanRechargeProduct(b.db.QueryRow(rechargeProductSelect+` WHERE id = `+b.placeholder(1)+` AND archived_at = ''`, strings.TrimSpace(id)))
+	item, err := scanRechargeProduct(b.reader().QueryRow(rechargeProductSelect+` WHERE id = `+b.placeholder(1)+` AND archived_at = ''`, strings.TrimSpace(id)))
 	if errors.Is(err, sql.ErrNoRows) {
 		return RechargeProductRecord{}, ErrPaymentRecordNotFound
 	}

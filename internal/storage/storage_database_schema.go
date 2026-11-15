@@ -18,6 +18,7 @@ func (b *DatabaseBackend) init() error {
 		`CREATE TABLE IF NOT EXISTS json_documents (name TEXT PRIMARY KEY, data TEXT NOT NULL, updated_at TEXT NOT NULL)`,
 		`CREATE TABLE IF NOT EXISTS logs (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT NOT NULL, type TEXT NOT NULL, day TEXT NOT NULL, data TEXT NOT NULL)`,
 		`CREATE INDEX IF NOT EXISTS idx_logs_day_id ON logs (day, id)`,
+		`CREATE INDEX IF NOT EXISTS idx_logs_created_at ON logs (created_at)`,
 		`CREATE TABLE IF NOT EXISTS user_usage_aggregate (
 			user_id TEXT NOT NULL,
 			day TEXT NOT NULL,
@@ -39,6 +40,7 @@ func (b *DatabaseBackend) init() error {
 			released INTEGER NOT NULL DEFAULT 0
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_api_key_limit_events_key_time ON api_key_limit_events (key_id, occurred_at)`,
+		`CREATE INDEX IF NOT EXISTS idx_api_key_limit_events_occurred_at ON api_key_limit_events (occurred_at)`,
 		`CREATE INDEX IF NOT EXISTS idx_api_key_limit_events_lease ON api_key_limit_events (released, lease_until)`,
 		`CREATE TABLE IF NOT EXISTS media_capacity_reservations (id TEXT PRIMARY KEY NOT NULL, user_id TEXT NOT NULL, size_bytes INTEGER NOT NULL, lease_until TEXT NOT NULL, released INTEGER NOT NULL DEFAULT 0)`,
 		`CREATE TABLE IF NOT EXISTS media_capacity_keys (user_id TEXT PRIMARY KEY NOT NULL)`,
@@ -93,6 +95,7 @@ func (b *DatabaseBackend) init() error {
 			`CREATE TABLE IF NOT EXISTS json_documents (name TEXT PRIMARY KEY, data TEXT NOT NULL, updated_at TEXT NOT NULL)`,
 			`CREATE TABLE IF NOT EXISTS logs (id SERIAL PRIMARY KEY, created_at TEXT NOT NULL, type TEXT NOT NULL, day TEXT NOT NULL, data TEXT NOT NULL)`,
 			`CREATE INDEX IF NOT EXISTS idx_logs_day_id ON logs (day, id)`,
+			`CREATE INDEX IF NOT EXISTS idx_logs_created_at ON logs (created_at)`,
 			`CREATE TABLE IF NOT EXISTS user_usage_aggregate (
 				user_id TEXT NOT NULL,
 				day TEXT NOT NULL,
@@ -114,6 +117,7 @@ func (b *DatabaseBackend) init() error {
 				released INTEGER NOT NULL DEFAULT 0
 			)`,
 			`CREATE INDEX IF NOT EXISTS idx_api_key_limit_events_key_time ON api_key_limit_events (key_id, occurred_at)`,
+			`CREATE INDEX IF NOT EXISTS idx_api_key_limit_events_occurred_at ON api_key_limit_events (occurred_at)`,
 			`CREATE INDEX IF NOT EXISTS idx_api_key_limit_events_lease ON api_key_limit_events (released, lease_until)`,
 			`CREATE TABLE IF NOT EXISTS media_capacity_reservations (id TEXT PRIMARY KEY NOT NULL, user_id TEXT NOT NULL, size_bytes INTEGER NOT NULL, lease_until TEXT NOT NULL, released INTEGER NOT NULL DEFAULT 0)`,
 			`CREATE TABLE IF NOT EXISTS media_capacity_keys (user_id TEXT PRIMARY KEY NOT NULL)`,
@@ -176,11 +180,14 @@ func (b *DatabaseBackend) init() error {
 	if err := b.ensurePaymentChannelVersionColumns(); err != nil {
 		return fmt.Errorf("migrate %s payment channel versions: %w", b.driver, err)
 	}
+	_, _ = b.db.Exec(`UPDATE api_key_limit_events SET occurred_at = ` + b.utcSortableExpr("occurred_at") + `, lease_until = ` + b.utcSortableExpr("lease_until") + ` WHERE LENGTH(occurred_at) <> 30 OR LENGTH(lease_until) <> 30`)
 	if b.driver == "mysql" {
 		for _, stmt := range []string{
 			`CREATE INDEX idx_logs_day_id ON logs (day, id)`,
+			`CREATE INDEX idx_logs_created_at ON logs (created_at(64))`,
 			`CREATE INDEX idx_user_usage_aggregate_day ON user_usage_aggregate (day)`,
 			`CREATE INDEX idx_api_key_limit_events_key_time ON api_key_limit_events (key_id, occurred_at)`,
+			`CREATE INDEX idx_api_key_limit_events_occurred_at ON api_key_limit_events (occurred_at)`,
 			`CREATE INDEX idx_api_key_limit_events_lease ON api_key_limit_events (released, lease_until)`,
 			`CREATE INDEX idx_media_capacity_reservations_user ON media_capacity_reservations (user_id, released, lease_until)`,
 			`CREATE INDEX idx_credit_ledger_user_created ON credit_ledger (user_id, created_at)`,

@@ -35,10 +35,10 @@ export function ProfileAccountCard({
   onSaveProfile,
 }: ProfileAccountCardProps) {
   return (
-    <Card>
+    <Card className="border-border bg-[#fbfdff] dark:bg-card">
       <CardHeader className="pb-3">
         <div className="flex min-w-0 items-center gap-3">
-          <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border/80 bg-surface-muted text-foreground">
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-[#cfe0ff] bg-[#edf4ff] text-[#1456f0] dark:border-sky-500/30 dark:bg-sky-950/50 dark:text-sky-300">
             <UserPen className="size-4.5" />
           </div>
           <div className="min-w-0">

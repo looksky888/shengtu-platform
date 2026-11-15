@@ -10,7 +10,7 @@ import (
 var ErrPaymentRecordNotFound = errors.New("payment record not found")
 
 func (b *DatabaseBackend) LoadActiveRechargeProducts() ([]RechargeProductRecord, error) {
-	rows, err := b.db.Query(`SELECT id, sku, name, description, amount_fen, credits, enabled,
+	rows, err := b.reader().Query(`SELECT id, sku, name, description, amount_fen, credits, enabled,
 		product_type, storage_days, storage_bytes, sort_order, created_by, updated_by, created_at, updated_at, archived_at
 		FROM recharge_products WHERE enabled = ` + b.boolLiteral() + ` AND archived_at = '' ORDER BY sort_order ASC, created_at ASC`)
 	if err != nil {
@@ -29,7 +29,7 @@ func (b *DatabaseBackend) LoadActiveRechargeProducts() ([]RechargeProductRecord,
 }
 
 func (b *DatabaseBackend) LoadActivePaymentChannels() ([]PaymentChannelRecord, error) {
-	rows, err := b.db.Query(`SELECT id, code, name, provider, payment_method, enabled,
+	rows, err := b.reader().Query(`SELECT id, code, name, provider, payment_method, enabled,
 		is_default, active_version_id, notify_base_url, order_expire_minutes,
 		created_by, updated_by, created_at, updated_at
 		FROM payment_channels WHERE enabled = ` + b.boolLiteral() + ` AND active_version_id <> ''
@@ -50,7 +50,7 @@ func (b *DatabaseBackend) LoadActivePaymentChannels() ([]PaymentChannelRecord, e
 }
 
 func (b *DatabaseBackend) LoadPaymentChannelVersion(id string) (PaymentChannelVersionRecord, error) {
-	row := b.db.QueryRow(`SELECT id, channel_id, version, app_id, merchant_id,
+	row := b.reader().QueryRow(`SELECT id, channel_id, version, app_id, merchant_id,
 		merchant_cert_serial, merchant_private_key_cipher, api_v3_key_cipher, verify_mode,
 		wechatpay_public_key_id, wechatpay_public_key_cipher, alipay_private_key_cipher,
 		alipay_public_key_cipher, alipay_gateway, alipay_seller_id, config_fingerprint, status,
@@ -153,7 +153,7 @@ func (b *DatabaseBackend) LoadPaymentEventByProviderEventID(providerEventID stri
 	if providerEventID == "" {
 		return PaymentEventRecord{}, errors.New("payment event provider event id 无效")
 	}
-	row := b.db.QueryRow(`SELECT id, provider, provider_event_id, channel_version_id, event_type, order_id,
+	row := b.reader().QueryRow(`SELECT id, provider, provider_event_id, channel_version_id, event_type, order_id,
 		out_trade_no, transaction_id, app_id, merchant_id, trade_state, trade_state_desc,
 		amount_fen, currency, success_time, resource_digest, status, attempts, last_error,
 		last_attempt_at, received_at, processed_at FROM payment_events WHERE provider_event_id = `+b.placeholder(1), providerEventID)
@@ -189,7 +189,7 @@ func (b *DatabaseBackend) loadPaymentOrderByIdempotency(userID, key string) (Pay
 }
 
 func (b *DatabaseBackend) loadPaymentOrder(where string, args ...any) (PaymentOrderRecord, error) {
-	row := b.db.QueryRow(paymentOrderSelect+where, args...)
+	row := b.reader().QueryRow(paymentOrderSelect+where, args...)
 	item, err := scanPaymentOrder(row)
 	if errors.Is(err, sql.ErrNoRows) {
 		return PaymentOrderRecord{}, ErrPaymentRecordNotFound

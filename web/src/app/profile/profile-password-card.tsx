@@ -98,18 +98,18 @@ export function ProfilePasswordCard({
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   return (
-    <Card className="order-2">
+    <Card className="order-2 border-border bg-[#fbfdff] dark:bg-card">
       <CardHeader className="pb-3">
         <div className="flex min-w-0 items-center gap-3">
-          <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border/80 bg-surface-muted text-foreground">
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-[#cfe0ff] bg-[#edf4ff] text-[#1456f0] dark:border-sky-500/30 dark:bg-sky-950/50 dark:text-sky-300">
             <LockKeyhole className="size-4.5" />
           </div>
           <div className="min-w-0">
-            <CardTitle className="text-base font-semibold">安全设置</CardTitle>
+            <CardTitle className="text-base font-semibold">修改登录密码</CardTitle>
             <CardDescription className="truncate">
               {session.provider === "local"
-                ? "定期更新本地账号登录密码"
-                : "外部登录身份托管"}
+                ? "定期修改本地账号密码更安全"
+                : "第三方账号登录"}
             </CardDescription>
           </div>
         </div>
@@ -162,6 +162,7 @@ export function ProfilePasswordCard({
               <Button
                 type="button"
                 size="sm"
+                className="bg-[#1456f0] text-white hover:bg-[#1048ce]"
                 onClick={onChangePassword}
                 disabled={isChangingPassword}
               >

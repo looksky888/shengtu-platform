@@ -111,16 +111,26 @@ func responseImageTaskBody(payload map[string]any) map[string]any {
 		}
 		input = []map[string]any{{"role": "user", "content": content}}
 	}
+	rawFormat := strings.TrimSpace(util.Clean(payload["output_format"]))
 	tool := map[string]any{
-		"type":          "image_generation",
-		"action":        responseImageTaskAction(images),
-		"size":          responseImageTaskToolSize(util.Clean(payload["size"])),
-		"output_format": service.NormalizeImageOutputFormat(util.Clean(payload["output_format"])),
+		"type":   "image_generation",
+		"action": responseImageTaskAction(images),
+		"size":   responseImageTaskToolSize(util.Clean(payload["size"])),
 	}
-	if util.Clean(tool["output_format"]) != "png" {
-		if compression, ok := imageOutputCompressionFromBody(payload["output_compression"]); ok {
-			tool["output_compression"] = compression
+	if rawFormat != "" {
+		format := service.NormalizeImageOutputFormat(rawFormat)
+		tool["output_format"] = format
+		if format != "png" && format != "gif" {
+			if compression, ok := imageOutputCompressionFromBody(payload["output_compression"]); ok {
+				tool["output_compression"] = compression
+			}
 		}
+	}
+	if fc := strings.TrimSpace(util.Clean(payload["frame_count"])); fc != "" {
+		tool["frame_count"] = fc
+	}
+	if fd := strings.TrimSpace(util.Clean(payload["frame_duration_ms"])); fd != "" {
+		tool["frame_duration_ms"] = fd
 	}
 	if quality := util.Clean(payload["quality"]); quality != "" {
 		tool["quality"] = quality
@@ -133,6 +143,18 @@ func responseImageTaskBody(payload map[string]any) map[string]any {
 		"n":               util.ToInt(payload["n"], 1),
 		"owner_name":      util.Clean(payload["owner_name"]),
 		"response_format": "b64_json",
+	}
+	if rawFormat != "" {
+		body["output_format"] = service.NormalizeImageOutputFormat(rawFormat)
+	}
+	if fc := strings.TrimSpace(util.Clean(payload["frame_count"])); fc != "" {
+		body["frame_count"] = fc
+	}
+	if fd := strings.TrimSpace(util.Clean(payload["frame_duration_ms"])); fd != "" {
+		body["frame_duration_ms"] = fd
+	}
+	if formats, ok := payload["channel_formats"]; ok && formats != nil {
+		body["channel_formats"] = formats
 	}
 	if messages := util.AsMapSlice(payload["messages"]); len(messages) > 0 {
 		body["instructions"] = responseImageTaskInstructions(messages, prompt)
@@ -203,7 +225,11 @@ func responseImageOutputItems(output any) []map[string]any {
 		if b64 == "" {
 			continue
 		}
-		items = append(items, map[string]any{"b64_json": b64, "revised_prompt": util.Clean(item["revised_prompt"])})
+		entry := map[string]any{"b64_json": b64, "revised_prompt": util.Clean(item["revised_prompt"])}
+		if outFmt := strings.TrimSpace(util.Clean(item["output_format"])); outFmt != "" {
+			entry["output_format"] = service.NormalizeImageOutputFormat(outFmt)
+		}
+		items = append(items, entry)
 	}
 	return items
 }

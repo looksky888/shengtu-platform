@@ -113,6 +113,18 @@ export function buildSettingsPayload(config: SettingsConfig): SettingsConfig {
         Number(config.image_credit_cost_4k) ||
         3
     ),
+    gpt_image_2_6_credit_cost: Math.max(
+      1,
+      Number(config.gpt_image_2_6_credit_cost) || 5
+    ),
+    gpt_image_2_6_flare_credit_cost: Math.max(
+      1,
+      Number(config.gpt_image_2_6_flare_credit_cost) || 5
+    ),
+    gpt_image_2_6_sunburst_credit_cost: Math.max(
+      1,
+      Number(config.gpt_image_2_6_sunburst_credit_cost) || 5
+    ),
     grok_image_credit_cost_1k: Math.max(
       1,
       Number(config.grok_image_credit_cost_1k) || 1

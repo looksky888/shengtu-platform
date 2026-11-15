@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // ListImages returns the first gallery page. Prefer ListImagesQuery for cursor pagination.
@@ -71,6 +72,7 @@ func (s *ImageService) UpdateImageVisibility(value, visibility string, scope Ima
 		"path":       ref.rel,
 		"date":       imageDay(ref.rel, ref.info.ModTime()),
 		"size":       ref.info.Size(),
+		"url":        publicAssetURL("", "images", ref.rel),
 		"visibility": nextMeta.Visibility,
 		"created_at": ref.info.ModTime().Format("2006-01-02 15:04:05"),
 	}
@@ -88,6 +90,20 @@ func (s *ImageService) UpdateImageVisibility(value, visibility string, scope Ima
 	}
 	if nextMeta.RequestedSize != "" {
 		item["requested_size"] = nextMeta.RequestedSize
+	}
+	if nextMeta.OutputFormat != "" {
+		item["output_format"] = nextMeta.OutputFormat
+	}
+	isGIF := isGIFRel(ref.rel) || strings.EqualFold(nextMeta.OutputFormat, "gif")
+	if isGIF {
+		item["thumbnail_url"] = ""
+	} else {
+		thumb := s.thumbnailInfo(ref.rel, ref.info)
+		if thumbRel, ok := thumb["thumbnail_rel"].(string); ok && thumbRel != "" {
+			item["thumbnail_url"] = thumbnailURL("", thumbRel, ref.info.ModTime())
+		} else {
+			item["thumbnail_url"] = ""
+		}
 	}
 	if width, height, ok := imageFileDimensions(ref.path); ok {
 		setImageItemDimensions(item, width, height)

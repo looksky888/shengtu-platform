@@ -49,29 +49,79 @@ func (b *DatabaseBackend) CompletePaymentStorage(input PaymentStorageCompletion)
 		vipGraceDays = int(rawGraceDays.Int64)
 	}
 	creditedBound := normalizeUTCSortableISO(input.CreditedAt)
+	creditedAtUTC := creditedTime.UTC().Format(time.RFC3339Nano)
 	graceCutoffBound := formatUTCZeroNanoBound(creditedTime.AddDate(0, 0, -vipGraceDays))
 	expiresExpr := b.utcSortableExpr("expires_at")
-	var currentExpiry sql.NullString
-	query := `SELECT expires_at FROM user_storage_entitlements WHERE user_id = ` + b.placeholder(1) + ` AND ` + expiresExpr + ` > ` + b.placeholder(2) + ` ORDER BY ` + expiresExpr + ` DESC LIMIT 1`
-	if err := tx.QueryRow(query, order.UserID, graceCutoffBound).Scan(&currentExpiry); err != nil && !errors.Is(err, sql.ErrNoRows) {
+	existingRows, err := tx.Query(
+		`SELECT storage_bytes, expires_at FROM user_storage_entitlements WHERE user_id = `+b.placeholder(1)+` AND `+expiresExpr+` > `+b.placeholder(2),
+		order.UserID, graceCutoffBound,
+	)
+	if err != nil {
 		return PaymentOrderRecord{}, false, err
 	}
 	base := creditedTime
-	if currentExpiry.Valid {
-		if parsedCurrent, parseErr := time.Parse(time.RFC3339Nano, strings.TrimSpace(currentExpiry.String)); parseErr == nil && parsedCurrent.After(base) {
-			base = parsedCurrent
+	var (
+		activeMaxBytes     int64
+		graceMaxBytes      int64
+		activeHasUnlimited bool
+		graceHasUnlimited  bool
+	)
+	for existingRows.Next() {
+		var rowBytes int64
+		var rawExpires string
+		if scanErr := existingRows.Scan(&rowBytes, &rawExpires); scanErr != nil {
+			_ = existingRows.Close()
+			return PaymentOrderRecord{}, false, scanErr
+		}
+		parsedExpires, parseErr := time.Parse(time.RFC3339Nano, strings.TrimSpace(rawExpires))
+		if parseErr != nil {
+			continue
+		}
+		if parsedExpires.After(base) {
+			base = parsedExpires
+		}
+		if parsedExpires.After(creditedTime) {
+			if rowBytes == 0 {
+				activeHasUnlimited = true
+			} else if rowBytes > activeMaxBytes {
+				activeMaxBytes = rowBytes
+			}
+		} else {
+			if rowBytes == 0 {
+				graceHasUnlimited = true
+			} else if rowBytes > graceMaxBytes {
+				graceMaxBytes = rowBytes
+			}
 		}
 	}
-	expiresAt := base.AddDate(0, 0, order.StorageDaysSnapshot).UTC().Format(time.RFC3339Nano)
-	if input.Entitlement.StorageBytes > 0 {
-		if _, err := tx.Exec(`UPDATE user_storage_entitlements SET expires_at = `+b.placeholder(1)+`, updated_at = `+b.placeholder(2)+` WHERE user_id = `+b.placeholder(3)+` AND `+expiresExpr+` > `+b.placeholder(4)+` AND storage_bytes > 0`, expiresAt, input.CreditedAt, order.UserID, creditedBound); err != nil {
-			return PaymentOrderRecord{}, false, err
+	if err := existingRows.Err(); err != nil {
+		_ = existingRows.Close()
+		return PaymentOrderRecord{}, false, err
+	}
+	_ = existingRows.Close()
+
+	effectiveBytes := input.Entitlement.StorageBytes
+	if effectiveBytes > 0 {
+		if activeMaxBytes > effectiveBytes {
+			effectiveBytes = activeMaxBytes
 		}
 	} else {
-		if _, err := tx.Exec(`UPDATE user_storage_entitlements SET expires_at = `+b.placeholder(1)+`, updated_at = `+b.placeholder(2)+` WHERE user_id = `+b.placeholder(3)+` AND `+expiresExpr+` > `+b.placeholder(4)+` AND storage_bytes = 0`, expiresAt, input.CreditedAt, order.UserID, graceCutoffBound); err != nil {
-			return PaymentOrderRecord{}, false, err
+		if activeMaxBytes > 0 && !activeHasUnlimited {
+			effectiveBytes = activeMaxBytes
+		} else if activeMaxBytes == 0 && !activeHasUnlimited && graceMaxBytes > 0 && !graceHasUnlimited {
+			effectiveBytes = graceMaxBytes
 		}
 	}
+
+	expiresAt := base.AddDate(0, 0, order.StorageDaysSnapshot).UTC().Format(time.RFC3339Nano)
+	// Mark previously active rows as superseded at creditedAtUTC while keeping every order's audit row intact.
+	if _, err := tx.Exec(
+		`UPDATE user_storage_entitlements SET expires_at = `+b.placeholder(1)+`, updated_at = `+b.placeholder(2)+` WHERE user_id = `+b.placeholder(3)+` AND `+expiresExpr+` > `+b.placeholder(4),
+		creditedAtUTC, input.CreditedAt, order.UserID, creditedBound,
+	); err != nil {
+		return PaymentOrderRecord{}, false, err
+	}
+	input.Entitlement.StorageBytes = effectiveBytes
 	input.Entitlement.ExpiresAt = expiresAt
 	if _, err := tx.Exec(`INSERT INTO user_storage_entitlements (id, user_id, source_order_id, product_id, storage_bytes, expires_at, created_at, updated_at) VALUES (`+b.paymentPlaceholders(8)+`)`, input.Entitlement.ID, input.Entitlement.UserID, input.Entitlement.SourceOrderID, input.Entitlement.ProductID, input.Entitlement.StorageBytes, input.Entitlement.ExpiresAt, input.Entitlement.CreatedAt, input.Entitlement.UpdatedAt); err != nil {
 		if b.isUniqueConflict(err) {
@@ -124,7 +174,7 @@ func (b *DatabaseBackend) LoadActiveStorageEntitlement(userID, now string) (Paym
 	if !settings.CloudStorageEnabled {
 		item.Tier = StorageTierDisabled
 	}
-	if err := b.db.QueryRow(
+	if err := b.reader().QueryRow(
 		`SELECT COUNT(*), COALESCE(SUM(size_bytes), 0) FROM media_assets WHERE owner_id = `+b.placeholder(1)+` AND media_type = 'image' AND status IN ('ready', 'pending') AND deleted_at = ''`,
 		userID,
 	).Scan(&item.AssetCount, &item.UsedBytes); err != nil {
@@ -133,7 +183,7 @@ func (b *DatabaseBackend) LoadActiveStorageEntitlement(userID, now string) (Paym
 
 	graceCutoffBound := formatUTCZeroNanoBound(nowTime.AddDate(0, 0, -settings.VIPGraceDays))
 	expiresExpr := b.utcSortableExpr("expires_at")
-	rows, err := b.db.Query(
+	rows, err := b.reader().Query(
 		`SELECT storage_bytes, expires_at FROM user_storage_entitlements WHERE user_id = `+b.placeholder(1)+` AND `+expiresExpr+` > `+b.placeholder(2),
 		userID, graceCutoffBound,
 	)
@@ -164,11 +214,15 @@ func (b *DatabaseBackend) LoadActiveStorageEntitlement(userID, now string) (Paym
 		if maxExpiresTime.IsZero() || parsedExpires.After(maxExpiresTime) {
 			maxExpiresTime = parsedExpires
 			maxExpiresAt = rowExpires
+			graceBytes = 0
+			graceUnlim = false
 		}
-		if rowBytes == 0 {
-			graceUnlim = true
-		} else {
-			graceBytes += rowBytes
+		if parsedExpires.Equal(maxExpiresTime) {
+			if rowBytes == 0 {
+				graceUnlim = true
+			} else {
+				graceBytes += rowBytes
+			}
 		}
 		if parsedExpires.After(nowTime) {
 			if rowBytes == 0 {
@@ -186,7 +240,7 @@ func (b *DatabaseBackend) LoadActiveStorageEntitlement(userID, now string) (Paym
 		item.ExpiresAt = maxExpiresAt
 		item.GraceExpiresAt = maxExpiresTime.AddDate(0, 0, settings.VIPGraceDays).UTC().Format(time.RFC3339Nano)
 		if maxExpiresTime.After(nowTime) {
-			item.Unlimited = activeUnlim || graceUnlim
+			item.Unlimited = activeUnlim
 			if !item.Unlimited {
 				item.StorageBytes = activeBytes
 			}
@@ -219,7 +273,7 @@ func (b *DatabaseBackend) ListActiveStorageEntitlements(now string) (map[string]
 	graceCutoffBound := formatUTCZeroNanoBound(nowTime.AddDate(0, 0, -settings.VIPGraceDays))
 	expiresExpr := b.utcSortableExpr("e.expires_at")
 
-	rows, err := b.db.Query(
+	rows, err := b.reader().Query(
 		`SELECT e.user_id, e.storage_bytes, e.expires_at,
 			COALESCE((SELECT COUNT(*) FROM media_assets m WHERE m.owner_id = e.user_id AND m.media_type = 'image' AND m.status IN ('ready', 'pending') AND m.deleted_at = ''), 0),
 			COALESCE((SELECT SUM(m.size_bytes) FROM media_assets m WHERE m.owner_id = e.user_id AND m.media_type = 'image' AND m.status IN ('ready', 'pending') AND m.deleted_at = ''), 0)
@@ -263,11 +317,15 @@ func (b *DatabaseBackend) ListActiveStorageEntitlements(now string) (map[string]
 		if st.maxExpiresTime.IsZero() || parsedExpires.After(st.maxExpiresTime) {
 			st.maxExpiresTime = parsedExpires
 			st.maxExpiresAt = rowExpires
+			st.graceBytes = 0
+			st.graceUnlim = false
 		}
-		if rowBytes == 0 {
-			st.graceUnlim = true
-		} else {
-			st.graceBytes += rowBytes
+		if parsedExpires.Equal(st.maxExpiresTime) {
+			if rowBytes == 0 {
+				st.graceUnlim = true
+			} else {
+				st.graceBytes += rowBytes
+			}
 		}
 		if parsedExpires.After(nowTime) {
 			if rowBytes == 0 {
@@ -295,7 +353,7 @@ func (b *DatabaseBackend) ListActiveStorageEntitlements(now string) (map[string]
 			GraceExpiresAt:      st.maxExpiresTime.AddDate(0, 0, settings.VIPGraceDays).UTC().Format(time.RFC3339Nano),
 		}
 		if st.maxExpiresTime.After(nowTime) {
-			item.Unlimited = st.activeUnlim || st.graceUnlim
+			item.Unlimited = st.activeUnlim
 			if !item.Unlimited {
 				item.StorageBytes = st.activeBytes
 			}

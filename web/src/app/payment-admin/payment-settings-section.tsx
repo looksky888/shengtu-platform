@@ -37,7 +37,7 @@ type PaymentSettingsSectionProps = {
 };
 
 export function PaymentSettingsSection({
-  hideCloudStorageToggle = false,
+  hideCloudStorageToggle = true,
   onSaved,
 }: PaymentSettingsSectionProps = {}) {
   const [settings, setSettings] = useState<PaymentSettings | null>(null);
@@ -77,22 +77,23 @@ export function PaymentSettingsSection({
     setSaving(true);
     try {
       let payload: PaymentSettings = settings;
-      if (hideCloudStorageToggle) {
-        try {
-          const latest = (await fetchPaymentSettings()).item;
-          payload = {
-            ...settings,
-            cloud_storage_enabled: latest.cloud_storage_enabled,
-            free_retention_days: latest.free_retention_days,
-            vip_grace_days: latest.vip_grace_days,
-            historical_grace_days: latest.historical_grace_days,
-          };
-        } catch {
-          payload = {
-            ...settings,
-            cloud_storage_enabled: settings.cloud_storage_enabled,
-          };
-        }
+      try {
+        const latest = (await fetchPaymentSettings()).item;
+        payload = {
+          ...settings,
+          cloud_storage_enabled: latest.cloud_storage_enabled,
+          free_retention_days: latest.free_retention_days,
+          vip_grace_days: latest.vip_grace_days,
+          historical_grace_days: latest.historical_grace_days,
+        };
+      } catch {
+        payload = {
+          ...settings,
+          cloud_storage_enabled: settings.cloud_storage_enabled,
+          free_retention_days: settings.free_retention_days,
+          vip_grace_days: settings.vip_grace_days,
+          historical_grace_days: settings.historical_grace_days,
+        };
       }
       const result = await updatePaymentSettings(payload);
       setSettings(result.item);
@@ -106,7 +107,7 @@ export function PaymentSettingsSection({
     } finally {
       setSaving(false);
     }
-  }, [hideCloudStorageToggle, onSaved, settings]);
+  }, [onSaved, settings]);
 
   const discardChanges = useCallback(() => {
     if (!savedSnapshot) return;
@@ -258,8 +259,8 @@ export function PaymentSettingsSection({
                     size="sm"
                     className="h-7.5 gap-1 text-xs"
                   >
-                    <Link to="/admin/settings/storage">
-                      <span>前往存储与备份管理</span>
+                    <Link to="/settings?tab=media">
+                      <span>前往媒体存储管理</span>
                       <ArrowUpRight className="size-3.5" />
                     </Link>
                   </Button>

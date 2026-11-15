@@ -199,9 +199,19 @@ func (a *App) imageCreditBaseAmount(payload map[string]any) int {
 	if frozen := util.ToInt(payload["image_credit_cost"], 0); frozen > 0 {
 		return frozen
 	}
-	model := util.Clean(payload["model"])
+	model := strings.TrimSpace(util.Clean(payload["model"]))
+	if model == "" || model == util.ImageModelAuto {
+		model = a.defaultImageModel()
+	}
+	rawResolution := firstNonEmpty(
+		util.Clean(payload["image_resolution"]),
+		util.Clean(payload["resolution_preset"]),
+		util.Clean(payload["requested_size"]),
+		util.Clean(payload["size"]),
+	)
+	resolution := service.NormalizeImageResolutionPreset(rawResolution)
 	if util.IsGrokImageModel(model) {
-		if service.NormalizeImageResolutionPreset(util.Clean(payload["image_resolution"])) == "2k" {
+		if resolution == "2k" || resolution == "4k" {
 			return a.config.GrokImageCreditCost2K()
 		}
 		return a.config.GrokImageCreditCost1K()
@@ -215,10 +225,20 @@ func (a *App) imageCreditBaseAmount(payload map[string]any) int {
 		return a.config.GPTImage25FlareCreditCost()
 	case util.ImageModelGPT25Sunburst:
 		return a.config.GPTImage25SunburstCreditCost()
+	case util.ImageModelGPT26:
+		return a.config.GPTImage26CreditCost()
+	case util.ImageModelGPT26Flare:
+		return a.config.GPTImage26FlareCreditCost()
+	case util.ImageModelGPT26Sunburst:
+		return a.config.GPTImage26SunburstCreditCost()
 	}
-	resolution := service.NormalizeImageResolutionPreset(util.Clean(payload["image_resolution"]))
-	if resolution == "" {
-		resolution = service.NormalizeImageResolutionPreset(util.Clean(payload["resolution_preset"]))
+	switch resolution {
+	case "4k":
+		return a.config.ImageCreditCost4K()
+	case "2k":
+		return a.config.ImageCreditCost2K()
+	case "1k", "1080p":
+		return a.config.ImageCreditCost1080P()
 	}
 	size := strings.ToLower(strings.TrimSpace(firstNonEmpty(resolution, util.Clean(payload["requested_size"]), util.Clean(payload["size"]))))
 	size = strings.ToLower(protocol.NormalizeImageGenerationSize(size))

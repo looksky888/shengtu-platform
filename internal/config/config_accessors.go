@@ -21,6 +21,18 @@ func (s *Store) AdminPassword() string {
 	return strings.TrimSpace(os.Getenv("CHATGPT2API_ADMIN_PASSWORD"))
 }
 
+func (s *Store) SessionSecret() string {
+	if s != nil {
+		if v := strings.TrimSpace(util.Clean(s.settingValue("session_secret", ""))); v != "" {
+			return v
+		}
+	}
+	if v := strings.TrimSpace(os.Getenv("CHATGPT2API_SESSION_SECRET")); v != "" {
+		return v
+	}
+	return strings.TrimSpace(os.Getenv("SESSION_SECRET"))
+}
+
 func (s *Store) RegistrationEnabled() bool {
 	return util.ToBool(s.settingValue("registration_enabled", false))
 }
@@ -106,7 +118,7 @@ func (s *Store) ImageTaskTimeoutSeconds() int {
 }
 
 func (s *Store) ImageDefaultModel() string {
-	return normalizeImageDefaultModel(s.settingValue("image_default_model", util.ImageModelGPT25Flare))
+	return normalizeImageDefaultModel(s.settingValue("image_default_model", util.ImageModelGPT26Flare))
 }
 
 func (s *Store) ImageInternalModelSlug() string {
@@ -194,6 +206,18 @@ func (s *Store) GPTImage25FlareCreditCost() int {
 
 func (s *Store) GPTImage25SunburstCreditCost() int {
 	return normalizeImageCreditCost(s.settingValue("gpt_image_2_5_sunburst_credit_cost", s.ImageCreditCost4K()), s.ImageCreditCost4K())
+}
+
+func (s *Store) GPTImage26CreditCost() int {
+	return normalizeImageCreditCost(s.settingValue("gpt_image_2_6_credit_cost", util.DefaultGPTImage26CreditCost), util.DefaultGPTImage26CreditCost)
+}
+
+func (s *Store) GPTImage26FlareCreditCost() int {
+	return normalizeImageCreditCost(s.settingValue("gpt_image_2_6_flare_credit_cost", util.DefaultGPTImage26CreditCost), util.DefaultGPTImage26CreditCost)
+}
+
+func (s *Store) GPTImage26SunburstCreditCost() int {
+	return normalizeImageCreditCost(s.settingValue("gpt_image_2_6_sunburst_credit_cost", util.DefaultGPTImage26CreditCost), util.DefaultGPTImage26CreditCost)
 }
 
 func (s *Store) ImageCreditCost2K() int {

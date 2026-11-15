@@ -1,36 +1,44 @@
 import { formatImageFileSize } from "@/lib/image-size";
 import { isTurnBusy } from "@/lib/image-turn-state";
 import {
+  buildSameOriginImageProxySrc,
   fetchAuthorizedImageBlob,
   fetchAuthorizedImageHead,
 } from "@/lib/media-fetch";
 import type { ImageTurn, ImageTurnStatus, StoredImage } from "@/store/image-conversations";
 import type { DownloadableImage } from "@/app/image/components/image-results-types";
-import { downloadImageBlob, downloadImageFiles, triggerImageDownload, type ImageDownloadResult } from "@/lib/image-download";
+import { downloadImageFiles, downloadImageSrc, type ImageDownloadResult } from "@/lib/image-download";
 
 export function normalizeManagedImageUrl(url: string) {
   if (!url) return "";
-  if (typeof window === "undefined") return url;
-  try {
-    const parsed = new URL(url, window.location.origin);
-    const isManagedImage = parsed.pathname.startsWith("/images/") || parsed.pathname.startsWith("/image-thumbnails/");
-    if (!isManagedImage) return url;
+  let candidate = url;
+  if (typeof window !== "undefined") {
+    try {
+      const parsed = new URL(url, window.location.origin);
+      const isManagedImage =
+        parsed.pathname.startsWith("/images/") || parsed.pathname.startsWith("/image-thumbnails/");
+      if (!isManagedImage) {
+        return url;
+      }
 
-    const currentHostname = window.location.hostname.toLowerCase();
-    const isLocalPreview = currentHostname === "localhost" || currentHostname === "127.0.0.1" || currentHostname === "::1";
-    const isLegacyServerOrigin = parsed.hostname === "38.58.58.251" && parsed.port === "3004";
-    const isConfiguredProductionOrigin = parsed.hostname === "www.shengtu.xyz" || parsed.hostname === "shengtu.xyz";
+      const currentHostname = window.location.hostname.toLowerCase();
+      const isLocalPreview =
+        currentHostname === "localhost" || currentHostname === "127.0.0.1" || currentHostname === "::1";
+      const isLegacyServerOrigin = parsed.hostname === "38.58.58.251" && parsed.port === "3004";
+      const isConfiguredProductionOrigin =
+        parsed.hostname === "www.shengtu.xyz" || parsed.hostname === "shengtu.xyz";
 
-    if (isLocalPreview && parsed.origin !== window.location.origin) {
-      return `${window.location.origin}${parsed.pathname}${parsed.search}${parsed.hash}`;
+      if (
+        (isLocalPreview && parsed.origin !== window.location.origin) ||
+        ((isLegacyServerOrigin || isConfiguredProductionOrigin) && parsed.origin !== window.location.origin)
+      ) {
+        candidate = `${parsed.pathname}${parsed.search}${parsed.hash}`;
+      }
+    } catch {
+      return url;
     }
-    if ((isLegacyServerOrigin || isConfiguredProductionOrigin) && parsed.origin !== window.location.origin) {
-      return `${window.location.origin}${parsed.pathname}${parsed.search}${parsed.hash}`;
-    }
-  } catch {
-    // Keep the original value if it is not a valid URL.
   }
-  return url;
+  return buildSameOriginImageProxySrc(candidate);
 }
 
 export function getStoredImageSrc(image: StoredImage) {
@@ -46,7 +54,7 @@ export function getStoredImageSrc(image: StoredImage) {
       .filter(Boolean)
       .map((part) => encodeURIComponent(part))
       .join("/");
-    return encodedPath ? `/images/${encodedPath}` : "";
+    return encodedPath ? buildSameOriginImageProxySrc(`/images/${encodedPath}`) : "";
   }
   return "";
 }
@@ -58,7 +66,7 @@ export function imageSelectionKey(conversationId: string, turnId: string, imageI
 export function getImageFormatLabel(image: StoredImage, src: string) {
   const dataUrlFormat = src.match(/^data:image\/([^;,]+)/i)?.[1];
   const urlFormat = image.url ? image.url.split("?")[0]?.match(/\.([a-z0-9]+)$/i)?.[1] : "";
-  const normalized = String(dataUrlFormat || urlFormat || (image.b64_json ? "png" : "png")).toLowerCase();
+  const normalized = String(dataUrlFormat || urlFormat || image.outputFormat || "png").toLowerCase();
   const format = normalized === "jpeg" ? "jpg" : normalized;
   return `IMAGE ${format.toUpperCase()}`;
 }
@@ -105,11 +113,7 @@ export function buildDownloadName(createdAt: string, turnId: string, index: numb
 }
 
 export async function downloadImage(image: DownloadableImage) {
-  if (image.src.startsWith("data:")) {
-    triggerImageDownload(image.src, image.fileName);
-    return;
-  }
-  await downloadImageBlob(image.src, image.fileName);
+  await downloadImageSrc(image.src, image.fileName);
 }
 
 export async function downloadImages(images: DownloadableImage[]): Promise<ImageDownloadResult> {
@@ -167,7 +171,7 @@ export function turnProgressKey(conversationId: string, turnId: string) {
 
 export function getStatusChipClass(status: ImageTurnStatus) {
   if (status === "queued") return "bg-amber-500/12 text-amber-700 dark:text-amber-300";
-  if (status === "generating") return "bg-surface-muted font-medium text-foreground ring-1 ring-border/80";
+  if (status === "generating") return "bg-[#edf4ff] font-medium text-[#1456f0] dark:bg-sky-950/50 dark:text-sky-300";
   if (status === "success") return "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300";
   if (status === "message") return "bg-surface-muted text-muted-foreground";
   if (status === "cancelled") return "bg-amber-500/12 text-amber-700 dark:text-amber-300";

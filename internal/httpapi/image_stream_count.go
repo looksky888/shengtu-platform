@@ -47,11 +47,15 @@ func extractMarkdownImageTargets(text string) []string {
 	return out
 }
 
+func isInlineDataImageURL(raw string) bool {
+	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(raw)), "data:image/")
+}
+
 func observeContentMarkdownImages(counter inlineImageCounter, content any) {
 	switch x := content.(type) {
 	case string:
 		for _, target := range extractMarkdownImageTargets(x) {
-			if !isHTTPOrMediaURL(target) {
+			if isInlineDataImageURL(target) {
 				counter.recordInline(target)
 			}
 		}

@@ -88,8 +88,8 @@ func TestStoreNormalizesImageModelRoutingSettings(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Update() error = %v", err)
 	}
-	if store.ImageDefaultModel() != "gpt-image-2.5-flare" {
-		t.Fatalf("ImageDefaultModel() = %q, want gpt-image-2.5-flare", store.ImageDefaultModel())
+	if store.ImageDefaultModel() != "gpt-image-2.6-flare" {
+		t.Fatalf("ImageDefaultModel() = %q, want gpt-image-2.6-flare", store.ImageDefaultModel())
 	}
 	if store.ImageInternalModelSlug() != "gpt-5-3" {
 		t.Fatalf("ImageInternalModelSlug() = %q, want gpt-5-3", store.ImageInternalModelSlug())
@@ -101,10 +101,10 @@ func TestStoreNormalizesImageModelRoutingSettings(t *testing.T) {
 	if strings.Join(store.ImageFallbackModelSlugs(), ",") != strings.Join(wantFallback, ",") {
 		t.Fatalf("ImageFallbackModelSlugs() = %#v, want %#v", store.ImageFallbackModelSlugs(), wantFallback)
 	}
-	assertConfigValue(t, got, "image_default_model", "gpt-image-2.5-flare")
+	assertConfigValue(t, got, "image_default_model", "gpt-image-2.6-flare")
 	assertConfigValue(t, got, "image_internal_model_slug", "gpt-5-3")
 
-	for _, allowed := range []string{"gpt-image-2", "gpt-image-2.5", "gpt-image-2.5-sunburst", "auto"} {
+	for _, allowed := range []string{"gpt-image-2.6-flare", "gpt-image-2.6", "gpt-image-2.6-sunburst", "gpt-image-2.5-flare", "gpt-image-2", "gpt-image-2.5", "gpt-image-2.5-sunburst", "auto"} {
 		updated, err := store.Update(map[string]any{"image_default_model": allowed})
 		if err != nil {
 			t.Fatalf("Update(image_default_model=%s) error = %v", allowed, err)

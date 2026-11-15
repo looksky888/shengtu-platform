@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 export function LoginTopActions({ state }: { state: LoginPageState }) {
   return (
     <div
-      className="relative z-20 mb-3 flex w-full max-w-[30rem] shrink-0 items-center justify-end gap-2 self-center lg:absolute lg:top-5 lg:right-6 lg:z-30 lg:mb-0 lg:w-auto lg:max-w-none"
+      className="relative z-20 mb-3 flex w-full max-w-[58rem] shrink-0 items-center justify-end gap-2 self-center lg:absolute lg:top-5 lg:right-6 lg:z-30 lg:mb-0 lg:w-auto lg:max-w-none"
       role="toolbar"
       aria-label="页面操作"
     >
@@ -17,7 +17,7 @@ export function LoginTopActions({ state }: { state: LoginPageState }) {
         type="button"
         variant="outline"
         size="icon"
-        className="size-9 rounded-lg border-border/80 bg-surface/85 text-muted-foreground shadow-2xs backdrop-blur-md hover:border-border-strong hover:bg-surface-hover hover:text-foreground"
+        className="size-9 rounded-full border-[#dfe7f1] bg-white/85 shadow-sm backdrop-blur hover:border-[#1456f0]/30 hover:bg-white dark:border-amber-800/50 dark:bg-stone-900/70 dark:hover:border-amber-700 dark:hover:bg-stone-900"
         aria-label="返回品牌首页"
         title="返回首页"
       >
@@ -26,13 +26,13 @@ export function LoginTopActions({ state }: { state: LoginPageState }) {
           <span className="sr-only">返回首页</span>
         </Link>
       </Button>
-      <AnnouncementNotifications target="login" className="size-9" />
+      <AnnouncementNotifications target="login" className="size-9 rounded-full" />
       <Button
         ref={state.themeToggleRef}
         type="button"
         variant="outline"
         size="icon"
-        className="relative size-9 rounded-lg border-border/80 bg-surface/85 text-muted-foreground shadow-2xs backdrop-blur-md hover:border-border-strong hover:bg-surface-hover hover:text-foreground"
+        className="relative size-9 rounded-full border-[#dfe7f1] bg-white/85 shadow-sm backdrop-blur hover:border-[#1456f0]/30 hover:bg-white dark:border-amber-800/50 dark:bg-stone-900/70 dark:hover:border-amber-700 dark:hover:bg-stone-900"
         onClick={state.handleThemeToggle}
         aria-label={state.theme === "dark" ? "切换到浅色模式" : "切换到深色模式"}
         title={state.theme === "dark" ? "浅色模式" : "深色模式"}

@@ -10,6 +10,40 @@ export type ImageTaskGroup = {
   count: number;
 };
 
+export type ConversationQueueOwner = {
+  runToken: symbol;
+  isSessionActive: () => boolean;
+  abort: () => void;
+};
+
+export function isConversationQueueActive(
+  owners: Map<string, ConversationQueueOwner>,
+  conversationId: string,
+) {
+  const existing = owners.get(conversationId);
+  if (!existing) {
+    return false;
+  }
+  if (!existing.isSessionActive()) {
+    existing.abort();
+    owners.delete(conversationId);
+    return false;
+  }
+  return true;
+}
+
+export function releaseConversationQueueOwner(
+  owners: Map<string, ConversationQueueOwner>,
+  conversationId: string,
+  runToken: symbol,
+) {
+  if (owners.get(conversationId)?.runToken === runToken) {
+    owners.delete(conversationId);
+    return true;
+  }
+  return false;
+}
+
 export function findRunnableTurn(conversation: ImageConversation | undefined | null) {
   return conversation?.turns.find(
     (turn) =>
@@ -22,9 +56,14 @@ export function hasRunnableConversation(conversation: ImageConversation) {
   return Boolean(findRunnableTurn(conversation));
 }
 
+/**
+ * Build submission groups ONLY for `loading` images that have NOT been submitted yet (`!image.taskId`).
+ * Items that already carry a non-empty `image.taskId` were already submitted to `/api/creation-tasks`
+ * and must go straight to backend polling (`fetchCreationTasks`) on remount/reload.
+ */
 export function buildPendingTaskGroups(turn: ImageTurn) {
   return turn.images.reduce<ImageTaskGroup[]>((groups, image, imageIndex) => {
-    if (image.status !== "loading") {
+    if (image.status !== "loading" || Boolean(image.taskId)) {
       return groups;
     }
     const taskId = imageTaskIdForImage(turn.id, turn.images, imageIndex);
@@ -59,14 +98,6 @@ export function markTurnTasksGenerating(conversation: ImageConversation, turnId:
             ...turn,
             status: "generating" as const,
             error: undefined,
-            images: turn.images.map((image, imageIndex) =>
-              image.status === "loading"
-                ? {
-                    ...image,
-                    taskId: imageTaskIdForImage(turn.id, turn.images, imageIndex),
-                  }
-                : image,
-            ),
           }
         : turn,
     ),
@@ -95,7 +126,7 @@ export function applyCreationTasksToConversation(
       if (image.status && LOCAL_TERMINAL_IMAGE_STATUSES.has(image.status)) {
         return image;
       }
-      const taskId = image.taskId || image.id;
+      const taskId = image.taskId || imageTaskIdForImage(turn.id, turn.images, imageIndex);
       const task = taskMap.get(taskId);
       const taskImage = image.taskId === taskId ? image : { ...image, taskId };
       return task ? taskDataToStoredImage(taskImage, task, turn.mode, imageDataIndexForTask(turn.images, imageIndex), turn.visibility) : image;
@@ -132,8 +163,8 @@ export function markMissingTasksExhausted(
       if (turn.id !== turnId) {
         return turn;
       }
-      const images = turn.images.map((image) => {
-        const taskId = image.taskId || image.id;
+      const images = turn.images.map((image, imageIndex) => {
+        const taskId = image.taskId || imageTaskIdForImage(turn.id, turn.images, imageIndex);
         if (image.status === "loading" && idSet.has(taskId)) {
           return { ...image, status: "error" as const, error: message };
         }

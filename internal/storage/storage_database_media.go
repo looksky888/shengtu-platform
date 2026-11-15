@@ -54,7 +54,7 @@ func scanMediaAsset(scanner interface{ Scan(...any) error }) (MediaAssetRecord, 
 }
 
 func (b *DatabaseBackend) LoadMediaAssetByID(id string) (MediaAssetRecord, bool, error) {
-	item, err := scanMediaAsset(b.db.QueryRow(`SELECT `+mediaAssetColumns+` FROM media_assets WHERE id = `+b.placeholder(1), strings.TrimSpace(id)))
+	item, err := scanMediaAsset(b.reader().QueryRow(`SELECT `+mediaAssetColumns+` FROM media_assets WHERE id = `+b.placeholder(1), strings.TrimSpace(id)))
 	if err == sql.ErrNoRows {
 		return MediaAssetRecord{}, false, nil
 	}
@@ -70,7 +70,7 @@ func (b *DatabaseBackend) ListPendingMediaAssets(limit int) ([]MediaAssetRecord,
 	}
 	nowPlaceholder := b.placeholder(1)
 	limitPlaceholder := b.placeholder(2)
-	rows, err := b.db.Query(`SELECT `+mediaAssetColumns+` FROM media_assets WHERE status = 'pending' AND deleted_at = '' AND (retry_at = '' OR retry_at <= `+nowPlaceholder+`) ORDER BY updated_at ASC LIMIT `+limitPlaceholder, mediaNowISO(), limit)
+	rows, err := b.reader().Query(`SELECT `+mediaAssetColumns+` FROM media_assets WHERE status = 'pending' AND deleted_at = '' AND (retry_at = '' OR retry_at <= `+nowPlaceholder+`) ORDER BY updated_at ASC LIMIT `+limitPlaceholder, mediaNowISO(), limit)
 	if err != nil {
 		return nil, fmt.Errorf("list pending media assets: %w", err)
 	}
@@ -90,7 +90,7 @@ func (b *DatabaseBackend) ListPendingMediaAssets(limit int) ([]MediaAssetRecord,
 }
 
 func (b *DatabaseBackend) LoadMediaAsset(path string) (MediaAssetRecord, bool, error) {
-	item, err := scanMediaAsset(b.db.QueryRow(`SELECT `+mediaAssetColumns+` FROM media_assets WHERE path = `+b.placeholder(1), strings.TrimSpace(path)))
+	item, err := scanMediaAsset(b.reader().QueryRow(`SELECT `+mediaAssetColumns+` FROM media_assets WHERE path = `+b.placeholder(1), strings.TrimSpace(path)))
 	if err == sql.ErrNoRows {
 		return MediaAssetRecord{}, false, nil
 	}
@@ -104,7 +104,7 @@ func (b *DatabaseBackend) ListMediaAssets(q MediaAssetListQuery) (MediaAssetList
 	where, args, _ := b.mediaAssetFilters(q, false)
 	countQuery := `SELECT COUNT(*) FROM media_assets WHERE ` + strings.Join(where, ` AND `)
 	var total int
-	if err := b.db.QueryRow(countQuery, args...).Scan(&total); err != nil {
+	if err := b.reader().QueryRow(countQuery, args...).Scan(&total); err != nil {
 		return MediaAssetListPage{}, fmt.Errorf("count media assets: %w", err)
 	}
 	where, args, sortExpr := b.mediaAssetFilters(q, true)
@@ -114,7 +114,7 @@ func (b *DatabaseBackend) ListMediaAssets(q MediaAssetListQuery) (MediaAssetList
 	}
 	args = append(args, limit+1)
 	query := `SELECT ` + mediaAssetColumns + ` FROM media_assets WHERE ` + strings.Join(where, ` AND `) + ` ORDER BY ` + sortExpr + ` DESC, path ASC LIMIT ` + b.placeholder(len(args))
-	rows, err := b.db.Query(query, args...)
+	rows, err := b.reader().Query(query, args...)
 	if err != nil {
 		return MediaAssetListPage{}, fmt.Errorf("list media assets: %w", err)
 	}

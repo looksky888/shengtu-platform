@@ -177,6 +177,8 @@ func readMultipartImageBody(w http.ResponseWriter, r *http.Request) (map[string]
 		"quality":            firstForm(r.MultipartForm, "quality"),
 		"output_format":      firstForm(r.MultipartForm, "output_format"),
 		"output_compression": firstForm(r.MultipartForm, "output_compression"),
+		"frame_count":        firstForm(r.MultipartForm, "frame_count"),
+		"frame_duration_ms":  firstForm(r.MultipartForm, "frame_duration_ms"),
 		"visibility":         firstForm(r.MultipartForm, "visibility"),
 		"response_format":    firstNonEmpty(firstForm(r.MultipartForm, "response_format"), "b64_json"),
 		"stream":             util.ToBool(firstForm(r.MultipartForm, "stream")),

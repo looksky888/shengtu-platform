@@ -19,14 +19,21 @@ import {
 import { requiresPaidAccountImageSize } from "@/app/image/image-paid-size";
 import { DEFAULT_IMAGE_OUTPUT_FORMAT, DEFAULT_IMAGE_QUALITY } from "@/app/image/lib/image-page-types";
 import {
+  MAX_GIF_FRAME_COUNT,
+  MAX_GIF_FRAME_DURATION_MS,
   MAX_IMAGE_COUNT,
+  MIN_GIF_FRAME_COUNT,
+  MIN_GIF_FRAME_DURATION_MS,
   MIN_IMAGE_COUNT,
+  normalizeGifFrameCount,
+  normalizeGifFrameDurationMs,
   normalizeRequestedImageCount,
+  sanitizeGifPositiveIntInput,
   sanitizeImageCountInput,
 } from "@/app/image/lib/image-turn-utils";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { IMAGE_OUTPUT_FORMAT_OPTIONS, isGrokImageModel, type ImageOutputFormat, type ImageQuality } from "@/lib/api";
+import { IMAGE_OUTPUT_FORMAT_OPTIONS, isGrokImageModel, supportsGifOutputModel, type ImageOutputFormat, type ImageQuality } from "@/lib/api";
 import { normalizeStringArray } from "@/lib/model-catalog-normalizers";
 import { cn } from "@/lib/utils";
 
@@ -91,6 +98,8 @@ export function ComposerSettingsPopover(props: ComposerSettingsPopoverProps) {
     imageQualityOptions,
     imageOutputFormat,
     imageOutputCompression,
+    imageFrameCount,
+    imageFrameDurationMs,
     estimatedCreditCost,
     estimatedCreditCostDetail,
     onOpenChange,
@@ -105,6 +114,8 @@ export function ComposerSettingsPopover(props: ComposerSettingsPopoverProps) {
     onImageQualityChange,
     onImageOutputFormatChange,
     onImageOutputCompressionChange,
+    onImageFrameCountChange,
+    onImageFrameDurationMsChange,
   } = props;
 
   const computedImageSize = useMemo(
@@ -178,7 +189,20 @@ export function ComposerSettingsPopover(props: ComposerSettingsPopoverProps) {
           ? `输出: ${imageAspectRatio} 画幅`
           : "输出: 自适应尺寸";
 
-  const compressionDisabled = imageOutputFormat === "png";
+  const compressionDisabled = imageOutputFormat === "png" || imageOutputFormat === "gif";
+  const configuredFormats = useMemo(
+    () => normalizeStringArray(props.imageFormats).map((item) => item.toLowerCase()),
+    [props.imageFormats],
+  );
+  const availableOutputFormats = useMemo(() => {
+    if (configuredFormats.length > 0) {
+      const matched = IMAGE_OUTPUT_FORMAT_OPTIONS.filter((option) => configuredFormats.includes(option.value));
+      if (matched.length > 0) return matched;
+    }
+    return IMAGE_OUTPUT_FORMAT_OPTIONS.filter(
+      (option) => option.value !== "gif" || supportsGifOutputModel(imageModel),
+    );
+  }, [configuredFormats, imageModel]);
   const supportsQuality = imageQualityOptions.length > 0;
   const resolvedCompressionNumber = useMemo(() => {
     const num = Number.parseInt(imageOutputCompression, 10);
@@ -186,11 +210,16 @@ export function ComposerSettingsPopover(props: ComposerSettingsPopoverProps) {
     return num;
   }, [imageOutputCompression]);
 
+  const parsedFrameCount = normalizeGifFrameCount(imageFrameCount);
+  const parsedFrameDurationMs = normalizeGifFrameDurationMs(imageFrameDurationMs);
+
   const hasNonDefaultAdvanced =
     imageSizeMode === "custom" ||
     (supportsQuality && imageQuality !== DEFAULT_IMAGE_QUALITY) ||
     imageOutputFormat !== DEFAULT_IMAGE_OUTPUT_FORMAT ||
-    Boolean(imageOutputCompression.trim());
+    Boolean(imageOutputCompression.trim()) ||
+    Boolean(imageFrameCount.trim()) ||
+    Boolean(imageFrameDurationMs.trim());
 
   const [manualAdvancedOpen, setManualAdvancedOpen] = useState<boolean | null>(null);
   const isAdvancedOpen = manualAdvancedOpen ?? hasNonDefaultAdvanced;
@@ -208,6 +237,10 @@ export function ComposerSettingsPopover(props: ComposerSettingsPopoverProps) {
         ? imageOutputFormat.toUpperCase()
         : `${imageOutputFormat.toUpperCase()} ${resolvedCompressionNumber}%`,
     );
+    if (imageOutputFormat === "gif") {
+      if (parsedFrameCount) parts.push(`${parsedFrameCount}帧`);
+      if (parsedFrameDurationMs) parts.push(`${parsedFrameDurationMs}ms`);
+    }
     return parts.join(" · ");
   }, [
     compressionDisabled,
@@ -216,6 +249,8 @@ export function ComposerSettingsPopover(props: ComposerSettingsPopoverProps) {
     imageOutputFormat,
     imageQuality,
     imageSizeMode,
+    parsedFrameCount,
+    parsedFrameDurationMs,
     resolvedCompressionNumber,
     supportsQuality,
   ]);
@@ -229,7 +264,9 @@ export function ComposerSettingsPopover(props: ComposerSettingsPopoverProps) {
     imageResolution === defaultResolution &&
     (!supportsQuality || imageQuality === DEFAULT_IMAGE_QUALITY) &&
     imageOutputFormat === DEFAULT_IMAGE_OUTPUT_FORMAT &&
-    !imageOutputCompression.trim();
+    !imageOutputCompression.trim() &&
+    !imageFrameCount.trim() &&
+    !imageFrameDurationMs.trim();
 
   const handleResetDefaults = () => {
     onImageCountChange("1");
@@ -241,6 +278,8 @@ export function ComposerSettingsPopover(props: ComposerSettingsPopoverProps) {
     }
     onImageOutputFormatChange(DEFAULT_IMAGE_OUTPUT_FORMAT);
     onImageOutputCompressionChange("");
+    onImageFrameCountChange("");
+    onImageFrameDurationMsChange("");
   };
 
   return (
@@ -259,18 +298,18 @@ export function ComposerSettingsPopover(props: ComposerSettingsPopoverProps) {
         <button
           type="button"
           className={cn(
-            "inline-flex h-7.5 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-surface-muted/90 px-2.5 text-xs font-medium text-foreground/85 transition-colors hover:bg-surface-hover hover:text-foreground",
-            isOpen && "bg-surface-active text-foreground ring-1 ring-foreground/15",
+            "inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-full bg-[#f2f5fa] px-2.5 text-xs font-medium text-foreground/85 transition-colors hover:bg-[#e8eef9] hover:text-foreground dark:bg-muted/70 dark:hover:bg-muted",
+            isOpen && "bg-[#edf4ff] text-[#1456f0] ring-1 ring-[#cfe0ff] dark:bg-sky-950/50 dark:text-sky-300 dark:ring-sky-500/30",
           )}
           aria-label={isOpen ? "收起参数设置" : "显示更多参数设置"}
           aria-expanded={isOpen}
           title={isOpen ? "收起参数" : "生成参数配置"}
         >
-          <SlidersHorizontal className="size-3.5 text-muted-foreground" />
+          <SlidersHorizontal className="size-3.5 text-current opacity-80" />
           <span className="hidden sm:inline">参数</span>
-          <span className="hidden text-muted-foreground/50 sm:inline">·</span>
-          <span className="font-mono text-[11px] font-medium text-foreground/90 tabular-nums">
-            {triggerSizeLabel} · {normalizedCount}张
+          <span className="hidden opacity-45 sm:inline">·</span>
+          <span className="font-mono text-[11px] font-medium tabular-nums">
+            {triggerSizeLabel} · {normalizedCount}张{imageOutputFormat === "gif" ? " · GIF" : ""}
           </span>
         </button>
       </PopoverTrigger>
@@ -279,7 +318,7 @@ export function ComposerSettingsPopover(props: ComposerSettingsPopoverProps) {
         align="start"
         side="top"
         sideOffset={10}
-        className="z-[70] max-h-[min(calc(100dvh-1.5rem),38rem)] w-[min(calc(100vw-1rem),356px)] overflow-y-auto overflow-x-hidden rounded-2xl border-border/85 bg-surface p-3.5 shadow-[0_18px_48px_-12px_rgba(0,0,0,0.16)] sm:w-[388px]"
+        className="z-[70] max-h-[min(calc(100dvh-1.5rem),39rem)] w-[min(calc(100vw-1rem),356px)] overflow-y-auto overflow-x-hidden rounded-[20px] border border-border bg-[#fbfdff] p-3.5 shadow-[0_18px_48px_-12px_rgba(24,40,72,0.14)] sm:w-[392px] dark:bg-card"
         onOpenAutoFocus={(event) => event.preventDefault()}
       >
         <div className="flex flex-col gap-3">
@@ -328,7 +367,7 @@ export function ComposerSettingsPopover(props: ComposerSettingsPopoverProps) {
                       className={cn(
                         "h-7 rounded-lg font-mono text-xs tabular-nums transition-all",
                         active
-                          ? "bg-surface font-semibold text-foreground shadow-xs ring-1 ring-black/[0.05] dark:bg-zinc-800 dark:ring-white/[0.1]"
+                          ? "bg-[#edf4ff] font-semibold text-[#1456f0] shadow-xs ring-1 ring-[#cfe0ff] dark:bg-sky-950/55 dark:text-sky-200 dark:ring-sky-500/30"
                           : "font-medium text-muted-foreground hover:text-foreground",
                       )}
                     >
@@ -437,7 +476,7 @@ export function ComposerSettingsPopover(props: ComposerSettingsPopoverProps) {
                     className={cn(
                       "flex min-h-11 flex-col items-center justify-center gap-1 rounded-xl border px-1.5 py-1.5 transition-all active:scale-[0.98]",
                       active
-                        ? "border-foreground bg-surface font-semibold text-foreground shadow-xs ring-1 ring-foreground/15 dark:bg-zinc-800/90"
+                        ? "border-[#1456f0] bg-[#edf4ff] font-semibold text-[#1456f0] shadow-xs ring-1 ring-[#1456f0]/15 dark:border-sky-400/55 dark:bg-sky-950/45 dark:text-sky-200"
                         : "border-border/75 bg-surface-muted/55 text-muted-foreground hover:border-border-strong hover:bg-surface-hover hover:text-foreground",
                       disabled && "cursor-not-allowed opacity-40 hover:bg-surface-muted/55",
                     )}
@@ -500,7 +539,7 @@ export function ComposerSettingsPopover(props: ComposerSettingsPopoverProps) {
                     className={cn(
                       "h-7 rounded-lg font-mono text-[11px] tabular-nums transition-all",
                       active
-                        ? "bg-surface font-semibold text-foreground shadow-xs ring-1 ring-black/[0.05] dark:bg-zinc-800 dark:ring-white/[0.1]"
+                        ? "bg-[#edf4ff] font-semibold text-[#1456f0] shadow-xs ring-1 ring-[#cfe0ff] dark:bg-sky-950/55 dark:text-sky-200 dark:ring-sky-500/30"
                         : "font-medium text-muted-foreground hover:text-foreground",
                       disabled && "cursor-not-allowed opacity-40",
                     )}
@@ -523,7 +562,7 @@ export function ComposerSettingsPopover(props: ComposerSettingsPopoverProps) {
               <span className="flex items-center gap-1.5 font-medium text-foreground/90">
                 <span>高级输出</span>
                 {hasNonDefaultAdvanced ? (
-                  <span className="size-1.5 rounded-full bg-foreground" aria-hidden="true" />
+                  <span className="size-1.5 rounded-full bg-[#1456f0]" aria-hidden="true" />
                 ) : null}
               </span>
               <span className="flex items-center gap-1.5 font-mono text-[10px] text-muted-foreground">
@@ -565,7 +604,7 @@ export function ComposerSettingsPopover(props: ComposerSettingsPopoverProps) {
                             className={cn(
                               "h-6 rounded-md px-2 text-[11px] transition-all",
                               active
-                                ? "bg-surface font-semibold text-foreground shadow-2xs ring-1 ring-black/[0.05] dark:bg-zinc-800 dark:ring-white/[0.1]"
+                                ? "bg-[#edf4ff] font-semibold text-[#1456f0] shadow-2xs ring-1 ring-[#cfe0ff] dark:bg-sky-950/55 dark:text-sky-200 dark:ring-sky-500/30"
                                 : "font-medium text-muted-foreground hover:text-foreground",
                             )}
                           >
@@ -621,7 +660,7 @@ export function ComposerSettingsPopover(props: ComposerSettingsPopoverProps) {
                               className={cn(
                                 "flex-1 rounded-lg border py-1 font-mono text-[10px] tabular-nums transition-colors",
                                 active
-                                  ? "border-foreground/70 bg-surface font-semibold text-foreground"
+                                  ? "border-[#1456f0] bg-[#edf4ff] font-semibold text-[#1456f0] dark:border-sky-400/50 dark:bg-sky-950/45 dark:text-sky-200"
                                   : "border-border/70 bg-surface-muted/50 text-muted-foreground hover:text-foreground",
                               )}
                             >
@@ -657,7 +696,7 @@ export function ComposerSettingsPopover(props: ComposerSettingsPopoverProps) {
                             className={cn(
                               "h-7 rounded-lg px-1.5 text-[11px] transition-all",
                               active
-                                ? "bg-surface font-semibold text-foreground shadow-xs ring-1 ring-black/[0.05] dark:bg-zinc-800 dark:ring-white/[0.1]"
+                                ? "bg-[#edf4ff] font-semibold text-[#1456f0] shadow-xs ring-1 ring-[#cfe0ff] dark:bg-sky-950/55 dark:text-sky-200 dark:ring-sky-500/30"
                                 : "font-medium text-muted-foreground hover:text-foreground",
                             )}
                           >
@@ -674,15 +713,20 @@ export function ComposerSettingsPopover(props: ComposerSettingsPopoverProps) {
                   <div className="flex items-center justify-between text-[11px]">
                     <span className="font-medium text-muted-foreground">输出格式</span>
                     <span className="font-mono text-[10px] text-subtle-foreground">
-                      {compressionDisabled ? "无损透明通道" : `有损压缩 · ${resolvedCompressionNumber}%`}
+                      {imageOutputFormat === "gif"
+                        ? "动态图直出"
+                        : compressionDisabled
+                          ? "无损透明通道"
+                          : `有损压缩 · ${resolvedCompressionNumber}%`}
                     </span>
                   </div>
                   <div
-                    className="grid grid-cols-3 gap-1 rounded-xl bg-surface-muted/95 p-1"
+                    className="grid gap-1 rounded-xl bg-surface-muted/95 p-1"
+                    style={{ gridTemplateColumns: `repeat(${Math.max(1, availableOutputFormats.length)}, minmax(0, 1fr))` }}
                     role="radiogroup"
                     aria-label="输出格式"
                   >
-                    {IMAGE_OUTPUT_FORMAT_OPTIONS.map((option) => {
+                    {availableOutputFormats.map((option) => {
                       const active = imageOutputFormat === option.value;
                       return (
                         <button
@@ -693,7 +737,11 @@ export function ComposerSettingsPopover(props: ComposerSettingsPopoverProps) {
                           onClick={() => {
                             const nextFormat = option.value as ImageOutputFormat;
                             onImageOutputFormatChange(nextFormat);
-                            if (nextFormat === "png") {
+                            if (nextFormat !== "gif") {
+                              onImageFrameCountChange("");
+                              onImageFrameDurationMsChange("");
+                            }
+                            if (nextFormat === "png" || nextFormat === "gif") {
                               onImageOutputCompressionChange("");
                             } else if (!imageOutputCompression.trim()) {
                               onImageOutputCompressionChange("85");
@@ -702,7 +750,7 @@ export function ComposerSettingsPopover(props: ComposerSettingsPopoverProps) {
                           className={cn(
                             "h-7 rounded-lg font-mono text-xs transition-all",
                             active
-                              ? "bg-surface font-semibold text-foreground shadow-xs ring-1 ring-black/[0.05] dark:bg-zinc-800 dark:ring-white/[0.1]"
+                              ? "bg-[#edf4ff] font-semibold text-[#1456f0] shadow-xs ring-1 ring-[#cfe0ff] dark:bg-sky-950/55 dark:text-sky-200 dark:ring-sky-500/30"
                               : "font-medium text-muted-foreground hover:text-foreground",
                           )}
                         >
@@ -711,6 +759,59 @@ export function ComposerSettingsPopover(props: ComposerSettingsPopoverProps) {
                       );
                     })}
                   </div>
+
+                  {imageOutputFormat === "gif" ? (
+                    <div className="grid grid-cols-2 gap-2 pt-0.5">
+                      <label className="space-y-1">
+                        <span className="block text-[11px] font-medium text-muted-foreground">
+                          帧数 (可选)
+                        </span>
+                        <Input
+                          aria-label="GIF 帧数"
+                          type="number"
+                          inputMode="numeric"
+                          min={MIN_GIF_FRAME_COUNT}
+                          max={MAX_GIF_FRAME_COUNT}
+                          step={1}
+                          value={imageFrameCount}
+                          placeholder="自动，如 12"
+                          onChange={(event) =>
+                            onImageFrameCountChange(sanitizeGifPositiveIntInput(event.target.value))
+                          }
+                          onBlur={() => {
+                            if (!imageFrameCount.trim()) return;
+                            const normalized = normalizeGifFrameCount(imageFrameCount);
+                            onImageFrameCountChange(normalized ? String(normalized) : "");
+                          }}
+                          className="h-8 bg-surface px-2.5 font-mono text-xs tabular-nums"
+                        />
+                      </label>
+                      <label className="space-y-1">
+                        <span className="block text-[11px] font-medium text-muted-foreground">
+                          帧间隔 ms (可选)
+                        </span>
+                        <Input
+                          aria-label="GIF 帧间隔毫秒"
+                          type="number"
+                          inputMode="numeric"
+                          min={MIN_GIF_FRAME_DURATION_MS}
+                          max={MAX_GIF_FRAME_DURATION_MS}
+                          step={10}
+                          value={imageFrameDurationMs}
+                          placeholder="自动，如 100"
+                          onChange={(event) =>
+                            onImageFrameDurationMsChange(sanitizeGifPositiveIntInput(event.target.value))
+                          }
+                          onBlur={() => {
+                            if (!imageFrameDurationMs.trim()) return;
+                            const normalized = normalizeGifFrameDurationMs(imageFrameDurationMs);
+                            onImageFrameDurationMsChange(normalized ? String(normalized) : "");
+                          }}
+                          className="h-8 bg-surface px-2.5 font-mono text-xs tabular-nums"
+                        />
+                      </label>
+                    </div>
+                  ) : null}
 
                   {!compressionDisabled ? (
                     <div className="flex items-center gap-3 rounded-xl bg-surface-muted/65 px-3 py-2">
@@ -723,7 +824,7 @@ export function ComposerSettingsPopover(props: ComposerSettingsPopoverProps) {
                         step={1}
                         value={resolvedCompressionNumber}
                         onChange={(event) => onImageOutputCompressionChange(event.target.value)}
-                        className="h-1.5 flex-1 cursor-pointer appearance-none rounded-full bg-foreground/15 accent-foreground"
+                        className="h-1.5 flex-1 cursor-pointer appearance-none rounded-full bg-foreground/15 accent-[#1456f0]"
                       />
                       <span className="w-9 shrink-0 text-right font-mono text-[11px] font-semibold text-foreground tabular-nums">
                         {resolvedCompressionNumber}%

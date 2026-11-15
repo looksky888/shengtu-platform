@@ -39,6 +39,9 @@ type SettingsConfigPublic struct {
 	GPTImage25CreditCost          any      `json:"gpt_image_2_5_credit_cost,omitempty"`
 	GPTImage25FlareCreditCost     any      `json:"gpt_image_2_5_flare_credit_cost,omitempty"`
 	GPTImage25SunburstCreditCost  any      `json:"gpt_image_2_5_sunburst_credit_cost,omitempty"`
+	GPTImage26CreditCost          any      `json:"gpt_image_2_6_credit_cost,omitempty"`
+	GPTImage26FlareCreditCost     any      `json:"gpt_image_2_6_flare_credit_cost,omitempty"`
+	GPTImage26SunburstCreditCost  any      `json:"gpt_image_2_6_sunburst_credit_cost,omitempty"`
 	GrokImageCreditCost1K         any      `json:"grok_image_credit_cost_1k,omitempty"`
 	GrokImageCreditCost2K         any      `json:"grok_image_credit_cost_2k,omitempty"`
 	VideoCreditCostPerSecond      any      `json:"video_credit_cost_per_second,omitempty"`
@@ -118,6 +121,9 @@ func SettingsConfigPublicFromMap(data map[string]any) SettingsConfigPublic {
 		GPTImage25CreditCost:             data["gpt_image_2_5_credit_cost"],
 		GPTImage25FlareCreditCost:        data["gpt_image_2_5_flare_credit_cost"],
 		GPTImage25SunburstCreditCost:     data["gpt_image_2_5_sunburst_credit_cost"],
+		GPTImage26CreditCost:             data["gpt_image_2_6_credit_cost"],
+		GPTImage26FlareCreditCost:        data["gpt_image_2_6_flare_credit_cost"],
+		GPTImage26SunburstCreditCost:     data["gpt_image_2_6_sunburst_credit_cost"],
 		GrokImageCreditCost1K:            data["grok_image_credit_cost_1k"],
 		GrokImageCreditCost2K:            data["grok_image_credit_cost_2k"],
 		VideoCreditCostPerSecond:         data["video_credit_cost_per_second"],

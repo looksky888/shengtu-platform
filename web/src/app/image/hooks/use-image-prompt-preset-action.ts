@@ -8,7 +8,7 @@ import {
   type ImageSizeMode,
 } from "@/app/image/image-options";
 import { type ImagePromptPreset } from "@/app/image/image-presets";
-import { DEFAULT_IMAGE_OUTPUT_FORMAT, type ComposerMode } from "@/app/image/lib/image-page-types";
+import { type ComposerMode } from "@/app/image/lib/image-page-types";
 import { buildReferenceImageFromUrl } from "@/app/image/lib/reference-image-utils";
 import type { ImageOutputFormat, ImageVisibility } from "@/lib/api";
 import type { StoredReferenceImage } from "@/store/image-conversations";
@@ -30,8 +30,10 @@ type UseImagePromptPresetActionParams = {
   setImageCustomRatio: StringSetter;
   setImageCustomWidth: StringSetter;
   setImageCustomHeight: StringSetter;
-  setImageOutputFormat: (value: ImageOutputFormat) => void;
-  setImageOutputCompression: StringSetter;
+  setImageOutputFormat?: (value: ImageOutputFormat) => void;
+  setImageOutputCompression?: StringSetter;
+  setImageFrameCount?: StringSetter;
+  setImageFrameDurationMs?: StringSetter;
   setDefaultImageVisibility: (value: ImageVisibility) => void;
 };
 
@@ -52,6 +54,8 @@ export function useImagePromptPresetAction({
   setImageCustomHeight,
   setImageOutputFormat,
   setImageOutputCompression,
+  setImageFrameCount,
+  setImageFrameDurationMs,
   setDefaultImageVisibility,
 }: UseImagePromptPresetActionParams) {
   return useCallback(
@@ -69,8 +73,10 @@ export function useImagePromptPresetAction({
       setImageCustomRatio(presetSizeSelection.customRatio);
       setImageCustomWidth(presetSizeSelection.customWidth);
       setImageCustomHeight(presetSizeSelection.customHeight);
-      setImageOutputFormat(DEFAULT_IMAGE_OUTPUT_FORMAT);
-      setImageOutputCompression("");
+      setImageOutputFormat?.("png");
+      setImageOutputCompression?.("");
+      setImageFrameCount?.("");
+      setImageFrameDurationMs?.("");
       setDefaultImageVisibility("private");
       clearReferenceImages();
 
@@ -129,6 +135,8 @@ export function useImagePromptPresetAction({
       setImageCustomHeight,
       setImageCustomRatio,
       setImageCustomWidth,
+      setImageFrameCount,
+      setImageFrameDurationMs,
       setImageOutputCompression,
       setImageOutputFormat,
       setImagePrompt,

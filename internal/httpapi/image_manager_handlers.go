@@ -45,6 +45,7 @@ func (a *App) handleImages(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		a.decorateImageList(payload)
+		a.signImageListPayload(r, identity, payload)
 		// Typed list pilot: ImagePublic items/groups (same wire shape as map list).
 		util.WriteJSON(w, http.StatusOK, service.ImageListFromPayload(payload))
 	case http.MethodDelete:
@@ -107,6 +108,7 @@ func (a *App) handleImageVisibility(w http.ResponseWriter, r *http.Request) {
 	}
 	a.decorateImageItem(item, a.imageOwnerDisplayNames())
 	a.decorateImageExpiryHint(item, a.resolveImageExpiryPolicyContext())
+	a.signImageItemURLs(r, identity, item)
 	util.WriteJSON(w, http.StatusOK, itemResponse[service.ImagePublic]{Item: service.ImagePublicFromMap(item)})
 }
 
@@ -185,10 +187,15 @@ func (a *App) recordGeneratedImagesForPayload(identity service.Identity, urls []
 		return
 	}
 	ownerID := identityScope(identity)
+	rawOutputFormat := strings.TrimSpace(util.Clean(payload["output_format"]))
+	outputFormat := ""
+	if rawOutputFormat != "" {
+		outputFormat = service.NormalizeImageOutputFormat(rawOutputFormat)
+	}
 	err := a.images.RecordGeneratedImages(urls, ownerID, identityDisplayName(identity), visibility, service.GeneratedImageMetadata{
 		ResolutionPreset: util.Clean(payload["image_resolution"]),
 		RequestedSize:    util.Clean(payload["size"]),
-		OutputFormat:     service.NormalizeImageOutputFormat(util.Clean(payload["output_format"])),
+		OutputFormat:     outputFormat,
 	})
 	if err != nil && a.logger != nil {
 		a.logger.Error("record generated image task output failed", "owner_id", ownerID, "image_count", len(urls), "error", err.Error())

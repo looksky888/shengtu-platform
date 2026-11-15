@@ -455,17 +455,17 @@ export function ImageConversationScrollRail({
           className={cn(
             "absolute top-0 left-1/2 flex -translate-x-1/2 cursor-grab items-center justify-center rounded-full shadow-xs ring-1 ring-background/60 transition-[width,background-color,box-shadow] duration-150 active:cursor-grabbing",
             isDragging
-              ? "w-3.5 bg-foreground shadow-sm"
-              : "w-2.5 bg-foreground/55 group-hover/rail:w-3.5 group-hover/rail:bg-foreground/80",
+              ? "w-3.5 bg-[#1456f0] shadow-sm dark:bg-sky-400"
+              : "w-2.5 bg-[#1456f0]/60 group-hover/rail:w-3.5 group-hover/rail:bg-[#1456f0] dark:bg-sky-400/55 dark:group-hover/rail:bg-sky-400",
           )}
         >
           <span
             aria-hidden="true"
-            className="flex flex-col gap-[2px] opacity-70"
+            className="flex flex-col gap-[2px] opacity-80"
           >
-            <span className="h-[1.5px] w-1.5 rounded-full bg-background" />
-            <span className="h-[1.5px] w-1.5 rounded-full bg-background" />
-            <span className="h-[1.5px] w-1.5 rounded-full bg-background" />
+            <span className="h-[1.5px] w-1.5 rounded-full bg-white dark:bg-slate-950" />
+            <span className="h-[1.5px] w-1.5 rounded-full bg-white dark:bg-slate-950" />
+            <span className="h-[1.5px] w-1.5 rounded-full bg-white dark:bg-slate-950" />
           </span>
         </div>
       </div>

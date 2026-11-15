@@ -66,9 +66,16 @@ func (s *ImageService) indexEntryToListItem(baseURL string, e *imageIndexEntry) 
 		item["output_format"] = e.OutputFormat
 	}
 	// Thumbnail: prefer existing info without forcing sync generation.
+	// Animated GIFs skip static JPEG thumbnails so gallery grids render live animation.
+	isGIF := strings.EqualFold(filepath.Ext(e.Path), ".gif") || strings.EqualFold(e.OutputFormat, "gif")
 	if e.Path != "" {
 		path := filepath.Join(s.config.ImagesDir(), filepath.FromSlash(e.Path))
-		if info, err := os.Stat(path); err == nil {
+		if isGIF {
+			item["thumbnail_url"] = ""
+			if e.Width > 0 && e.Height > 0 {
+				setImageItemDimensions(item, e.Width, e.Height)
+			}
+		} else if info, err := os.Stat(path); err == nil {
 			thumb := s.thumbnailInfo(e.Path, info)
 			if thumbRel, ok := thumb["thumbnail_rel"].(string); ok && thumbRel != "" {
 				item["thumbnail_url"] = thumbnailURL(baseURL, thumbRel, info.ModTime())

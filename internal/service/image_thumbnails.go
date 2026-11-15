@@ -2,7 +2,6 @@ package service
 
 import (
 	"errors"
-	"image"
 	_ "image/gif"
 	_ "image/png"
 	"os"
@@ -12,6 +11,9 @@ import (
 
 func (s *ImageService) EnsureThumbnails(values []string) {
 	for _, ref := range s.imageFileRefs(values) {
+		if isGIFRel(ref.rel) {
+			continue
+		}
 		s.ensureThumbnailForRef(ref)
 	}
 }
@@ -46,6 +48,9 @@ func (s *ImageService) thumbnailInfo(rel string, sourceInfo os.FileInfo) map[str
 }
 
 func (s *ImageService) ensureThumbnailForRef(ref imageFileRef) map[string]any {
+	if isGIFRel(ref.rel) {
+		return map[string]any{}
+	}
 	if _, result, ok := s.thumbnailCacheInfo(ref.rel, ref.info.ModTime()); ok {
 		return result
 	}
@@ -116,12 +121,7 @@ func (s *ImageService) thumbnailCacheInfo(rel string, sourceModTime time.Time) (
 
 func (s *ImageService) generateThumbnail(ref imageFileRef) map[string]any {
 	thumbPath, result, _ := s.thumbnailCacheInfo(ref.rel, ref.info.ModTime())
-	file, err := os.Open(ref.path)
-	if err != nil {
-		return map[string]any{}
-	}
-	defer file.Close()
-	img, _, err := image.Decode(file)
+	img, err := decodeSafeImageFile(ref.path)
 	if err != nil {
 		return map[string]any{}
 	}

@@ -23,6 +23,7 @@ export type ComposerSettingsPopoverProps = {
   imageModel?: string;
   imageChannelType?: ImageChannelType;
   imageResolutions?: string[];
+  imageFormats?: string[];
   imageCount: string;
   imageSizeMode: ImageSizeMode;
   imageAspectRatio: ImageAspectRatio;
@@ -34,6 +35,8 @@ export type ComposerSettingsPopoverProps = {
   imageQualityOptions: ReadonlyArray<ImageQualityOption>;
   imageOutputFormat: ImageOutputFormat;
   imageOutputCompression: string;
+  imageFrameCount: string;
+  imageFrameDurationMs: string;
   imageOutputHint: ReactNode;
   estimatedCreditCost: number;
   estimatedCreditCostDetail: string;
@@ -53,4 +56,6 @@ export type ComposerSettingsPopoverProps = {
   onImageQualityChange: (value: ImageQuality) => void;
   onImageOutputFormatChange: (value: ImageOutputFormat) => void;
   onImageOutputCompressionChange: (value: string) => void;
+  onImageFrameCountChange: (value: string) => void;
+  onImageFrameDurationMsChange: (value: string) => void;
 };

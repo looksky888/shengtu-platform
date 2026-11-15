@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"chatgpt2api/internal/util"
@@ -24,10 +25,28 @@ func imageMetadataAllowsAccess(meta imageMetadata, scope ImageAccessScope) bool 
 	return scope.OwnerID != "" && meta.OwnerID == scope.OwnerID
 }
 
+func inferImageFormatFromRel(rel string) string {
+	switch strings.ToLower(filepath.Ext(rel)) {
+	case ".gif":
+		return "gif"
+	case ".webp":
+		return "webp"
+	case ".jpg", ".jpeg":
+		return "jpeg"
+	default:
+		return "png"
+	}
+}
+
+func isGIFRel(rel string) bool {
+	return strings.EqualFold(filepath.Ext(rel), ".gif")
+}
+
 func (s *ImageService) imageMetadata(rel string) imageMetadata {
+	inferredFormat := inferImageFormatFromRel(rel)
 	metaPath, err := s.imageOwnerMetadataPath(rel)
 	if err != nil {
-		return imageMetadata{Visibility: ImageVisibilityPrivate}
+		return imageMetadata{Visibility: ImageVisibilityPrivate, OutputFormat: inferredFormat}
 	}
 	var raw map[string]any
 	if s.store != nil {
@@ -41,19 +60,29 @@ func (s *ImageService) imageMetadata(rel string) imageMetadata {
 	if raw == nil {
 		data, err := os.ReadFile(metaPath)
 		if err != nil {
-			return imageMetadata{Visibility: ImageVisibilityPrivate}
+			return imageMetadata{Visibility: ImageVisibilityPrivate, OutputFormat: inferredFormat}
 		}
 		if json.Unmarshal(data, &raw) != nil {
-			return imageMetadata{Visibility: ImageVisibilityPrivate}
+			return imageMetadata{Visibility: ImageVisibilityPrivate, OutputFormat: inferredFormat}
 		}
 	}
-	return normalizeImageMetadata(raw)
+	return normalizeImageMetadataForRel(raw, rel)
 }
 
 func normalizeImageMetadata(raw map[string]any) imageMetadata {
+	return normalizeImageMetadataForRel(raw, "")
+}
+
+func normalizeImageMetadataForRel(raw map[string]any, rel string) imageMetadata {
 	visibility := strings.TrimSpace(toString(raw["visibility"]))
 	if visibility != ImageVisibilityPublic {
 		visibility = ImageVisibilityPrivate
+	}
+	outputFormat := strings.TrimSpace(toString(raw["output_format"]))
+	if outputFormat == "" {
+		outputFormat = inferImageFormatFromRel(rel)
+	} else {
+		outputFormat = NormalizeImageOutputFormat(outputFormat)
 	}
 	return imageMetadata{
 		OwnerID:          strings.TrimSpace(toString(raw["owner_id"])),
@@ -62,13 +91,18 @@ func normalizeImageMetadata(raw map[string]any) imageMetadata {
 		PublishedAt:      strings.TrimSpace(toString(raw["published_at"])),
 		ResolutionPreset: NormalizeImageResolutionPreset(toString(raw["resolution_preset"])),
 		RequestedSize:    strings.TrimSpace(toString(raw["requested_size"])),
-		OutputFormat:     NormalizeImageOutputFormat(strings.TrimSpace(toString(raw["output_format"]))),
+		OutputFormat:     outputFormat,
 	}
 }
 
 func (s *ImageService) writeImageMetadataForRef(ref imageFileRef, ownerID, ownerName, visibility string, metadataValues ...GeneratedImageMetadata) error {
 	meta := s.imageMetadata(ref.rel)
-	if ownerID = strings.TrimSpace(ownerID); ownerID != "" {
+	ownerID = strings.TrimSpace(ownerID)
+	existingOwner := strings.TrimSpace(meta.OwnerID)
+	if existingOwner != "" && ownerID != "" && existingOwner != ownerID {
+		return nil
+	}
+	if ownerID != "" {
 		meta.OwnerID = ownerID
 	}
 	if ownerName = strings.TrimSpace(ownerName); ownerName != "" {
@@ -96,9 +130,12 @@ func (s *ImageService) writeImageMetadataForRef(ref imageFileRef, ownerID, owner
 		if requestedSize := strings.TrimSpace(metadata.RequestedSize); requestedSize != "" {
 			meta.RequestedSize = requestedSize
 		}
-		if outputFormat := NormalizeImageOutputFormat(metadata.OutputFormat); outputFormat != "" {
-			meta.OutputFormat = outputFormat
+		if rawFormat := strings.TrimSpace(metadata.OutputFormat); rawFormat != "" {
+			meta.OutputFormat = NormalizeImageOutputFormat(rawFormat)
 		}
+	}
+	if meta.OutputFormat == "" {
+		meta.OutputFormat = inferImageFormatFromRel(ref.rel)
 	}
 	if meta.Visibility == "" {
 		meta.Visibility = ImageVisibilityPrivate
@@ -190,7 +227,8 @@ func NormalizeImageVisibility(value string) (string, error) {
 }
 
 func NormalizeImageResolutionPreset(value string) string {
-	switch strings.ToLower(strings.TrimSpace(value)) {
+	cleaned := strings.ToLower(strings.TrimSpace(value))
+	switch cleaned {
 	case "1k":
 		return "1k"
 	case "1080p":
@@ -199,7 +237,37 @@ func NormalizeImageResolutionPreset(value string) string {
 		return "2k"
 	case "4k":
 		return "4k"
-	default:
-		return ""
 	}
+	if w, h, ok := parseResolutionDimensionPair(cleaned); ok {
+		maxDim := w
+		if h > maxDim {
+			maxDim = h
+		}
+		switch {
+		case maxDim >= 2880:
+			return "4k"
+		case maxDim >= 2048:
+			return "2k"
+		case maxDim > 0:
+			return "1k"
+		}
+	}
+	return ""
+}
+
+func parseResolutionDimensionPair(raw string) (int, int, bool) {
+	if raw == "" {
+		return 0, 0, false
+	}
+	normalized := strings.ReplaceAll(raw, "×", "x")
+	parts := strings.Split(normalized, "x")
+	if len(parts) != 2 {
+		return 0, 0, false
+	}
+	w, errW := strconv.Atoi(strings.TrimSpace(parts[0]))
+	h, errH := strconv.Atoi(strings.TrimSpace(parts[1]))
+	if errW != nil || errH != nil || w <= 0 || h <= 0 {
+		return 0, 0, false
+	}
+	return w, h, true
 }

@@ -91,14 +91,19 @@ func TestMediaLibraryStoreImageDoesNotWaitForSlowObjectStorage(t *testing.T) {
 		t.Fatalf("pending image page = %#v", page)
 	}
 	metadata := GeneratedImageMetadata{ResolutionPreset: "2k", RequestedSize: "2048x2048", OutputFormat: "png"}
+	// Cross-owner UpdateGeneratedImage must be refused (P0 ownership takeover guard).
 	if err := library.UpdateGeneratedImage(rel, "user-2", "Bob", ImageVisibilityPublic, metadata); err != nil {
+		t.Fatalf("cross-owner UpdateGeneratedImage() error = %v", err)
+	}
+	// Same-owner UpdateGeneratedImage while upload is in flight must survive upload completion.
+	if err := library.UpdateGeneratedImage(rel, "user-1", "Alice Updated", ImageVisibilityPublic, metadata); err != nil {
 		t.Fatalf("UpdateGeneratedImage() error = %v", err)
 	}
 
 	close(gate)
 	asset = waitForMediaStatus(t, repo, rel, mediaStatusReady)
-	if asset.OwnerID != "user-2" || asset.OwnerName != "Bob" || asset.Visibility != ImageVisibilityPublic || asset.ResolutionPreset != "2k" {
-		t.Fatalf("metadata was overwritten by upload completion: %#v", asset)
+	if asset.OwnerID != "user-1" || asset.OwnerName != "Alice Updated" || asset.Visibility != ImageVisibilityPublic || asset.ResolutionPreset != "2k" {
+		t.Fatalf("metadata was overwritten by upload completion or cross-owner hijack succeeded: %#v", asset)
 	}
 	if _, err := os.Stat(library.spoolPath(asset.ID, "original")); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("original spool remains after upload: %v", err)

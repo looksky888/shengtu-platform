@@ -26,7 +26,10 @@ import {
 } from "./settings-ui";
 
 export const DEFAULT_IMAGE_MODEL_OPTIONS = [
-  { value: "gpt-image-2.5-flare", label: "gpt-image-2.5-flare（默认推荐）" },
+  { value: "gpt-image-2.6-flare", label: "gpt-image-2.6-flare（默认推荐）" },
+  { value: "gpt-image-2.6-sunburst", label: "gpt-image-2.6-sunburst" },
+  { value: "gpt-image-2.6", label: "gpt-image-2.6" },
+  { value: "gpt-image-2.5-flare", label: "gpt-image-2.5-flare" },
   { value: "gpt-image-2.5-sunburst", label: "gpt-image-2.5-sunburst" },
   { value: "gpt-image-2.5", label: "gpt-image-2.5" },
   { value: "gpt-image-2", label: "gpt-image-2" },
@@ -62,6 +65,15 @@ export function ImageAccountPoolSettings() {
   );
   const setGPTImage25SunburstCreditCost = useSettingsStore(
     (state) => state.setGPTImage25SunburstCreditCost
+  );
+  const setGPTImage26CreditCost = useSettingsStore(
+    (state) => state.setGPTImage26CreditCost
+  );
+  const setGPTImage26FlareCreditCost = useSettingsStore(
+    (state) => state.setGPTImage26FlareCreditCost
+  );
+  const setGPTImage26SunburstCreditCost = useSettingsStore(
+    (state) => state.setGPTImage26SunburstCreditCost
   );
   const setImageCreditCost1080p = useSettingsStore(
     (state) => state.setImageCreditCost1080p
@@ -409,6 +421,33 @@ export function ImageAccountPoolSettings() {
               </span>
             </div>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <SettingsUnitInput
+                id="pricing-gpt-image-2-6-flare"
+                label="GPT 2.6 Flare"
+                unit="积分/张"
+                min={1}
+                description="gpt-image-2.6-flare"
+                value={config.gpt_image_2_6_flare_credit_cost ?? 5}
+                onChange={setGPTImage26FlareCreditCost}
+              />
+              <SettingsUnitInput
+                id="pricing-gpt-image-2-6"
+                label="GPT Image 2.6"
+                unit="积分/张"
+                min={1}
+                description="gpt-image-2.6"
+                value={config.gpt_image_2_6_credit_cost ?? 5}
+                onChange={setGPTImage26CreditCost}
+              />
+              <SettingsUnitInput
+                id="pricing-gpt-image-2-6-sunburst"
+                label="GPT 2.6 Sunburst"
+                unit="积分/张"
+                min={1}
+                description="gpt-image-2.6-sunburst"
+                value={config.gpt_image_2_6_sunburst_credit_cost ?? 5}
+                onChange={setGPTImage26SunburstCreditCost}
+              />
               <SettingsUnitInput
                 id="pricing-gpt-image-2"
                 label="GPT Image 2"

@@ -34,9 +34,9 @@ export function ComposerPromptPanel({
     <div
       ref={input.composerPanelRef}
       className={cn(
-        "relative overflow-visible rounded-[22px] border border-border/80 bg-surface px-3.5 pt-2 pb-3 shadow-[0_18px_44px_-16px_rgba(0,0,0,0.12)] transition-[box-shadow,border-color] duration-200 focus-within:border-foreground/25 has-[textarea[data-preset-flash='1']]:border-foreground/50 has-[textarea[data-preset-flash='1']]:ring-2 has-[textarea[data-preset-flash='1']]:ring-foreground/12 dark:border-white/[0.08] dark:bg-[#18191e] dark:shadow-[0_24px_56px_-18px_rgba(0,0,0,0.72)] dark:focus-within:border-white/[0.18]",
+        "relative overflow-visible rounded-[24px] border border-border bg-[#fbfdff]/95 px-4 pt-2 pb-3 shadow-[0_14px_38px_rgba(24,40,72,0.08)] backdrop-blur-md transition-[box-shadow,border-color] duration-200 focus-within:border-[#1456f0]/40 has-[textarea[data-preset-flash='1']]:border-[#1456f0]/60 has-[textarea[data-preset-flash='1']]:ring-2 has-[textarea[data-preset-flash='1']]:ring-[#1456f0]/15 dark:bg-card/95 dark:shadow-[0_24px_56px_-18px_rgba(0,0,0,0.65)] dark:focus-within:border-sky-400/35",
         input.isReferenceImageDragActive &&
-          "border-foreground/60 bg-surface-muted/60 dark:border-white/35",
+          "border-[#1456f0] bg-[#edf4ff]/65 dark:border-sky-400/60 dark:bg-sky-950/25",
       )}
       onDragEnter={input.handleReferenceImageDragEnter}
       onDragOver={input.handleReferenceImageDragOver}
@@ -44,8 +44,8 @@ export function ComposerPromptPanel({
       onDrop={input.handleReferenceImageDrop}
     >
       {input.isReferenceImageDragActive ? (
-        <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center rounded-[22px] border-2 border-dashed border-foreground/45 bg-surface/90 text-sm font-medium text-foreground backdrop-blur-xs dark:bg-[#18191e]/92">
-          <span className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface px-3.5 py-2 shadow-sm">
+        <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center rounded-[24px] border-2 border-dashed border-[#1456f0]/55 bg-[#fbfdff]/92 text-sm font-medium text-[#1456f0] backdrop-blur-xs dark:border-sky-400/50 dark:bg-card/92 dark:text-sky-300">
+          <span className="inline-flex items-center gap-2 rounded-xl border border-[#cfe0ff] bg-[#edf4ff] px-3.5 py-2 shadow-sm dark:border-sky-500/30 dark:bg-sky-950/60">
             <ImagePlus className="size-4" />
             松开上传参考图片
           </span>
@@ -64,14 +64,14 @@ export function ComposerPromptPanel({
           onPointerCancel={input.handlePromptResizeEnd}
           onLostPointerCapture={input.handlePromptResizeLostPointerCapture}
           onKeyDown={input.handlePromptResizeKeyDown}
-          className="group/resize flex h-3.5 w-14 cursor-ns-resize touch-none items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20"
+          className="group/resize flex h-3.5 w-14 cursor-ns-resize touch-none items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1456f0]/25"
         >
           <span
             className={cn(
               "h-1 w-8 rounded-full transition-colors",
               input.isPromptAreaResizing
-                ? "bg-foreground/60"
-                : "bg-border-strong/50 group-hover/resize:bg-foreground/40",
+                ? "bg-[#1456f0]/75"
+                : "bg-border-strong/55 group-hover/resize:bg-[#1456f0]/50",
             )}
           />
         </button>
@@ -118,10 +118,10 @@ export function ComposerPromptPanel({
                   : "点击或拖拽上传参考图"
               }
               className={cn(
-                "relative flex h-full w-full cursor-pointer flex-col items-center justify-center gap-1 rounded-xl text-[10px] transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/25",
+                "relative flex h-full w-full cursor-pointer flex-col items-center justify-center gap-1 rounded-xl text-[10px] transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1456f0]/30",
                 firstReference
-                  ? "border border-border/80 bg-surface-raised p-1 text-foreground shadow-sm dark:border-white/[0.14] dark:bg-[#22242c]"
-                  : "border border-dashed border-border-strong/70 bg-surface-muted/50 text-muted-foreground hover:border-foreground/40 hover:bg-surface-muted hover:text-foreground dark:border-white/[0.15] dark:bg-white/[0.03] dark:hover:border-white/[0.28] dark:hover:bg-white/[0.06]",
+                  ? "border border-border bg-white p-1 text-foreground shadow-sm dark:bg-muted"
+                  : "border border-dashed border-border-strong/75 bg-[#f2f5fa]/85 text-muted-foreground hover:border-[#1456f0]/50 hover:bg-[#edf4ff] hover:text-[#1456f0] dark:bg-muted/55 dark:hover:border-sky-400/50 dark:hover:bg-sky-950/35 dark:hover:text-sky-300",
               )}
             >
               {firstReference ? (
@@ -152,14 +152,14 @@ export function ComposerPromptPanel({
                 }}
                 aria-label={`移除参考图 ${firstReference.name || ""}`.trim()}
                 title="移除参考图"
-                className="absolute -top-1.5 -right-1.5 z-10 inline-flex size-4.5 items-center justify-center rounded-full border border-border bg-surface text-muted-foreground opacity-0 shadow-xs transition-opacity group-hover/polaroid:opacity-100 group-focus-within/polaroid:opacity-100 hover:border-foreground/35 hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/25 [@media(hover:none)]:opacity-100 dark:border-white/[0.16] dark:bg-[#22242c] dark:text-zinc-200 dark:hover:bg-zinc-700"
+                className="absolute -top-1.5 -right-1.5 z-10 inline-flex size-4.5 items-center justify-center rounded-full border border-border bg-card text-muted-foreground opacity-0 shadow-xs transition-opacity group-hover/polaroid:opacity-100 group-focus-within/polaroid:opacity-100 hover:border-[#1456f0]/40 hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1456f0]/25 [@media(hover:none)]:opacity-100"
               >
                 <X className="size-2.5 stroke-[2.4]" />
               </button>
             ) : null}
 
             {firstReference && referenceImageCount >= 2 ? (
-              <span className="pointer-events-none absolute -top-1.5 -right-1.5 z-10 inline-flex min-w-4.5 items-center justify-center rounded-full bg-foreground px-1 py-0.5 font-mono text-[9.5px] leading-none font-bold text-background shadow-xs tabular-nums">
+              <span className="pointer-events-none absolute -top-1.5 -right-1.5 z-10 inline-flex min-w-4.5 items-center justify-center rounded-full bg-[#1456f0] px-1 py-0.5 font-mono text-[9.5px] leading-none font-bold text-white shadow-xs tabular-nums">
                 +{referenceImageCount - 1}
               </span>
             ) : null}

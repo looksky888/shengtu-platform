@@ -23,6 +23,7 @@ func (b *DatabaseBackend) ReserveAPIKeyLimit(key, now, day string, rpm, concurre
 	if leaseSeconds < 1 {
 		leaseSeconds = 3600
 	}
+	now = formatLimitTimeUTC(now)
 	tx, err := b.db.Begin()
 	if err != nil {
 		return "", 0, "", err
@@ -41,9 +42,10 @@ func (b *DatabaseBackend) ReserveAPIKeyLimit(key, now, day string, rpm, concurre
 		rollback()
 		return "", 0, "", err
 	}
-	// Keep at most two days of event history. This bounds table growth while
-	// preserving the current-day counter and the previous minute window.
-	if _, err := tx.Exec(`DELETE FROM api_key_limit_events WHERE key_id = `+b.placeholder(1)+` AND occurred_at < `+b.placeholder(2), key, limitHistoryCutoff(now)); err != nil {
+	// Keep at most two days of event history across all keys so abandoned API keys
+	// cannot accumulate expired rows indefinitely while preserving the current-day
+	// counter and the previous minute window.
+	if _, err := tx.Exec(`DELETE FROM api_key_limit_events WHERE occurred_at < `+b.placeholder(1), limitHistoryCutoff(now)); err != nil {
 		rollback()
 		return "", 0, "", err
 	}
@@ -113,25 +115,32 @@ func (b *DatabaseBackend) ReleaseAPIKeyLimit(reservationID string) error {
 	return err
 }
 
+func formatLimitTimeUTC(value string) string {
+	if parsed, err := parseLimitTime(value); err == nil {
+		return parsed.UTC().Format(utcFixedNanoLayout)
+	}
+	return normalizeUTCSortableISO(value)
+}
+
 func limitHistoryCutoff(now string) string {
 	if parsed, err := parseLimitTime(now); err == nil {
-		return parsed.AddDate(0, 0, -2).Format("2006-01-02T15:04:05.999999999Z07:00")
+		return parsed.UTC().AddDate(0, 0, -2).Format(utcFixedNanoLayout)
 	}
-	return now
+	return normalizeUTCSortableISO(now)
 }
 
 func minuteWindowCutoff(now string) string {
 	if parsed, err := parseLimitTime(now); err == nil {
-		return parsed.Add(-time.Minute).Format(time.RFC3339Nano)
+		return parsed.UTC().Add(-time.Minute).Format(utcFixedNanoLayout)
 	}
-	return now
+	return normalizeUTCSortableISO(now)
 }
 
 func addLeaseSeconds(now string, seconds int) string {
 	if parsed, err := parseLimitTime(now); err == nil {
-		return parsed.Add(time.Duration(seconds) * time.Second).Format(time.RFC3339Nano)
+		return parsed.UTC().Add(time.Duration(seconds) * time.Second).Format(utcFixedNanoLayout)
 	}
-	return now
+	return normalizeUTCSortableISO(now)
 }
 
 // Small wrappers keep the storage package independent from caller timezone

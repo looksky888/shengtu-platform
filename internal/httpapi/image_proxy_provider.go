@@ -175,8 +175,12 @@ func callProxyImageGenerations(ctx context.Context, client *http.Client, cfg ima
 	copyProxyString(payload, body, "size")
 	copyProxyString(payload, body, "quality")
 	copyProxyString(payload, body, "output_format")
-	if compression, ok := imageOutputCompressionFromBody(body["output_compression"]); ok {
-		payload["output_compression"] = compression
+	copyProxyString(payload, body, "frame_count")
+	copyProxyString(payload, body, "frame_duration_ms")
+	if format := strings.ToLower(strings.TrimSpace(util.Clean(body["output_format"]))); format != "png" && format != "gif" {
+		if compression, ok := imageOutputCompressionFromBody(body["output_compression"]); ok {
+			payload["output_compression"] = compression
+		}
 	}
 	if payload["prompt"] == "" {
 		return nil, protocol.HTTPError{Status: http.StatusBadRequest, Message: "请填写提示词"}
@@ -202,13 +206,15 @@ func callProxyImageEdits(ctx context.Context, client *http.Client, cfg imageProx
 	_ = writer.WriteField("prompt", util.Clean(body["prompt"]))
 	_ = writer.WriteField("n", fmt.Sprint(max(1, util.ToInt(body["n"], 1))))
 	_ = writer.WriteField("response_format", firstNonEmpty(util.Clean(body["response_format"]), "url"))
-	for _, key := range []string{"size", "quality", "output_format"} {
+	for _, key := range []string{"size", "quality", "output_format", "frame_count", "frame_duration_ms"} {
 		if value := util.Clean(body[key]); value != "" {
 			_ = writer.WriteField(key, value)
 		}
 	}
-	if compression, ok := imageOutputCompressionFromBody(body["output_compression"]); ok {
-		_ = writer.WriteField("output_compression", fmt.Sprint(compression))
+	if format := strings.ToLower(strings.TrimSpace(util.Clean(body["output_format"]))); format != "png" && format != "gif" {
+		if compression, ok := imageOutputCompressionFromBody(body["output_compression"]); ok {
+			_ = writer.WriteField("output_compression", fmt.Sprint(compression))
+		}
 	}
 	for index, image := range images {
 		if len(image.Data) == 0 {

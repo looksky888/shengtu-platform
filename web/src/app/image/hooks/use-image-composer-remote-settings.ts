@@ -23,6 +23,9 @@ export function useImageComposerRemoteSettings() {
           gptImage25: Math.max(1, Number(config.gpt_image_2_5_credit_cost) || cost2k),
           gptImage25Flare: Math.max(1, Number(config.gpt_image_2_5_flare_credit_cost) || cost4k),
           gptImage25Sunburst: Math.max(1, Number(config.gpt_image_2_5_sunburst_credit_cost) || cost4k),
+          gptImage26: Math.max(1, Number(config.gpt_image_2_6_credit_cost) || DEFAULT_IMAGE_CREDIT_COSTS.gptImage26),
+          gptImage26Flare: Math.max(1, Number(config.gpt_image_2_6_flare_credit_cost) || DEFAULT_IMAGE_CREDIT_COSTS.gptImage26Flare),
+          gptImage26Sunburst: Math.max(1, Number(config.gpt_image_2_6_sunburst_credit_cost) || DEFAULT_IMAGE_CREDIT_COSTS.gptImage26Sunburst),
           grok1k: Math.max(1, Number(config.grok_image_credit_cost_1k) || DEFAULT_IMAGE_CREDIT_COSTS.grok1k),
           grok2k: Math.max(1, Number(config.grok_image_credit_cost_2k) || DEFAULT_IMAGE_CREDIT_COSTS.grok2k),
         });

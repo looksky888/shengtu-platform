@@ -9,13 +9,13 @@ func (b *DatabaseBackend) QueryPaymentOrders(filter PaymentOrderFilter) ([]Payme
 	filter = normalizePaymentOrderFilter(filter)
 	where, args := b.paymentOrderFilterWhere(filter)
 	var total int
-	if err := b.db.QueryRow(`SELECT COUNT(*) FROM payment_orders WHERE `+where, args...).Scan(&total); err != nil {
+	if err := b.reader().QueryRow(`SELECT COUNT(*) FROM payment_orders WHERE `+where, args...).Scan(&total); err != nil {
 		return nil, 0, err
 	}
 	limitPlaceholder := b.placeholder(len(args) + 1)
 	offsetPlaceholder := b.placeholder(len(args) + 2)
 	queryArgs := append(append([]any(nil), args...), filter.PageSize, (filter.Page-1)*filter.PageSize)
-	rows, err := b.db.Query(paymentOrderSelect+where+` ORDER BY created_at DESC, id DESC LIMIT `+
+	rows, err := b.reader().Query(paymentOrderSelect+where+` ORDER BY created_at DESC, id DESC LIMIT `+
 		limitPlaceholder+` OFFSET `+offsetPlaceholder, queryArgs...)
 	if err != nil {
 		return nil, 0, err

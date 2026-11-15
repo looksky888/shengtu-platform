@@ -1,9 +1,15 @@
 package protocol
 
 import (
+	"context"
 	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
+	"chatgpt2api/internal/service"
 	"chatgpt2api/internal/util"
 )
 
@@ -36,6 +42,102 @@ func ExtractResponseImage(input any) *UploadedImage {
 }
 
 func ExtractResponseImages(input any) []UploadedImage {
+	return extractResponseImagesWithResolver(input, nil)
+}
+
+func (e *Engine) extractScopedResponseImages(ctx context.Context, scope string, input any) []UploadedImage {
+	if e == nil {
+		return ExtractResponseImages(input)
+	}
+	return extractResponseImagesWithResolver(input, func(rawRef string) ([]byte, error) {
+		return e.resolveLocalImageBytesForScope(ctx, scope, rawRef)
+	})
+}
+
+func (e *Engine) resolveScopedImageRefs(ctx context.Context, scope string, refs []string) []string {
+	if e == nil || len(refs) == 0 {
+		return refs
+	}
+	out := make([]string, 0, len(refs))
+	for _, ref := range refs {
+		trimmed := strings.TrimSpace(ref)
+		if trimmed == "" {
+			continue
+		}
+		if extractLocalImagesRel(trimmed) != "" {
+			if data, err := e.resolveLocalImageBytesForScope(ctx, scope, trimmed); err == nil && len(data) > 0 {
+				out = append(out, base64.StdEncoding.EncodeToString(data))
+				continue
+			}
+		}
+		out = append(out, trimmed)
+	}
+	return out
+}
+
+func (e *Engine) resolveLocalImageBytesForScope(ctx context.Context, scope, rawRef string) ([]byte, error) {
+	if e == nil {
+		return nil, fmt.Errorf("engine unavailable")
+	}
+	rel := extractLocalImagesRel(rawRef)
+	if rel == "" {
+		rel = normalizeTrackerRel(rawRef)
+	}
+	if rel == "" {
+		return nil, fmt.Errorf("invalid local image reference")
+	}
+	trimmedScope := strings.TrimSpace(scope)
+	if e.Media != nil {
+		asset, ok, err := e.Media.Load(rel)
+		if err != nil || !ok {
+			return nil, fmt.Errorf("image not found")
+		}
+		if asset.Visibility != service.ImageVisibilityPublic && (trimmedScope == "" || asset.OwnerID != trimmedScope) {
+			return nil, fmt.Errorf("image not found")
+		}
+		reader, _, err := e.Media.Open(ctx, asset)
+		if err != nil {
+			return nil, err
+		}
+		defer reader.Close()
+		return util.ReadAllLimited(reader, 64<<20)
+	}
+	if e.Config == nil {
+		return nil, fmt.Errorf("image config unavailable")
+	}
+	var rawMeta map[string]any
+	if e.Storage != nil {
+		if val, err := e.Storage.LoadJSONDocument(imageOwnerDocumentName(rel)); err == nil {
+			rawMeta, _ = val.(map[string]any)
+		}
+	}
+	if rawMeta == nil {
+		metaPath := filepath.Join(e.Config.ImageMetadataDir(), filepath.FromSlash(rel)+".json")
+		if metaBytes, err := os.ReadFile(metaPath); err == nil {
+			_ = json.Unmarshal(metaBytes, &rawMeta)
+		}
+	}
+	visibility := strings.TrimSpace(util.Clean(rawMeta["visibility"]))
+	ownerID := strings.TrimSpace(util.Clean(rawMeta["owner_id"]))
+	if visibility != service.ImageVisibilityPublic && (trimmedScope == "" || ownerID != trimmedScope) {
+		return nil, fmt.Errorf("image not found")
+	}
+	root, err := filepath.Abs(e.Config.ImagesDir())
+	if err != nil {
+		return nil, err
+	}
+	fullPath, err := filepath.Abs(filepath.Join(root, filepath.FromSlash(rel)))
+	if err != nil {
+		return nil, err
+	}
+	relCheck, err := filepath.Rel(root, fullPath)
+	if err != nil || relCheck == "." || relCheck == ".." || strings.HasPrefix(relCheck, ".."+string(filepath.Separator)) || filepath.IsAbs(relCheck) {
+		return nil, fmt.Errorf("invalid image path")
+	}
+	return os.ReadFile(fullPath)
+}
+
+func extractResponseImagesWithResolver(input any, resolveURL func(string) ([]byte, error)) []UploadedImage {
 	var images []UploadedImage
 	var walk func(any)
 	walk = func(value any) {
@@ -58,16 +160,36 @@ func ExtractResponseImages(input any) []UploadedImage {
 			imageURL := util.Clean(item["image_url"])
 			if strings.HasPrefix(imageURL, "data:") {
 				images = append(images, ExtractImagesFromMessageContent([]any{item})...)
+			} else if resolveURL != nil && extractLocalImagesRel(imageURL) != "" {
+				if data, err := resolveURL(imageURL); err == nil && len(data) > 0 {
+					images = append(images, UploadedImage{Data: data, Filename: "input.png", ContentType: "image/png"})
+				}
 			}
 		case "image_generation_call":
 			if result := util.Clean(item["result"]); result != "" {
 				if data, err := base64.StdEncoding.DecodeString(result); err == nil {
 					images = append(images, UploadedImage{Data: data, Filename: "generated.png", ContentType: "image/png"})
+				} else if resolveURL != nil && extractLocalImagesRel(result) != "" {
+					if resolvedData, resolveErr := resolveURL(result); resolveErr == nil && len(resolvedData) > 0 {
+						images = append(images, UploadedImage{Data: resolvedData, Filename: "generated.png", ContentType: "image/png"})
+					}
 				}
 			}
 		}
 		if item["content"] != nil {
 			images = append(images, ExtractImagesFromMessageContent(item["content"])...)
+			if resolveURL != nil {
+				for _, rawPart := range anyList(item["content"]) {
+					if part, ok := rawPart.(map[string]any); ok && util.Clean(part["type"]) == "input_image" {
+						imageURL := util.Clean(part["image_url"])
+						if !strings.HasPrefix(imageURL, "data:") && extractLocalImagesRel(imageURL) != "" {
+							if data, err := resolveURL(imageURL); err == nil && len(data) > 0 {
+								images = append(images, UploadedImage{Data: data, Filename: "input.png", ContentType: "image/png"})
+							}
+						}
+					}
+				}
+			}
 		}
 	}
 	walk(input)

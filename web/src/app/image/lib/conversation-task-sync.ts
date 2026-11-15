@@ -3,8 +3,13 @@ import { isTurnBusy } from "@/lib/image-turn-state";
 import { advanceConversationRevision, touchConversation } from "@/store/image-conversation-revision";
 import { saveImageConversations, type ImageConversation } from "@/store/image-conversations";
 
-import { imageDataIndexForTask, imageTaskIdForImage, taskDataToStoredImage } from "./image-task-utils";
-import { deriveTurnStatus, isMissingBatchImageDataError, isMissingRecoverableTaskIdError } from "./image-turn-utils";
+import { imageDataIndexForTask, taskDataToStoredImage } from "./image-task-utils";
+import {
+  deriveTurnStatus,
+  isMissingBatchImageDataError,
+  isMissingRecoverableTaskIdError,
+  usesReferenceImages,
+} from "./image-turn-utils";
 import { MISSING_RECOVERABLE_TASK_ID_ERROR } from "./image-page-types";
 
 export function buildCreationTaskMessages(conversation: ImageConversation, activeTurnId: string): CreationTaskMessage[] {
@@ -96,18 +101,20 @@ export async function recoverConversationHistory(items: ImageConversation[]) {
   const normalized = items.map((conversation) => {
     const turns = conversation.turns.map((turn) => {
       let turnChanged = false;
-      const recoveredImages = turn.images.map((image, imageIndex) => {
+      const hasUsableReference =
+        !usesReferenceImages(turn.mode) ||
+        turn.referenceImages.some((ref) => !ref.stripped && Boolean(ref.dataUrl));
+      const hasStrippedReference =
+        usesReferenceImages(turn.mode) &&
+        turn.referenceImages.some((ref) => Boolean(ref.stripped) || !ref.dataUrl);
+      const recoveredImages = turn.images.map((image) => {
         if (image.status === "error" && isMissingBatchImageDataError(image.error)) {
           turnChanged = true;
           return { ...image, taskId: image.id, status: "loading" as const, error: undefined };
         }
         if (turn.mode === "chat" && image.status === "error" && isMissingRecoverableTaskIdError(image.error)) {
           turnChanged = true;
-          return { ...image, taskId: imageTaskIdForImage(turn.id, turn.images, imageIndex), status: "loading" as const, error: undefined };
-        }
-        if (turn.mode === "chat" && image.status === "loading" && !image.taskId) {
-          turnChanged = true;
-          return { ...image, taskId: imageTaskIdForImage(turn.id, turn.images, imageIndex) };
+          return { ...image, taskId: undefined, status: "loading" as const, error: undefined };
         }
         return image;
       });
@@ -125,8 +132,15 @@ export async function recoverConversationHistory(items: ImageConversation[]) {
         if (image.status !== "loading" || image.taskId) {
           return image;
         }
+        if (hasUsableReference) {
+          return image;
+        }
         turnChanged = true;
-        return { ...image, status: "error" as const, error: MISSING_RECOVERABLE_TASK_ID_ERROR };
+        return {
+          ...image,
+          status: "error" as const,
+          error: hasStrippedReference ? "参考图较大未缓存，重试需重新上传" : MISSING_RECOVERABLE_TASK_ID_ERROR,
+        };
       });
       const derived = deriveTurnStatus({ ...turn, images });
       if (!turnChanged && derived.status === turn.status && derived.error === turn.error) {

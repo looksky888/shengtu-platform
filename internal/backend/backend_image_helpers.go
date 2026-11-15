@@ -6,7 +6,9 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
+	"path"
 	"regexp"
 	"sort"
 	"strconv"
@@ -18,9 +20,68 @@ import (
 )
 
 func decodeImageReference(value string) ([]byte, error) {
-	// Only accept data URLs / base64 payloads. Never treat arbitrary short strings
-	// as local filesystem paths (prevents LFI via image edit / multimodal upload).
+	return decodeImageReferenceWithResolver(context.Background(), value, nil)
+}
+
+func decodeImageReferenceWithResolver(ctx context.Context, value string, resolver func(context.Context, string) ([]byte, error)) ([]byte, error) {
+	if resolver != nil {
+		if rel, ok := extractSafeManagedImageRel(value); ok {
+			return resolver(ctx, rel)
+		}
+	}
+	// Only accept data URLs / base64 payloads when no safe /images/... resolver applies.
+	// Never treat arbitrary short strings as local filesystem paths (prevents LFI).
 	return util.B64Decode(value)
+}
+
+func extractSafeManagedImageRel(raw string) (string, bool) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" || strings.HasPrefix(strings.ToLower(trimmed), "data:") {
+		return "", false
+	}
+	parsed, err := url.Parse(trimmed)
+	if err != nil {
+		return "", false
+	}
+	if parsed.Scheme != "" && parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return "", false
+	}
+	escapedPath := parsed.EscapedPath()
+	if escapedPath == "" {
+		escapedPath = parsed.Path
+	}
+	const marker = "/images/"
+	var suffix string
+	if strings.HasPrefix(escapedPath, marker) {
+		suffix = strings.TrimPrefix(escapedPath, marker)
+	} else if parsed.Scheme != "" {
+		if idx := strings.Index(escapedPath, marker); idx > 0 {
+			suffix = escapedPath[idx+len(marker):]
+		} else {
+			return "", false
+		}
+	} else {
+		return "", false
+	}
+	unescaped, err := url.PathUnescape(suffix)
+	if err != nil {
+		return "", false
+	}
+	unescaped = strings.TrimSpace(strings.ReplaceAll(unescaped, "\\", "/"))
+	unescaped = strings.TrimPrefix(unescaped, "/")
+	if unescaped == "" {
+		return "", false
+	}
+	cleaned := path.Clean(unescaped)
+	if cleaned == "." || cleaned == "/" || cleaned == ".." || strings.HasPrefix(cleaned, "../") {
+		return "", false
+	}
+	for _, seg := range strings.Split(cleaned, "/") {
+		if seg == "" || seg == "." || seg == ".." || strings.HasPrefix(seg, ".") {
+			return "", false
+		}
+	}
+	return cleaned, true
 }
 
 func extractImageToolRecords(data map[string]any) ([]string, []string) {

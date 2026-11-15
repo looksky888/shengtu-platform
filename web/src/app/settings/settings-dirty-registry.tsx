@@ -8,9 +8,10 @@ import {
   type DirtyRegistryEntry,
   type SettingsDirtyRegistryStore,
 } from "./settings-dirty-registry-store";
-import type { SettingsTabKey } from "./settings-tab-types";
+import type { AnySettingsTabKey, SettingsTabKey } from "./settings-tab-types";
 
-export type ExternalDirtyEntry = DirtyRegistryEntry<SettingsTabKey>;
+export type ExternalDirtyEntry = DirtyRegistryEntry<AnySettingsTabKey>;
+export type NormalizedDirtyEntry = DirtyRegistryEntry<SettingsTabKey>;
 
 export function SettingsDirtyRegistryProvider({
   children,

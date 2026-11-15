@@ -13,11 +13,14 @@ import (
 	"math/rand"
 	"mime"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
 	"chatgpt2api/internal/util"
+
+	"github.com/HugoSmits86/nativewebp"
 )
 
 const (
@@ -303,19 +306,67 @@ func (c *Client) prepareImageConversation(ctx context.Context, prompt string, re
 	return util.Clean(result["conduit_token"]), nil
 }
 
-func (c *Client) uploadImage(ctx context.Context, imageRef, fileName string) (UploadedFile, error) {
-	data, err := decodeImageReference(imageRef)
-	if err != nil {
-		return UploadedFile{}, err
-	}
+func decodeUploadedImageConfig(data []byte) (image.Config, string, error) {
 	cfg, format, err := image.DecodeConfig(bytes.NewReader(data))
+	if err == nil {
+		return cfg, strings.ToLower(strings.TrimSpace(format)), nil
+	}
+	if len(data) >= 12 && bytes.Equal(data[:4], []byte("RIFF")) && bytes.Equal(data[8:12], []byte("WEBP")) {
+		if webpCfg, webpErr := nativewebp.DecodeConfig(bytes.NewReader(data)); webpErr == nil {
+			return webpCfg, "webp", nil
+		}
+	}
+	return image.Config{}, "", err
+}
+
+func uploadedImageExtAndMime(data []byte, decodedFormat string) (string, string) {
+	switch strings.ToLower(strings.TrimSpace(decodedFormat)) {
+	case "gif":
+		return ".gif", "image/gif"
+	case "webp":
+		return ".webp", "image/webp"
+	case "jpeg", "jpg":
+		return ".jpg", "image/jpeg"
+	case "png":
+		return ".png", "image/png"
+	}
+	switch strings.ToLower(strings.TrimSpace(http.DetectContentType(data))) {
+	case "image/gif":
+		return ".gif", "image/gif"
+	case "image/webp":
+		return ".webp", "image/webp"
+	case "image/jpeg":
+		return ".jpg", "image/jpeg"
+	case "image/png":
+		return ".png", "image/png"
+	}
+	if mimeType := mime.TypeByExtension("." + decodedFormat); mimeType != "" {
+		return "." + decodedFormat, mimeType
+	}
+	return ".png", "image/png"
+}
+
+func uploadedImageFileName(fileName, ext string) string {
+	base := strings.TrimSpace(fileName)
+	if base == "" {
+		base = "image_1"
+	} else if curExt := filepath.Ext(base); curExt != "" {
+		base = strings.TrimSuffix(base, curExt)
+	}
+	return base + ext
+}
+
+func (c *Client) uploadImage(ctx context.Context, imageRef, fileName string) (UploadedFile, error) {
+	data, err := decodeImageReferenceWithResolver(ctx, imageRef, c.ImageResolver)
 	if err != nil {
 		return UploadedFile{}, err
 	}
-	mimeType := mime.TypeByExtension("." + format)
-	if mimeType == "" {
-		mimeType = "image/png"
+	cfg, format, err := decodeUploadedImageConfig(data)
+	if err != nil {
+		return UploadedFile{}, err
 	}
+	ext, mimeType := uploadedImageExtAndMime(data, format)
+	fileName = uploadedImageFileName(fileName, ext)
 	path := "/backend-api/files"
 	resp, err := c.postJSON(ctx, path, map[string]any{"file_name": fileName, "file_size": len(data), "use_case": "multimodal", "width": cfg.Width, "height": cfg.Height}, c.headersContext(ctx, path, map[string]string{"Content-Type": "application/json", "Accept": "application/json"}), false)
 	if err != nil {
@@ -397,6 +448,7 @@ func (c *Client) startImageGeneration(ctx context.Context, prompt string, reqs C
 		}
 		metadata["attachments"] = attachments
 	}
+	wireModel := c.imageModelSlug(model)
 	payload := map[string]any{
 		"action": "next",
 		"messages": []any{map[string]any{
@@ -407,7 +459,7 @@ func (c *Client) startImageGeneration(ctx context.Context, prompt string, reqs C
 			"metadata":    metadata,
 		}},
 		"parent_message_id":        imageClientCreatedRoot,
-		"model":                    c.imageModelSlug(model),
+		"model":                    wireModel,
 		"timezone_offset_min":      timezoneOffset,
 		"timezone":                 timezoneName,
 		"conversation_mode":        map[string]any{"kind": "primary_assistant"},
@@ -440,7 +492,7 @@ func (c *Client) startImageGeneration(ctx context.Context, prompt string, reqs C
 		if readErr != nil {
 			return nil, readErr
 		}
-		if isAutoImageModelNotFound(resp.StatusCode, strings.ToLower(strings.TrimSpace(model)), data) {
+		if isAutoImageModelNotFound(resp.StatusCode, strings.ToLower(strings.TrimSpace(wireModel)), data) {
 			return nil, fmt.Errorf("%w: %v", ErrAutoImageModelNotFound, upstreamHTTPErrorWithResponse(path, resp, data))
 		}
 		return nil, upstreamHTTPErrorWithResponse(path, resp, data)

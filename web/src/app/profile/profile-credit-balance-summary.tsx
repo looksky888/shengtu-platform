@@ -35,7 +35,7 @@ export function ProfileCreditBalanceSummary({
           </span>
         </div>
         <div className="mt-1 text-xs text-muted-foreground">
-          实际结算以后端积分流水为准
+          任务失败会自动原路退回积分
         </div>
       </div>
 

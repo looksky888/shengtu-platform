@@ -114,7 +114,7 @@ func (b *DatabaseBackend) FailPaymentReconciliationRun(id, lastError, finishedAt
 }
 
 func (b *DatabaseBackend) LoadPaymentReconciliationRun(id string) (PaymentReconciliationRunRecord, error) {
-	row := b.db.QueryRow(paymentReconciliationRunSelect+`id = `+b.placeholder(1), strings.TrimSpace(id))
+	row := b.reader().QueryRow(paymentReconciliationRunSelect+`id = `+b.placeholder(1), strings.TrimSpace(id))
 	item, err := scanPaymentReconciliationRun(row)
 	if errors.Is(err, sql.ErrNoRows) {
 		return PaymentReconciliationRunRecord{}, ErrPaymentRecordNotFound
@@ -123,7 +123,7 @@ func (b *DatabaseBackend) LoadPaymentReconciliationRun(id string) (PaymentReconc
 }
 
 func (b *DatabaseBackend) loadPaymentReconciliationByChannelDate(channelID, billDate string) (PaymentReconciliationRunRecord, error) {
-	row := b.db.QueryRow(paymentReconciliationRunSelect+`channel_id = `+b.placeholder(1)+` AND bill_date = `+b.placeholder(2), channelID, billDate)
+	row := b.reader().QueryRow(paymentReconciliationRunSelect+`channel_id = `+b.placeholder(1)+` AND bill_date = `+b.placeholder(2), channelID, billDate)
 	item, err := scanPaymentReconciliationRun(row)
 	if errors.Is(err, sql.ErrNoRows) {
 		return PaymentReconciliationRunRecord{}, ErrPaymentRecordNotFound
@@ -155,11 +155,11 @@ func (b *DatabaseBackend) QueryPaymentReconciliationRuns(filter PaymentReconcili
 		where += ` AND bill_date = ` + b.placeholder(len(args))
 	}
 	var total int
-	if err := b.db.QueryRow(`SELECT COUNT(*) FROM payment_reconciliation_runs WHERE `+where, args...).Scan(&total); err != nil {
+	if err := b.reader().QueryRow(`SELECT COUNT(*) FROM payment_reconciliation_runs WHERE `+where, args...).Scan(&total); err != nil {
 		return nil, 0, err
 	}
 	queryArgs := append(append([]any(nil), args...), filter.PageSize, (filter.Page-1)*filter.PageSize)
-	rows, err := b.db.Query(paymentReconciliationRunSelect+where+` ORDER BY bill_date DESC, id DESC LIMIT `+b.placeholder(len(args)+1)+` OFFSET `+b.placeholder(len(args)+2), queryArgs...)
+	rows, err := b.reader().Query(paymentReconciliationRunSelect+where+` ORDER BY bill_date DESC, id DESC LIMIT `+b.placeholder(len(args)+1)+` OFFSET `+b.placeholder(len(args)+2), queryArgs...)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -198,11 +198,11 @@ func (b *DatabaseBackend) QueryPaymentReconciliationItems(runID string, filter P
 		where += ` AND category = ` + b.placeholder(len(args))
 	}
 	var total int
-	if err := b.db.QueryRow(`SELECT COUNT(*) FROM payment_reconciliation_items WHERE `+where, args...).Scan(&total); err != nil {
+	if err := b.reader().QueryRow(`SELECT COUNT(*) FROM payment_reconciliation_items WHERE `+where, args...).Scan(&total); err != nil {
 		return nil, 0, err
 	}
 	queryArgs := append(append([]any(nil), args...), filter.PageSize, (filter.Page-1)*filter.PageSize)
-	rows, err := b.db.Query(`SELECT id, run_id, category, out_trade_no, transaction_id, local_order_id,
+	rows, err := b.reader().Query(`SELECT id, run_id, category, out_trade_no, transaction_id, local_order_id,
 		bill_amount_fen, local_amount_fen, detail, created_at
 		FROM payment_reconciliation_items WHERE `+where+` ORDER BY created_at ASC, id ASC LIMIT `+b.placeholder(len(args)+1)+` OFFSET `+b.placeholder(len(args)+2), queryArgs...)
 	if err != nil {
@@ -221,7 +221,7 @@ func (b *DatabaseBackend) QueryPaymentReconciliationItems(runID string, filter P
 }
 
 func (b *DatabaseBackend) ListSucceededPaymentOrdersForReconciliation(channelID, paidStart, paidEnd string) ([]PaymentOrderRecord, error) {
-	rows, err := b.db.Query(paymentOrderSelect+`channel_id = `+b.placeholder(1)+` AND status = `+b.placeholder(2)+` AND paid_at >= `+b.placeholder(3)+` AND paid_at < `+b.placeholder(4)+` ORDER BY `+b.utcSortableExpr("paid_at")+` ASC, id ASC`, strings.TrimSpace(channelID), PaymentOrderStatusSucceeded, normalizeUTCZeroNanoBoundString(paidStart), normalizeUTCZeroNanoBoundString(paidEnd))
+	rows, err := b.reader().Query(paymentOrderSelect+`channel_id = `+b.placeholder(1)+` AND status = `+b.placeholder(2)+` AND paid_at >= `+b.placeholder(3)+` AND paid_at < `+b.placeholder(4)+` ORDER BY `+b.utcSortableExpr("paid_at")+` ASC, id ASC`, strings.TrimSpace(channelID), PaymentOrderStatusSucceeded, normalizeUTCZeroNanoBoundString(paidStart), normalizeUTCZeroNanoBoundString(paidEnd))
 	if err != nil {
 		return nil, err
 	}
@@ -262,7 +262,7 @@ func (b *DatabaseBackend) LoadPaymentOrdersByOutTradeNos(outTradeNos []string) (
 		for _, value := range unique[start:end] {
 			args = append(args, value)
 		}
-		rows, err := b.db.Query(paymentOrderSelect+`out_trade_no IN (`+b.boundPlaceholders(1, len(args))+`)`, args...)
+		rows, err := b.reader().Query(paymentOrderSelect+`out_trade_no IN (`+b.boundPlaceholders(1, len(args))+`)`, args...)
 		if err != nil {
 			return nil, err
 		}

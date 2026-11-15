@@ -127,7 +127,7 @@ export function OverviewTabPanels({
               <td className="font-mono tabular-nums">{poolHealth?.free_slots ?? "—"}</td>
               <td>
                 <Link
-                  to="/admin/accounts"
+                  to="/accounts"
                   className="text-[12px] font-medium text-[var(--admin-text)] underline-offset-4 hover:underline"
                 >
                   进入号池 →
@@ -147,7 +147,7 @@ export function OverviewTabPanels({
               <td className="font-mono tabular-nums">—</td>
               <td>
                 <Link
-                  to="/admin/accounts?platform=grok"
+                  to="/accounts?platform=grok"
                   className="text-[12px] font-medium text-[var(--admin-text)] underline-offset-4 hover:underline"
                 >
                   管理 Grok →
@@ -202,7 +202,7 @@ export function OverviewTabPanels({
                   </td>
                   <td>
                     <Link
-                      to="/admin/logs?tab=tasks&view=history"
+                      to="/task-queue?tab=history"
                       className="text-[12px] text-[var(--admin-text)] underline-offset-4 hover:underline"
                     >
                       排错详情
@@ -261,7 +261,7 @@ export function OverviewTabPanels({
                   </td>
                   <td>
                     <Link
-                      to={`/admin/channels?channel=${encodeURIComponent(channel.id)}`}
+                      to={`/settings?tab=channels&channel=${encodeURIComponent(channel.id)}`}
                       className="text-[12px] text-[var(--admin-text)] underline-offset-4 hover:underline"
                     >
                       调整单价 →

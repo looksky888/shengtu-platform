@@ -37,6 +37,12 @@ function resolveManualChunk(id: string): string | undefined {
   if (normalized.includes("/node_modules/lucide-react/")) {
     return "vendor-icons";
   }
+  if (normalized.includes("/node_modules/axios/")) {
+    return "vendor-http";
+  }
+  if (normalized.includes("/node_modules/localforage/")) {
+    return "vendor-storage";
+  }
   return undefined;
 }
 

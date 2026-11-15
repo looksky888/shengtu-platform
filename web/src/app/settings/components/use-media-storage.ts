@@ -87,7 +87,7 @@ export function useMediaStorage(config: SettingsConfig | null) {
   useEffect(() => {
     const handleTabRefresh = (event: Event) => {
       const detail = (event as CustomEvent<{ tab?: string }>).detail;
-      if (detail?.tab === "storage") {
+      if (detail?.tab === "media" || detail?.tab === "storage") {
         void reloadOverview({ silent: true });
       }
     };

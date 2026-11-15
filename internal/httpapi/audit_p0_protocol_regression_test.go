@@ -36,6 +36,9 @@ func TestWriteProtocolSettlesChatAndResponsesImagePayloads(t *testing.T) {
 	}
 	balAfterDeduct1, _ := app.credits.Account(user.ID)
 	req1 := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+	ctx1, tracker1 := protocol.WithGeneratedImageTracker(req1.Context())
+	tracker1.AddLocalImageURL("https://example.test/images/generated-1.png")
+	req1 = req1.WithContext(ctx1)
 	res1 := httptest.NewRecorder()
 	chatResult := map[string]any{
 		"id":     "chatcmpl-1",

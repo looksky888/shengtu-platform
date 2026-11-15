@@ -9,6 +9,10 @@ export type ImageDownloadResult = {
   total: number;
   failed: string[];
 };
+export type ImageDownloadOptions = {
+  getToken?: () => Promise<string> | string;
+  apiUrl?: string;
+};
 
 type WritableFile = {
   write(data: Blob): Promise<void>;
@@ -25,22 +29,112 @@ type DirectoryPickerWindow = Window & typeof globalThis & {
   showDirectoryPicker?: (options?: { mode?: "read" | "readwrite" }) => Promise<DownloadDirectoryHandle>;
 };
 
-export function buildImageDownloadHref(src: string, baseHref: string) {
-  if (!src) return "";
-  try {
-    const base = new URL(baseHref);
-    const url = new URL(src, base);
-    if (url.origin === base.origin && url.pathname.startsWith("/images/")) {
-      url.searchParams.set("download", "1");
-      return url.toString();
+function readRuntimeApiUrl(overrideApiUrl?: string): string {
+  if (overrideApiUrl !== undefined) {
+    return overrideApiUrl.trim().replace(/\/+$/, "");
+  }
+  const metaEnv = (import.meta as { env?: { VITE_API_URL?: string; DEV?: boolean } }).env;
+  if (metaEnv) {
+    return String(metaEnv.VITE_API_URL || (metaEnv.DEV ? "http://127.0.0.1:8000" : ""))
+      .trim()
+      .replace(/\/+$/, "");
+  }
+  return "";
+}
+
+function isRelativeUrl(value: string): boolean {
+  return !/^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(value) && !value.startsWith("//");
+}
+
+function resolveTrustedOrigins(baseHref: string, configuredApiUrl?: string) {
+  const base = new URL(baseHref);
+  const apiBase = readRuntimeApiUrl(configuredApiUrl);
+  let apiOrigin = base.origin;
+  let apiBaseUrl: URL | null = null;
+  if (apiBase) {
+    try {
+      apiBaseUrl = new URL(apiBase, base);
+      apiOrigin = apiBaseUrl.origin;
+    } catch {
+      apiBaseUrl = null;
     }
+  }
+  return { base, apiBase, apiOrigin, apiBaseUrl };
+}
+
+function resolveManagedImageUrl(
+  src: string,
+  baseHref: string,
+  configuredApiUrl?: string,
+): URL | null {
+  if (!src || /^(data|blob):/i.test(src)) {
+    return null;
+  }
+  try {
+    const { base, apiOrigin, apiBaseUrl } = resolveTrustedOrigins(baseHref, configuredApiUrl);
+    if (isRelativeUrl(src)) {
+      const normalizedPath = src.startsWith("/") ? src : `/${src}`;
+      const probe = new URL(normalizedPath, base);
+      if (!probe.pathname.startsWith("/images/")) {
+        return null;
+      }
+      if (apiBaseUrl) {
+        const basePath = apiBaseUrl.pathname.replace(/\/+$/, "");
+        return new URL(`${apiBaseUrl.origin}${basePath}${probe.pathname}${probe.search}${probe.hash}`);
+      }
+      return probe;
+    }
+
+    const parsed = new URL(src, base);
+    const isTrustedOrigin = parsed.origin === base.origin || parsed.origin === apiOrigin;
+    if (!isTrustedOrigin || !parsed.pathname.startsWith("/images/")) {
+      return null;
+    }
+    return parsed;
   } catch {
+    return null;
+  }
+}
+
+export function buildImageDownloadHref(src: string, baseHref: string, configuredApiUrl?: string) {
+  if (!src) return "";
+  const managed = resolveManagedImageUrl(src, baseHref, configuredApiUrl);
+  if (!managed) {
     return src;
   }
-  return src;
+  managed.searchParams.set("download", "1");
+  return managed.toString();
+}
+
+export function buildImageDownloadFetchHref(src: string, baseHref: string, configuredApiUrl?: string) {
+  if (!src) return "";
+  const managed = resolveManagedImageUrl(src, baseHref, configuredApiUrl);
+  if (!managed) {
+    return src;
+  }
+  managed.searchParams.set("download", "1");
+  managed.searchParams.set("proxy", "1");
+  return managed.toString();
+}
+
+function extensionFromDataUrl(src: string): string | null {
+  const trimmed = src.trim();
+  if (!/^data:/i.test(trimmed)) {
+    return null;
+  }
+  if (/^data:image\/gif(?:[;,]|$)/i.test(trimmed)) return "gif";
+  if (/^data:image\/webp(?:[;,]|$)/i.test(trimmed)) return "webp";
+  if (/^data:image\/jpe?g(?:[;,]|$)/i.test(trimmed)) return "jpg";
+  if (/^data:image\/png(?:[;,]|$)/i.test(trimmed)) return "png";
+  return "png";
 }
 
 export function imageDownloadFileName(src: string, fallbackId: string) {
+  const safeId = fallbackId.trim().replace(/[^a-z0-9_-]+/gi, "-") || "download";
+  const dataUrlExt = extensionFromDataUrl(src);
+  if (dataUrlExt) {
+    return `image-${safeId}.${dataUrlExt}`;
+  }
   try {
     const sourceName = decodeURIComponent(new URL(src, "https://download.invalid").pathname.split("/").pop() || "");
     if (/\.[a-z0-9]{1,5}$/i.test(sourceName)) {
@@ -49,7 +143,6 @@ export function imageDownloadFileName(src: string, fallbackId: string) {
   } catch {
     // Use the deterministic fallback below.
   }
-  const safeId = fallbackId.trim().replace(/[^a-z0-9_-]+/gi, "-") || "download";
   return `image-${safeId}.png`;
 }
 
@@ -65,9 +158,29 @@ export async function triggerImageDownloads(
   }
 }
 
+/** Fetch through the application/API origin (or save `data:` inline), then save a local Blob URL. */
+export async function downloadImageSrc(
+  src: string,
+  fileName: string,
+  options?: ImageDownloadOptions,
+) {
+  if (!src) {
+    throw new Error("图片地址为空");
+  }
+  if (/^data:/i.test(src.trim())) {
+    triggerImageDownload(src, fileName);
+    return;
+  }
+  await downloadImageBlob(src, fileName, options);
+}
+
 /** Fetch through the application origin, then save a local Blob URL. */
-export async function downloadImageBlob(src: string, fileName: string) {
-  const blob = await fetchImageDownloadBlob(src);
+export async function downloadImageBlob(
+  src: string,
+  fileName: string,
+  options?: ImageDownloadOptions,
+) {
+  const blob = await fetchImageDownloadBlob(src, options);
   downloadBlob(blob, fileName);
 }
 
@@ -88,6 +201,7 @@ export function downloadBlob(blob: Blob, fileName: string) {
 export async function downloadImageFiles(
   items: ImageDownloadItem[],
   onProgress?: (progress: ImageDownloadProgress) => void,
+  options?: ImageDownloadOptions,
 ): Promise<ImageDownloadResult> {
   const pending = makeUniqueDownloadNames(items.filter((item) => item.src));
   if (pending.length === 0) {
@@ -100,7 +214,7 @@ export async function downloadImageFiles(
     const failed: string[] = [];
     for (const [index, item] of pending.entries()) {
       try {
-        const blob = await fetchImageDownloadBlob(item.src);
+        const blob = await fetchImageDownloadBlob(item.src, options);
         await writeImageToDirectory(directory, item.fileName, blob);
       } catch {
         // Keep processing the rest of the batch: one unavailable object must
@@ -115,7 +229,7 @@ export async function downloadImageFiles(
   const failed: string[] = [];
   for (const [index, item] of pending.entries()) {
     try {
-      await downloadImageBlob(item.src, item.fileName);
+      await downloadImageBlob(item.src, item.fileName, options);
     } catch {
       failed.push(item.fileName);
     }
@@ -131,12 +245,66 @@ export function isImageDownloadCanceled(error: unknown) {
   return error instanceof DOMException && error.name === "AbortError";
 }
 
-async function fetchImageDownloadBlob(src: string) {
+async function resolveDownloadSessionToken(getToken?: () => Promise<string> | string): Promise<string> {
+  if (getToken) {
+    return String((await getToken()) || "").trim();
+  }
+  try {
+    const authModule = await import("@/store/auth");
+    return String((await authModule.getStoredSessionToken()) || "").trim();
+  } catch {
+    if (typeof window !== "undefined") {
+      try {
+        const raw = window.sessionStorage?.getItem("chatgpt2api_auth_session") || "";
+        if (raw) {
+          const parsed = JSON.parse(raw) as { token?: unknown };
+          if (typeof parsed.token === "string") {
+            return parsed.token.trim();
+          }
+        }
+      } catch {
+        // Ignore storage read errors in minimal test environments.
+      }
+    }
+    return "";
+  }
+}
+
+export async function fetchImageDownloadBlob(src: string, options?: ImageDownloadOptions) {
   if (!src) {
     throw new Error("图片地址为空");
   }
-  const href = buildImageDownloadHref(src, window.location.href);
-  const response = await fetch(href, { credentials: "same-origin" });
+  if (/^(data|blob):/i.test(src)) {
+    const response = await fetch(src);
+    if (!response.ok) {
+      throw new Error(`图片下载失败（HTTP ${response.status}）`);
+    }
+    return response.blob();
+  }
+
+  const baseHref = typeof window !== "undefined" && window.location?.href
+    ? window.location.href
+    : "http://localhost";
+  const managedTarget = resolveManagedImageUrl(src, baseHref, options?.apiUrl);
+  const href = buildImageDownloadFetchHref(src, baseHref, options?.apiUrl);
+
+  let response: Response;
+  if (managedTarget) {
+    const headers = new Headers();
+    const token = await resolveDownloadSessionToken(options?.getToken);
+    if (token) {
+      headers.set("Authorization", `Bearer ${token}`);
+    }
+    response = await fetch(href, {
+      credentials: "include",
+      headers,
+    });
+  } else {
+    response = await fetch(href, {
+      credentials: "omit",
+    });
+  }
+
   if (!response.ok) {
     throw new Error(`图片下载失败（HTTP ${response.status}）`);
   }

@@ -274,12 +274,12 @@ func TestGPTImageModelKeepsQualityHint(t *testing.T) {
 	}
 }
 
-func TestNormalizeDirectImageModelMapsAutoToGPTImage25Flare(t *testing.T) {
-	if got := normalizeDirectImageModel(util.ImageModelAuto); got != util.ImageModelGPT25Flare {
-		t.Fatalf("normalizeDirectImageModel(auto) = %q, want %q", got, util.ImageModelGPT25Flare)
+func TestNormalizeDirectImageModelMapsAutoToGPTImage26Flare(t *testing.T) {
+	if got := normalizeDirectImageModel(util.ImageModelAuto); got != util.ImageModelGPT26Flare {
+		t.Fatalf("normalizeDirectImageModel(auto) = %q, want %q", got, util.ImageModelGPT26Flare)
 	}
-	if got := normalizeDirectImageModel(""); got != util.ImageModelGPT25Flare {
-		t.Fatalf("normalizeDirectImageModel(empty) = %q, want %q", got, util.ImageModelGPT25Flare)
+	if got := normalizeDirectImageModel(""); got != util.ImageModelGPT26Flare {
+		t.Fatalf("normalizeDirectImageModel(empty) = %q, want %q", got, util.ImageModelGPT26Flare)
 	}
 	if got := normalizeDirectImageModel(util.ImageModelGrokImagine); got != util.ImageModelGrokImagine {
 		t.Fatalf("normalizeDirectImageModel(grok) = %q, want %q", got, util.ImageModelGrokImagine)

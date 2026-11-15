@@ -50,18 +50,18 @@ export function ProfileInviteRedeemCard({
   onRedeem,
 }: ProfileInviteRedeemCardProps) {
   return (
-    <Card>
+    <Card id="profile-invite-redeem" className="min-w-0 border-border bg-[#fbfdff] dark:bg-card">
       <CardHeader className="pb-3">
         <div className="flex min-w-0 items-center gap-3">
-          <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border/80 bg-surface-muted text-foreground">
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-[#cfe0ff] bg-[#edf4ff] text-[#1456f0] dark:border-sky-500/30 dark:bg-sky-950/50 dark:text-sky-300">
             <Gift className="size-4.5" />
           </div>
           <div className="min-w-0">
             <CardTitle className="text-base font-semibold">
-              邀请与兑换
+              邀请好友与兑换码
             </CardTitle>
             <CardDescription className="truncate">
-              分享专属邀请链接，或使用兑换码即时核销算力积分
+              分享邀请链接领奖励，或输入兑换码直接充入积分
             </CardDescription>
           </div>
         </div>
@@ -78,7 +78,7 @@ export function ProfileInviteRedeemCard({
         <div className="border-t border-border/70 pt-4">
           <FieldGroup>
             <Field>
-              <FieldLabel htmlFor="profile-redeem-key">积分卡密兑换</FieldLabel>
+              <FieldLabel htmlFor="profile-redeem-key">积分兑换码</FieldLabel>
               <div className="flex flex-col gap-2 sm:flex-row">
                 <Input
                   id="profile-redeem-key"
@@ -90,7 +90,7 @@ export function ProfileInviteRedeemCard({
                 <Button
                   type="button"
                   size="sm"
-                  className="h-9 px-3.5"
+                  className="h-9 bg-[#1456f0] px-3.5 text-white hover:bg-[#1048ce]"
                   onClick={onRedeem}
                   disabled={isRedeeming}
                 >
@@ -103,7 +103,7 @@ export function ProfileInviteRedeemCard({
                 </Button>
               </div>
               <FieldDescription>
-                核销成功后实时累加至当前账户余额，可在「积分中心与流水」查阅记录。
+                兑换成功后积分立即到账，可在「积分中心与流水」查看明细。
               </FieldDescription>
             </Field>
           </FieldGroup>

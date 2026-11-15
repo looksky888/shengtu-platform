@@ -6,11 +6,14 @@ const (
 	ImageModelAuto = "auto"
 	// ImageModelGPT is the legacy public alias retained for existing clients.
 	ImageModelGPT = "gpt-image-2"
-	// ImageModelGPT25 is the compatibility alias for the current Web image
-	// route. It resolves to ImageModelGPT25Flare on the upstream wire.
+	// ImageModelGPT25 is the compatibility alias for the Web image 2.5 route.
+	// It resolves to ImageModelGPT25Flare on the upstream wire.
 	ImageModelGPT25         = "gpt-image-2.5"
 	ImageModelGPT25Flare    = "gpt-image-2.5-flare"
 	ImageModelGPT25Sunburst = "gpt-image-2.5-sunburst"
+	ImageModelGPT26         = "gpt-image-2.6"
+	ImageModelGPT26Flare    = "gpt-image-2.6-flare"
+	ImageModelGPT26Sunburst = "gpt-image-2.6-sunburst"
 	ImageModelGrokImagine   = "grok-imagine-image"
 	ImageModelGrokLite      = "grok-imagine-image-lite"
 	ImageModelGrokPro       = "grok-imagine-image-pro"
@@ -29,6 +32,8 @@ const (
 	ChatModelGPT55          = "gpt-5-5"
 	ChatModelGPT56          = "gpt-5-6"
 	ChatModelGrok45         = "grok-4.5"
+
+	DefaultGPTImage26CreditCost = 5
 )
 
 var ImageModels = map[string]struct{}{
@@ -36,6 +41,9 @@ var ImageModels = map[string]struct{}{
 	ImageModelGPT25:         {},
 	ImageModelGPT25Flare:    {},
 	ImageModelGPT25Sunburst: {},
+	ImageModelGPT26:         {},
+	ImageModelGPT26Flare:    {},
+	ImageModelGPT26Sunburst: {},
 	ImageModelGrokImagine:   {},
 	ImageModelGrokLite:      {},
 	ImageModelGrokPro:       {},
@@ -43,6 +51,9 @@ var ImageModels = map[string]struct{}{
 }
 
 var ModelIDs = []string{
+	ImageModelGPT26Flare,
+	ImageModelGPT26,
+	ImageModelGPT26Sunburst,
 	ImageModelGPT,
 	ImageModelGPT25,
 	ImageModelGPT25Flare,
@@ -71,6 +82,9 @@ var ModelIDs = []string{
 }
 
 var ImageGenerationModelIDs = []string{
+	ImageModelGPT26Flare,
+	ImageModelGPT26,
+	ImageModelGPT26Sunburst,
 	ImageModelGPT25Flare,
 	ImageModelGPT25,
 	ImageModelGPT,
@@ -96,6 +110,9 @@ var ResponsesImageToolModels = map[string]struct{}{
 	ImageModelGPT25Flare:    {},
 	ImageModelGPT25:         {},
 	ImageModelGPT25Sunburst: {},
+	ImageModelGPT26Flare:    {},
+	ImageModelGPT26:         {},
+	ImageModelGPT26Sunburst: {},
 	ImageModelGPTMini:       {},
 	ImageModelGPT53Mini:     {},
 	ImageModelGPT5:          {},
@@ -146,21 +163,21 @@ func IsImageGenerationModel(model string) bool {
 	return ok
 }
 
-// IsGPTImageModel identifies both the current Images 2.5 API ids and the
+// IsGPTImageModel identifies the current Images 2.6 / 2.5 API ids and the
 // legacy gpt-image-2 alias. Account-pool requests use the ChatGPT image route
 // for all of them; proxy_api requests keep the exact id for the upstream API.
 func IsGPTImageModel(model string) bool {
 	switch strings.TrimSpace(strings.ToLower(model)) {
-	case ImageModelGPT, ImageModelGPT25, ImageModelGPT25Flare, ImageModelGPT25Sunburst:
+	case ImageModelGPT,
+		ImageModelGPT25, ImageModelGPT25Flare, ImageModelGPT25Sunburst,
+		ImageModelGPT26, ImageModelGPT26Flare, ImageModelGPT26Sunburst:
 		return true
 	default:
 		return false
 	}
 }
 
-// CanonicalImage25Model returns the exact Web image model slug to send to
-// prepare and conversation. The bare 2.5 alias intentionally resolves to
-// flare, while explicit flare and sunburst selections remain distinct.
+// CanonicalImage25Model returns the exact Web image 2.5 model slug.
 func CanonicalImage25Model(model string) (string, bool) {
 	switch strings.TrimSpace(strings.ToLower(model)) {
 	case ImageModelGPT25:
@@ -171,6 +188,36 @@ func CanonicalImage25Model(model string) (string, bool) {
 		return ImageModelGPT25Sunburst, true
 	default:
 		return "", false
+	}
+}
+
+// CanonicalWebImageModel returns the canonical Web image 2.5 / 2.6 model slug
+// that routes directly through picture_v2 (upstream wire model "auto") without
+// falling back to legacy gpt-image-2 text-session slugs.
+func CanonicalWebImageModel(model string) (string, bool) {
+	if canonical25, ok := CanonicalImage25Model(model); ok {
+		return canonical25, true
+	}
+	switch strings.TrimSpace(strings.ToLower(model)) {
+	case ImageModelGPT26:
+		return ImageModelGPT26, true
+	case ImageModelGPT26Flare:
+		return ImageModelGPT26Flare, true
+	case ImageModelGPT26Sunburst:
+		return ImageModelGPT26Sunburst, true
+	default:
+		return "", false
+	}
+}
+
+// SupportsGIFOutputModel matches yukkcat/chatgpt2api DEFAULT_GIF_MODELS:
+// animated GIF output is enabled on the gpt-image-2.6 model family by default.
+func SupportsGIFOutputModel(model string) bool {
+	switch strings.TrimSpace(strings.ToLower(model)) {
+	case ImageModelGPT26, ImageModelGPT26Flare, ImageModelGPT26Sunburst:
+		return true
+	default:
+		return false
 	}
 }
 

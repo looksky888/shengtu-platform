@@ -9,7 +9,7 @@ import (
 func (b *DatabaseBackend) LoadPaymentSettings() (PaymentSettingsRecord, error) {
 	var item PaymentSettingsRecord
 	var rechargeEnabled, customEnabled, cloudStorageEnabled int
-	err := b.db.QueryRow(`SELECT recharge_enabled, custom_credits_enabled, credit_unit_price_fen,
+	err := b.reader().QueryRow(`SELECT recharge_enabled, custom_credits_enabled, credit_unit_price_fen,
 		cloud_storage_enabled, cloud_storage_policy_started_at, free_retention_days, vip_grace_days, historical_grace_days,
 		min_custom_credits, max_custom_credits, updated_by, updated_at FROM payment_settings WHERE id = 1`).
 		Scan(&rechargeEnabled, &customEnabled, &item.CreditUnitPriceFen, &cloudStorageEnabled,
@@ -150,7 +150,7 @@ func (b *DatabaseBackend) loadPaymentStatsPeriod(start, end time.Time) (PaymentS
 		endValue := formatUTCZeroNanoBound(end)
 		args = []any{startValue, endValue, startValue, endValue, startValue, endValue, startValue, endValue, startValue, endValue, startValue, endValue}
 	}
-	if err := b.db.QueryRow(query, args...).Scan(&period.TotalOrders, &period.SucceededOrders, &period.FailedOrders, &period.ClosedOrders, &period.SucceededAmountFen, &period.CreditedCredits); err != nil {
+	if err := b.reader().QueryRow(query, args...).Scan(&period.TotalOrders, &period.SucceededOrders, &period.FailedOrders, &period.ClosedOrders, &period.SucceededAmountFen, &period.CreditedCredits); err != nil {
 		return PaymentStatsPeriod{}, err
 	}
 	if period.TotalOrders > 0 {
@@ -160,7 +160,7 @@ func (b *DatabaseBackend) loadPaymentStatsPeriod(start, end time.Time) (PaymentS
 }
 
 func (b *DatabaseBackend) loadPaymentStatsChannels() ([]PaymentStatsChannel, error) {
-	rows, err := b.db.Query(`SELECT channel_id, COUNT(*), COALESCE(SUM(CASE WHEN status = 'succeeded' THEN 1 ELSE 0 END), 0), COALESCE(SUM(CASE WHEN status = 'succeeded' THEN amount_fen ELSE 0 END), 0) FROM payment_orders GROUP BY channel_id ORDER BY COALESCE(SUM(CASE WHEN status = 'succeeded' THEN amount_fen ELSE 0 END), 0) DESC, channel_id ASC`)
+	rows, err := b.reader().Query(`SELECT channel_id, COUNT(*), COALESCE(SUM(CASE WHEN status = 'succeeded' THEN 1 ELSE 0 END), 0), COALESCE(SUM(CASE WHEN status = 'succeeded' THEN amount_fen ELSE 0 END), 0) FROM payment_orders GROUP BY channel_id ORDER BY COALESCE(SUM(CASE WHEN status = 'succeeded' THEN amount_fen ELSE 0 END), 0) DESC, channel_id ASC`)
 	if err != nil {
 		return nil, err
 	}

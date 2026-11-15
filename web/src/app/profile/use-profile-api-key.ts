@@ -171,7 +171,7 @@ export function useProfileApiKey() {
       setIsKeyVisible(true);
       return;
     }
-    toast.info("服务端仅存储不可逆加密哈希；如需获取完整明文请点击「重新生成」并在当前浏览器勾选记住");
+    toast.info("服务器不保存完整明文密钥；如果忘了旧密钥，点「重新生成」就能拿到新的 sk- 密钥");
   };
 
   const handleToggleRememberLocally = (next: boolean) => {

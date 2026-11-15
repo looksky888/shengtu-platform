@@ -33,6 +33,9 @@ func TestApplyPictureModelRoutingPreservesImages25Slug(t *testing.T) {
 		{requested: util.ImageModelGPT25, want: util.ImageModelGPT25Flare},
 		{requested: util.ImageModelGPT25Flare, want: util.ImageModelGPT25Flare},
 		{requested: util.ImageModelGPT25Sunburst, want: util.ImageModelGPT25Sunburst},
+		{requested: util.ImageModelGPT26, want: util.ImageModelGPT26},
+		{requested: util.ImageModelGPT26Flare, want: util.ImageModelGPT26Flare},
+		{requested: util.ImageModelGPT26Sunburst, want: util.ImageModelGPT26Sunburst},
 	} {
 		t.Run(tc.requested, func(t *testing.T) {
 			request := &ConversationRequest{Model: tc.requested}
@@ -41,9 +44,12 @@ func TestApplyPictureModelRoutingPreservesImages25Slug(t *testing.T) {
 				t.Fatalf("UpstreamModel = %q, want %q", request.UpstreamModel, tc.want)
 			}
 			if len(request.FallbackModels) != 0 {
-				t.Fatalf("FallbackModels = %#v, want no model switching for Images 2.5", request.FallbackModels)
+				t.Fatalf("FallbackModels = %#v, want no model switching for Images 2.5/2.6", request.FallbackModels)
 			}
 		})
+	}
+	if got := normalizeDirectImageModel(""); got != util.ImageModelGPT26Flare {
+		t.Fatalf("normalizeDirectImageModel(\"\") = %q, want %q", got, util.ImageModelGPT26Flare)
 	}
 }
 

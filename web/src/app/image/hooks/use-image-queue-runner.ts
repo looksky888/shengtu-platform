@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, type RefObject } from "react";
 import { toast } from "sonner";
 
 import { buildImageQueueTaskSubmitter } from "@/app/image/hooks/image-queue-task-submitter";
-import { activeConversationQueueIds, QUOTA_REFRESH_EVENT } from "@/app/image/lib/image-page-types";
+import { QUOTA_REFRESH_EVENT } from "@/app/image/lib/image-page-types";
 import {
   applyCreationTasksToConversation,
   buildMissingTaskGroups,
@@ -10,9 +10,12 @@ import {
   findRunnableTurn,
   getLoadingTaskIds,
   hasRunnableConversation,
+  isConversationQueueActive,
   markMissingTasksExhausted,
   markTurnError,
   markTurnTasksGenerating,
+  releaseConversationQueueOwner,
+  type ConversationQueueOwner,
 } from "@/app/image/lib/image-queue-utils";
 import {
   isRetryableSubmitCapacityError,
@@ -61,6 +64,8 @@ type UseImageQueueRunnerOptions = {
 
 class ImageQueueSessionChangedError extends Error {}
 
+const activeConversationQueueOwners = new Map<string, ConversationQueueOwner>();
+
 export function useImageQueueRunner({
   conversations,
   conversationsRef,
@@ -70,9 +75,16 @@ export function useImageQueueRunner({
   clearTurnProgress,
 }: UseImageQueueRunnerOptions) {
   const sessionGenerationRef = useRef(0);
+  const abortControllersRef = useRef(new Set<AbortController>());
+
+  const abortActiveSleeps = useCallback(() => {
+    abortControllersRef.current.forEach((controller) => controller.abort());
+    abortControllersRef.current.clear();
+  }, []);
+
   const runConversationQueue = useCallback(
     async (conversationId: string) => {
-      if (activeConversationQueueIds.has(conversationId)) {
+      if (isConversationQueueActive(activeConversationQueueOwners, conversationId)) {
         return;
       }
 
@@ -82,19 +94,38 @@ export function useImageQueueRunner({
         return;
       }
 
-      activeConversationQueueIds.add(conversationId);
       const sessionGeneration = sessionGenerationRef.current;
+      const runToken = Symbol(conversationId);
+      const abortController = new AbortController();
+      abortControllersRef.current.add(abortController);
+      activeConversationQueueOwners.set(conversationId, {
+        runToken,
+        isSessionActive: () => sessionGeneration === sessionGenerationRef.current,
+        abort: () => abortController.abort(),
+      });
       const assertCurrentSession = () => {
-        if (sessionGeneration !== sessionGenerationRef.current) {
+        if (sessionGeneration !== sessionGenerationRef.current || abortController.signal.aborted) {
           throw new ImageQueueSessionChangedError("auth session changed");
         }
       };
       const activeTurnKey = imageTurnProgressKey(conversationId, activeTurn.id);
+      const pendingTaskGroups = buildPendingTaskGroups(activeTurn);
+      const isResumingInFlightOnly = pendingTaskGroups.length === 0;
+
       updateTurnProgress(conversationId, activeTurn.id, {
-        message: activeTurn.mode === "chat" ? "正在准备对话请求" : "正在准备生成任务",
+        message:
+          activeTurn.mode === "chat"
+            ? isResumingInFlightOnly
+              ? "等待对话回复"
+              : "正在准备对话请求"
+            : isResumingInFlightOnly
+              ? "正在同步后台生成进度"
+              : "正在准备生成任务",
         detail:
           activeTurn.mode === "chat"
-            ? "正在整理上下文"
+            ? isResumingInFlightOnly
+              ? "正在同步后台对话状态"
+              : "正在整理上下文"
             : `准备处理 ${activeTurn.images.filter((image) => image.status === "loading").length || activeTurn.count} 张图片`,
       });
       const applyTasks = async (tasks: CreationTask[]) => {
@@ -107,29 +138,44 @@ export function useImageQueueRunner({
 
       try {
         assertCurrentSession();
-        await updateConversation(conversationId, (current) => {
-          const conversation = current ?? snapshot;
-          return markTurnTasksGenerating(conversation, activeTurn.id);
-        });
+        if (activeTurn.status !== "generating") {
+          await updateConversation(conversationId, (current) => {
+            const conversation = current ?? snapshot;
+            return markTurnTasksGenerating(conversation, activeTurn.id);
+          });
+        }
 
-        updateTurnProgress(conversationId, activeTurn.id, {
-          message:
-            activeTurn.mode === "chat" ? "正在准备对话请求" : usesReferenceImages(activeTurn.mode) ? "正在整理参考图" : "正在准备生成任务",
-          detail:
-            activeTurn.mode === "chat"
-              ? "正在整理上下文并提交到后台"
-              : usesReferenceImages(activeTurn.mode)
-                ? "正在读取参考图并准备上传"
-                : "正在创建图片生成请求",
-        });
+        if (!isResumingInFlightOnly) {
+          updateTurnProgress(conversationId, activeTurn.id, {
+            message:
+              activeTurn.mode === "chat" ? "正在准备对话请求" : usesReferenceImages(activeTurn.mode) ? "正在整理参考图" : "正在准备生成任务",
+            detail:
+              activeTurn.mode === "chat"
+                ? "正在整理上下文并提交到后台"
+                : usesReferenceImages(activeTurn.mode)
+                  ? "正在读取参考图并准备上传"
+                  : "正在创建图片生成请求",
+          });
+        }
 
-        const pendingTaskGroups = buildPendingTaskGroups(activeTurn);
-        const submitTaskGroup = buildImageQueueTaskSubmitter(snapshot, activeTurn, assertCurrentSession);
+        let submitTaskGroup: ReturnType<typeof buildImageQueueTaskSubmitter> | null = null;
+        const getSubmitTaskGroup = () => {
+          if (!submitTaskGroup) {
+            const latestConv =
+              conversationsRef.current.find((conversation) => conversation.id === conversationId) ?? snapshot;
+            const latestTurnForSubmit =
+              latestConv.turns.find((turn) => turn.id === activeTurn.id) ?? activeTurn;
+            submitTaskGroup = buildImageQueueTaskSubmitter(latestConv, latestTurnForSubmit, assertCurrentSession);
+          }
+          return submitTaskGroup;
+        };
+
         const unsubmittedGroups = [...pendingTaskGroups];
         const totalPlannedCount = pendingTaskGroups.length;
         let submittedCount = 0;
         let consecutiveIdleCapacityWaits = 0;
         let consecutivePollErrors = 0;
+        let hasPolledSinceMount = false;
         const missingResubmitCount = new Map<string, number>();
 
         while (true) {
@@ -144,10 +190,11 @@ export function useImageQueueRunner({
             break;
           }
 
-          // Sliding-window submission: submit as many pending image tasks as user/channel concurrency allows.
+          // Sliding-window submission: submit ONLY loading image tasks that have no taskId yet (or missing_ids resubmits).
           let hitCapacityLimit = false;
+          let submittedInThisCycle = false;
           if (unsubmittedGroups.length > 0) {
-            const newlySubmitted: CreationTask[] = [];
+            const submitter = getSubmitTaskGroup();
             while (unsubmittedGroups.length > 0) {
               assertCurrentSession();
               if (cancelledTurnIdsRef.current.has(activeTurnKey)) {
@@ -164,7 +211,7 @@ export function useImageQueueRunner({
                       : "1 张图片生成请求已提交",
               });
               try {
-                const task = await submitTaskGroup(nextGroup);
+                const task = await submitter(nextGroup);
                 const latestConvAfterSubmit = conversationsRef.current.find(
                   (conversation) => conversation.id === conversationId,
                 );
@@ -176,24 +223,20 @@ export function useImageQueueRunner({
                   !latestTurnAfterSubmit ||
                   latestTurnAfterSubmit.status === "cancelled"
                 ) {
-                  const orphanIds = new Set<string>([
-                    task.id || nextGroup.taskId,
-                    ...newlySubmitted.map((item) => item.id).filter(Boolean),
-                  ]);
-                  orphanIds.forEach((orphanId) => {
-                    if (orphanId) {
-                      void cancelCreationTask(orphanId).catch(() => undefined);
-                    }
-                  });
-                  newlySubmitted.length = 0;
+                  const orphanId = task.id || nextGroup.taskId;
+                  if (orphanId) {
+                    void cancelCreationTask(orphanId).catch(() => undefined);
+                  }
                   break;
                 }
                 unsubmittedGroups.shift();
                 submittedCount += 1;
+                submittedInThisCycle = true;
                 consecutiveIdleCapacityWaits = 0;
-                newlySubmitted.push(task);
+                // Persist taskId immediately so any route switch or reload knows this item was already submitted.
+                await applyTasks([task]);
                 if (unsubmittedGroups.length > 0 && !cancelledTurnIdsRef.current.has(activeTurnKey)) {
-                  await sleep(SUBMIT_PACING_MS);
+                  await sleep(SUBMIT_PACING_MS, abortController.signal);
                 }
               } catch (submitError) {
                 if (submitError instanceof ImageQueueSessionChangedError) {
@@ -202,11 +245,6 @@ export function useImageQueueRunner({
                 if (isRetryableSubmitCapacityError(submitError)) {
                   hitCapacityLimit = true;
                   break;
-                }
-                if (newlySubmitted.length > 0) {
-                  assertCurrentSession();
-                  await applyTasks(newlySubmitted);
-                  newlySubmitted.length = 0;
                 }
                 if (submittedCount === 0) {
                   throw submitError;
@@ -224,10 +262,6 @@ export function useImageQueueRunner({
                 toast.error(`${partialMessage}（已提交的 ${submittedCount} 张继续生成）`);
                 break;
               }
-            }
-            if (newlySubmitted.length > 0) {
-              assertCurrentSession();
-              await applyTasks(newlySubmitted);
             }
           }
 
@@ -264,8 +298,12 @@ export function useImageQueueRunner({
                   : `还有 ${inFlightIds.length} 张图片生成中`,
           });
 
-          await sleep(2000);
-          assertCurrentSession();
+          // When resuming an already-submitted turn on remount/reload, poll immediately on the first cycle.
+          if (!isResumingInFlightOnly || hasPolledSinceMount || submittedInThisCycle || hitCapacityLimit) {
+            await sleep(2000, abortController.signal);
+            assertCurrentSession();
+          }
+          hasPolledSinceMount = true;
 
           // Re-check cancel after sleep — user may have stopped during the wait.
           if (cancelledTurnIdsRef.current.has(activeTurnKey)) {
@@ -300,7 +338,7 @@ export function useImageQueueRunner({
               message: activeTurn.mode === "chat" ? "网络连接波动，正在重试" : "网络波动，正在自动重连查询",
               detail: `第 ${consecutivePollErrors}/5 次重试...`,
             });
-            await sleep(Math.min(6000, 1500 * consecutivePollErrors));
+            await sleep(Math.min(6000, 1500 * consecutivePollErrors), abortController.signal);
             continue;
           }
           assertCurrentSession();
@@ -362,12 +400,13 @@ export function useImageQueueRunner({
         });
         toast.error(message);
       } finally {
-        clearTurnProgress(conversationId, activeTurn.id);
-        cancelledTurnIdsRef.current.delete(activeTurnKey);
-        activeConversationQueueIds.delete(conversationId);
-        if (sessionGeneration === sessionGenerationRef.current) {
+        abortControllersRef.current.delete(abortController);
+        const ownedLock = releaseConversationQueueOwner(activeConversationQueueOwners, conversationId, runToken);
+        if (ownedLock && sessionGeneration === sessionGenerationRef.current) {
+          clearTurnProgress(conversationId, activeTurn.id);
+          cancelledTurnIdsRef.current.delete(activeTurnKey);
           for (const conversation of conversationsRef.current) {
-            if (!activeConversationQueueIds.has(conversation.id) && hasRunnableConversation(conversation)) {
+            if (!isConversationQueueActive(activeConversationQueueOwners, conversation.id) && hasRunnableConversation(conversation)) {
               void runConversationQueue(conversation.id);
             }
           }
@@ -380,17 +419,19 @@ export function useImageQueueRunner({
   useEffect(() => {
     const handleSessionChange = () => {
       sessionGenerationRef.current += 1;
+      abortActiveSleeps();
     };
     window.addEventListener(AUTH_SESSION_CHANGE_EVENT, handleSessionChange);
     return () => {
       sessionGenerationRef.current += 1;
+      abortActiveSleeps();
       window.removeEventListener(AUTH_SESSION_CHANGE_EVENT, handleSessionChange);
     };
-  }, []);
+  }, [abortActiveSleeps]);
 
   useEffect(() => {
     for (const conversation of conversations) {
-      if (!activeConversationQueueIds.has(conversation.id) && hasRunnableConversation(conversation)) {
+      if (!isConversationQueueActive(activeConversationQueueOwners, conversation.id) && hasRunnableConversation(conversation)) {
         void runConversationQueue(conversation.id);
       }
     }
