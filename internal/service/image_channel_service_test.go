@@ -143,8 +143,8 @@ func TestImageChannelServiceBackfills26ModelsIntoMigratedLocalGPTChannel(t *test
 		if err != nil {
 			t.Fatalf("backfilled ResolveModel(%s) error = %v", modelID, err)
 		}
-		if resolved.Channel.ID != "local-gpt" {
-			t.Fatalf("backfilled %s Channel.ID = %q, want local-gpt", modelID, resolved.Channel.ID)
+		if resolved.ChannelID != "local-gpt" {
+			t.Fatalf("backfilled %s ChannelID = %q, want local-gpt", modelID, resolved.ChannelID)
 		}
 		if resolved.CreditCost != 5 {
 			t.Fatalf("backfilled %s CreditCost = %d, want 5", modelID, resolved.CreditCost)
