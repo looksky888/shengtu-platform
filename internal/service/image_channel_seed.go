@@ -89,7 +89,10 @@ func isExactLegacyDefaultFormats(formats []string) bool {
 		slices.Contains(normalized, "webp")
 }
 
-func newBuiltinAccountPoolModel(spec builtinAccountPoolModelSpec, legacy ImageChannelLegacyConfig, sortOrder int, now string) ImageChannelModel {
+func newBuiltinAccountPoolModel(channelID string, spec builtinAccountPoolModelSpec, legacy ImageChannelLegacyConfig, sortOrder int, now string) ImageChannelModel {
+	if strings.TrimSpace(channelID) == "" {
+		channelID = "local-account-pool"
+	}
 	cost := legacy.GPTModelCosts[spec.Model]
 	if cost < 1 {
 		cost = spec.DefaultCost
@@ -97,7 +100,7 @@ func newBuiltinAccountPoolModel(spec builtinAccountPoolModelSpec, legacy ImageCh
 	formats := append([]string(nil), spec.Formats...)
 	return ImageChannelModel{
 		ID:            builtinAccountPoolModelID(spec.Model),
-		ChannelID:     "local-account-pool",
+		ChannelID:     channelID,
 		DisplayName:   spec.Model,
 		UpstreamModel: spec.Model,
 		Capabilities:  []string{ImageCapabilityGenerate, ImageCapabilityEdit},
@@ -130,7 +133,7 @@ func seedImageChannelState(legacy ImageChannelLegacyConfig) imageChannelState {
 	}
 	state := imageChannelState{Version: 1, Channels: []ImageChannel{local, grok}}
 	for _, spec := range builtinAccountPoolModelSpecs {
-		item := newBuiltinAccountPoolModel(spec, legacy, spec.SeedSort, now)
+		item := newBuiltinAccountPoolModel(local.ID, spec, legacy, spec.SeedSort, now)
 		state.Models = append(state.Models, item)
 		state.SeededSystemModels = append(state.SeededSystemModels, item.ID)
 	}
@@ -152,24 +155,43 @@ func seedImageChannelState(legacy ImageChannelLegacyConfig) imageChannelState {
 	return state
 }
 
+func (s *ImageChannelService) findBuiltinAccountPoolChannelIDLocked() string {
+	if s.channelIndexLocked("local-account-pool") >= 0 {
+		return "local-account-pool"
+	}
+	for _, channel := range s.state.Channels {
+		if channel.Type == ImageChannelTypeAccountPool && channel.System {
+			return channel.ID
+		}
+	}
+	for _, channel := range s.state.Channels {
+		if channel.Type == ImageChannelTypeAccountPool {
+			return channel.ID
+		}
+	}
+	return ""
+}
+
 // ensureBuiltinAccountPoolModelsLocked backfills newly introduced built-in GPT
-// image models onto an existing local-account-pool channel exactly once.
+// image models onto an existing system account_pool channel (such as
+// "local-account-pool" or migrated "local-gpt") exactly once.
 // Existing model settings, custom channels, and intentional admin deletions are preserved.
 func (s *ImageChannelService) ensureBuiltinAccountPoolModelsLocked(legacy ImageChannelLegacyConfig) bool {
-	if s.channelIndexLocked("local-account-pool") < 0 {
+	poolChannelID := s.findBuiltinAccountPoolChannelIDLocked()
+	if poolChannelID == "" {
 		return false
 	}
 	now := nowImageChannelTimestamp()
 	changed := false
 	for _, spec := range builtinAccountPoolModelSpecs {
 		modelID := builtinAccountPoolModelID(spec.Model)
-		alreadyOnChannel := s.modelIndexLocked("local-account-pool", modelID) >= 0 ||
-			s.hasUpstreamModelLocked("local-account-pool", spec.Model, "")
+		alreadyOnChannel := s.modelIndexLocked(poolChannelID, modelID) >= 0 ||
+			s.hasUpstreamModelLocked(poolChannelID, spec.Model, "")
 		if alreadyOnChannel {
 			if util.SupportsGIFOutputModel(spec.Model) {
 				for idx := range s.state.Models {
 					existing := &s.state.Models[idx]
-					if existing.ChannelID != "local-account-pool" {
+					if existing.ChannelID != poolChannelID {
 						continue
 					}
 					if existing.ID != modelID && !strings.EqualFold(existing.UpstreamModel, spec.Model) {
@@ -192,7 +214,7 @@ func (s *ImageChannelService) ensureBuiltinAccountPoolModelsLocked(legacy ImageC
 			continue
 		}
 		// Ensure unique ID even if another channel happened to reuse the string.
-		candidate := newBuiltinAccountPoolModel(spec, legacy, spec.BackfillSort, now)
+		candidate := newBuiltinAccountPoolModel(poolChannelID, spec, legacy, spec.BackfillSort, now)
 		for _, existing := range s.state.Models {
 			if existing.ID == candidate.ID {
 				candidate.ID = newImageChannelID("model")

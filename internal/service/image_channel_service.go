@@ -54,6 +54,7 @@ func (s *ImageChannelService) loadOrSeed(legacy ImageChannelLegacyConfig) error 
 				return fmt.Errorf("迁移旧生图渠道: %w", migrateErr)
 			}
 			s.state = migrated
+			s.ensureBuiltinAccountPoolModelsLocked(legacy)
 			if err := s.validateStoredState(); err != nil {
 				return err
 			}

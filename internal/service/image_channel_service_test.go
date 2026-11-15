@@ -111,6 +111,50 @@ func TestImageChannelServiceBackfills26ModelsIntoExistingAccountPoolOnce(t *test
 	}
 }
 
+func TestImageChannelServiceBackfills26ModelsIntoMigratedLocalGPTChannel(t *testing.T) {
+	dir := t.TempDir()
+	backend := storage.NewJSONBackend(filepath.Join(dir, "accounts.json"), filepath.Join(dir, "auth_keys.json"))
+	if err := backend.SaveJSONDocument(imageChannelsDocumentName, map[string]any{
+		"version": 1,
+		"channels": []map[string]any{
+			{
+				"id": "local-gpt", "name": "本地 GPT 号池",
+				"type": "account_pool", "enabled": true, "system": true, "sort": 10, "max_concurrency": 100,
+			},
+		},
+		"models": []map[string]any{
+			{
+				"id": "local-gpt-image-25-flare", "channel_id": "local-gpt",
+				"display_name": "GPT Image 2.5 Flare", "upstream_model": util.ImageModelGPT25Flare,
+				"capabilities": []string{"generate", "edit"}, "resolutions": []string{"1k"},
+				"formats": []string{"png", "jpeg", "webp"}, "credit_cost": 4, "enabled": true, "sort": 30,
+			},
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	service, err := NewImageChannelService(dir, backend, ImageChannelLegacyConfig{})
+	if err != nil {
+		t.Fatalf("NewImageChannelService() error = %v", err)
+	}
+	for _, modelID := range []string{"local-gpt-image-2-6-flare", "local-gpt-image-2-6", "local-gpt-image-2-6-sunburst"} {
+		resolved, err := service.ResolveModel(modelID)
+		if err != nil {
+			t.Fatalf("backfilled ResolveModel(%s) error = %v", modelID, err)
+		}
+		if resolved.Channel.ID != "local-gpt" {
+			t.Fatalf("backfilled %s Channel.ID = %q, want local-gpt", modelID, resolved.Channel.ID)
+		}
+		if resolved.CreditCost != 5 {
+			t.Fatalf("backfilled %s CreditCost = %d, want 5", modelID, resolved.CreditCost)
+		}
+		if !strings.Contains(strings.Join(resolved.Formats, ","), "gif") {
+			t.Fatalf("backfilled %s Formats = %#v, want gif included", modelID, resolved.Formats)
+		}
+	}
+}
+
 func TestImageChannelServiceEncryptsRelayKeyAndPersistsCRUD(t *testing.T) {
 	service, dir, backend := newImageChannelServiceForTest(t, ImageChannelLegacyConfig{})
 	created, err := service.CreateChannel(ImageChannelInput{
