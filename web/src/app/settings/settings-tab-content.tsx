@@ -23,7 +23,7 @@ const LazySystemUpdateTab = lazy(() => import("./tabs/system-update-tab"));
 
 function TabLoading() {
   return (
-    <div className="flex min-h-52 items-center justify-center rounded-[22px] border border-border/70 bg-card/80 text-sm text-muted-foreground">
+    <div className="flex min-h-52 items-center justify-center rounded-[14px] border border-border/70 bg-card/80 text-sm text-muted-foreground">
       <LoaderCircle className="mr-2 size-5 animate-spin" />
       正在加载设置模块...
     </div>
@@ -34,23 +34,17 @@ function ConfigTab({ canManageSystem }: { canManageSystem: boolean }) {
   return (
     <section className="flex flex-col gap-5">
       <ConfigCard />
-      <div className="grid gap-5 lg:grid-cols-2">
-        {canManageSystem ? <CanvasLinkCard /> : null}
-        <div className={canManageSystem ? "" : "lg:col-span-2"}>
-          <LoginVisualCard />
-        </div>
-      </div>
+      {canManageSystem ? <CanvasLinkCard /> : null}
+      <LoginVisualCard />
     </section>
   );
 }
 
 export function SettingsTabContent({
   activeTab,
-  visitedTabs,
   canManageSystem,
 }: {
   activeTab: SettingsTabKey;
-  visitedTabs: readonly SettingsTabKey[];
   canManageSystem: boolean;
 }) {
   const renderTabBody = (tab: SettingsTabKey) => {
@@ -69,9 +63,7 @@ export function SettingsTabContent({
         return canManageSystem ? (
           <LazyAdminStorageSettingsPage embedded />
         ) : (
-          <div className="rounded-[20px] border border-border/70 bg-card p-6 text-sm text-muted-foreground">
-            只有管理员可以管理媒体存储、Cloudflare R2 与云存储 VIP 留存策略。
-          </div>
+          <ConfigTab canManageSystem={false} />
         );
       case "announcements":
         return <LazyAdminAnnouncementsPage embedded />;
@@ -83,21 +75,13 @@ export function SettingsTabContent({
   };
 
   return (
-    <>
-      {visitedTabs.map((tab) => {
-        const isActive = tab === activeTab;
-        return (
-          <div
-            key={tab}
-            id={`settings-panel-${tab}`}
-            role="tabpanel"
-            hidden={!isActive}
-            className={isActive ? "min-w-0" : "hidden"}
-          >
-            <Suspense fallback={<TabLoading />}>{renderTabBody(tab)}</Suspense>
-          </div>
-        );
-      })}
-    </>
+    <div
+      key={activeTab}
+      id={`settings-panel-${activeTab}`}
+      role="tabpanel"
+      className="min-w-0"
+    >
+      <Suspense fallback={<TabLoading />}>{renderTabBody(activeTab)}</Suspense>
+    </div>
   );
 }

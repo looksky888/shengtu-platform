@@ -85,8 +85,12 @@ export function useUsersManagement(session: StoredAuthSession) {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      setPage(1);
-      setSearchDebounced(searchText.trim());
+      const next = searchText.trim();
+      setSearchDebounced((prev) => {
+        if (prev === next) return prev;
+        setPage(1);
+        return next;
+      });
     }, 400);
     return () => window.clearTimeout(timer);
   }, [searchText]);

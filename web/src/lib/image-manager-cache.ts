@@ -50,8 +50,17 @@ export function removeCachedManagedImages(paths: string[]) {
   const pathSet = new Set(paths);
   for (const [key, entry] of imageManagerCache) {
     const items = entry.items.filter((item) => !pathSet.has(item.path));
-    if (items.length !== entry.items.length) {
-      imageManagerCache.set(key, { ...entry, items, updatedAt: Date.now() });
+    const removedCount = entry.items.length - items.length;
+    if (removedCount > 0) {
+      imageManagerCache.set(key, {
+        ...entry,
+        items,
+        total:
+          typeof entry.total === "number"
+            ? Math.max(0, entry.total - removedCount)
+            : entry.total,
+        updatedAt: Date.now(),
+      });
     }
   }
 }

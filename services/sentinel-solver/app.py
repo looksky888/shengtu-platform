@@ -81,11 +81,15 @@ def create_app(solver=None, key: str | None = None) -> FastAPI:
                 raise HTTPException(409, "expired browser context") from None
             except TimeoutError:
                 if context_id:
+                    invalidate_task = asyncio.create_task(solver.invalidate(context_id))
+                    invalidate_task.add_done_callback(
+                        lambda done: done.exception() if not done.cancelled() else None
+                    )
                     try:
                         async with asyncio.timeout(5):
-                            await solver.invalidate(context_id)
-                    except TimeoutError:
-                        pass  # Readiness was invalidated before closing the context.
+                            await asyncio.shield(invalidate_task)
+                    except (TimeoutError, Exception):
+                        pass  # Session evicted; background task finishes closing Chromium context.
                 raise HTTPException(504, "solver timeout") from None
             except Exception:
                 raise HTTPException(503, "solver unavailable") from None

@@ -4,6 +4,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
@@ -13,13 +14,38 @@ const (
 	defaultImageChallengeCooldown = 15 * time.Minute
 )
 
+var runtimeImageChallengeCooldownSec atomic.Int64
+
+// SetImageChallengeCooldownSeconds atomically sets the runtime challenge cooldown override.
+// Passing <= 0 clears the override and falls back to env / default.
+func SetImageChallengeCooldownSeconds(sec int) {
+	if sec <= 0 {
+		runtimeImageChallengeCooldownSec.Store(0)
+		return
+	}
+	runtimeImageChallengeCooldownSec.Store(int64(sec))
+}
+
+func ResetImageChallengeCooldownSeconds() {
+	runtimeImageChallengeCooldownSec.Store(0)
+}
+
 type ImageAccountCooldownInfo struct {
 	Duration time.Duration
 	Until    time.Time
 }
 
-// imageChallengeCooldownDuration reads optional env CHATGPT2API_IMAGE_CHALLENGE_COOLDOWN_SECONDS (60–7200).
+// imageChallengeCooldownDuration reads runtime config or optional env CHATGPT2API_IMAGE_CHALLENGE_COOLDOWN_SECONDS (60–7200).
 func imageChallengeCooldownDuration() time.Duration {
+	if sec := int(runtimeImageChallengeCooldownSec.Load()); sec > 0 {
+		if sec < 60 {
+			sec = 60
+		}
+		if sec > 7200 {
+			sec = 7200
+		}
+		return time.Duration(sec) * time.Second
+	}
 	raw := strings.TrimSpace(os.Getenv("CHATGPT2API_IMAGE_CHALLENGE_COOLDOWN_SECONDS"))
 	if raw == "" {
 		return defaultImageChallengeCooldown

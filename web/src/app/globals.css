@@ -407,10 +407,10 @@
   }
 
   /* Classic 4.3 Dark Mode Compatibility Overrides */
-  .dark .bg-white,
-  .dark .bg-stone-50,
-  .dark .bg-\[\#ffffff\],
-  .dark .bg-\[\#fbfdff\] {
+  .dark .bg-white:not([data-slot="switch-thumb"]):not([data-keep-light="true"]),
+  .dark .bg-stone-50:not([data-keep-light="true"]),
+  .dark .bg-\[\#ffffff\]:not([data-keep-light="true"]),
+  .dark .bg-\[\#fbfdff\]:not([data-keep-light="true"]) {
     background-color: var(--card) !important;
   }
 
@@ -586,4 +586,54 @@
   .video-progress-aura {
     animation: none;
   }
+}
+
+/* Centered Sonner Capsule Pill & Semantic Icon Accents */
+[data-sonner-toaster][data-x-position="center"] [data-sonner-toast][data-styled="true"] {
+  width: max-content !important;
+  max-width: min(92vw, 420px) !important;
+  left: 0 !important;
+  right: 0 !important;
+  margin-inline: auto !important;
+  border-radius: 999px !important;
+  padding: 9px 16px !important;
+  gap: 8px !important;
+  background: color-mix(in srgb, var(--popover) 96%, transparent) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--popover-foreground) !important;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 10px 28px -8px rgba(15, 23, 42, 0.16) !important;
+}
+
+[data-sonner-toaster][data-sonner-theme="dark"][data-x-position="center"] [data-sonner-toast][data-styled="true"] {
+  background: color-mix(in srgb, var(--surface-raised) 94%, transparent) !important;
+  border-color: var(--border-strong) !important;
+  box-shadow: 0 12px 32px -8px rgba(0, 0, 0, 0.55) !important;
+}
+
+[data-sonner-toaster][data-x-position="center"] [data-sonner-toast][data-styled="true"]:has([data-description]),
+[data-sonner-toaster][data-x-position="center"] [data-sonner-toast][data-styled="true"]:has([data-button]) {
+  border-radius: 16px !important;
+  padding: 12px 16px !important;
+  align-items: flex-start !important;
+}
+
+[data-sonner-toaster] [data-sonner-toast][data-styled="true"] [data-description] {
+  color: var(--muted-foreground) !important;
+}
+
+[data-sonner-toaster] [data-sonner-toast][data-type="success"] [data-icon] {
+  color: var(--status-success) !important;
+}
+
+[data-sonner-toaster] [data-sonner-toast][data-type="error"] [data-icon] {
+  color: var(--status-danger) !important;
+}
+
+[data-sonner-toaster] [data-sonner-toast][data-type="warning"] [data-icon] {
+  color: var(--status-warning) !important;
+}
+
+[data-sonner-toaster] [data-sonner-toast][data-type="info"] [data-icon] {
+  color: var(--status-info) !important;
 }

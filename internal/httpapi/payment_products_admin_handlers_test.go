@@ -179,7 +179,8 @@ func TestMediaCleanupPolicyGraceExpiresAtAndVisibilityExemption(t *testing.T) {
 	t.Cleanup(func() { _ = app.Close() })
 	if _, err := app.config.Update(map[string]any{
 		"media_storage_provider":     "local",
-		"media_auto_cleanup_enabled": true,
+		"media_auto_cleanup_enabled": false,
+		"video_auto_cleanup_enabled": false,
 		"image_retention_days":       3,
 		"video_retention_days":       3,
 	}); err != nil {
@@ -237,12 +238,18 @@ func TestMediaCleanupPolicyGraceExpiresAtAndVisibilityExemption(t *testing.T) {
 		}
 	}
 
-	// 1. With cloud_storage_enabled == false (default), runMediaCleanup MUST NOT delete any image or video!
+	// 1. With auto-cleanup disabled, runMediaCleanup MUST NOT delete any image or video!
 	app.runMediaCleanup(context.Background())
 	for _, p := range []string{freeImg, pubImg, activeImg, graceImg, app.videos.ContentPath(freeVid.OwnerID, freeVid.TaskID)} {
 		if _, err := os.Stat(p); err != nil {
-			t.Fatalf("cloud_storage_enabled=false cleanup deleted %s: %v", p, err)
+			t.Fatalf("auto_cleanup=false cleanup deleted %s: %v", p, err)
 		}
+	}
+	if _, err := app.config.Update(map[string]any{
+		"media_auto_cleanup_enabled": true,
+		"video_auto_cleanup_enabled": true,
+	}); err != nil {
+		t.Fatalf("enable auto cleanup error = %v", err)
 	}
 
 	// 2. Seed active & grace storage entitlements in SQLite

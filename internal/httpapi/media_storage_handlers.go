@@ -216,16 +216,34 @@ func (a *App) configuredR2MediaLibrary() (*service.MediaLibrary, error) {
 	if a.mediaAdmin != nil && a.mediaAdmin.MigrationStatus().State == "running" {
 		return nil, errors.New("旧图片迁移正在运行，请等待完成后再修改 R2 配置")
 	}
-	backend, err := a.config.StorageBackend()
+	backend := a.backend
+	if backend == nil {
+		var err error
+		backend, err = a.config.StorageBackend()
+		if err != nil {
+			return nil, err
+		}
+	}
+	baseCtx := a.rootCtx
+	if baseCtx == nil {
+		baseCtx = context.Background()
+	}
+	adminCtx, adminCancel := context.WithCancel(baseCtx)
+	library, err := service.NewR2MediaLibrary(adminCtx, a.config, backend, a.logger)
 	if err != nil {
+		adminCancel()
 		return nil, err
 	}
-	library, err := service.NewR2MediaLibrary(a.rootCtx, a.config, backend, a.logger)
-	if err != nil {
-		return nil, err
+	if a.mediaAdminCancel != nil {
+		a.mediaAdminCancel()
+		a.mediaAdminCancel = nil
 	}
-	library.Start(a.rootCtx)
+	if a.mediaAdmin != nil {
+		a.mediaAdmin.Close()
+	}
+	library.Start(adminCtx)
 	a.mediaAdmin = library
+	a.mediaAdminCancel = adminCancel
 	a.mediaKey = key
 	return library, nil
 }

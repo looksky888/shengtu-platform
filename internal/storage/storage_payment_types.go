@@ -10,6 +10,7 @@ const (
 	PaymentOrderStatusClosing   = "closing"
 	PaymentOrderStatusSucceeded = "succeeded"
 	PaymentOrderStatusClosed    = "closed"
+	PaymentOrderStatusExpired   = "expired"
 	PaymentOrderStatusFailed    = "failed"
 	PaymentOrderStatusException = "exception"
 
@@ -137,6 +138,7 @@ type PaymentStatsDay struct {
 type PaymentStatsRecord struct {
 	Today            PaymentStatsPeriod    `json:"today"`
 	Last7Days        PaymentStatsPeriod    `json:"last_7_days"`
+	Last30Days       PaymentStatsPeriod    `json:"last_30_days"`
 	CurrentMonth     PaymentStatsPeriod    `json:"current_month"`
 	AllTime          PaymentStatsPeriod    `json:"all_time"`
 	ChannelBreakdown []PaymentStatsChannel `json:"channel_breakdown"`

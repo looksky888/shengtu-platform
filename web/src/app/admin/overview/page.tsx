@@ -1,13 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { LoaderCircle, RefreshCw } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AlertCircle, Clock, LoaderCircle, RefreshCw, RotateCcw } from "lucide-react";
 import { Link } from "react-router-dom";
 
-import {
-  AdminPageFrame,
-  AdminUnderlineTabs,
-} from "@/components/admin";
+import { AdminPageFrame } from "@/components/admin";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -16,56 +13,58 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
-  fetchAccountPoolHealth,
-  fetchAdminImageTaskLogs,
-  fetchImageTaskStats,
-  fetchManagedRoles,
-  fetchManagedUsers,
-  type AccountPoolHealth,
-  type CreationTask,
-  type ImageTaskTodayStats,
-  type QuarantineItem,
-} from "@/lib/api";
-import { listGrokProviderAccounts } from "@/lib/grok-provider-accounts-api";
-import {
-  fetchImageChannelModels,
-  fetchImageChannels,
-  type ImageChannel,
-  type ImageChannelModel,
-} from "@/lib/image-channel-api";
-import { isVideoChannelModelId } from "@/lib/model-catalog-normalizers";
-import {
-  fetchPaymentStats,
-  type PaymentStats,
-} from "@/lib/payment-admin-api";
+  fetchAdminOverview,
+  type AdminOverviewResponse,
+  type OverviewCapability,
+  type OverviewPeriod,
+} from "@/lib/admin-overview-api";
+import { formatDateTime } from "@/lib/datetime";
 import { useAuthGuard } from "@/lib/use-auth-guard";
 import { cn } from "@/lib/utils";
 
-import {
-  chinaCalendarDateKey,
-  chinaThreeHourSlotLabel,
-  isOverviewVideoTask,
-  matchesOverviewChannelFilter,
-  OVERVIEW_BUILTIN_CHANNELS,
-  summarizeFilteredTodayImageCounts,
-  type OverviewCapabilityFilter,
-} from "./overview-filters";
+import { OVERVIEW_BUILTIN_CHANNELS } from "./overview-filters";
 import {
   OverviewSplineChart,
   type OverviewSplinePoint,
 } from "./overview-spline-chart";
-import { OverviewTabPanels, type OverviewTab } from "./overview-tab-panels";
+import { OverviewDiagnosticWorkspace } from "./overview-tab-panels";
 
-type OverviewPeriod = "today" | "7d" | "30d";
-type CapabilityFilter = OverviewCapabilityFilter;
+const PERIOD_OPTIONS: ReadonlyArray<{
+  value: OverviewPeriod;
+  label: string;
+  revenueTitle: string;
+  trendSubtitle: string;
+}> = [
+  {
+    value: "today",
+    label: "今日",
+    revenueTitle: "今日营收",
+    trendSubtitle: "今日滚动窗口（按小时/时段分桶）",
+  },
+  {
+    value: "7d",
+    label: "近 7 天",
+    revenueTitle: "近 7 日营收",
+    trendSubtitle: "近 7 天滚动窗口（按日分桶）",
+  },
+  {
+    value: "30d",
+    label: "近 30 天",
+    revenueTitle: "近 30 日营收",
+    trendSubtitle: "近 30 天滚动窗口（按日分桶）",
+  },
+];
 
-const OVERVIEW_TABS = [
-  { value: "models" as const, label: "模型分析" },
-  { value: "pool" as const, label: "号池健康度" },
-  { value: "errors" as const, label: "异常定位" },
-  { value: "pricing" as const, label: "模型价格" },
-] as const;
+const CAPABILITY_OPTIONS: ReadonlyArray<{
+  value: OverviewCapability;
+  label: string;
+}> = [
+  { value: "all", label: "全部" },
+  { value: "image", label: "生图" },
+  { value: "video", label: "视频" },
+];
 
 function formatCurrencyYuan(fen: number): string {
   const yuan = (Number(fen) || 0) / 100;
@@ -79,340 +78,192 @@ function formatNumber(n: number): string {
   return new Intl.NumberFormat("zh-CN").format(Math.max(0, Math.round(n || 0)));
 }
 
-function periodToApiPeriod(period: OverviewPeriod): "day" | "week" | "month" {
-  if (period === "7d") return "week";
-  if (period === "30d") return "month";
-  return "day";
+function formatUpdatedClock(generatedAt: string): string {
+  if (!generatedAt) return "";
+  const formatted = formatDateTime(generatedAt, { withSeconds: true });
+  return formatted.length >= 8 ? formatted.slice(-8) : formatted;
+}
+
+function OverviewLoadingSkeleton() {
+  return (
+    <div className="space-y-3.5" aria-busy="true" aria-label="正在加载经营概况数据">
+      <div className="grid grid-cols-2 divide-x divide-y divide-[var(--admin-border)] overflow-hidden rounded-[10px] border border-[var(--admin-border)] bg-[var(--admin-surface)] md:grid-cols-3 xl:grid-cols-6 xl:divide-y-0">
+        {Array.from({ length: 6 }).map((_, idx) => (
+          <div key={idx} className="flex min-h-[94px] flex-col justify-between p-3.5">
+            <Skeleton className="h-3.5 w-24 rounded" />
+            <Skeleton className="my-2 h-6 w-28 rounded" />
+            <Skeleton className="h-3 w-36 rounded" />
+          </div>
+        ))}
+      </div>
+
+      <div className="rounded-[10px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-4">
+        <div className="mb-3 flex items-center justify-between gap-4">
+          <div className="space-y-1.5">
+            <Skeleton className="h-4 w-36 rounded" />
+            <Skeleton className="h-3 w-56 rounded" />
+          </div>
+          <div className="flex gap-2">
+            <Skeleton className="h-7 w-20 rounded-md" />
+            <Skeleton className="h-7 w-20 rounded-md" />
+            <Skeleton className="h-7 w-20 rounded-md" />
+          </div>
+        </div>
+        <Skeleton className="h-[220px] w-full rounded-lg" />
+      </div>
+
+      <div className="grid gap-3.5 lg:grid-cols-12">
+        <div className="rounded-[10px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-4 lg:col-span-7">
+          <Skeleton className="mb-3 h-4 w-40 rounded" />
+          <div className="space-y-2.5">
+            {Array.from({ length: 5 }).map((_, idx) => (
+              <Skeleton key={idx} className="h-9 w-full rounded" />
+            ))}
+          </div>
+        </div>
+        <div className="space-y-3.5 lg:col-span-5">
+          <div className="rounded-[10px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-4">
+            <Skeleton className="mb-3 h-4 w-44 rounded" />
+            <Skeleton className="mb-2.5 h-20 w-full rounded-lg" />
+            <Skeleton className="h-20 w-full rounded-lg" />
+          </div>
+          <div className="rounded-[10px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-4">
+            <Skeleton className="mb-3 h-4 w-36 rounded" />
+            <Skeleton className="mb-2 h-12 w-full rounded" />
+            <Skeleton className="h-12 w-full rounded" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function AdminOverviewPage() {
   const { isCheckingAuth, session } = useAuthGuard(undefined, "/overview");
 
   const [period, setPeriod] = useState<OverviewPeriod>("7d");
-  const [capability, setCapability] = useState<CapabilityFilter>("all");
+  const [capability, setCapability] = useState<OverviewCapability>("all");
   const [channelFilter, setChannelFilter] = useState("all");
   const [modelFilter, setModelFilter] = useState("all");
-  const [activeTab, setActiveTab] = useState<OverviewTab>("models");
 
+  const [data, setData] = useState<AdminOverviewResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [taskStats, setTaskStats] = useState<ImageTaskTodayStats | null>(null);
-  const [todayStats, setTodayStats] = useState<ImageTaskTodayStats | null>(null);
-  const [recentTasks, setRecentTasks] = useState<CreationTask[]>([]);
-  const [poolHealth, setPoolHealth] = useState<AccountPoolHealth | null>(null);
-  const [quarantine, setQuarantine] = useState<QuarantineItem[]>([]);
-  const [grokAvailable, setGrokAvailable] = useState<number>(0);
-  const [grokTotal, setGrokTotal] = useState<number>(0);
-  const [paymentStats, setPaymentStats] = useState<PaymentStats | null>(null);
-  const [totalUsers, setTotalUsers] = useState<number>(0);
-  const [adminRoleCount, setAdminRoleCount] = useState<number>(1);
-  const [channels, setChannels] = useState<ImageChannel[]>([]);
-  const [channelModels, setChannelModels] = useState<
-    Array<{ channel: ImageChannel; model: ImageChannelModel }>
-  >([]);
-  const [loadWarning, setLoadWarning] = useState<string>("");
+  const [error, setError] = useState("");
+  const abortControllerRef = useRef<AbortController | null>(null);
 
-  const loadPeriodStats = useCallback(async (targetPeriod: OverviewPeriod) => {
-    try {
-      const stats = await fetchImageTaskStats({ period: periodToApiPeriod(targetPeriod) });
-      setTaskStats(stats);
-    } catch {
-      setLoadWarning((prev) => prev || "部分统计数据加载失败，已展示可用数据");
-    }
-  }, []);
+  const loadOverview = useCallback(
+    async (params: {
+      period: OverviewPeriod;
+      capability: OverviewCapability;
+      channel: string;
+      model: string;
+    }) => {
+      abortControllerRef.current?.abort();
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
 
-  const loadDashboard = useCallback(async (targetPeriod: OverviewPeriod) => {
-    setLoading(true);
-    setLoadWarning("");
-    try {
-      const [
-        statsRes,
-        todayRes,
-        logsRes,
-        poolRes,
-        grokRes,
-        payRes,
-        usersRes,
-        rolesRes,
-        channelsRes,
-      ] = await Promise.allSettled([
-        fetchImageTaskStats({ period: periodToApiPeriod(targetPeriod) }),
-        fetchImageTaskStats({ period: "day" }),
-        fetchAdminImageTaskLogs({ limit: 180, summary: true }),
-        fetchAccountPoolHealth(),
-        listGrokProviderAccounts({ page: 1, page_size: 1 }),
-        fetchPaymentStats(),
-        fetchManagedUsers({ page: 1, page_size: 1 }),
-        fetchManagedRoles(),
-        fetchImageChannels(),
-      ]);
-
-      const settledList = [
-        statsRes,
-        todayRes,
-        logsRes,
-        poolRes,
-        grokRes,
-        payRes,
-        usersRes,
-        rolesRes,
-        channelsRes,
-      ];
-      const failedCount = settledList.filter((item) => item.status === "rejected").length;
-      if (failedCount > 0) {
-        setLoadWarning(`有 ${failedCount} 项概览数据源拉取失败，当前展示可用缓存或部分指标`);
-      }
-
-      if (statsRes.status === "fulfilled") setTaskStats(statsRes.value);
-      if (todayRes.status === "fulfilled") setTodayStats(todayRes.value);
-      if (logsRes.status === "fulfilled") setRecentTasks(logsRes.value.items || []);
-      if (poolRes.status === "fulfilled") {
-        setPoolHealth(poolRes.value.pool || null);
-        setQuarantine(poolRes.value.quarantine || []);
-      }
-      if (grokRes.status === "fulfilled") {
-        const summary = grokRes.value.summary;
-        setGrokTotal(Number(summary?.total) || 0);
-        setGrokAvailable(Number(summary?.by_status?.active) || 0);
-      }
-      if (payRes.status === "fulfilled") setPaymentStats(payRes.value);
-      if (usersRes.status === "fulfilled") setTotalUsers(Number(usersRes.value.total) || 0);
-      if (rolesRes.status === "fulfilled") {
-        const roles = rolesRes.value.items || [];
-        const adminLike = roles.filter(
-          (r) => r.id === "admin" || (r.menu_paths || []).includes("/settings"),
-        ).length;
-        setAdminRoleCount(Math.max(1, adminLike));
-      }
-      if (channelsRes.status === "fulfilled") {
-        const list = channelsRes.value.channels || [];
-        setChannels(list);
-        const modelSettled = await Promise.allSettled(
-          list.map(async (channel) => {
-            const res = await fetchImageChannelModels(channel.id);
-            return (res.models || []).map((model) => ({ channel, model }));
-          }),
+      setLoading(true);
+      setError("");
+      try {
+        const res = await fetchAdminOverview(params, controller.signal);
+        if (controller.signal.aborted) return;
+        setData(res);
+      } catch (reason) {
+        if (controller.signal.aborted) return;
+        setError(
+          reason instanceof Error ? reason.message : "经营概况数据拉取失败，请稍后重试",
         );
-        const merged: Array<{ channel: ImageChannel; model: ImageChannelModel }> = [];
-        for (const entry of modelSettled) {
-          if (entry.status === "fulfilled") merged.push(...entry.value);
+      } finally {
+        if (!controller.signal.aborted) {
+          setLoading(false);
         }
-        setChannelModels(merged);
       }
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!session) return;
-    void loadDashboard(period);
-    // Period changes are handled cleanly by loadPeriodStats below without re-fetching metadata.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loadDashboard, session]);
-
-  useEffect(() => {
-    if (!session) return;
-    void loadPeriodStats(period);
-  }, [loadPeriodStats, period, session]);
-
-  const filteredTasks = useMemo(() => {
-    const now = Date.now();
-    const todayDateKey = chinaCalendarDateKey(new Date(now));
-    const cutoffMs =
-      period === "7d" ? now - 7 * 24 * 3600_000 : now - 30 * 24 * 3600_000;
-
-    return recentTasks.filter((task) => {
-      if (period === "today") {
-        if (chinaCalendarDateKey(task.created_at) !== todayDateKey) return false;
-      } else {
-        const createdMs = Date.parse(task.created_at);
-        if (Number.isFinite(createdMs) && createdMs < cutoffMs) return false;
-      }
-      if (capability === "video" && !isOverviewVideoTask(task, isVideoChannelModelId)) return false;
-      if (capability === "image" && isOverviewVideoTask(task, isVideoChannelModelId)) return false;
-      if (!matchesOverviewChannelFilter(task, channelFilter)) {
-        return false;
-      }
-      const taskModel = (task.effective_model || task.model || "").trim();
-      if (modelFilter !== "all" && taskModel !== modelFilter) return false;
-      return true;
+    void loadOverview({
+      period,
+      capability,
+      channel: channelFilter,
+      model: modelFilter,
     });
-  }, [capability, channelFilter, modelFilter, period, recentTasks]);
-
-  const modelOptions = useMemo(() => {
-    const set = new Set<string>();
-    for (const task of recentTasks) {
-      const name = (task.effective_model || task.model || "").trim();
-      if (name) set.add(name);
-    }
-    for (const item of channelModels) {
-      if (item.model.upstream_model) set.add(item.model.upstream_model);
-    }
-    return Array.from(set).slice(0, 24);
-  }, [channelModels, recentTasks]);
+    return () => {
+      abortControllerRef.current?.abort();
+    };
+  }, [capability, channelFilter, loadOverview, modelFilter, period, session]);
 
   const hasSubFilter =
     capability !== "all" || channelFilter !== "all" || modelFilter !== "all";
 
-  const kpiMetrics = useMemo(() => {
-    const statsSuccess = Number(taskStats?.success_tasks) || 0;
-    const statsFailed = Number(taskStats?.failed_tasks) || 0;
-    const statsTotal = statsSuccess + statsFailed;
+  const handleResetFilters = () => {
+    setCapability("all");
+    setChannelFilter("all");
+    setModelFilter("all");
+  };
 
-    const sampleSuccess = filteredTasks.filter((t) => t.status === "success").length;
-    const sampleFailed = filteredTasks.filter((t) => t.status === "error").length;
-    const sampleTotal = filteredTasks.length;
-
-    const totalTaskCount = hasSubFilter ? sampleTotal : Math.max(statsTotal, sampleTotal);
-    const successCount = hasSubFilter ? sampleSuccess : (statsTotal > 0 ? statsSuccess : sampleSuccess);
-    const failedCount = hasSubFilter ? sampleFailed : (statsTotal > 0 ? statsFailed : sampleFailed);
-    const finishedCount = successCount + failedCount;
-    const successRate =
-      finishedCount > 0 ? ((successCount / finishedCount) * 100).toFixed(1) : "100.0";
-
-    const durations = filteredTasks
-      .map((t) => Number(t.duration_seconds) || 0)
-      .filter((v) => v > 0 && v < 1800);
-    const avgDuration =
-      durations.length > 0
-        ? `${(durations.reduce((a, b) => a + b, 0) / durations.length).toFixed(1)}s`
-        : "—";
-
-    const gptAvail = Number(poolHealth?.available) || 0;
-    const gptTotal = Number(poolHealth?.total) || 0;
-    const poolAvailTotal = gptAvail + grokAvailable;
-    const poolAllTotal = gptTotal + grokTotal;
-
-    const totalRevenueFen = Number(paymentStats?.all_time?.succeeded_amount_fen) || 0;
-    const todayRevenueFen = Number(paymentStats?.today?.succeeded_amount_fen) || 0;
-    const filteredToday = summarizeFilteredTodayImageCounts(
-      filteredTasks,
+  const handleManualRefresh = () => {
+    void loadOverview({
+      period,
       capability,
-      new Date(),
-      isVideoChannelModelId,
-    );
-    const todayImages = hasSubFilter
-      ? filteredToday.todayImages
-      : todayStats
-        ? Number(todayStats.success_images) || 0
-        : filteredToday.todayImages;
-    const todayFailedImages = hasSubFilter
-      ? filteredToday.todayFailedImages
-      : todayStats
-        ? Number(todayStats.failed_images) || 0
-        : filteredToday.todayFailedImages;
+      channel: channelFilter,
+      model: modelFilter,
+    });
+  };
 
-    return {
-      totalTaskCount,
-      successCount,
-      failedCount,
-      successRate,
-      avgDuration,
-      gptAvail,
-      gptTotal,
-      poolAvailTotal,
-      poolAllTotal,
-      totalRevenueFen,
-      todayRevenueFen,
-      todayImages,
-      todayFailedImages,
-    };
-  }, [
-    capability,
-    filteredTasks,
-    grokAvailable,
-    grokTotal,
-    hasSubFilter,
-    paymentStats,
-    poolHealth,
-    taskStats,
-    todayStats,
-  ]);
+  const channelOptions = useMemo(() => {
+    const serverChannels = data?.filter_options.channels ?? [];
+    const base =
+      serverChannels.length > 0
+        ? serverChannels
+        : OVERVIEW_BUILTIN_CHANNELS.map((item) => ({
+            id: item.value,
+            name: item.label,
+            type: "builtin",
+            enabled: true,
+          }));
+    if (
+      channelFilter !== "all" &&
+      !base.some((item) => item.id === channelFilter)
+    ) {
+      return [
+        ...base,
+        {
+          id: channelFilter,
+          name: channelFilter,
+          type: "custom",
+          enabled: true,
+        },
+      ];
+    }
+    return base;
+  }, [channelFilter, data?.filter_options.channels]);
+
+  const modelOptions = useMemo(() => {
+    const raw = data?.filter_options.models ?? [];
+    if (modelFilter !== "all" && !raw.includes(modelFilter)) {
+      return [modelFilter, ...raw];
+    }
+    return raw;
+  }, [data?.filter_options.models, modelFilter]);
 
   const splinePoints = useMemo<OverviewSplinePoint[]>(() => {
-    const bucketMap = new Map<string, OverviewSplinePoint>();
+    if (!data) return [];
+    return data.series.map((bucket) => ({
+      bucket: bucket.bucket,
+      label: bucket.label,
+      requests: bucket.total,
+      succeeded: bucket.succeeded,
+      failed: bucket.failed,
+      images: bucket.images,
+      videos: bucket.videos,
+    }));
+  }, [data]);
 
-    if (period === "today") {
-      for (let h = 0; h < 24; h += 3) {
-        const label = `${String(h).padStart(2, "0")}:00`;
-        bucketMap.set(label, { label, requests: 0, succeeded: 0, failed: 0 });
-      }
-      for (const task of filteredTasks) {
-        const label = chinaThreeHourSlotLabel(task.created_at);
-        if (!label) continue;
-        const entry = bucketMap.get(label) ?? { label, requests: 0, succeeded: 0, failed: 0 };
-        entry.requests += 1;
-        if (task.status === "success") entry.succeeded += 1;
-        else if (task.status === "error") entry.failed += 1;
-        bucketMap.set(label, entry);
-      }
-      return Array.from(bucketMap.values());
-    }
-
-    const days = period === "30d" ? 30 : 7;
-    const now = new Date();
-    for (let i = days - 1; i >= 0; i -= 1) {
-      const dateKey = chinaCalendarDateKey(new Date(now.getTime() - i * 24 * 3600_000));
-      const label = dateKey.slice(5);
-      if (label) {
-        bucketMap.set(label, { label, requests: 0, succeeded: 0, failed: 0 });
-      }
-    }
-
-    for (const task of filteredTasks) {
-      const dateKey = chinaCalendarDateKey(task.created_at);
-      const label = dateKey ? dateKey.slice(5) : "";
-      const entry = label ? bucketMap.get(label) : undefined;
-      if (!entry) continue;
-      entry.requests += 1;
-      if (task.status === "success") entry.succeeded += 1;
-      else if (task.status === "error") entry.failed += 1;
-    }
-
-    return Array.from(bucketMap.values());
-  }, [filteredTasks, period]);
-
-  const modelAnalyticsRows = useMemo(() => {
-    const map = new Map<
-      string,
-      {
-        model: string;
-        kind: "视频" | "生图";
-        total: number;
-        succeeded: number;
-        failed: number;
-        durationSum: number;
-        durationCount: number;
-      }
-    >();
-    for (const task of filteredTasks) {
-      const name = (task.effective_model || task.model || "gpt-image-1").trim();
-      const row = map.get(name) ?? {
-        model: name,
-        kind: isOverviewVideoTask(task, isVideoChannelModelId) ? "视频" : "生图",
-        total: 0,
-        succeeded: 0,
-        failed: 0,
-        durationSum: 0,
-        durationCount: 0,
-      };
-      row.total += 1;
-      if (task.status === "success") row.succeeded += 1;
-      if (task.status === "error") row.failed += 1;
-      const dur = Number(task.duration_seconds) || 0;
-      if (dur > 0 && dur < 1800) {
-        row.durationSum += dur;
-        row.durationCount += 1;
-      }
-      map.set(name, row);
-    }
-    return Array.from(map.values()).sort((a, b) => b.total - a.total);
-  }, [filteredTasks]);
-
-  const errorTasks = useMemo(
-    () => filteredTasks.filter((task) => task.status === "error").slice(0, 25),
-    [filteredTasks],
-  );
+  const periodMeta =
+    PERIOD_OPTIONS.find((item) => item.value === period) ?? PERIOD_OPTIONS[1]!;
 
   if (isCheckingAuth || !session) {
     return (
@@ -422,112 +273,113 @@ export default function AdminOverviewPage() {
     );
   }
 
+  const updatedClock = data?.generated_at ? formatUpdatedClock(data.generated_at) : "";
+  const isInitialLoading = data === null && loading;
+
   return (
     <AdminPageFrame
       groupLabel="概览"
-      title="数据概览"
-      description="实时聚合算力吞吐、出图交付率、GPT / Grok 号池水位与商业化营收指标。"
+      title="经营概况"
+      description="实时聚合生成吞吐、交付成功率、号池可用算力与商业化实收指标。"
       actions={
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={loading}
-          onClick={() => void loadDashboard(period)}
-        >
-          <RefreshCw className={cn("size-3.5", loading && "animate-spin")} />
-          刷新
-        </Button>
+        <div className="flex items-center gap-2.5">
+          {updatedClock ? (
+            <span
+              className="hidden items-center gap-1 font-mono text-[11.5px] text-[var(--admin-text-muted)] tabular-nums sm:inline-flex"
+              title={formatDateTime(data?.generated_at)}
+            >
+              <Clock className="size-3 text-[var(--admin-text-subtle)]" />
+              更新于 {updatedClock}
+            </span>
+          ) : null}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={loading}
+            onClick={handleManualRefresh}
+          >
+            <RefreshCw className={cn("size-3.5", loading && "animate-spin")} />
+            刷新
+          </Button>
+        </div>
       }
     >
-      {/* Compact Filter Bar */}
-      {loadWarning ? (
-        <div className="flex items-center justify-between gap-2 rounded-[10px] border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
-          <span>{loadWarning}</span>
-          <button
-            type="button"
-            onClick={() => void loadDashboard(period)}
-            className="shrink-0 font-medium underline underline-offset-2 hover:opacity-80"
-          >
-            重新加载
-          </button>
-        </div>
-      ) : null}
+      {/* Unified Filter Bar */}
       <div className="flex flex-wrap items-center justify-between gap-2.5 rounded-[10px] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 py-2">
         <div className="flex flex-wrap items-center gap-2">
-          <div className="inline-flex items-center rounded-md border border-[var(--admin-border)] bg-[var(--admin-bg)] p-0.5">
-            {(
-              [
-                { value: "today", label: "今日" },
-                { value: "7d", label: "近 7 天" },
-                { value: "30d", label: "近 30 天" },
-              ] as const
-            ).map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => setPeriod(opt.value)}
-                className={cn(
-                  "h-6 rounded-[5px] px-2.5 text-[12px] font-medium transition-colors",
-                  period === opt.value
-                    ? "bg-[var(--admin-accent)] text-[var(--admin-accent-fg)]"
-                    : "text-[var(--admin-text-muted)] hover:text-[var(--admin-text)]",
-                )}
-              >
-                {opt.label}
-              </button>
-            ))}
+          {/* Period Segmented Control */}
+          <div
+            role="group"
+            aria-label="统计周期"
+            className="inline-flex items-center rounded-md border border-[var(--admin-border)] bg-[var(--admin-bg)] p-0.5"
+          >
+            {PERIOD_OPTIONS.map((opt) => {
+              const active = period === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => setPeriod(opt.value)}
+                  className={cn(
+                    "h-7 rounded-[5px] px-2.5 text-[12px] font-medium transition-colors",
+                    active
+                      ? "bg-[var(--admin-accent)] font-semibold text-[var(--admin-accent-fg)] shadow-2xs"
+                      : "text-[var(--admin-text-muted)] hover:text-[var(--admin-text)]",
+                  )}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
           </div>
 
-          <div className="inline-flex items-center rounded-md border border-[var(--admin-border)] bg-[var(--admin-bg)] p-0.5">
-            {(
-              [
-                { value: "all", label: "全部能力" },
-                { value: "image", label: "生图" },
-                { value: "video", label: "视频" },
-              ] as const
-            ).map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => setCapability(opt.value)}
-                className={cn(
-                  "h-6 rounded-[5px] px-2.5 text-[12px] font-medium transition-colors",
-                  capability === opt.value
-                    ? "bg-[var(--admin-surface-2)] text-[var(--admin-text)]"
-                    : "text-[var(--admin-text-muted)] hover:text-[var(--admin-text)]",
-                )}
-              >
-                {opt.label}
-              </button>
-            ))}
+          {/* Capability Segmented Pills (Matching Visual Contrast) */}
+          <div
+            role="group"
+            aria-label="能力类型"
+            className="inline-flex items-center rounded-md border border-[var(--admin-border)] bg-[var(--admin-bg)] p-0.5"
+          >
+            {CAPABILITY_OPTIONS.map((opt) => {
+              const active = capability === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => setCapability(opt.value)}
+                  className={cn(
+                    "h-7 rounded-[5px] px-2.5 text-[12px] font-medium transition-colors",
+                    active
+                      ? "bg-[var(--admin-accent)] font-semibold text-[var(--admin-accent-fg)] shadow-2xs"
+                      : "text-[var(--admin-text-muted)] hover:text-[var(--admin-text)]",
+                  )}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
           <Select value={channelFilter} onValueChange={setChannelFilter}>
-            <SelectTrigger className="h-8 w-[156px] text-[12px]">
-              <SelectValue placeholder="全部渠道" />
+            <SelectTrigger className="h-8 w-[164px] text-[12px]">
+              <SelectValue placeholder="全部供给渠道" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">全部供给渠道</SelectItem>
-              {OVERVIEW_BUILTIN_CHANNELS.filter(
-                (builtin) => !channels.some((ch) => ch.id === builtin.value),
-              ).map((builtin) => (
-                <SelectItem key={builtin.value} value={builtin.value}>
-                  {builtin.label}
-                </SelectItem>
-              ))}
-              {channels.map((ch) => (
+              {channelOptions.map((ch) => (
                 <SelectItem key={ch.id} value={ch.id}>
-                  {ch.name}
+                  {ch.enabled ? ch.name : `${ch.name} (已停用)`}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
 
           <Select value={modelFilter} onValueChange={setModelFilter}>
-            <SelectTrigger className="h-8 w-[176px] text-[12px]">
+            <SelectTrigger className="h-8 w-[188px] text-[12px]">
               <SelectValue placeholder="全部模型" />
             </SelectTrigger>
             <SelectContent>
@@ -539,133 +391,212 @@ export default function AdminOverviewPage() {
               ))}
             </SelectContent>
           </Select>
+
+          {hasSubFilter ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleResetFilters}
+              className="h-8 gap-1 px-2.5 text-[12px] text-[var(--admin-accent)] hover:bg-[var(--admin-nav-hover)] hover:text-[var(--admin-accent)]"
+            >
+              <RotateCcw className="size-3.5" />
+              重置筛选
+            </Button>
+          ) : null}
         </div>
       </div>
 
-      {/* 6-Cell Connected Hairline KPI Strip */}
-      <div className="grid grid-cols-2 divide-x divide-y divide-[var(--admin-border)] overflow-hidden rounded-[10px] border border-[var(--admin-border)] bg-[var(--admin-surface)] md:grid-cols-3 xl:grid-cols-6 xl:divide-y-0">
-        <div className="flex min-h-[88px] flex-col justify-between p-3.5">
-          <span className="text-[11.5px] font-medium text-[var(--admin-text-muted)]">
-            总用户 / 管理员角色
+      {/* Error Alert */}
+      {error ? (
+        <div
+          role="alert"
+          className="flex flex-wrap items-center justify-between gap-2 rounded-[10px] border border-rose-500/30 bg-rose-500/10 px-3.5 py-2.5 text-xs text-rose-700 dark:text-rose-300"
+        >
+          <span className="inline-flex items-center gap-2">
+            <AlertCircle className="size-4 shrink-0" />
+            <span>{error}</span>
           </span>
-          <div className="font-mono text-[20px] leading-tight font-semibold tabular-nums text-[var(--admin-text)]">
-            {formatNumber(totalUsers)}{" "}
-            <span className="text-[13px] font-normal text-[var(--admin-text-muted)]">
-              / {adminRoleCount}
-            </span>
-          </div>
-          <Link
-            to="/users"
-            className="text-[11px] text-[var(--admin-text-subtle)] hover:text-[var(--admin-text)]"
+          <button
+            type="button"
+            onClick={handleManualRefresh}
+            className="shrink-0 font-semibold underline underline-offset-2 hover:opacity-80"
           >
-            管理用户与 RBAC →
-          </Link>
+            重试拉取
+          </button>
         </div>
+      ) : null}
 
-        <div className="flex min-h-[88px] flex-col justify-between p-3.5">
-          <span className="text-[11.5px] font-medium text-[var(--admin-text-muted)]">
-            生成任务量
-          </span>
-          <div className="font-mono text-[20px] leading-tight font-semibold tabular-nums text-[var(--admin-text)]">
-            {formatNumber(kpiMetrics.totalTaskCount)}
+      {isInitialLoading ? (
+        <OverviewLoadingSkeleton />
+      ) : data ? (
+        <>
+          {/* 6-Card Executive KPI Strip */}
+          <div className="grid grid-cols-2 divide-x divide-y divide-[var(--admin-border)] overflow-hidden rounded-[10px] border border-[var(--admin-border)] bg-[var(--admin-surface)] md:grid-cols-3 xl:grid-cols-6 xl:divide-y-0">
+            {/* 1. 当期生成任务 */}
+            <div className="flex min-h-[96px] flex-col justify-between p-3.5">
+              <span className="text-[11.5px] font-medium text-[var(--admin-text-muted)]">
+                当期生成任务
+              </span>
+              <div className="font-mono text-[21px] leading-tight font-semibold text-[var(--admin-text)] tabular-nums">
+                {formatNumber(data.tasks.total)}
+              </div>
+              <span className="text-[11px] text-[var(--admin-text-subtle)] tabular-nums">
+                成功 {formatNumber(data.tasks.succeeded)} · 失败{" "}
+                {formatNumber(data.tasks.failed)} · 进行中{" "}
+                {formatNumber(data.tasks.running + data.tasks.queued)}
+              </span>
+            </div>
+
+            {/* 2. 任务成功率 */}
+            <div className="flex min-h-[96px] flex-col justify-between p-3.5">
+              <div className="flex items-center justify-between gap-1.5">
+                <span className="text-[11.5px] font-medium text-[var(--admin-text-muted)]">
+                  任务成功率
+                </span>
+                {data.tasks.finished === 0 ? (
+                  <span className="rounded bg-[var(--admin-surface-2)] px-1.5 py-0.5 text-[10px] text-[var(--admin-text-subtle)]">
+                    当期无已结束任务
+                  </span>
+                ) : null}
+              </div>
+              <div
+                className={cn(
+                  "font-mono text-[21px] leading-tight font-semibold tabular-nums",
+                  data.tasks.finished === 0
+                    ? "text-[var(--admin-text-muted)]"
+                    : data.tasks.success_rate >= 95
+                      ? "text-[var(--admin-success)]"
+                      : data.tasks.success_rate >= 80
+                        ? "text-[var(--admin-warning)]"
+                        : "text-[var(--admin-danger)]",
+                )}
+              >
+                {data.tasks.finished > 0
+                  ? `${data.tasks.success_rate.toFixed(1)}%`
+                  : "—"}
+              </div>
+              <span className="text-[11px] text-[var(--admin-text-subtle)] tabular-nums">
+                产出图片 {formatNumber(data.tasks.total_images)} 张 · 视频{" "}
+                {formatNumber(data.tasks.total_videos)} 条
+              </span>
+            </div>
+
+            {/* 3. 平均生成耗时 */}
+            <div className="flex min-h-[96px] flex-col justify-between p-3.5">
+              <span className="text-[11.5px] font-medium text-[var(--admin-text-muted)]">
+                平均生成耗时
+              </span>
+              <div className="font-mono text-[21px] leading-tight font-semibold text-[var(--admin-text)] tabular-nums">
+                {data.tasks.avg_duration_ms > 0
+                  ? `${(data.tasks.avg_duration_ms / 1000).toFixed(1)}s`
+                  : "—"}
+              </div>
+              <span className="text-[11px] text-[var(--admin-text-subtle)] tabular-nums">
+                运行中 {formatNumber(data.tasks.running)} · 排队中{" "}
+                {formatNumber(data.tasks.queued)}
+              </span>
+            </div>
+
+            {/* 4. 当期实收营收 */}
+            <div className="flex min-h-[96px] flex-col justify-between p-3.5">
+              <div className="flex items-center justify-between gap-1.5">
+                <span className="text-[11.5px] font-medium text-[var(--admin-text-muted)]">
+                  {periodMeta.revenueTitle}
+                </span>
+                <Link
+                  to="/payment-admin"
+                  className="text-[10.5px] text-[var(--admin-accent)] hover:underline"
+                >
+                  订单 →
+                </Link>
+              </div>
+              <div className="font-mono text-[21px] leading-tight font-semibold text-[var(--admin-text)] tabular-nums">
+                {formatCurrencyYuan(data.payments.period_amount_fen)}
+              </div>
+              <span className="text-[11px] text-[var(--admin-text-subtle)] tabular-nums">
+                成交 {formatNumber(data.payments.period_succeeded_orders)} 笔 · 累计总收{" "}
+                {formatCurrencyYuan(data.payments.all_time_amount_fen)}
+              </span>
+            </div>
+
+            {/* 5. 注册与付费用户 */}
+            <div className="flex min-h-[96px] flex-col justify-between p-3.5">
+              <div className="flex items-center justify-between gap-1.5">
+                <span className="text-[11.5px] font-medium text-[var(--admin-text-muted)]">
+                  注册与付费用户
+                </span>
+                <Link
+                  to="/users"
+                  className="text-[10.5px] text-[var(--admin-accent)] hover:underline"
+                >
+                  用户 →
+                </Link>
+              </div>
+              <div className="font-mono text-[21px] leading-tight font-semibold text-[var(--admin-text)] tabular-nums">
+                {formatNumber(data.users.total_users)}
+                {data.users.active_users > 0 ? (
+                  <span className="ml-1.5 text-[12px] font-normal text-[var(--admin-text-muted)]">
+                    活跃 {formatNumber(data.users.active_users)}
+                  </span>
+                ) : null}
+              </div>
+              <span className="text-[11px] text-[var(--admin-text-subtle)] tabular-nums">
+                付费用户 {formatNumber(data.users.paid_users)} · 剩余总积分{" "}
+                {formatNumber(data.users.total_credits_balance)}
+              </span>
+            </div>
+
+            {/* 6. 号池可用算力 */}
+            <div className="flex min-h-[96px] flex-col justify-between p-3.5">
+              <div className="flex items-center justify-between gap-1.5">
+                <span className="text-[11.5px] font-medium text-[var(--admin-text-muted)]">
+                  号池可用算力
+                </span>
+                <Link
+                  to="/accounts"
+                  className="text-[10.5px] text-[var(--admin-accent)] hover:underline"
+                >
+                  号池 →
+                </Link>
+              </div>
+              <div className="font-mono text-[21px] leading-tight font-semibold text-[var(--admin-text)] tabular-nums">
+                {formatNumber(
+                  data.pools.openai.available + data.pools.grok.available,
+                )}{" "}
+                <span className="text-[13px] font-normal text-[var(--admin-text-muted)]">
+                  /{" "}
+                  {formatNumber(data.pools.openai.total + data.pools.grok.total)}
+                </span>
+              </div>
+              <span className="text-[11px] text-[var(--admin-text-subtle)] tabular-nums">
+                冷却{" "}
+                {formatNumber(
+                  data.pools.openai.cooling + data.pools.grok.cooling,
+                )}{" "}
+                · 隔离{" "}
+                {formatNumber(
+                  data.pools.openai.quarantined + data.pools.grok.quarantined,
+                )}{" "}
+                · Grok 并发槽 {formatNumber(data.pools.grok.theoretical_slots)}
+              </span>
+            </div>
           </div>
-          <span className="text-[11px] tabular-nums text-[var(--admin-text-subtle)]">
-            今日出图 {formatNumber(kpiMetrics.todayImages)} 张
-            {kpiMetrics.todayFailedImages > 0
-              ? ` · 失败 ${formatNumber(kpiMetrics.todayFailedImages)}`
-              : ""}
-          </span>
-        </div>
 
-        <div className="flex min-h-[88px] flex-col justify-between p-3.5">
-          <span className="text-[11.5px] font-medium text-[var(--admin-text-muted)]">
-            出图成功率
-          </span>
-          <div className="font-mono text-[20px] leading-tight font-semibold tabular-nums text-[var(--admin-text)]">
-            {kpiMetrics.successRate}%
-          </div>
-          <span className="text-[11px] tabular-nums text-[var(--admin-text-subtle)]">
-            成功 {formatNumber(kpiMetrics.successCount)} · 失败 {formatNumber(kpiMetrics.failedCount)}
-          </span>
-        </div>
+          {/* Upgraded Monotone Clamped Trend Spline Chart */}
+          <OverviewSplineChart
+            points={splinePoints}
+            subtitle={`统计窗口：${periodMeta.trendSubtitle} · 支持鼠标悬停、触屏点按或键盘方向键检视分桶明细`}
+          />
 
-        <div className="flex min-h-[88px] flex-col justify-between p-3.5">
-          <span className="text-[11.5px] font-medium text-[var(--admin-text-muted)]">
-            平均耗时
-          </span>
-          <div className="font-mono text-[20px] leading-tight font-semibold tabular-nums text-[var(--admin-text)]">
-            {kpiMetrics.avgDuration}
-          </div>
-          <span className="text-[11px] text-[var(--admin-text-subtle)]">
-            基于近期完成样本统计
-          </span>
-        </div>
-
-        <div className="flex min-h-[88px] flex-col justify-between p-3.5">
-          <span className="text-[11.5px] font-medium text-[var(--admin-text-muted)]">
-            可用号池水位 (GPT + Grok)
-          </span>
-          <div className="font-mono text-[20px] leading-tight font-semibold tabular-nums text-[var(--admin-text)]">
-            {formatNumber(kpiMetrics.poolAvailTotal)}{" "}
-            <span className="text-[13px] font-normal text-[var(--admin-text-muted)]">
-              / {formatNumber(kpiMetrics.poolAllTotal)}
-            </span>
-          </div>
-          <span className="text-[11px] tabular-nums text-[var(--admin-text-subtle)]">
-            GPT {kpiMetrics.gptAvail}/{kpiMetrics.gptTotal} · Grok {grokAvailable}/{grokTotal}
-          </span>
-        </div>
-
-        <div className="flex min-h-[88px] flex-col justify-between p-3.5">
-          <span className="text-[11.5px] font-medium text-[var(--admin-text-muted)]">
-            累计支付营收
-          </span>
-          <div className="font-mono text-[20px] leading-tight font-semibold tabular-nums text-[var(--admin-text)]">
-            {formatCurrencyYuan(kpiMetrics.totalRevenueFen)}
-          </div>
-          <span className="text-[11px] tabular-nums text-[var(--admin-text-subtle)]">
-            今日入账 {formatCurrencyYuan(kpiMetrics.todayRevenueFen)}
-          </span>
-        </div>
-      </div>
-
-      {/* Three-Curve Smooth SVG Spline Area Chart */}
-      <OverviewSplineChart
-        points={splinePoints}
-        subtitle={`统计窗口：${period === "today" ? "今日按 3 小时分桶" : period === "7d" ? "近 7 日趋势" : "近 30 日趋势"} · 悬停查看分桶明细`}
-      />
-
-      {/* Bottom Underline Tabs */}
-      <div className="space-y-3">
-        <AdminUnderlineTabs
-          items={OVERVIEW_TABS.map((item) => ({
-            ...item,
-            badge:
-              item.value === "models"
-                ? modelAnalyticsRows.length
-                : item.value === "errors"
-                  ? errorTasks.length
-                  : item.value === "pricing"
-                    ? channelModels.length
-                    : undefined,
-          }))}
-          value={activeTab}
-          onValueChange={setActiveTab}
-          syncQueryParam="tab"
-          defaultValue="models"
-        />
-
-        <OverviewTabPanels
-          activeTab={activeTab}
-          modelAnalyticsRows={modelAnalyticsRows}
-          poolHealth={poolHealth}
-          quarantineCount={quarantine.length}
-          grokTotal={grokTotal}
-          grokAvailable={grokAvailable}
-          errorTasks={errorTasks}
-          channelModels={channelModels}
-        />
-      </div>
+          {/* 2-Column Diagnostic Workspace */}
+          <OverviewDiagnosticWorkspace
+            models={data.models}
+            pools={data.pools}
+            errors={data.errors}
+          />
+        </>
+      ) : null}
     </AdminPageFrame>
   );
 }

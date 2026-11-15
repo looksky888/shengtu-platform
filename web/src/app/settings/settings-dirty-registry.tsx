@@ -5,13 +5,14 @@ import * as React from "react";
 import {
   createSettingsDirtyRegistryStore,
   DirtyRegistryStoreContext,
-  type DirtyRegistryEntry,
+  type SettingsDirtyEntry,
   type SettingsDirtyRegistryStore,
 } from "./settings-dirty-registry-store";
-import type { AnySettingsTabKey, SettingsTabKey } from "./settings-tab-types";
+import type { SettingsTabKey } from "./settings-tab-types";
 
-export type ExternalDirtyEntry = DirtyRegistryEntry<AnySettingsTabKey>;
-export type NormalizedDirtyEntry = DirtyRegistryEntry<SettingsTabKey>;
+export type { SettingsDirtyEntry };
+export type ExternalDirtyEntry = SettingsDirtyEntry<SettingsTabKey>;
+export type NormalizedDirtyEntry = SettingsDirtyEntry<SettingsTabKey>;
 
 export function SettingsDirtyRegistryProvider({
   children,

@@ -18,6 +18,7 @@ import { AUTH_SESSION_CHANGE_EVENT } from "@/lib/auth-session-events";
 import type { ImageChannelType } from "@/lib/image-channel-api";
 import { clearModelCatalogCache, readModelCatalogCache, writeModelCatalogCache } from "@/lib/model-catalog-cache";
 import { normalizePublicImageChannelModels } from "@/lib/model-catalog-normalizers";
+import { getCachedAuthSession } from "@/lib/session";
 
 type PublicModelChannelSetting = {
   availableModels: string[];
@@ -90,6 +91,7 @@ let sharedCatalog: ModelCatalogResponse | null = initialCatalogCache ? normalize
 let sharedCatalogStoredAt = initialCatalogCache?.storedAt || 0;
 let sharedCatalogPromise: Promise<ModelCatalogResponse | null> | null = null;
 let sharedCatalogError: string | null = null;
+let catalogGeneration = 0;
 const MODEL_CATALOG_UPDATED_EVENT = "studio:model-catalog-updated";
 
 function normalizeCatalog(catalog: ModelCatalogResponse): ModelCatalogResponse {
@@ -121,29 +123,41 @@ async function loadSharedCatalog(force = false): Promise<ModelCatalogResponse | 
   const cacheFresh = sharedCatalog && Date.now() - sharedCatalogStoredAt < MODEL_CATALOG_CACHE_MAX_AGE_MS;
   if (!force && cacheFresh) return sharedCatalog;
   if (!force && sharedCatalogPromise) return sharedCatalogPromise;
-  sharedCatalogPromise = (async () => {
+  const generation = catalogGeneration;
+  let requestPromise: Promise<ModelCatalogResponse | null> | null = null;
+  requestPromise = (async () => {
     try {
       const catalog = await fetchModelCatalog();
-      sharedCatalog = normalizeCatalog(catalog);
+      const normalized = normalizeCatalog(catalog);
+      if (generation !== catalogGeneration) {
+        return sharedCatalog;
+      }
+      sharedCatalog = normalized;
       sharedCatalogStoredAt = Date.now();
       if (typeof window !== "undefined") writeModelCatalogCache(window.localStorage, sharedCatalog, sharedCatalogStoredAt);
       sharedCatalogError = null;
       return sharedCatalog;
     } catch (error) {
-      sharedCatalogError = error instanceof Error ? error.message : "model catalog load failed";
+      if (generation === catalogGeneration) {
+        sharedCatalogError = error instanceof Error ? error.message : "model catalog load failed";
+      }
       return sharedCatalog;
     } finally {
-      sharedCatalogPromise = null;
+      if (sharedCatalogPromise === requestPromise) {
+        sharedCatalogPromise = null;
+      }
     }
   })();
-  return sharedCatalogPromise;
+  sharedCatalogPromise = requestPromise;
+  return requestPromise;
 }
 
 /**
- * Drop the cached catalog (module singleton + persisted copy) without notifying mounted
- * consumers: used when the auth session changes, where kicking off new requests is not wanted.
+ * Drop the cached catalog (module singleton + persisted copy) and invalidate any
+ * in-flight pre-logout / pre-switch request via monotonic generation counter.
  */
 export function forgetPublicModelChannelCache() {
+  catalogGeneration += 1;
   sharedCatalog = null;
   sharedCatalogStoredAt = 0;
   sharedCatalogPromise = null;
@@ -235,21 +249,33 @@ export function usePublicModelChannel() {
   useEffect(() => {
     let cancelled = false;
     setStatus(sharedCatalog ? "ready" : "loading");
-    const applyCatalog = (result: ModelCatalogResponse | null) => {
-      if (cancelled) return;
+    const applyCatalog = (result: ModelCatalogResponse | null, generation: number) => {
+      if (cancelled || generation !== catalogGeneration) return;
       setCatalog(result);
       setStatus(result ? "ready" : sharedCatalogError ? "error" : "ready");
     };
     const load = (force = false) => {
+      const generation = catalogGeneration;
       if (!sharedCatalog) setStatus("loading");
-      void loadSharedCatalog(force).then(applyCatalog);
+      void loadSharedCatalog(force).then((result) => applyCatalog(result, generation));
     };
     load(!sharedCatalog || Date.now() - sharedCatalogStoredAt >= MODEL_CATALOG_CACHE_MAX_AGE_MS);
     const handleCatalogUpdated = () => load(true);
+    const handleAuthSessionChange = () => {
+      if (cancelled) return;
+      setCatalog(null);
+      if (getCachedAuthSession() === null) {
+        setStatus("idle");
+        return;
+      }
+      load(true);
+    };
     window.addEventListener(MODEL_CATALOG_UPDATED_EVENT, handleCatalogUpdated);
+    window.addEventListener(AUTH_SESSION_CHANGE_EVENT, handleAuthSessionChange);
     return () => {
       cancelled = true;
       window.removeEventListener(MODEL_CATALOG_UPDATED_EVENT, handleCatalogUpdated);
+      window.removeEventListener(AUTH_SESSION_CHANGE_EVENT, handleAuthSessionChange);
     };
   }, []);
 

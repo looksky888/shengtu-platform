@@ -43,7 +43,7 @@ func (b *DatabaseBackend) CompletePaymentCredit(input PaymentCreditCompletion) (
 		}
 		return order, false, nil
 	}
-	if order.Status == PaymentOrderStatusClosed || order.Status == PaymentOrderStatusFailed {
+	if order.Status == PaymentOrderStatusFailed {
 		return PaymentOrderRecord{}, false, ErrPaymentStateConflict
 	}
 	if input.LedgerEntry.UserID != order.UserID || input.LedgerEntry.RefID != order.ID || input.LedgerEntry.Delta != order.CreditsSnapshot {
@@ -70,6 +70,7 @@ func (b *DatabaseBackend) CompletePaymentCredit(input PaymentCreditCompletion) (
 	order.TransactionID = input.TransactionID
 	order.PaidAt = input.PaidAt
 	order.CreditedAt = input.CreditedAt
+	order.ClosedAt = ""
 	order.CodeURL = ""
 	order.LastErrorCode = ""
 	order.LastErrorMessage = ""
@@ -129,7 +130,7 @@ func (b *DatabaseBackend) markPaymentOrderSucceededTx(tx *sql.Tx, input PaymentC
 	result, err := tx.Exec(`UPDATE payment_orders SET status = `+b.placeholder(1)+`,
 		provider_trade_state = `+b.placeholder(2)+`, provider_trade_desc = `+b.placeholder(3)+`,
 		transaction_id = `+b.placeholder(4)+`, paid_at = `+b.placeholder(5)+`,
-		credited_at = `+b.placeholder(6)+`, code_url = '', last_error_code = '',
+		credited_at = `+b.placeholder(6)+`, closed_at = '', code_url = '', last_error_code = '',
 		last_error_message = '', updated_at = `+b.placeholder(7)+`
 		WHERE id = `+b.placeholder(8)+` AND status <> `+b.placeholder(9),
 		PaymentOrderStatusSucceeded, input.TradeState, input.TradeStateDesc,

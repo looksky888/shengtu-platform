@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"os"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -71,7 +69,8 @@ func (a *App) handleSettings(w http.ResponseWriter, r *http.Request) {
 		if a.accounts != nil {
 			a.accounts.SetScheduleStrategy(service.AccountScheduleStrategy(a.config.ImageAccountSchedule()))
 		}
-		// Hot-apply upstream clearance env so FlareSolverr/WARP settings take effect without restart.
+		a.syncImageChannelsFromSettingsUpdate(body)
+		// Hot-apply upstream clearance settings in-memory without mutating os.Environ().
 		hotApplyUpstreamClearanceEnv(a.config)
 		// Optional warm-up after save when enabled (best-effort, non-blocking for response).
 		if a.config.UpstreamClearanceWarmUpOnStart() && a.config.UpstreamClearanceEnabled() {
@@ -91,10 +90,15 @@ func (a *App) handleSettings(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-var upstreamClearanceEnvMu sync.Mutex
+var (
+	upstreamClearanceEnvMu        sync.Mutex
+	upstreamClearanceSeeded       bool
+	lastUpstreamClearanceCfg      service.UpstreamClearanceRuntimeConfig
+	lastImageChallengeCooldownSec int
+)
 
-// hotApplyUpstreamClearanceEnv mirrors saved settings into process env for clearance helpers
-// when settings are mutated or an explicit clearance probe/warm-up runs.
+// hotApplyUpstreamClearanceEnv pushes saved settings into the synchronized
+// in-memory runtime config used by clearance & cooldown helpers without racing os.Setenv.
 func hotApplyUpstreamClearanceEnv(cfg *config.Store) {
 	if cfg == nil {
 		return
@@ -102,29 +106,129 @@ func hotApplyUpstreamClearanceEnv(cfg *config.Store) {
 	upstreamClearanceEnvMu.Lock()
 	defer upstreamClearanceEnvMu.Unlock()
 
-	enabledVal := "false"
-	if cfg.UpstreamClearanceEnabled() {
-		enabledVal = "true"
+	desired := service.UpstreamClearanceRuntimeConfig{
+		Enabled:            cfg.UpstreamClearanceEnabled(),
+		Mode:               strings.TrimSpace(strings.ToLower(cfg.UpstreamClearanceMode())),
+		FlareSolverrURL:    strings.TrimRight(strings.TrimSpace(cfg.FlareSolverrURL()), "/"),
+		TimeoutSec:         cfg.UpstreamClearanceTimeoutSec(),
+		RefreshIntervalSec: cfg.UpstreamClearanceRefreshInterval(),
+		ProxyURL:           strings.TrimSpace(cfg.Proxy()),
 	}
-	desired := [][2]string{
-		{"CHATGPT2API_PROXY", cfg.Proxy()},
-		{"CHATGPT2API_FLARESOLVERR_URL", cfg.FlareSolverrURL()},
-		{"CHATGPT2API_UPSTREAM_CLEARANCE_ENABLED", enabledVal},
-		{"CHATGPT2API_UPSTREAM_CLEARANCE_MODE", cfg.UpstreamClearanceMode()},
-		{"CHATGPT2API_UPSTREAM_CLEARANCE_TIMEOUT_SEC", strconv.Itoa(cfg.UpstreamClearanceTimeoutSec())},
-		{"CHATGPT2API_UPSTREAM_CLEARANCE_REFRESH_INTERVAL", strconv.Itoa(cfg.UpstreamClearanceRefreshInterval())},
-		{"CHATGPT2API_IMAGE_CHALLENGE_COOLDOWN_SECONDS", strconv.Itoa(cfg.ImageChallengeCooldownSeconds())},
+	cooldownSec := cfg.ImageChallengeCooldownSeconds()
+
+	clearanceChanged := !upstreamClearanceSeeded || desired != lastUpstreamClearanceCfg
+	service.ConfigureUpstreamClearance(desired)
+	service.SetImageChallengeCooldownSeconds(cooldownSec)
+	lastUpstreamClearanceCfg = desired
+	lastImageChallengeCooldownSec = cooldownSec
+	upstreamClearanceSeeded = true
+
+	if clearanceChanged {
+		service.InvalidateUpstreamClearance()
+	}
+}
+
+func (a *App) syncImageChannelsFromSettingsUpdate(body map[string]any) {
+	if a == nil || a.config == nil || a.imageChannels == nil || len(body) == 0 {
+		return
+	}
+	hasKey := func(keys ...string) bool {
+		for _, k := range keys {
+			if _, ok := body[k]; ok {
+				return true
+			}
+		}
+		return false
 	}
 
-	changed := false
-	for _, pair := range desired {
-		if os.Getenv(pair[0]) != pair[1] {
-			_ = os.Setenv(pair[0], pair[1])
-			changed = true
-		}
+	var syncCfg service.ImageChannelSettingsSync
+	shouldSync := false
+
+	if hasKey("image_concurrent_limit") {
+		limit := a.config.ImageConcurrentLimit()
+		syncCfg.MaxConcurrency = &limit
+		shouldSync = true
 	}
-	if changed {
-		service.InvalidateUpstreamClearance()
+
+	gptCosts := map[string]int{}
+	if hasKey("gpt_image_2_credit_cost", "image_credit_cost_1080p") {
+		gptCosts[util.ImageModelGPT] = a.config.GPTImage2CreditCost()
+	}
+	if hasKey("gpt_image_2_5_credit_cost", "image_credit_cost_2k") {
+		gptCosts[util.ImageModelGPT25] = a.config.GPTImage25CreditCost()
+	}
+	if hasKey("gpt_image_2_5_flare_credit_cost", "image_credit_cost_4k") {
+		gptCosts[util.ImageModelGPT25Flare] = a.config.GPTImage25FlareCreditCost()
+	}
+	if hasKey("gpt_image_2_5_sunburst_credit_cost", "image_credit_cost_4k") {
+		gptCosts[util.ImageModelGPT25Sunburst] = a.config.GPTImage25SunburstCreditCost()
+	}
+	if hasKey("gpt_image_2_6_credit_cost", "image_credit_cost_2k") {
+		gptCosts[util.ImageModelGPT26] = a.config.GPTImage26CreditCost()
+	}
+	if hasKey("gpt_image_2_6_flare_credit_cost", "image_credit_cost_4k") {
+		gptCosts[util.ImageModelGPT26Flare] = a.config.GPTImage26FlareCreditCost()
+	}
+	if hasKey("gpt_image_2_6_sunburst_credit_cost", "image_credit_cost_4k") {
+		gptCosts[util.ImageModelGPT26Sunburst] = a.config.GPTImage26SunburstCreditCost()
+	}
+	if len(gptCosts) > 0 {
+		syncCfg.GPTModelCosts = gptCosts
+		shouldSync = true
+	}
+
+	if hasKey("grok_image_credit_cost_1k") {
+		c1 := a.config.GrokImageCreditCost1K()
+		syncCfg.GrokImageCost1K = &c1
+		shouldSync = true
+	}
+	if hasKey("grok_image_credit_cost_2k") {
+		c2 := a.config.GrokImageCreditCost2K()
+		syncCfg.GrokImageCost2K = &c2
+		shouldSync = true
+	}
+
+	if hasKey(
+		"image_provider",
+		"image_proxy_base_url",
+		"image_proxy_api_key",
+		"image_proxy_model",
+		"image_proxy_models",
+		"image_proxy_timeout_seconds",
+		"image_proxy_max_retries",
+		"image_proxy_download_urls",
+	) {
+		syncCfg.UpdateProxy = true
+		syncCfg.LegacyProxy = service.ImageChannelLegacyConfig{
+			ProxyEnabled:   a.config.ImageProvider() == imageProviderProxyAPI,
+			ProxyBaseURL:   a.config.ImageProxyBaseURL(),
+			ProxyAPIKey:    a.config.ImageProxyAPIKey(),
+			ProxyModel:     a.config.ImageProxyModel(),
+			ProxyModels:    a.config.ImageProxyModels(),
+			TimeoutSeconds: a.config.ImageProxyTimeoutSeconds(),
+			MaxRetries:     a.config.ImageProxyMaxRetries(),
+			DownloadURLs:   a.config.ImageProxyDownloadURLs(),
+			MaxConcurrency: a.config.ImageConcurrentLimit(),
+			GPTModelCosts: map[string]int{
+				util.ImageModelGPT:           a.config.GPTImage2CreditCost(),
+				util.ImageModelGPT25:         a.config.GPTImage25CreditCost(),
+				util.ImageModelGPT25Flare:    a.config.GPTImage25FlareCreditCost(),
+				util.ImageModelGPT25Sunburst: a.config.GPTImage25SunburstCreditCost(),
+				util.ImageModelGPT26:         a.config.GPTImage26CreditCost(),
+				util.ImageModelGPT26Flare:    a.config.GPTImage26FlareCreditCost(),
+				util.ImageModelGPT26Sunburst: a.config.GPTImage26SunburstCreditCost(),
+			},
+			GrokImageCost1K: a.config.GrokImageCreditCost1K(),
+			GrokImageCost2K: a.config.GrokImageCreditCost2K(),
+		}
+		shouldSync = true
+	}
+
+	if !shouldSync {
+		return
+	}
+	if err := a.imageChannels.SyncSettings(syncCfg); err != nil && a.logger != nil {
+		a.logger.Warning("sync settings to image channels failed", "error", err.Error())
 	}
 }
 
@@ -232,6 +336,7 @@ func (a *App) handleLogGovernance(w http.ResponseWriter, r *http.Request) {
 			util.WriteError(w, http.StatusBadRequest, err.Error())
 			return
 		}
+		a.runIncrementalVacuum(r.Context(), 2000)
 		util.WriteJSON(w, http.StatusOK, logCleanupResponse{Cleanup: result, Governance: a.logs.GovernanceSummary()})
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)

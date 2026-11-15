@@ -48,6 +48,7 @@ export async function getVerifiedAuthSession(): Promise<StoredAuthSession | null
   const verifyStartedAtVersion = authSessionVersion;
   verifyAuthSessionPromise ??= verifyStoredAuthSession();
   try {
+    const previousSession = cachedAuthSession;
     const verifiedSession = await verifyAuthSessionPromise;
     if (verifyStartedAtVersion === authSessionVersion) {
       cachedAuthSession = verifiedSession;
@@ -55,6 +56,9 @@ export async function getVerifiedAuthSession(): Promise<StoredAuthSession | null
         await setStoredAuthSession(verifiedSession);
       } else {
         await clearStoredAuthSession();
+        if (previousSession !== null) {
+          emitAuthSessionChange();
+        }
       }
       return verifiedSession;
     }

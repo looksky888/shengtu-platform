@@ -169,3 +169,69 @@ func TestImageTaskMigratesMonolithicDocument(t *testing.T) {
 		t.Fatalf("second boot tasks = %d", n)
 	}
 }
+
+type countingBatchDocStore struct {
+	docs        map[string]any
+	singleLoads int
+	batchLoads  int
+	saves       int
+}
+
+func (c *countingBatchDocStore) LoadJSONDocument(name string) (any, error) {
+	c.singleLoads++
+	return c.docs[name], nil
+}
+
+func (c *countingBatchDocStore) LoadJSONDocumentsByPrefix(prefix string) (map[string]any, error) {
+	c.batchLoads++
+	out := map[string]any{}
+	for k, v := range c.docs {
+		if len(k) > len(prefix) && k[:len(prefix)+1] == prefix+"/" {
+			out[k] = v
+		}
+	}
+	return out, nil
+}
+
+func (c *countingBatchDocStore) SaveJSONDocument(name string, value any) error {
+	c.saves++
+	c.docs[name] = value
+	return nil
+}
+
+func (c *countingBatchDocStore) DeleteJSONDocument(name string) error {
+	delete(c.docs, name)
+	return nil
+}
+
+func TestImageTaskBatchLoadShardsAndReadOnlyListNoDiskWrites(t *testing.T) {
+	taskDay := time.Now().In(imageTaskStatsLocation()).Add(-time.Hour).Format("2006-01-02 15:04:05")
+	store := &countingBatchDocStore{docs: map[string]any{}}
+	entries := make([]map[string]any, 0, 5)
+	for _, id := range []string{"t1", "t2", "t3", "t4", "t5"} {
+		entries = append(entries, map[string]any{"owner_id": "u1", "id": id})
+		store.docs[taskEntryDocName("u1", id)] = map[string]any{
+			"id": id, "owner_id": "u1", "status": TaskStatusSuccess,
+			"mode": "generate", "count": 1, "created_at": taskDay, "updated_at": taskDay,
+		}
+	}
+	store.docs[imageTasksIndexDoc] = map[string]any{"version": imageTasksShardVer, "entries": entries}
+
+	svc := newImageTaskService(filepath.Join(t.TempDir(), "image_tasks.json"), store, nil, nil, nil, func() int { return 30 })
+	if !svc.StoreReady() {
+		t.Fatal("StoreReady false")
+	}
+	// Only index + stats ledger should use single LoadJSONDocument; all 5 task shards load in 1 batch call.
+	if store.batchLoads != 1 || store.singleLoads > 2 {
+		t.Fatalf("expected 1 batch shard load and <=2 single loads, got batch=%d single=%d", store.batchLoads, store.singleLoads)
+	}
+	savesBefore := store.saves
+	if got := svc.ListTasks(Identity{ID: "u1"}, nil); len(got["items"].([]map[string]any)) != 5 {
+		t.Fatalf("ListTasks items = %d, want 5", len(got["items"].([]map[string]any)))
+	}
+	_ = svc.ListRecentTasks(Identity{ID: "u1"}, 20, "all")
+	_ = svc.ListTaskLogs(map[string]string{"limit": "20"})
+	if store.saves != savesBefore {
+		t.Fatalf("read-only ListTasks* triggered %d synchronous saves, want 0", store.saves-savesBefore)
+	}
+}

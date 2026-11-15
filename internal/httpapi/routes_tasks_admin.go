@@ -51,6 +51,10 @@ func (a *App) handleAdminImageTaskStats(w http.ResponseWriter, r *http.Request) 
 	switch period {
 	case "today", "day":
 		period = "day"
+	case "7d":
+		start = start.AddDate(0, 0, -6)
+	case "30d":
+		start = start.AddDate(0, 0, -29)
 	case "week":
 		weekday := int(start.Weekday())
 		if weekday == 0 {
@@ -62,7 +66,7 @@ func (a *App) handleAdminImageTaskStats(w http.ResponseWriter, r *http.Request) 
 		start = time.Date(base.Year(), base.Month(), 1, 0, 0, 0, 0, loc)
 		end = start.AddDate(0, 1, 0)
 	default:
-		util.WriteError(w, http.StatusBadRequest, "统计周期仅支持 day、week 或 month")
+		util.WriteError(w, http.StatusBadRequest, "统计周期仅支持 today、day、7d、30d、week 或 month")
 		return
 	}
 	util.WriteJSON(w, http.StatusOK, statsResponse[service.ImageTaskDailyStats]{Stats: a.tasks.StatsBetween(period, start, end)})

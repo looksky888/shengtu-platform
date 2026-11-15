@@ -51,10 +51,11 @@ func (b *DatabaseBackend) RecordPaymentOrderQuery(update PaymentOrderQueryUpdate
 		last_query_at = `+b.placeholder(3)+`, query_attempts = query_attempts + 1,
 		last_error_code = `+b.placeholder(4)+`, last_error_message = `+b.placeholder(5)+`,
 		updated_at = `+b.placeholder(6)+` WHERE id = `+b.placeholder(7)+`
-		AND status IN (`+b.paymentPlaceholdersFrom(8, 3)+`)`, update.TradeState,
+		AND status IN (`+b.paymentPlaceholdersFrom(8, 5)+`)`, update.TradeState,
 		update.TradeStateDesc, update.LastQueryAt, update.LastErrorCode,
 		update.LastErrorMessage, update.LastQueryAt, update.OrderID,
-		PaymentOrderStatusCreated, PaymentOrderStatusPending, PaymentOrderStatusClosing)
+		PaymentOrderStatusCreated, PaymentOrderStatusPending, PaymentOrderStatusClosing,
+		PaymentOrderStatusClosed, PaymentOrderStatusExpired)
 	if err != nil {
 		return err
 	}
@@ -105,7 +106,7 @@ func (b *DatabaseBackend) allowTerminalPaymentOrder(result interface{ RowsAffect
 	if loadErr != nil {
 		return loadErr
 	}
-	if item.Status == PaymentOrderStatusSucceeded || item.Status == PaymentOrderStatusClosed || item.Status == PaymentOrderStatusFailed {
+	if item.Status == PaymentOrderStatusSucceeded || item.Status == PaymentOrderStatusClosed || item.Status == PaymentOrderStatusExpired || item.Status == PaymentOrderStatusFailed {
 		return nil
 	}
 	return ErrPaymentStateConflict

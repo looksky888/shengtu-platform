@@ -2,7 +2,6 @@ package service
 
 import (
 	"chatgpt2api/internal/util"
-	"log"
 	"strings"
 )
 
@@ -14,12 +13,8 @@ func (s *ImageTaskService) ListTasks(identity Identity, taskIDs []string) map[st
 			requested = append(requested, id)
 		}
 	}
-	s.mu.Lock()
-	if s.cleanupLocked() {
-		if err := s.saveLocked(); err != nil {
-			log.Printf("image task list cleanup persistence failed: %v", err)
-		}
-	}
+	s.cleanupIfExpiredForRead()
+	s.mu.RLock()
 	items := make([]map[string]any, 0)
 	missing := make([]string, 0)
 	if len(requested) == 0 {
@@ -39,7 +34,7 @@ func (s *ImageTaskService) ListTasks(identity Identity, taskIDs []string) map[st
 			}
 		}
 	}
-	s.mu.Unlock()
+	s.mu.RUnlock()
 	return map[string]any{"items": items, "missing_ids": missing}
 }
 
@@ -49,12 +44,8 @@ func (s *ImageTaskService) ListRecentTasks(identity Identity, limit int, status 
 		limit = 20
 	}
 	status = strings.TrimSpace(status)
-	s.mu.Lock()
-	if s.cleanupLocked() {
-		if err := s.saveLocked(); err != nil {
-			log.Printf("image task recent-list cleanup persistence failed: %v", err)
-		}
-	}
+	s.cleanupIfExpiredForRead()
+	s.mu.RLock()
 	active := make([]map[string]any, 0)
 	recent := make([]map[string]any, 0, limit)
 	for _, task := range s.tasks {
@@ -74,7 +65,7 @@ func (s *ImageTaskService) ListRecentTasks(identity Identity, limit int, status 
 			recent = append(recent, item)
 		}
 	}
-	s.mu.Unlock()
+	s.mu.RUnlock()
 	sortTasksNewestFirst(active)
 	sortTasksNewestFirst(recent)
 	items := make([]map[string]any, 0, len(active)+limit)
@@ -128,12 +119,8 @@ func (s *ImageTaskService) TerminalVideoTasksSince(startedAt string) []*ImageTas
 }
 
 func (s *ImageTaskService) ListTaskLogs(filters map[string]string) map[string]any {
-	s.mu.Lock()
-	if s.cleanupLocked() {
-		if err := s.saveLocked(); err != nil {
-			log.Printf("image task log cleanup persistence failed: %v", err)
-		}
-	}
+	s.cleanupIfExpiredForRead()
+	s.mu.RLock()
 	summary := strings.EqualFold(strings.TrimSpace(filters["summary"]), "true") || strings.TrimSpace(filters["summary"]) == "1"
 	items := make([]map[string]any, 0, len(s.tasks))
 	for _, task := range s.tasks {
@@ -146,7 +133,7 @@ func (s *ImageTaskService) ListTaskLogs(filters map[string]string) map[string]an
 			items = append(items, publicTask(task))
 		}
 	}
-	s.mu.Unlock()
+	s.mu.RUnlock()
 	// 创建时间新→旧；分页第 1 页始终是最新任务
 	sortTasksNewestFirst(items)
 	total := len(items)

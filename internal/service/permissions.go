@@ -46,6 +46,8 @@ var fullMenuPermissions = []MenuPermission{
 	{ID: "settings", Label: "设置", Path: "/settings", Icon: "settings", Order: 90},
 }
 
+const PermViewDashboard = "GET /api/admin/overview"
+
 var apiPermissionCatalog = []APIPermission{
 	apiPermission("GET", "/api/videos", "查看视频库与视频文件", "视频库", true),
 	apiPermission("DELETE", "/api/videos", "删除本人视频", "视频库", false),
@@ -89,6 +91,7 @@ var apiPermissionCatalog = []APIPermission{
 	apiPermission("GET", "/api/logs/governance", "查看日志治理", "日志管理", false),
 	apiPermission("POST", "/api/logs/governance", "清理日志数据", "日志管理", false),
 	// Task ops: subtree covers /cancel, /batch-cancel, /clear and /stats/today.
+	apiPermission("GET", "/api/admin/overview", "查看运营数据总览", "任务日志", false),
 	apiPermission("GET", "/api/admin/image-task-logs", "查看生图任务日志", "任务日志", false),
 	apiPermission("POST", "/api/admin/image-task-logs", "取消/清理生图任务", "任务队列", true),
 	apiPermission("GET", "/api/admin/image-task-stats", "查看生图统计", "任务日志", true),
@@ -245,6 +248,9 @@ func NormalizeManagedRoleAPIPermissions(keys []string) []string {
 	if HasAPIPermission(PermissionSet{APIPermissions: normalized}, "GET", "/api/payment/settings") {
 		normalized = append(normalized, APIPermissionKey("GET", "/api/payment/storage-entitlement"))
 	}
+	if HasAPIPermission(PermissionSet{APIPermissions: normalized}, "GET", "/api/admin/image-task-stats") {
+		normalized = append(normalized, APIPermissionKey("GET", "/api/admin/overview"))
+	}
 	return NormalizeAPIPermissions(normalized)
 }
 
@@ -312,10 +318,15 @@ func MatchAPIPermissionKey(method, path string) (string, bool) {
 }
 
 func HasAPIPermission(set PermissionSet, method, path string) bool {
-	if strings.EqualFold(strings.TrimSpace(method), "GET") && normalizePermissionPath(path) == "/api/payment/config" {
+	normPath := normalizePermissionPath(path)
+	if strings.EqualFold(strings.TrimSpace(method), "GET") && normPath == "/api/payment/config" {
 		return hasDirectAPIPermission(set, "GET", "/api/payment/settings") ||
 			hasDirectAPIPermission(set, "GET", "/api/payment/storage-entitlement") ||
 			hasDirectAPIPermission(set, "GET", "/api/images")
+	}
+	if strings.EqualFold(strings.TrimSpace(method), "GET") && normPath == "/api/admin/overview" {
+		return hasDirectAPIPermission(set, "GET", "/api/admin/overview") ||
+			hasDirectAPIPermission(set, "GET", "/api/admin/image-task-stats")
 	}
 	return hasDirectAPIPermission(set, method, path)
 }

@@ -150,7 +150,7 @@ func (s *PaymentService) CancelOrder(ctx context.Context, userID, orderID string
 	switch order.Status {
 	case storage.PaymentOrderStatusSucceeded:
 		return PaymentOrderPublic{}, ErrPaymentOrderAlreadyPaid
-	case storage.PaymentOrderStatusClosed, storage.PaymentOrderStatusFailed:
+	case storage.PaymentOrderStatusClosed, storage.PaymentOrderStatusExpired, storage.PaymentOrderStatusFailed:
 		return publicPaymentOrder(order), nil
 	case storage.PaymentOrderStatusClosing:
 		return publicPaymentOrder(order), nil
@@ -192,17 +192,26 @@ func (s *PaymentService) CancelOrder(ctx context.Context, userID, orderID string
 }
 
 func (s *PaymentService) reconcileOrder(ctx context.Context, order storage.PaymentOrderRecord, closeExpired bool) (paymentRecoveryResult, error) {
+	return s.reconcileOrderWithOptions(ctx, order, closeExpired, false)
+}
+
+func (s *PaymentService) reconcileOrderWithOptions(ctx context.Context, order storage.PaymentOrderRecord, closeExpired bool, allowClosedRecovery bool) (paymentRecoveryResult, error) {
 	unlock := s.lockPaymentOrder(order.ID)
 	defer unlock()
 	current, err := s.backend.LoadPaymentOrderByID(order.ID)
 	if err != nil {
 		return paymentRecoveryPending, err
 	}
+	wasClosedOrExpired := current.Status == storage.PaymentOrderStatusClosed || current.Status == storage.PaymentOrderStatusExpired
 	switch current.Status {
 	case storage.PaymentOrderStatusSucceeded:
 		return paymentRecoverySucceeded, nil
-	case storage.PaymentOrderStatusClosed, storage.PaymentOrderStatusFailed:
+	case storage.PaymentOrderStatusFailed:
 		return paymentRecoveryClosed, nil
+	case storage.PaymentOrderStatusClosed, storage.PaymentOrderStatusExpired:
+		if !allowClosedRecovery {
+			return paymentRecoveryClosed, nil
+		}
 	}
 	order = current
 	retryClose := current.Status == storage.PaymentOrderStatusClosing
@@ -249,10 +258,16 @@ func (s *PaymentService) reconcileOrder(ctx context.Context, order storage.Payme
 	}
 	tradeState := strings.ToUpper(strings.TrimSpace(result.TradeState))
 	if tradeState == "SUCCESS" {
+		if strings.TrimSpace(result.SuccessTime) == "" {
+			result.SuccessTime = now
+		}
 		if _, err := s.completePaymentResult(order, result, version); err != nil {
 			return paymentRecoveryPending, err
 		}
 		return paymentRecoverySucceeded, nil
+	}
+	if wasClosedOrExpired {
+		return paymentRecoveryClosed, nil
 	}
 	if _, terminal := terminalUnpaidTradeStates[tradeState]; terminal {
 		if err := s.backend.MarkPaymentOrderClosed(order.ID, now, "provider_"+strings.ToLower(tradeState), result.TradeStateDesc); err != nil {

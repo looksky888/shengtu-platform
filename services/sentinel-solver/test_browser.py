@@ -414,3 +414,248 @@ def test_clearance_cache_bounds_and_cdp_session_reuse(monkeypatch):
         assert sent_overrides[-1]["userAgent"] == "Mozilla/5.0 Chrome/142.0.0.0"
 
     asyncio.run(run())
+
+
+def test_flaresolverr_proxy_passes_username_and_password_cleanly(monkeypatch):
+    import urllib.request
+
+    assert BrowserSolver._flaresolverr_proxy("") is None
+    assert BrowserSolver._flaresolverr_proxy("http://privoxy:8118") == {"url": "http://privoxy:8118"}
+    assert BrowserSolver._flaresolverr_proxy("socks5h://acct%3A1:p%40ss@proxy.example:1080") == {
+        "url": "socks5://proxy.example:1080",
+        "username": "acct:1",
+        "password": "p@ss",
+    }
+    assert BrowserSolver._proxy_options("http://:onlypass@proxy.example:8080") == {
+        "server": "http://proxy.example:8080",
+        "username": "",
+        "password": "onlypass",
+    }
+
+    captured_payloads: list[dict] = []
+
+    class FakeHTTPResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def read(self, _limit: int = -1) -> bytes:
+            return json.dumps({
+                "status": "ok",
+                "solution": {
+                    "userAgent": "Mozilla/5.0 Chrome/142.0.0.0",
+                    "cookies": [{"name": "cf_clearance", "value": "tok", "domain": ".chatgpt.com"}],
+                },
+            }).encode("utf-8")
+
+    class FakeOpener:
+        def open(self, req, timeout=0):
+            captured_payloads.append(json.loads(req.data.decode("utf-8")))
+            return FakeHTTPResponse()
+
+    monkeypatch.setattr(urllib.request, "build_opener", lambda *_args, **_kwargs: FakeOpener())
+    bundle = BrowserSolver._fetch_flaresolverr_clearance_sync(
+        "http://flaresolverr:8191",
+        "http://user-1:sec%40ret@proxy.example:8080",
+        30,
+    )
+    assert bundle.user_agent == "Mozilla/5.0 Chrome/142.0.0.0"
+    assert captured_payloads == [{
+        "cmd": "request.get",
+        "url": "https://chatgpt.com/",
+        "maxTimeout": 30000,
+        "proxy": {
+            "url": "http://proxy.example:8080",
+            "username": "user-1",
+            "password": "sec@ret",
+        },
+    }]
+
+
+def test_disconnected_browser_relaunches_and_clears_dead_sessions(monkeypatch):
+    monkeypatch.setenv("SENTINEL_SOLVER_TIMEZONE", "UTC")
+    import browser as browser_mod
+
+    class FakeStealth:
+        async def apply_stealth_async(self, context):
+            return None
+
+    monkeypatch.setattr(browser_mod, "Stealth", FakeStealth)
+
+    closed_contexts: list[str] = []
+    closed_browsers: list[str] = []
+    launch_count = 0
+
+    class FakeResponse:
+        status = 200
+        headers: dict[str, str] = {}
+
+    class FakePage:
+        def is_closed(self):
+            return False
+
+        async def goto(self, *_args, **_kwargs):
+            return FakeResponse()
+
+        async def title(self):
+            return "ChatGPT"
+
+        async def wait_for_function(self, *_args, **_kwargs):
+            return None
+
+    class FakeContext:
+        def __init__(self, tag: str):
+            self.tag = tag
+
+        async def route(self, *_args, **_kwargs):
+            return None
+
+        async def route_web_socket(self, *_args, **_kwargs):
+            return None
+
+        async def add_init_script(self, **_kwargs):
+            return None
+
+        async def new_page(self):
+            return FakePage()
+
+        async def close(self):
+            closed_contexts.append(self.tag)
+
+    class FakeBrowser:
+        def __init__(self, name: str, connected: bool):
+            self.name = name
+            self.connected = connected
+
+        def is_connected(self):
+            return self.connected
+
+        async def new_context(self, **_options):
+            return FakeContext(f"ctx-{self.name}")
+
+        async def close(self):
+            closed_browsers.append(self.name)
+
+    class FakeChromium:
+        async def launch(self, **_kwargs):
+            nonlocal launch_count
+            launch_count += 1
+            return FakeBrowser(f"relaunched-{launch_count}", True)
+
+    async def run():
+        import time as _time
+        from browser import BrowserSession
+
+        solver = BrowserSolver()
+        solver.playwright = type("FakePlaywright", (), {"chromium": FakeChromium()})()
+        solver.browser = FakeBrowser("dead-1", False)
+        stale_key = solver._session_key("", "UTC")
+        ts = _time.monotonic()
+        solver.sessions[stale_key] = BrowserSession(
+            stale_key, "", "UTC", FakeContext("stale-ctx"), FakePage(), "stale-epoch", ts, ts
+        )
+        solver.context_index["stale-epoch"] = stale_key
+
+        rebuilt = await solver._get_or_create_session("", "UTC")
+        assert launch_count == 1
+        assert solver.ready() is True
+        assert closed_contexts == ["stale-ctx"]
+        assert closed_browsers == ["dead-1"]
+        assert rebuilt.epoch != "stale-epoch"
+        assert solver.sessions[stale_key].epoch == rebuilt.epoch
+
+    asyncio.run(run())
+
+
+def test_timed_out_contexts_close_cleanly_without_leaking(monkeypatch):
+    monkeypatch.setenv("SENTINEL_SOLVER_TIMEZONE", "UTC")
+    import browser as browser_mod
+
+    class FakeStealth:
+        async def apply_stealth_async(self, context):
+            return None
+
+    monkeypatch.setattr(browser_mod, "Stealth", FakeStealth)
+
+    closed_events: list[str] = []
+
+    class SlowCloseContext:
+        def __init__(self, label: str, hang_goto: bool = False, hang_eval: bool = False):
+            self.label = label
+            self.hang_goto = hang_goto
+            self.hang_eval = hang_eval
+
+        async def route(self, *_args, **_kwargs):
+            return None
+
+        async def route_web_socket(self, *_args, **_kwargs):
+            return None
+
+        async def add_init_script(self, **_kwargs):
+            return None
+
+        async def new_page(self):
+            ctx = self
+
+            class _Page:
+                def is_closed(self):
+                    return False
+
+                async def goto(self, *_args, **_kwargs):
+                    if ctx.hang_goto:
+                        await asyncio.sleep(10)
+                    return type("Resp", (), {"status": 200, "headers": {}})()
+
+                async def title(self):
+                    return "ChatGPT"
+
+                async def wait_for_function(self, *_args, **_kwargs):
+                    return None
+
+                async def evaluate(self, *_args, **_kwargs):
+                    if ctx.hang_eval:
+                        await asyncio.sleep(10)
+                    return {"p": "gAAAAACvalidprofile"}
+
+            return _Page()
+
+        async def close(self):
+            await asyncio.sleep(0.03)
+            closed_events.append(self.label)
+
+    async def run():
+        solver = BrowserSolver()
+        contexts_to_issue = [
+            SlowCloseContext("goto-timeout", hang_goto=True),
+            SlowCloseContext("eval-timeout", hang_eval=True),
+        ]
+
+        class FakeBrowser:
+            def is_connected(self):
+                return True
+
+            async def new_context(self, **_options):
+                return contexts_to_issue.pop(0)
+
+        solver.browser = FakeBrowser()
+
+        # Case 1: Timeout while opening/navigating a new browser context.
+        with pytest.raises(TimeoutError):
+            async with asyncio.timeout(0.05):
+                await solver.new_context(timezone="UTC")
+        await asyncio.sleep(0.08)
+        assert "goto-timeout" in closed_events
+        assert solver.sessions == {}
+
+        # Case 2: Session opened, then profile evaluation times out -> session must be evicted and closed.
+        with pytest.raises(TimeoutError):
+            async with asyncio.timeout(0.05):
+                await solver.new_context(timezone="Asia/Tokyo")
+        await asyncio.sleep(0.08)
+        assert "eval-timeout" in closed_events
+        assert solver.sessions == {}
+        assert solver.context_index == {}
+
+    asyncio.run(run())

@@ -8,6 +8,7 @@ import {
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { LogCleanupResult, LogGovernanceSummary } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -77,8 +78,11 @@ export function LogStatsSection({
     >
       <div className="space-y-3">
         {isLoading && !governance ? (
-          <div className="flex items-center justify-center rounded-xl border border-border/75 bg-surface-subtle/45 py-10">
-            <LoaderCircle className="size-5 animate-spin text-muted-foreground" />
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <Skeleton className="h-22 w-full" />
+            <Skeleton className="h-22 w-full" />
+            <Skeleton className="h-22 w-full" />
+            <Skeleton className="h-22 w-full" />
           </div>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -143,15 +147,20 @@ export function LogStatsSection({
 
 export function LogRetentionSection({
   retentionDays,
+  error,
   onRetentionDaysChange,
+  onRetentionDaysBlur,
 }: {
   retentionDays: string;
+  error?: string;
   onRetentionDaysChange: (value: string) => void;
+  onRetentionDaysBlur?: () => void;
 }) {
   return (
     <SettingsSection
+      layout="split"
       title="日志保留周期"
-      description="控制手动清理与定期维护时保留的历史日志天数上限"
+      description="控制手动清理与定期维护时保留的历史日志天数上限。"
     >
       <div className="max-w-md">
         <SettingsUnitInput
@@ -160,11 +169,13 @@ export function LogRetentionSection({
           unit="天"
           min={1}
           max={3650}
-          rangeHint="1 - 3650"
+          rangeHint="1–3650"
           value={retentionDays}
+          error={error}
           placeholder="7"
           description="执行清理时会完整保留最近 N 天内的系统日志，仅移除更早的历史记录。"
           onChange={onRetentionDaysChange}
+          onBlur={onRetentionDaysBlur}
         />
       </div>
     </SettingsSection>
@@ -186,7 +197,7 @@ export function LogLevelSection({
   return (
     <SettingsSection
       title="日志采集级别"
-      description="配置后端写入日志表的事件等级；未显式勾选任何项时自动启用标准生产级别"
+      description="配置后端写入日志表的事件等级；未显式勾选任何项时默认启用标准生产策略（Info / Warn / Error），点击任意卡片即可切换为自定义过滤。"
       badge={
         isDefaultPolicy ? (
           <Badge variant="success">默认策略（Info / Warn / Error）</Badge>
@@ -211,69 +222,66 @@ export function LogLevelSection({
         ) : null
       }
     >
-      <div className="space-y-3">
-        <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
-          {LOG_LEVEL_META.map((item) => {
-            const explicitlyChecked = normalizedSelected.includes(item.value);
-            const effectiveActive = isDefaultPolicy
-              ? item.defaultActive
-              : explicitlyChecked;
+      <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
+        {LOG_LEVEL_META.map((item) => {
+          const explicitlyChecked = normalizedSelected.includes(item.value);
+          const effectiveActive = isDefaultPolicy
+            ? item.defaultActive
+            : explicitlyChecked;
 
-            return (
-              <button
-                key={item.value}
-                type="button"
-                aria-pressed={explicitlyChecked}
-                onClick={() => onLevelChange(item.value, !explicitlyChecked)}
-                className={cn(
-                  "flex flex-col items-start justify-between gap-2 rounded-xl border p-3.5 text-left transition-colors",
-                  explicitlyChecked
-                    ? "border-foreground/45 bg-surface shadow-2xs ring-1 ring-foreground/15"
-                    : effectiveActive
-                      ? "border-border/80 bg-surface-subtle/60 hover:border-border-strong/75 hover:bg-surface-hover/55"
-                      : "border-border/65 bg-surface-subtle/30 opacity-80 hover:border-border-strong/70 hover:bg-surface-hover/45 hover:opacity-100"
-                )}
-              >
-                <div className="flex w-full items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={cn(
-                        "flex size-4 items-center justify-center rounded-[4px] border transition-colors",
-                        explicitlyChecked
-                          ? "border-primary bg-primary text-primary-foreground"
-                          : "border-input bg-surface"
-                      )}
-                    >
-                      {explicitlyChecked ? <Check className="size-3" /> : null}
-                    </span>
-                    <span className="font-mono text-xs font-semibold text-foreground sm:text-[13px]">
-                      {item.label}
-                    </span>
-                  </div>
-                  <Badge
-                    variant={effectiveActive ? "success" : "secondary"}
-                    className="h-5 px-1.5 text-[10px]"
+          return (
+            <button
+              key={item.value}
+              type="button"
+              aria-pressed={explicitlyChecked}
+              onClick={() => onLevelChange(item.value, !explicitlyChecked)}
+              className={cn(
+                "flex flex-col items-start justify-between gap-2 rounded-xl border p-3.5 text-left transition-colors",
+                explicitlyChecked
+                  ? "border-primary/40 bg-primary/[0.07] text-primary shadow-2xs ring-1 ring-primary/20"
+                  : effectiveActive
+                    ? "border-border/80 bg-surface-subtle/60 hover:border-border-strong/75 hover:bg-surface-hover/55"
+                    : "border-border/65 bg-surface-subtle/30 opacity-80 hover:border-border-strong/70 hover:bg-surface-hover/45 hover:opacity-100",
+              )}
+            >
+              <div className="flex w-full items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span
+                    className={cn(
+                      "flex size-4 items-center justify-center rounded-[4px] border transition-colors",
+                      explicitlyChecked
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-input bg-surface",
+                    )}
                   >
-                    {isDefaultPolicy && effectiveActive
-                      ? "默认生效"
-                      : effectiveActive
-                        ? "已开启"
-                        : "未记录"}
-                  </Badge>
+                    {explicitlyChecked ? <Check className="size-3" /> : null}
+                  </span>
+                  <span
+                    className={cn(
+                      "font-mono text-xs font-semibold sm:text-[13px]",
+                      explicitlyChecked ? "text-primary" : "text-foreground",
+                    )}
+                  >
+                    {item.label}
+                  </span>
                 </div>
-                <p className="text-[11px] leading-4.5 text-muted-foreground">
-                  {item.description}
-                </p>
-              </button>
-            );
-          })}
-        </div>
-
-        <SettingsNotice>
-          {isDefaultPolicy
-            ? "当前采用默认生产策略：自动记录 Info、Warn 与 Error 级别日志，不采集高频 Debug 诊断信息以节省存储空间。点击任意卡片可切换为自定义过滤。"
-            : "当前采用自定义过滤模式：仅记录上方勾选为「已开启」的级别。开启 Debug 会显著增加日志写入量；点击「恢复默认策略」可回到标准模式。"}
-        </SettingsNotice>
+                <Badge
+                  variant={effectiveActive ? "success" : "secondary"}
+                  className="h-5 px-1.5 text-[10px]"
+                >
+                  {isDefaultPolicy && effectiveActive
+                    ? "默认生效"
+                    : effectiveActive
+                      ? "已开启"
+                      : "未记录"}
+                </Badge>
+              </div>
+              <p className="text-[11px] leading-4.5 text-muted-foreground">
+                {item.description}
+              </p>
+            </button>
+          );
+        })}
       </div>
     </SettingsSection>
   );
@@ -305,7 +313,7 @@ function KpiMetricBlock({
           "tabular-nums text-foreground",
           monoTimestamp
             ? "font-mono text-xs font-semibold leading-5 break-keep sm:text-[13px]"
-            : "font-mono text-base font-semibold leading-6 sm:text-lg"
+            : "font-mono text-base font-semibold leading-6 sm:text-lg",
         )}
       >
         {value}

@@ -51,8 +51,64 @@ func (s *ImageTaskService) StatsBetween(period string, start, end time.Time) Ima
 		stats.FailedTasks += bucket.FailedTasks
 		stats.SuccessImages += bucket.SuccessImages
 		stats.FailedImages += bucket.FailedImages
+		stats.SuccessVideoTasks += bucket.SuccessVideoTasks
+		stats.FailedVideoTasks += bucket.FailedVideoTasks
+		stats.SuccessVideos += bucket.SuccessVideos
+		stats.FailedVideos += bucket.FailedVideos
 	}
 	return stats
+}
+
+type OverviewLedgerDay struct {
+	Date              string
+	SuccessTasks      int
+	FailedTasks       int
+	SuccessImages     int
+	FailedImages      int
+	SuccessVideoTasks int
+	FailedVideoTasks  int
+	SuccessVideos     int
+	FailedVideos      int
+}
+
+// OverviewSnapshot returns a point-in-time copy of all retained tasks and daily
+// ledger buckets under a read lock so /api/admin/overview never truncates at 180 rows.
+func (s *ImageTaskService) OverviewSnapshot() ([]ImageTask, map[string]OverviewLedgerDay) {
+	if s == nil {
+		return nil, nil
+	}
+	s.cleanupIfExpiredForRead()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	tasks := make([]ImageTask, 0, len(s.tasks))
+	for _, task := range s.tasks {
+		if task == nil {
+			continue
+		}
+		cp := *task
+		cp.Data = append([]map[string]any(nil), task.Data...)
+		tasks = append(tasks, cp)
+	}
+	days := make(map[string]OverviewLedgerDay)
+	if s.statsLedger != nil {
+		for k, bucket := range s.statsLedger.Days {
+			if bucket == nil {
+				continue
+			}
+			days[k] = OverviewLedgerDay{
+				Date:              bucket.Date,
+				SuccessTasks:      bucket.SuccessTasks,
+				FailedTasks:       bucket.FailedTasks,
+				SuccessImages:     bucket.SuccessImages,
+				FailedImages:      bucket.FailedImages,
+				SuccessVideoTasks: bucket.SuccessVideoTasks,
+				FailedVideoTasks:  bucket.FailedVideoTasks,
+				SuccessVideos:     bucket.SuccessVideos,
+				FailedVideos:      bucket.FailedVideos,
+			}
+		}
+	}
+	return tasks, days
 }
 
 // statsBetweenFromTasksLocked is the legacy scan used only when no ledger is loaded.
@@ -60,10 +116,14 @@ func (s *ImageTaskService) statsBetweenFromTasksLocked(period string, start, end
 	loc := imageTaskStatsLocation()
 	_ = period
 	for _, task := range s.tasks {
-		if task == nil || util.Clean(task.Mode) == "video" {
+		if task == nil {
 			continue
 		}
-		updated := parseTaskTimeInLocation(firstNonEmpty(util.Clean(task.UpdatedAt), util.Clean(task.CreatedAt)), loc)
+		capability := ClassifyTaskCapability(task.Mode)
+		if capability == "" {
+			continue
+		}
+		updated := parseTaskTimeInLocation(firstNonEmpty(util.Clean(task.FinishedAt), util.Clean(task.UpdatedAt), util.Clean(task.CreatedAt)), loc)
 		if updated.IsZero() || updated.Before(start) || !updated.Before(end) {
 			continue
 		}
@@ -71,24 +131,49 @@ func (s *ImageTaskService) statsBetweenFromTasksLocked(period string, start, end
 		if count < 1 {
 			count = 1
 		}
-		successImages := len(task.Data)
+		successOutputs := len(task.Data)
+		if capability == "video" {
+			switch util.Clean(task.Status) {
+			case TaskStatusSuccess:
+				stats.SuccessVideoTasks++
+				if successOutputs > 0 {
+					stats.SuccessVideos += successOutputs
+				} else {
+					stats.SuccessVideos += count
+				}
+				if successOutputs > 0 && successOutputs < count {
+					stats.FailedVideos += count - successOutputs
+				}
+			case TaskStatusError:
+				stats.FailedVideoTasks++
+				if successOutputs > 0 {
+					stats.SuccessVideos += successOutputs
+				}
+				failedVideos := count - successOutputs
+				if failedVideos < 0 {
+					failedVideos = 0
+				}
+				stats.FailedVideos += failedVideos
+			}
+			continue
+		}
 		switch util.Clean(task.Status) {
 		case TaskStatusSuccess:
 			stats.SuccessTasks++
-			if successImages > 0 {
-				stats.SuccessImages += successImages
+			if successOutputs > 0 {
+				stats.SuccessImages += successOutputs
 			} else {
 				stats.SuccessImages += count
 			}
-			if successImages > 0 && successImages < count {
-				stats.FailedImages += count - successImages
+			if successOutputs > 0 && successOutputs < count {
+				stats.FailedImages += count - successOutputs
 			}
 		case TaskStatusError:
 			stats.FailedTasks++
-			if successImages > 0 {
-				stats.SuccessImages += successImages
+			if successOutputs > 0 {
+				stats.SuccessImages += successOutputs
 			}
-			failedImages := count - successImages
+			failedImages := count - successOutputs
 			if failedImages < 0 {
 				failedImages = 0
 			}

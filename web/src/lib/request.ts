@@ -7,7 +7,8 @@ import {
     redirectAndRejectUnauthorized,
     shouldRedirectUnauthorized,
 } from "@/lib/request-unauthorized";
-import {clearStoredAuthSession, getStoredSessionToken} from "@/store/auth";
+import { clearVerifiedAuthSession, getCachedAuthSession } from "@/lib/session";
+import { getStoredSessionToken } from "@/store/auth";
 
 type RequestConfig = AxiosRequestConfig & {
     redirectOnUnauthorized?: boolean;
@@ -32,10 +33,15 @@ const request = axios.create({
 
 request.interceptors.request.use(async (config) => {
     const nextConfig = {...config};
-    const sessionToken = await getStoredSessionToken();
     const headers = AxiosHeaders.from(nextConfig.headers);
-    if (sessionToken && !headers.has("Authorization")) {
-        headers.set("Authorization", `Bearer ${sessionToken}`);
+    if (!headers.has("Authorization")) {
+        const cachedSession = getCachedAuthSession();
+        const sessionToken =
+            cachedSession?.key?.trim() ||
+            (cachedSession === null ? "" : await getStoredSessionToken());
+        if (sessionToken) {
+            headers.set("Authorization", `Bearer ${sessionToken}`);
+        }
     }
     nextConfig.headers = headers;
     return nextConfig;
@@ -51,7 +57,7 @@ request.interceptors.response.use(
             shouldRedirectUnauthorized(status, shouldRedirect, window.location.pathname)
         ) {
             return redirectAndRejectUnauthorized(
-                clearStoredAuthSession,
+                clearVerifiedAuthSession,
                 () =>
                     window.location.replace(
                         buildLoginRedirectUrl(
@@ -59,6 +65,9 @@ request.interceptors.response.use(
                         ),
                     ),
             );
+        }
+        if (status === 401 && shouldRedirect) {
+            await clearVerifiedAuthSession();
         }
 
         const payload = error.response?.data;

@@ -13,15 +13,44 @@ import {
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { CPAPool } from "@/lib/api";
+import { cn } from "@/lib/utils";
 
 import { useSettingsStore } from "../store";
 import {
   SettingsCard,
   SettingsEmptyState,
-  SettingsNotice,
   settingsListItemClassName,
 } from "./settings-ui";
+
+function CPAPoolsSkeleton() {
+  return (
+    <div className="grid gap-4 lg:grid-cols-2">
+      {[0, 1].map((index) => (
+        <div
+          key={index}
+          className={`flex flex-col justify-between gap-4 ${settingsListItemClassName}`}
+        >
+          <div className="space-y-2.5">
+            <div className="flex items-center justify-between gap-3">
+              <Skeleton className="h-4 w-36" />
+              <div className="flex items-center gap-1.5">
+                <Skeleton className="size-7 rounded-lg" />
+                <Skeleton className="size-7 rounded-lg" />
+              </div>
+            </div>
+            <Skeleton className="h-3.5 w-56" />
+          </div>
+          <div className="flex items-center justify-between border-t border-border/55 pt-2.5">
+            <Skeleton className="h-3.5 w-36" />
+            <Skeleton className="h-8 w-28 rounded-lg" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export function CPAPoolsCard() {
   const pools = useSettingsStore((state) => state.pools);
@@ -34,11 +63,11 @@ export function CPAPoolsCard() {
   const browseFiles = useSettingsStore((state) => state.browseFiles);
 
   const [pendingDeletePool, setPendingDeletePool] = useState<CPAPool | null>(
-    null
+    null,
   );
 
   const isConfirmDeleting = Boolean(
-    pendingDeletePool && deletingId === pendingDeletePool.id
+    pendingDeletePool && deletingId === pendingDeletePool.id,
   );
 
   const handleConfirmDelete = async () => {
@@ -52,7 +81,7 @@ export function CPAPoolsCard() {
       <SettingsCard
         icon={ServerCog}
         title="CPA 远程号池连接"
-        description="连接远程 CLIProxyAPI 管理端，按需拉取账号列表并批量异步导入本地号池"
+        description="连接远程 CLIProxyAPI 管理端读取账号清单，勾选后由服务端在后台异步拉取凭证并写入本地号池（关闭页面不影响任务执行）"
         tone="slate"
         meta={
           pools.length > 0 ? (
@@ -70,9 +99,7 @@ export function CPAPoolsCard() {
       >
         <div className="flex flex-col gap-5">
           {isLoadingPools ? (
-            <div className="flex items-center justify-center py-12">
-              <LoaderCircle className="size-5 animate-spin text-muted-foreground" />
-            </div>
+            <CPAPoolsSkeleton />
           ) : pools.length === 0 ? (
             <SettingsEmptyState
               icon={ServerCog}
@@ -90,14 +117,24 @@ export function CPAPoolsCard() {
               {pools.map((pool) => {
                 const isDeletingThis = deletingId === pool.id;
                 const isLoadingFilesThis = loadingFilesId === pool.id;
-                const isBusy = isDeletingThis || isLoadingFilesThis;
                 const importJob = pool.import_job ?? null;
+                const isImportActive =
+                  importJob?.status === "pending" ||
+                  importJob?.status === "running";
+                const isBusy = isDeletingThis || isLoadingFilesThis;
                 const progress = importJob?.total
                   ? Math.min(
                       100,
-                      Math.round((importJob.completed / importJob.total) * 100)
+                      Math.round((importJob.completed / importJob.total) * 100),
                     )
                   : 0;
+
+                const progressBarClass =
+                  importJob?.status === "completed"
+                    ? "bg-emerald-500"
+                    : importJob?.status === "failed"
+                      ? "bg-rose-500"
+                      : "bg-blue-500";
 
                 return (
                   <div
@@ -141,7 +178,7 @@ export function CPAPoolsCard() {
                             variant="ghost"
                             size="icon-sm"
                             onClick={() => setPendingDeletePool(pool)}
-                            disabled={isBusy}
+                            disabled={isBusy || isImportActive}
                             aria-label={`删除连接 ${pool.name || pool.base_url}`}
                             title="删除连接"
                             className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
@@ -189,7 +226,10 @@ export function CPAPoolsCard() {
                           </div>
                           <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-surface-muted">
                             <div
-                              className="h-full rounded-full bg-foreground transition-all duration-300"
+                              className={cn(
+                                "h-full rounded-full transition-all duration-300",
+                                progressBarClass,
+                              )}
                               style={{ width: `${progress}%` }}
                             />
                           </div>
@@ -215,7 +255,9 @@ export function CPAPoolsCard() {
 
                     <div className="flex items-center justify-between gap-2 border-t border-border/55 pt-2.5">
                       <span className="text-[11px] text-muted-foreground">
-                        支持搜索筛选并分批勾选导入
+                        {isImportActive
+                          ? "后台同步导入进行中，请等待当前任务完成"
+                          : "支持搜索筛选并分批勾选导入"}
                       </span>
                       <Button
                         type="button"
@@ -223,7 +265,7 @@ export function CPAPoolsCard() {
                         size="sm"
                         loading={isLoadingFilesThis}
                         onClick={() => void browseFiles(pool)}
-                        disabled={isBusy}
+                        disabled={isBusy || isImportActive}
                       >
                         {!isLoadingFilesThis ? (
                           <Import className="size-3.5" />
@@ -236,13 +278,6 @@ export function CPAPoolsCard() {
               })}
             </div>
           )}
-
-          <SettingsNotice>
-            <div className="font-medium text-foreground">异步导入工作流说明</div>
-            <p className="mt-1 text-muted-foreground">
-              点击「浏览并同步账号」先读取远程文件清单；勾选目标账号确认后，由服务端在后台拉取对应凭证并写入本地号池，关闭页面不影响任务继续执行。
-            </p>
-          </SettingsNotice>
         </div>
       </SettingsCard>
 

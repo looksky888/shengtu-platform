@@ -273,14 +273,14 @@ func (s *PaymentService) QueryOrder(ctx context.Context, userID, orderID string)
 	if order.UserID != strings.TrimSpace(userID) {
 		return PaymentOrderPublic{}, storage.ErrPaymentRecordNotFound
 	}
-	if order.Status == storage.PaymentOrderStatusSucceeded || order.Status == storage.PaymentOrderStatusClosed {
+	if order.Status == storage.PaymentOrderStatusSucceeded || order.Status == storage.PaymentOrderStatusFailed {
 		return publicPaymentOrder(order), nil
 	}
 	expired, err := paymentOrderExpired(order, s.now().UTC())
 	if err != nil {
 		return PaymentOrderPublic{}, err
 	}
-	_, err = s.reconcileOrder(ctx, order, expired)
+	_, err = s.reconcileOrderWithOptions(ctx, order, expired, true)
 	if err != nil {
 		return PaymentOrderPublic{}, err
 	}

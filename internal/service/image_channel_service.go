@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -152,6 +153,201 @@ func (s *ImageChannelService) ListAdmin() []ImageChannelAdmin {
 		return items[i].Name < items[j].Name
 	})
 	return items
+}
+
+func (s *ImageChannelService) ListAllModels() []ImageChannelModel {
+	if s == nil {
+		return nil
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	items := make([]ImageChannelModel, 0, len(s.state.Models))
+	for _, model := range s.state.Models {
+		items = append(items, cloneImageChannelModel(model))
+	}
+	sortImageChannelModels(items)
+	return items
+}
+
+type ImageChannelSettingsSync struct {
+	GPTModelCosts   map[string]int
+	GrokImageCost1K *int
+	GrokImageCost2K *int
+	MaxConcurrency  *int
+	UpdateProxy     bool
+	LegacyProxy     ImageChannelLegacyConfig
+}
+
+// SyncSettings synchronizes updated /api/settings defaults (credit costs,
+// concurrency limit, and legacy image proxy fields) onto the built-in system
+// account_pool / grok_runtime / legacy-proxy channels so channel billing and
+// concurrency stay aligned with settings.
+func (s *ImageChannelService) SyncSettings(syncCfg ImageChannelSettingsSync) error {
+	if s == nil {
+		return nil
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	changed := false
+	now := nowImageChannelTimestamp()
+	poolChannelID := s.findBuiltinAccountPoolChannelIDLocked()
+
+	if syncCfg.MaxConcurrency != nil && *syncCfg.MaxConcurrency >= 1 {
+		limit := *syncCfg.MaxConcurrency
+		for idx := range s.state.Channels {
+			ch := &s.state.Channels[idx]
+			if ch.ID == poolChannelID || (ch.System && (ch.Type == ImageChannelTypeAccountPool || ch.Type == ImageChannelTypeGrokRuntime)) {
+				if ch.MaxConcurrency != limit {
+					ch.MaxConcurrency = limit
+					ch.UpdatedAt = now
+					changed = true
+				}
+			}
+		}
+	}
+
+	if len(syncCfg.GPTModelCosts) > 0 && poolChannelID != "" {
+		for idx := range s.state.Models {
+			model := &s.state.Models[idx]
+			if model.ChannelID != poolChannelID {
+				continue
+			}
+			for upstream, cost := range syncCfg.GPTModelCosts {
+				if cost < 1 || !strings.EqualFold(model.UpstreamModel, upstream) {
+					continue
+				}
+				if model.CreditCost != cost || model.CreditCosts["1k"] != cost {
+					model.CreditCost = cost
+					if model.CreditCosts == nil {
+						model.CreditCosts = map[string]int{}
+					}
+					model.CreditCosts["1k"] = cost
+					model.UpdatedAt = now
+					changed = true
+				}
+			}
+		}
+	}
+
+	if syncCfg.GrokImageCost1K != nil || syncCfg.GrokImageCost2K != nil {
+		grokChannelIDs := map[string]struct{}{}
+		for _, ch := range s.state.Channels {
+			if ch.System && ch.Type == ImageChannelTypeGrokRuntime {
+				grokChannelIDs[ch.ID] = struct{}{}
+			}
+		}
+		for idx := range s.state.Models {
+			model := &s.state.Models[idx]
+			if _, ok := grokChannelIDs[model.ChannelID]; !ok {
+				continue
+			}
+			if !strings.EqualFold(model.UpstreamModel, util.ImageModelGrokImagine) {
+				continue
+			}
+			if model.CreditCosts == nil {
+				model.CreditCosts = map[string]int{}
+			}
+			if syncCfg.GrokImageCost1K != nil && *syncCfg.GrokImageCost1K >= 1 {
+				c1 := *syncCfg.GrokImageCost1K
+				if model.CreditCost != c1 || model.CreditCosts["1k"] != c1 {
+					model.CreditCost = c1
+					model.CreditCosts["1k"] = c1
+					model.UpdatedAt = now
+					changed = true
+				}
+			}
+			if syncCfg.GrokImageCost2K != nil && *syncCfg.GrokImageCost2K >= 1 {
+				c2 := *syncCfg.GrokImageCost2K
+				if model.CreditCosts["2k"] != c2 {
+					model.CreditCosts["2k"] = c2
+					model.UpdatedAt = now
+					changed = true
+				}
+			}
+		}
+	}
+
+	if syncCfg.UpdateProxy {
+		legacyIdx := s.channelIndexLocked("legacy-proxy")
+		baseURL := strings.TrimRight(strings.TrimSpace(syncCfg.LegacyProxy.ProxyBaseURL), "/")
+		apiKey := strings.TrimSpace(syncCfg.LegacyProxy.ProxyAPIKey)
+		if legacyIdx < 0 {
+			if baseURL != "" || apiKey != "" {
+				if err := s.migrateLegacyProxyLocked(syncCfg.LegacyProxy); err != nil {
+					return err
+				}
+				changed = true
+			}
+		} else {
+			ch := &s.state.Channels[legacyIdx]
+			if baseURL != ch.BaseURL {
+				ch.BaseURL = baseURL
+				changed = true
+			}
+			if apiKey != "" {
+				ciphertext, err := encryptImageChannelSecret(s.key, apiKey)
+				if err != nil {
+					return fmt.Errorf("加密中转站 API Key: %w", err)
+				}
+				if ch.APIKeyCiphertext != ciphertext {
+					ch.APIKeyCiphertext = ciphertext
+					changed = true
+				}
+			}
+			nextEnabled := syncCfg.LegacyProxy.ProxyEnabled && ch.BaseURL != "" && ch.APIKeyCiphertext != ""
+			if ch.Enabled != nextEnabled {
+				ch.Enabled = nextEnabled
+				changed = true
+			}
+			nextTimeout := clampImageChannelInt(syncCfg.LegacyProxy.TimeoutSeconds, 30, 3600, 300)
+			if ch.TimeoutSeconds != nextTimeout {
+				ch.TimeoutSeconds = nextTimeout
+				changed = true
+			}
+			nextRetries := clampImageChannelInt(syncCfg.LegacyProxy.MaxRetries, 0, 5, 1)
+			if ch.MaxRetries != nextRetries {
+				ch.MaxRetries = nextRetries
+				changed = true
+			}
+			if ch.DownloadURLs != syncCfg.LegacyProxy.DownloadURLs {
+				ch.DownloadURLs = syncCfg.LegacyProxy.DownloadURLs
+				changed = true
+			}
+			models := append([]string(nil), syncCfg.LegacyProxy.ProxyModels...)
+			if syncCfg.LegacyProxy.ProxyModel != "" && !slices.Contains(models, syncCfg.LegacyProxy.ProxyModel) {
+				models = append([]string{syncCfg.LegacyProxy.ProxyModel}, models...)
+			}
+			for index, modelID := range models {
+				modelID = strings.TrimSpace(modelID)
+				if modelID == "" || s.hasUpstreamModelLocked(ch.ID, modelID, "") {
+					continue
+				}
+				cost := syncCfg.LegacyProxy.GPTModelCosts[modelID]
+				if cost < 1 {
+					cost = 1
+				}
+				s.state.Models = append(s.state.Models, ImageChannelModel{
+					ID: newImageChannelID("model"), ChannelID: ch.ID, DisplayName: modelID, UpstreamModel: modelID,
+					Capabilities: []string{ImageCapabilityGenerate, ImageCapabilityEdit}, Resolutions: []string{"1k", "2k", "4k"},
+					Formats: defaultModelFormats(modelID), CreditCost: cost, CreditCosts: map[string]int{"1k": cost},
+					Enabled: true, Sort: (index + 1) * 10, CreatedAt: now, UpdatedAt: now,
+				})
+				changed = true
+			}
+			if changed {
+				ch.UpdatedAt = now
+			}
+		}
+	}
+
+	if !changed {
+		return nil
+	}
+	if err := s.validateStoredState(); err != nil {
+		return err
+	}
+	return s.saveLocked()
 }
 
 func (s *ImageChannelService) ListModels(channelID string, includeDisabled bool) []ImageChannelModel {

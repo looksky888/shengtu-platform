@@ -1,13 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { RefreshCw, Search, X } from "lucide-react";
+import { Search, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { buildTaskTroubleshootingText } from "@/app/task-queue/task-history-display";
 import { TaskHistoryResultsTable } from "@/app/task-queue/task-history-results-table";
 import { ConfirmDialog } from "@/components/confirm-dialog";
-import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -15,8 +14,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { copyText } from "@/lib/clipboard";
 import { clearAdminImageTasks, fetchAdminImageTaskLogs, type CreationTask } from "@/lib/api";
 
-/** Historical / diagnostic task list (paginated). Shared by 任务中心「历史」Tab and legacy /image-task-logs. */
-export function TaskHistoryPanel({ embedded = false, reloadKey = 0 }: { embedded?: boolean; reloadKey?: number }) {
+const FILTER_DEBOUNCE_MS = 250;
+
+/** Historical / diagnostic task list (paginated) in 任务中心「任务历史」Tab. */
+export function TaskHistoryPanel({
+  reloadKey = 0,
+  canManageTasks = false,
+}: {
+  reloadKey?: number;
+  canManageTasks?: boolean;
+}) {
   const [items, setItems] = useState<CreationTask[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [q, setQ] = useState("");
@@ -24,34 +31,85 @@ export function TaskHistoryPanel({ embedded = false, reloadKey = 0 }: { embedded
   const [user, setUser] = useState("");
   const [model, setModel] = useState("");
   const [size, setSize] = useState("");
+  const [debouncedFilters, setDebouncedFilters] = useState({
+    q: "",
+    user: "",
+    model: "",
+    size: "",
+  });
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [clearing, setClearing] = useState(false);
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
   const [reloadRevision, setReloadRevision] = useState(0);
   const requestIdRef = useRef(0);
+  const loadAbortRef = useRef<AbortController | null>(null);
   const pageSize = 10;
   const hasFilters = q.trim() || status !== "all" || user.trim() || model.trim() || size.trim();
 
+  useEffect(() => {
+    const next = {
+      q: q.trim(),
+      user: user.trim(),
+      model: model.trim(),
+      size: size.trim(),
+    };
+    const timer = window.setTimeout(() => {
+      setDebouncedFilters((prev) => {
+        if (
+          prev.q === next.q &&
+          prev.user === next.user &&
+          prev.model === next.model &&
+          prev.size === next.size
+        ) {
+          return prev;
+        }
+        setPage(1);
+        return next;
+      });
+    }, FILTER_DEBOUNCE_MS);
+    return () => window.clearTimeout(timer);
+  }, [model, q, size, user]);
+
   const load = useCallback(async () => {
+    loadAbortRef.current?.abort();
+    const controller = new AbortController();
+    loadAbortRef.current = controller;
     const requestId = ++requestIdRef.current;
     setIsLoading(true);
     try {
       // 后端已按 created_at 新→旧排序 + 分页
-      const data = await fetchAdminImageTaskLogs({ q, status, user, model, size, limit: pageSize, offset: (page - 1) * pageSize, summary: true });
+      const data = await fetchAdminImageTaskLogs(
+        {
+          q: debouncedFilters.q,
+          status,
+          user: debouncedFilters.user,
+          model: debouncedFilters.model,
+          size: debouncedFilters.size,
+          limit: pageSize,
+          offset: (page - 1) * pageSize,
+          summary: true,
+        },
+        { signal: controller.signal },
+      );
       if (requestId !== requestIdRef.current) return;
       setItems(data.items);
       setTotal(data.total);
     } catch (error) {
-      if (requestId === requestIdRef.current) {
-        toast.error(error instanceof Error ? error.message : "加载任务历史失败");
-      }
+      if (controller.signal.aborted || requestId !== requestIdRef.current) return;
+      toast.error(error instanceof Error ? error.message : "加载任务历史失败");
     } finally {
       if (requestId === requestIdRef.current) setIsLoading(false);
     }
-  }, [model, page, q, size, status, user]);
+  }, [debouncedFilters, page, status]);
+
+  useEffect(() => () => loadAbortRef.current?.abort(), []);
 
   const clearFinished = async () => {
+    if (!canManageTasks) {
+      toast.error("没有清理任务权限");
+      return;
+    }
     setClearing(true);
     try {
       const result = await clearAdminImageTasks("finished");
@@ -86,27 +144,18 @@ export function TaskHistoryPanel({ embedded = false, reloadKey = 0 }: { embedded
     }
   };
 
+  const resetAllFilters = () => {
+    setQ("");
+    setUser("");
+    setModel("");
+    setSize("");
+    setDebouncedFilters({ q: "", user: "", model: "", size: "" });
+    setStatus("all");
+    setPage(1);
+  };
+
   return (
     <div className="flex min-w-0 flex-col gap-4">
-      {!embedded ? (
-        <>
-          <PageHeader
-            eyebrow="资产与任务"
-            title="任务历史"
-            description="按创建时间倒序分页归档；实时进度请前往「任务中心 → 实时队列」。"
-            actions={
-              <div className="flex flex-wrap gap-2">
-                <Button variant="outline" size="sm" onClick={() => void load()} disabled={isLoading}>
-                  <RefreshCw className={`size-3.5 ${isLoading ? "animate-spin" : ""}`} />刷新
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => setClearConfirmOpen(true)} disabled={clearing || isLoading}>
-                  <X className={`size-3.5 ${clearing ? "animate-spin" : ""}`} />清理已完成
-                </Button>
-              </div>
-            }
-          />
-        </>
-      ) : null}
       <div className="grid grid-cols-3 gap-3">
         <div className="rounded-[14px] border border-border/80 bg-surface p-3.5 shadow-2xs">
           <div className="text-xs font-medium text-muted-foreground">匹配结果</div>
@@ -127,7 +176,7 @@ export function TaskHistoryPanel({ embedded = false, reloadKey = 0 }: { embedded
           <div className="flex flex-wrap items-center gap-2 border-b border-border/75 p-3">
             <div className="relative min-w-[220px] flex-1">
               <Search className="pointer-events-none absolute top-1/2 left-3 size-3.5 -translate-y-1/2 text-muted-foreground" />
-              <Input aria-label="搜索任务历史" value={q} onChange={(event) => { setQ(event.target.value); setPage(1); }} placeholder="搜索任务 ID、错误码、Request ID…" className="h-9 rounded-lg pl-8 text-xs" />
+              <Input aria-label="搜索任务历史" value={q} onChange={(event) => setQ(event.target.value)} placeholder="搜索任务 ID、错误码、Request ID…" className="h-9 rounded-lg pl-8 text-xs" />
             </div>
             <Select value={status} onValueChange={(value) => { setStatus(value); setPage(1); }}>
               <SelectTrigger aria-label="任务历史状态筛选" className="h-9 w-32 rounded-lg text-xs"><SelectValue /></SelectTrigger>
@@ -140,15 +189,15 @@ export function TaskHistoryPanel({ embedded = false, reloadKey = 0 }: { embedded
                 <SelectItem value="cancelled">已终止</SelectItem>
               </SelectContent>
             </Select>
-            <Input aria-label="任务历史用户筛选" value={user} onChange={(event) => { setUser(event.target.value); setPage(1); }} placeholder="用户" className="h-9 w-32 rounded-lg text-xs" />
-            <Input aria-label="任务历史模型筛选" value={model} onChange={(event) => { setModel(event.target.value); setPage(1); }} placeholder="模型" className="h-9 w-36 rounded-lg text-xs" />
-            <Input aria-label="任务历史尺寸筛选" value={size} onChange={(event) => { setSize(event.target.value); setPage(1); }} placeholder="尺寸" className="h-9 w-28 rounded-lg text-xs" />
+            <Input aria-label="任务历史用户筛选" value={user} onChange={(event) => setUser(event.target.value)} placeholder="用户" className="h-9 w-32 rounded-lg text-xs" />
+            <Input aria-label="任务历史模型筛选" value={model} onChange={(event) => setModel(event.target.value)} placeholder="模型" className="h-9 w-36 rounded-lg text-xs" />
+            <Input aria-label="任务历史尺寸筛选" value={size} onChange={(event) => setSize(event.target.value)} placeholder="尺寸" className="h-9 w-28 rounded-lg text-xs" />
             {hasFilters ? (
-              <Button type="button" variant="ghost" size="sm" onClick={() => { setQ(""); setStatus("all"); setUser(""); setModel(""); setSize(""); setPage(1); }}>
+              <Button type="button" variant="ghost" size="sm" onClick={resetAllFilters}>
                 <X className="size-3.5" />清除
               </Button>
             ) : null}
-            {embedded ? (
+            {canManageTasks ? (
               <Button type="button" variant="outline" size="sm" onClick={() => setClearConfirmOpen(true)} disabled={clearing || isLoading} className="ml-auto">
                 清理已完成
               </Button>
@@ -166,17 +215,19 @@ export function TaskHistoryPanel({ embedded = false, reloadKey = 0 }: { embedded
           ) : null}
         </CardContent>
       </Card>
-      <ConfirmDialog
-        open={clearConfirmOpen}
-        title="清理已完成任务"
-        description="确定清理任务历史中已完成的记录（成功、失败、已取消）吗？运行中和排队中的任务不会删除。"
-        confirmLabel="确认清理"
-        pendingLabel="清理中…"
-        destructive
-        pending={clearing}
-        onClose={() => setClearConfirmOpen(false)}
-        onConfirm={() => void clearFinished()}
-      />
+      {canManageTasks ? (
+        <ConfirmDialog
+          open={clearConfirmOpen}
+          title="清理已完成任务"
+          description="确定清理任务历史中已完成的记录（成功、失败、已取消）吗？运行中和排队中的任务不会删除。"
+          confirmLabel="确认清理"
+          pendingLabel="清理中…"
+          destructive
+          pending={clearing}
+          onClose={() => setClearConfirmOpen(false)}
+          onConfirm={() => void clearFinished()}
+        />
+      ) : null}
     </div>
   );
 }

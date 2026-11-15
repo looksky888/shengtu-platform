@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 type UseUnsavedRouteGuardOptions = {
   when: boolean;
@@ -17,12 +17,27 @@ export function useUnsavedRouteGuard({
   onDiscard,
 }: UseUnsavedRouteGuardOptions) {
   const navigate = useNavigate();
+  const location = useLocation();
   const [pendingHref, setPendingHref] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isDiscarding, setIsDiscarding] = useState(false);
 
   const whenRef = useRef(when);
   whenRef.current = when;
+
+  const activeLocationRef = useRef({
+    pathname: location.pathname,
+    search: location.search,
+    hash: location.hash,
+  });
+
+  useEffect(() => {
+    activeLocationRef.current = {
+      pathname: location.pathname,
+      search: location.search,
+      hash: location.hash,
+    };
+  }, [location.pathname, location.search, location.hash]);
 
   useEffect(() => {
     if (!when) {
@@ -67,11 +82,27 @@ export function useUnsavedRouteGuard({
       setPendingHref(`${url.pathname}${url.search}${url.hash}`);
     };
 
+    const handlePopState = (event: PopStateEvent) => {
+      if (!whenRef.current) return;
+      const current = activeLocationRef.current;
+      const currentPath = normalizePathname(current.pathname);
+      const nextPath = normalizePathname(window.location.pathname);
+      if (nextPath === currentPath) return;
+
+      const targetHref = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+      const currentHref = `${current.pathname}${current.search}${current.hash}`;
+      event.stopImmediatePropagation();
+      window.history.pushState(window.history.state, "", currentHref);
+      setPendingHref(targetHref);
+    };
+
     window.addEventListener("beforeunload", handleBeforeUnload);
     document.addEventListener("click", handleCaptureClick, true);
+    window.addEventListener("popstate", handlePopState, true);
     return () => {
       window.removeEventListener("beforeunload", handleBeforeUnload);
       document.removeEventListener("click", handleCaptureClick, true);
+      window.removeEventListener("popstate", handlePopState, true);
     };
   }, [when]);
 

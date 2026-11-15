@@ -25,14 +25,29 @@ import {
   SettingsUnitInput,
   settingsInputClassName,
 } from "./settings-ui";
+import {
+  upstreamProxyErrors,
+  type UpstreamClearanceMode,
+} from "./upstream-proxy-validation";
 
-export type UpstreamClearanceMode = "none" | "flaresolverr" | "manual";
+function draftOrInt(value: string): number {
+  const trimmed = value.trim();
+  if (!trimmed) return "" as unknown as number;
+  if (/^-?\d+$/.test(trimmed)) {
+    const num = Number(trimmed);
+    if (Number.isSafeInteger(num) && String(num) === trimmed) {
+      return num;
+    }
+  }
+  return value as unknown as number;
+}
 
 type UpstreamProxyRuntimeFormProps = {
   config: SettingsConfig;
   enabled: boolean;
   mode: UpstreamClearanceMode;
   warmUp: boolean;
+  sectionDirty?: boolean;
   targetUrl: string;
   isTestingProxy: boolean;
   isTestingClearance: boolean;
@@ -53,6 +68,7 @@ export function UpstreamProxyRuntimeForm(props: UpstreamProxyRuntimeFormProps) {
     enabled,
     mode,
     warmUp,
+    sectionDirty = false,
     targetUrl,
     isTestingProxy,
     isTestingClearance,
@@ -67,13 +83,35 @@ export function UpstreamProxyRuntimeForm(props: UpstreamProxyRuntimeFormProps) {
     onWarmUp,
   } = props;
 
+  const errors = upstreamProxyErrors(config as Record<string, unknown>);
+
+  const normalizeFieldOnBlur = (
+    key:
+      | "upstream_clearance_timeout_sec"
+      | "upstream_clearance_refresh_interval"
+      | "image_challenge_cooldown_seconds",
+    fallback: number,
+  ) => {
+    const raw = config[key];
+    const text = raw === undefined || raw === null ? "" : String(raw).trim();
+    if (!text) {
+      onFieldChange({ [key]: fallback });
+      return;
+    }
+    const num = Number(text);
+    if (Number.isInteger(num)) {
+      onFieldChange({ [key]: num });
+    }
+  };
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <SettingsSection
+        layout="split"
         title="全局出站代理"
         description="作用于本地号池生图、视频生成与账号巡检请求（支持 HTTP / HTTPS / SOCKS5H）。"
       >
-        <div className="space-y-2">
+        <div className="max-w-lg space-y-2">
           <label
             htmlFor="upstream-proxy-url"
             className="block text-xs font-medium text-foreground sm:text-[13px]"
@@ -85,7 +123,7 @@ export function UpstreamProxyRuntimeForm(props: UpstreamProxyRuntimeFormProps) {
               id="upstream-proxy-url"
               className={cn(
                 settingsInputClassName,
-                "min-w-0 flex-1 font-mono text-xs sm:text-[13px]"
+                "min-w-0 flex-1 font-mono text-xs sm:text-[13px]",
               )}
               value={String(config.proxy || "")}
               onChange={(event) => onProxyChange(event.target.value)}
@@ -114,90 +152,99 @@ export function UpstreamProxyRuntimeForm(props: UpstreamProxyRuntimeFormProps) {
       </SettingsSection>
 
       <SettingsSection
+        layout="split"
         title="生图上游 Cloudflare 清障"
         description="遭遇 Cloudflare 403 盾挑战时自动获取并续期 cf_clearance Cookie 凭据。"
       >
-        <div className="space-y-3">
-          <SettingsSwitchRow
-            id="upstream-clearance-enabled"
-            title="启用生图上游 Clearance 自动过盾"
-            description="开启后由 FlareSolverr 容器配合同一出口代理自动维护过盾会话"
-            checked={enabled}
-            onCheckedChange={(checked) =>
-              onFieldChange({ upstream_clearance_enabled: checked })
-            }
-          />
+        <div className="space-y-3.5">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <SettingsSwitchRow
+              id="upstream-clearance-enabled"
+              title="启用生图上游 Clearance 自动过盾"
+              description="由 FlareSolverr 配合同一出口代理自动维护过盾会话"
+              checked={enabled}
+              onCheckedChange={(checked) =>
+                onFieldChange({ upstream_clearance_enabled: checked })
+              }
+            />
 
-          <SettingsSwitchRow
-            id="upstream-clearance-warmup"
-            title="保存或启动后自动后台预热"
-            description="配置变更保存或服务重启后立即异步预热一次 Clearance 缓存，降低首单延迟"
-            checked={warmUp}
-            disabled={!enabled}
-            onCheckedChange={(checked) =>
-              onFieldChange({ upstream_clearance_warm_up_on_start: checked })
-            }
-          />
+            <SettingsSwitchRow
+              id="upstream-clearance-warmup"
+              title="保存或启动后自动后台预热"
+              description="配置保存或重启后立即异步预热一次 Clearance 缓存"
+              checked={warmUp}
+              disabled={!enabled}
+              onCheckedChange={(checked) =>
+                onFieldChange({ upstream_clearance_warm_up_on_start: checked })
+              }
+            />
+          </div>
 
-          <div className="grid gap-3.5 sm:grid-cols-2">
-            <div className="space-y-1.5 sm:col-span-2">
+          <div className="max-w-lg space-y-1.5">
+            <label
+              htmlFor="upstream-clearance-mode"
+              className="block text-xs font-medium text-foreground sm:text-[13px]"
+            >
+              清障工作模式
+            </label>
+            <Select
+              value={mode}
+              onValueChange={(value) =>
+                onFieldChange({ upstream_clearance_mode: value })
+              }
+              disabled={!enabled}
+            >
+              <SelectTrigger
+                id="upstream-clearance-mode"
+                className={cn("w-full", settingsInputClassName)}
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="flaresolverr">
+                  FlareSolverr 自动过盾（推荐）
+                </SelectItem>
+                <SelectItem value="manual">
+                  手动凭据模式（仅使用已有缓存，不自动拉起浏览器）
+                </SelectItem>
+                <SelectItem value="none">
+                  无清障（仅直连或代理转发）
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {mode === "flaresolverr" ? (
+            <div className="max-w-lg space-y-1.5">
               <label
-                htmlFor="upstream-clearance-mode"
+                htmlFor="upstream-flaresolverr-url"
                 className="block text-xs font-medium text-foreground sm:text-[13px]"
               >
-                清障工作模式
+                FlareSolverr 服务地址
               </label>
-              <Select
-                value={mode}
-                onValueChange={(value) =>
-                  onFieldChange({ upstream_clearance_mode: value })
+              <Input
+                id="upstream-flaresolverr-url"
+                aria-invalid={Boolean(errors.flaresolverr_url)}
+                className={cn(
+                  settingsInputClassName,
+                  "font-mono text-xs sm:text-[13px]",
+                )}
+                value={String(config.flaresolverr_url || "")}
+                onChange={(event) =>
+                  onFieldChange({ flaresolverr_url: event.target.value })
                 }
+                placeholder="http://flaresolverr:8191"
                 disabled={!enabled}
-              >
-                <SelectTrigger
-                  id="upstream-clearance-mode"
-                  className={cn("w-full", settingsInputClassName)}
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="flaresolverr">
-                    FlareSolverr 自动过盾（推荐）
-                  </SelectItem>
-                  <SelectItem value="manual">
-                    手动凭据模式（仅使用已有缓存，不自动拉起浏览器）
-                  </SelectItem>
-                  <SelectItem value="none">
-                    无清障（仅直连或代理转发）
-                  </SelectItem>
-                </SelectContent>
-              </Select>
+              />
+              {errors.flaresolverr_url ? (
+                <p className="text-xs leading-4 text-status-danger">
+                  {errors.flaresolverr_url}
+                </p>
+              ) : null}
             </div>
+          ) : null}
 
-            {mode === "flaresolverr" ? (
-              <div className="space-y-1.5 sm:col-span-2">
-                <label
-                  htmlFor="upstream-flaresolverr-url"
-                  className="block text-xs font-medium text-foreground sm:text-[13px]"
-                >
-                  FlareSolverr 服务地址
-                </label>
-                <Input
-                  id="upstream-flaresolverr-url"
-                  className={cn(
-                    settingsInputClassName,
-                    "font-mono text-xs sm:text-[13px]"
-                  )}
-                  value={String(config.flaresolverr_url || "")}
-                  onChange={(event) =>
-                    onFieldChange({ flaresolverr_url: event.target.value })
-                  }
-                  placeholder="http://flaresolverr:8191"
-                  disabled={!enabled}
-                />
-              </div>
-            ) : null}
-
+          <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
             <SettingsUnitInput
               id="upstream-clearance-timeout"
               label="过盾请求超时"
@@ -206,11 +253,15 @@ export function UpstreamProxyRuntimeForm(props: UpstreamProxyRuntimeFormProps) {
               max={300}
               rangeHint="10–300"
               value={config.upstream_clearance_timeout_sec ?? 60}
+              error={errors.upstream_clearance_timeout_sec}
               disabled={!enabled}
               onChange={(value) =>
                 onFieldChange({
-                  upstream_clearance_timeout_sec: Number(value) || 60,
+                  upstream_clearance_timeout_sec: draftOrInt(value),
                 })
+              }
+              onBlur={() =>
+                normalizeFieldOnBlur("upstream_clearance_timeout_sec", 60)
               }
             />
 
@@ -222,44 +273,52 @@ export function UpstreamProxyRuntimeForm(props: UpstreamProxyRuntimeFormProps) {
               max={86400}
               rangeHint="60–86400"
               value={config.upstream_clearance_refresh_interval ?? 3600}
+              error={errors.upstream_clearance_refresh_interval}
               disabled={!enabled}
               onChange={(value) =>
                 onFieldChange({
-                  upstream_clearance_refresh_interval: Number(value) || 3600,
+                  upstream_clearance_refresh_interval: draftOrInt(value),
                 })
+              }
+              onBlur={() =>
+                normalizeFieldOnBlur("upstream_clearance_refresh_interval", 3600)
               }
             />
 
             <SettingsUnitInput
               id="upstream-challenge-cooldown"
-              label="触发 CF 盾后单账号冷却"
+              label="盾后单账号冷却"
               unit="秒"
               min={60}
               max={7200}
               rangeHint="60–7200"
-              description="默认 900 秒（15 分钟）；设置过长可能在集中触发盾挑战时导致整个号池短暂无可用账号。"
+              description="默认 900 秒（15 分钟）"
               value={config.image_challenge_cooldown_seconds ?? 900}
+              error={errors.image_challenge_cooldown_seconds}
               onChange={(value) =>
                 onFieldChange({
-                  image_challenge_cooldown_seconds: Number(value) || 900,
+                  image_challenge_cooldown_seconds: draftOrInt(value),
                 })
               }
-              className="sm:col-span-2"
+              onBlur={() =>
+                normalizeFieldOnBlur("image_challenge_cooldown_seconds", 900)
+              }
             />
           </div>
         </div>
       </SettingsSection>
 
       <SettingsSection
-        title="Clearance 在线验证与立即预热"
+        layout="split"
+        title="Clearance 在线验证与预热"
         description="模拟访问目标上游站点以验证 FlareSolverr 是否能成功获取 Cookie 与 User-Agent。"
       >
-        <div className="space-y-2.5">
+        <div className="max-w-lg space-y-2.5">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <Input
               className={cn(
                 settingsInputClassName,
-                "min-w-0 flex-1 font-mono text-xs sm:text-[13px]"
+                "min-w-0 flex-1 font-mono text-xs sm:text-[13px]",
               )}
               value={targetUrl}
               onChange={(event) => onTargetUrlChange(event.target.value)}
@@ -277,7 +336,7 @@ export function UpstreamProxyRuntimeForm(props: UpstreamProxyRuntimeFormProps) {
                 className="h-9 gap-1.5 px-3 text-xs"
               >
                 <Cookie className="size-3.5" />
-                <span>测试过盾</span>
+                <span>{sectionDirty ? "保存并测试过盾" : "测试过盾"}</span>
               </Button>
               <Button
                 type="button"
@@ -291,10 +350,15 @@ export function UpstreamProxyRuntimeForm(props: UpstreamProxyRuntimeFormProps) {
                 className="h-9 gap-1.5 px-3 text-xs"
               >
                 <Flame className="size-3.5" />
-                <span>立即预热</span>
+                <span>{sectionDirty ? "保存并立即预热" : "立即预热"}</span>
               </Button>
             </div>
           </div>
+          {sectionDirty && enabled && mode === "flaresolverr" ? (
+            <p className="text-[11px] text-muted-foreground">
+              检测到当前代理或过盾参数有未保存修改，点击测试或预热将先自动同步配置至服务端。
+            </p>
+          ) : null}
 
           {clearanceResult ? (
             <SettingsNotice tone={clearanceResult.ok ? "success" : "danger"}>

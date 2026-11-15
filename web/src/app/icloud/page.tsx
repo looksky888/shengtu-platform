@@ -25,22 +25,21 @@ function parseICloudTab(raw: string | null): ICloudTab {
   return raw === "sessions" ? "sessions" : "mailboxes";
 }
 
-export function ICloudContent({ embedded = false }: { embedded?: boolean }) {
+export function ICloudContent() {
   const controller = useICloudPage(true);
   const contextSession = useContext(ResolvedAuthSessionContext);
   const session =
     contextSession !== undefined ? contextSession : getCachedAuthSession();
   const canOpenSettings = canAccessPath(session, "/settings");
   const [searchParams, setSearchParams] = useSearchParams();
-  const paramKey = embedded ? "subtab" : "tab";
-  const activeTab = parseICloudTab(searchParams.get(paramKey));
+  const activeTab = parseICloudTab(searchParams.get("tab"));
 
   const handleTabChange = (nextTab: ICloudTab) => {
     const nextParams = new URLSearchParams(searchParams);
     if (nextTab === "mailboxes") {
-      nextParams.delete(paramKey);
+      nextParams.delete("tab");
     } else {
-      nextParams.set(paramKey, nextTab);
+      nextParams.set("tab", nextTab);
     }
     setSearchParams(nextParams, { replace: true });
   };
@@ -81,25 +80,23 @@ export function ICloudContent({ embedded = false }: { embedded?: boolean }) {
 
   return (
     <section className="flex flex-col gap-5 pb-6">
-      {!embedded ? (
-        <PageHeader
-          eyebrow="号池与运维"
-          title="iCloud 隐私邮箱"
-          badge={bridgeBadge}
-          description="集中管理隐藏邮件地址库存、IMAP 自动取码与多 Apple 会话批量生成。"
-          actions={
-            <div className="flex flex-wrap items-center gap-2">
-              {selectedAccountIds.length > 0 ? (
-                <Badge variant="info">已选 {selectedAccountIds.length} 个账号 · 自动记住</Badge>
-              ) : null}
-              <Button variant="outline" size="sm" onClick={() => void refreshAll()} disabled={loading}>
-                <RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} />
-                刷新
-              </Button>
-            </div>
-          }
-        />
-      ) : null}
+      <PageHeader
+        eyebrow="号池与运维"
+        title="iCloud 隐私邮箱"
+        badge={bridgeBadge}
+        description="集中管理隐藏邮件地址库存、IMAP 自动取码与多 Apple 会话批量生成。"
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            {selectedAccountIds.length > 0 ? (
+              <Badge variant="info">已选 {selectedAccountIds.length} 个账号 · 自动记住</Badge>
+            ) : null}
+            <Button variant="outline" size="sm" onClick={() => void refreshAll()} disabled={loading}>
+              <RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} />
+              刷新
+            </Button>
+          </div>
+        }
+      />
 
       {isModuleDisabled ? (
         <div className="flex flex-col gap-3 rounded-[14px] border border-status-warning/30 bg-status-warning-soft/55 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between">
@@ -156,22 +153,11 @@ export function ICloudContent({ embedded = false }: { embedded?: boolean }) {
           layoutId="icloud-subnav"
         />
         <div className="flex flex-wrap items-center gap-2">
-          {embedded ? bridgeBadge : null}
-          {embedded && selectedAccountIds.length > 0 ? (
-            <Badge variant="info">已选 {selectedAccountIds.length} 个账号 · 自动记住</Badge>
-          ) : null}
-          {embedded ? (
-            <Button variant="outline" size="sm" onClick={() => void refreshAll()} disabled={loading}>
-              <RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} />
-              刷新
-            </Button>
-          ) : (
-            <span className="text-xs text-muted-foreground">
-              {activeTab === "mailboxes"
-                ? "实时检索隐私邮箱库存、同步邮件并提取平台验证码"
-                : "管理 Apple 会话、配置 IMAP 密码并执行批量或定时创建"}
-            </span>
-          )}
+          <span className="text-xs text-muted-foreground">
+            {activeTab === "mailboxes"
+              ? "实时检索隐私邮箱库存、同步邮件并提取平台验证码"
+              : "管理 Apple 会话、配置 IMAP 密码并执行批量或定时创建"}
+          </span>
         </div>
       </div>
 

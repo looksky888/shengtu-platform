@@ -37,10 +37,8 @@ import type { StoredAuthSession } from "@/store/auth";
 
 export function UsersContent({
   session,
-  embedded = false,
 }: {
   session: StoredAuthSession;
-  embedded?: boolean;
 }) {
   const users = useUsersManagement(session);
   const [inspectingUserId, setInspectingUserId] = useState<string | null>(null);
@@ -104,28 +102,19 @@ export function UsersContent({
 
   return (
     <section className="flex flex-col gap-4">
-      {!embedded ? (
-        <PageHeader
-          eyebrow="用户与身份"
-          title="用户管理"
-          badge={
-            !users.isLoading ? (
-              <Badge variant="secondary" className="rounded-md tabular-nums">
-                共 {users.total} 位用户
-              </Badge>
-            ) : null
-          }
-          description="统一管理注册账号、角色绑定、积分余额与近 14 日接口调用活跃趋势。"
-          actions={toolbarActions}
-        />
-      ) : (
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="text-[12px] text-[var(--admin-text-muted)]">
-            共 <span className="font-mono font-semibold text-[var(--admin-text)]">{users.total}</span> 位用户 · 点击任意行打开右侧详情抽屉执行调账与角色分配
-          </div>
-          {toolbarActions}
-        </div>
-      )}
+      <PageHeader
+        eyebrow="用户与身份"
+        title="用户管理"
+        badge={
+          !users.isLoading ? (
+            <Badge variant="secondary" className="rounded-md tabular-nums">
+              共 {users.total} 位用户
+            </Badge>
+          ) : null
+        }
+        description="统一管理注册账号、角色绑定、积分余额与近 14 日接口调用活跃趋势。"
+        actions={toolbarActions}
+      />
 
       <div className="overflow-hidden rounded-xl border border-border bg-card shadow-2xs">
         <UsersFilterBar

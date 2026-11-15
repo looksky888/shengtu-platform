@@ -1,12 +1,17 @@
-import { useId, useMemo, useState } from "react";
+import { useId, useMemo, useRef, useState } from "react";
 
 import { cn } from "@/lib/utils";
 
+import { buildClampedSplinePath } from "./overview-spline-math";
+
 export type OverviewSplinePoint = {
+  bucket?: string;
   label: string;
   requests: number;
   succeeded: number;
   failed: number;
+  images?: number;
+  videos?: number;
 };
 
 type SeriesKey = "requests" | "succeeded" | "failed";
@@ -21,30 +26,6 @@ const SERIES_META: ReadonlyArray<{
   { key: "failed", label: "失败/拦截", color: "var(--admin-chart-warning)" },
 ];
 
-function buildSmoothSplinePath(points: ReadonlyArray<{ x: number; y: number }>): string {
-  if (points.length === 0) return "";
-  if (points.length === 1) {
-    const p = points[0]!;
-    return `M ${p.x.toFixed(2)} ${p.y.toFixed(2)}`;
-  }
-
-  let d = `M ${points[0]!.x.toFixed(2)} ${points[0]!.y.toFixed(2)}`;
-  for (let index = 0; index < points.length - 1; index += 1) {
-    const p0 = points[Math.max(0, index - 1)]!;
-    const p1 = points[index]!;
-    const p2 = points[index + 1]!;
-    const p3 = points[Math.min(points.length - 1, index + 2)]!;
-
-    const cp1x = p1.x + (p2.x - p0.x) / 6;
-    const cp1y = p1.y + (p2.y - p0.y) / 6;
-    const cp2x = p2.x - (p3.x - p1.x) / 6;
-    const cp2y = p2.y - (p3.y - p1.y) / 6;
-
-    d += ` C ${cp1x.toFixed(2)} ${cp1y.toFixed(2)}, ${cp2x.toFixed(2)} ${cp2y.toFixed(2)}, ${p2.x.toFixed(2)} ${p2.y.toFixed(2)}`;
-  }
-  return d;
-}
-
 export function OverviewSplineChart({
   points,
   title = "生成吞吐与交付趋势",
@@ -55,12 +36,13 @@ export function OverviewSplineChart({
   subtitle?: string;
 }) {
   const gradientPrefix = useId().replace(/:/g, "");
+  const sliceRefs = useRef<Array<SVGRectElement | null>>([]);
   const [visibleSeries, setVisibleSeries] = useState<Record<SeriesKey, boolean>>({
     requests: true,
     succeeded: true,
     failed: true,
   });
-  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
   const toggleSeries = (key: SeriesKey) => {
     setVisibleSeries((prev) => {
@@ -73,11 +55,11 @@ export function OverviewSplineChart({
   };
 
   const width = 920;
-  const height = 240;
-  const padLeft = 42;
+  const height = 248;
+  const padLeft = 44;
   const padRight = 18;
   const padTop = 18;
-  const padBottom = 28;
+  const padBottom = 30;
   const plotW = width - padLeft - padRight;
   const plotH = height - padTop - padBottom;
   const baselineY = padTop + plotH;
@@ -102,7 +84,7 @@ export function OverviewSplineChart({
     const stepX = safePoints.length > 1 ? plotW / (safePoints.length - 1) : 0;
     const toY = (value: number) => {
       const clamped = Math.max(0, value);
-      const ratio = niceMax > 0 ? clamped / niceMax : 0;
+      const ratio = niceMax > 0 ? Math.min(1, clamped / niceMax) : 0;
       return padTop + plotH * (1 - ratio);
     };
 
@@ -120,7 +102,10 @@ export function OverviewSplineChart({
   const seriesPaths = useMemo(() => {
     const buildFor = (selector: (item: (typeof coords)[number]) => number) => {
       const pts = coords.map((item) => ({ x: item.x, y: selector(item) }));
-      const line = buildSmoothSplinePath(pts);
+      const line = buildClampedSplinePath(pts, {
+        minY: padTop,
+        maxY: baselineY,
+      });
       if (!line || pts.length === 0) return { line: "", area: "" };
       const first = pts[0]!;
       const last = pts[pts.length - 1]!;
@@ -132,10 +117,16 @@ export function OverviewSplineChart({
       succeeded: buildFor((item) => item.succeededY),
       failed: buildFor((item) => item.failedY),
     };
-  }, [baselineY, coords]);
+  }, [baselineY, coords, padTop]);
 
   const activeCoord =
-    hoverIndex !== null && coords[hoverIndex] ? coords[hoverIndex]! : null;
+    activeIndex !== null && coords[activeIndex] ? coords[activeIndex]! : null;
+
+  const moveFocusToSlice = (targetIdx: number) => {
+    const bounded = Math.max(0, Math.min(coords.length - 1, targetIdx));
+    setActiveIndex(bounded);
+    sliceRefs.current[bounded]?.focus();
+  };
 
   return (
     <section className="rounded-[10px] border border-[var(--admin-border)] bg-[var(--admin-surface)]">
@@ -153,6 +144,7 @@ export function OverviewSplineChart({
               <button
                 key={series.key}
                 type="button"
+                aria-pressed={active}
                 onClick={() => toggleSeries(series.key)}
                 className={cn(
                   "inline-flex h-7 items-center gap-1.5 rounded-md border px-2.5 text-[11.5px] font-medium transition-colors",
@@ -175,10 +167,14 @@ export function OverviewSplineChart({
       <div className="relative px-3 pt-2 pb-3">
         <svg
           viewBox={`0 0 ${width} ${height}`}
-          className="h-[240px] w-full select-none overflow-visible"
-          role="img"
+          className="h-[248px] w-full select-none overflow-visible touch-manipulation"
+          role="group"
           aria-label={title}
-          onMouseLeave={() => setHoverIndex(null)}
+          onPointerLeave={(event) => {
+            if (event.pointerType === "mouse") {
+              setActiveIndex(null);
+            }
+          }}
         >
           <defs>
             {SERIES_META.map((series) => (
@@ -196,11 +192,11 @@ export function OverviewSplineChart({
             ))}
           </defs>
 
-          {yTicks.map((tick) => {
+          {yTicks.map((tick, idx) => {
             const ratio = maxVal > 0 ? tick / maxVal : 0;
             const y = padTop + plotH * (1 - ratio);
             return (
-              <g key={tick}>
+              <g key={`${tick}-${idx}`}>
                 <line
                   x1={padLeft}
                   x2={width - padRight}
@@ -265,7 +261,7 @@ export function OverviewSplineChart({
           })}
 
           {activeCoord ? (
-            <g>
+            <g className="pointer-events-none">
               <line
                 x1={activeCoord.x}
                 x2={activeCoord.x}
@@ -309,17 +305,57 @@ export function OverviewSplineChart({
           ) : null}
 
           {coords.map((item, idx) => {
-            const sliceW = coords.length > 1 ? plotW / (coords.length - 1) : plotW;
-            const rectX = Math.max(padLeft, item.x - sliceW / 2);
+            const rawSliceW = coords.length > 1 ? plotW / (coords.length - 1) : plotW;
+            const rectX =
+              coords.length > 1 ? Math.max(padLeft, item.x - rawSliceW / 2) : padLeft;
+            const rectRight =
+              coords.length > 1
+                ? Math.min(width - padRight, item.x + rawSliceW / 2)
+                : width - padRight;
+            const sliceW = Math.max(8, rectRight - rectX);
+            const sliceLabel = `${item.point.label}：生成请求 ${item.point.requests}，成功交付 ${item.point.succeeded}，失败 ${item.point.failed}`;
+
             return (
               <rect
                 key={`hit-${idx}`}
+                ref={(node) => {
+                  sliceRefs.current[idx] = node;
+                }}
                 x={rectX}
                 y={padTop}
                 width={sliceW}
                 height={plotH}
                 fill="transparent"
-                onMouseEnter={() => setHoverIndex(idx)}
+                tabIndex={0}
+                role="button"
+                aria-label={sliceLabel}
+                className="cursor-pointer outline-none focus-visible:stroke-[var(--admin-accent)] focus-visible:stroke-1"
+                onPointerEnter={() => setActiveIndex(idx)}
+                onPointerMove={() => setActiveIndex(idx)}
+                onPointerDown={() => setActiveIndex(idx)}
+                onClick={() => setActiveIndex(idx)}
+                onFocus={() => setActiveIndex(idx)}
+                onBlur={() =>
+                  setActiveIndex((current) => (current === idx ? null : current))
+                }
+                onKeyDown={(event) => {
+                  if (event.key === "ArrowRight") {
+                    event.preventDefault();
+                    moveFocusToSlice(idx + 1);
+                  } else if (event.key === "ArrowLeft") {
+                    event.preventDefault();
+                    moveFocusToSlice(idx - 1);
+                  } else if (event.key === "Home") {
+                    event.preventDefault();
+                    moveFocusToSlice(0);
+                  } else if (event.key === "End") {
+                    event.preventDefault();
+                    moveFocusToSlice(coords.length - 1);
+                  } else if (event.key === "Escape") {
+                    setActiveIndex(null);
+                    event.currentTarget.blur();
+                  }
+                }}
               />
             );
           })}
@@ -327,18 +363,24 @@ export function OverviewSplineChart({
 
         {activeCoord ? (
           <div
-            className="pointer-events-none absolute top-3 z-10 min-w-[152px] rounded-lg border border-[var(--admin-border-strong)] bg-[var(--admin-surface)] px-3 py-2 text-[11.5px]"
+            className="pointer-events-none absolute top-3 z-10 min-w-[168px] rounded-lg border border-[var(--admin-border-strong)] bg-[var(--admin-surface)] px-3 py-2 text-[11.5px]"
             style={{
               left:
                 activeCoord.x > width * 0.65
                   ? "auto"
-                  : `${Math.max(12, Math.round((activeCoord.x / width) * 100))}%`,
+                  : `${Math.max(10, Math.round((activeCoord.x / width) * 100))}%`,
               right: activeCoord.x > width * 0.65 ? "16px" : "auto",
               boxShadow: "var(--admin-shadow-overlay)",
             }}
           >
-            <div className="mb-1 font-mono font-semibold text-[var(--admin-text)]">
-              {activeCoord.point.label}
+            <div className="mb-1 flex items-center justify-between gap-3 font-mono font-semibold text-[var(--admin-text)]">
+              <span>{activeCoord.point.label}</span>
+              {activeCoord.point.bucket &&
+              activeCoord.point.bucket !== activeCoord.point.label ? (
+                <span className="text-[10px] font-normal text-[var(--admin-text-subtle)]">
+                  {activeCoord.point.bucket}
+                </span>
+              ) : null}
             </div>
             <div className="space-y-0.5 tabular-nums">
               <div className="flex items-center justify-between gap-3">
@@ -377,6 +419,15 @@ export function OverviewSplineChart({
                   {activeCoord.point.failed}
                 </span>
               </div>
+              {(activeCoord.point.images ?? 0) > 0 ||
+              (activeCoord.point.videos ?? 0) > 0 ? (
+                <div className="mt-1 flex items-center justify-between gap-3 border-t border-[var(--admin-border)] pt-1 text-[10.5px] text-[var(--admin-text-muted)]">
+                  <span>产出交付</span>
+                  <span className="font-mono text-[var(--admin-text)]">
+                    图 {activeCoord.point.images ?? 0} · 视 {activeCoord.point.videos ?? 0}
+                  </span>
+                </div>
+              ) : null}
             </div>
           </div>
         ) : null}

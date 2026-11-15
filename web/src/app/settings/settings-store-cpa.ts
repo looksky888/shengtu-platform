@@ -10,11 +10,17 @@ import {
   fetchCPAPools,
   startCPAImport,
   updateCPAPool,
-
 } from "@/lib/api";
 import { normalizeFiles } from "./settings-normalizers";
-import { runSettingsRequest, type SettingsRequestFlight } from "./settings-load-flight";
-import type { PageSizeOption, SettingsLoadOptions, SettingsStore } from "./settings-store-types";
+import {
+  runSettingsRequest,
+  type SettingsRequestFlight,
+} from "./settings-load-flight";
+import type {
+  PageSizeOption,
+  SettingsLoadOptions,
+  SettingsStore,
+} from "./settings-store-types";
 
 const poolsFlight: SettingsRequestFlight = { value: null };
 
@@ -29,7 +35,6 @@ export type CPASlice = Pick<
   | "formName"
   | "formBaseUrl"
   | "formSecretKey"
-  | "showSecret"
   | "isSavingPool"
   | "browserOpen"
   | "browserPool"
@@ -46,7 +51,6 @@ export type CPASlice = Pick<
   | "setFormName"
   | "setFormBaseUrl"
   | "setFormSecretKey"
-  | "setShowSecret"
   | "savePool"
   | "deletePool"
   | "browseFiles"
@@ -59,7 +63,10 @@ export type CPASlice = Pick<
   | "startImport"
 >;
 
-export const createCPASlice: StateCreator<SettingsStore, [], [], CPASlice> = (set, get) => ({
+export const createCPASlice: StateCreator<SettingsStore, [], [], CPASlice> = (
+  set,
+  get,
+) => ({
   pools: [],
   isLoadingPools: true,
   deletingId: null,
@@ -70,7 +77,6 @@ export const createCPASlice: StateCreator<SettingsStore, [], [], CPASlice> = (se
   formName: "",
   formBaseUrl: "",
   formSecretKey: "",
-  showSecret: false,
   isSavingPool: false,
 
   browserOpen: false,
@@ -82,7 +88,8 @@ export const createCPASlice: StateCreator<SettingsStore, [], [], CPASlice> = (se
   pageSize: "100" as PageSizeOption,
   isStartingImport: false,
 
-  loadPools: (options: SettingsLoadOptions = {}) => runSettingsRequest(poolsFlight, async (isCurrent) => {
+  loadPools: (options: SettingsLoadOptions = {}) =>
+    runSettingsRequest(poolsFlight, async (isCurrent) => {
       const { silent = false, signal } = options;
       if (!silent) set({ isLoadingPools: true });
       try {
@@ -95,12 +102,16 @@ export const createCPASlice: StateCreator<SettingsStore, [], [], CPASlice> = (se
       } catch (error) {
         if (!isCurrent()) return;
         if (!signal?.aborted && !silent) {
-          toast.error(error instanceof Error ? error.message : "加载 CPA 连接失败");
+          toast.error(
+            error instanceof Error ? error.message : "加载 CPA 连接失败",
+          );
         }
       } finally {
-        if (isCurrent() && (!silent || get().isLoadingPools)) set({ isLoadingPools: false });
+        if (isCurrent() && (!silent || get().isLoadingPools)) {
+          set({ isLoadingPools: false });
+        }
       }
-  }),
+    }),
 
   openAddDialog: () => {
     set({
@@ -108,7 +119,6 @@ export const createCPASlice: StateCreator<SettingsStore, [], [], CPASlice> = (se
       formName: "",
       formBaseUrl: "",
       formSecretKey: "",
-      showSecret: false,
       dialogOpen: true,
     });
   },
@@ -119,7 +129,6 @@ export const createCPASlice: StateCreator<SettingsStore, [], [], CPASlice> = (se
       formName: pool.name,
       formBaseUrl: pool.base_url,
       formSecretKey: "",
-      showSecret: false,
       dialogOpen: true,
     });
   },
@@ -138,10 +147,6 @@ export const createCPASlice: StateCreator<SettingsStore, [], [], CPASlice> = (se
 
   setFormSecretKey: (value) => {
     set({ formSecretKey: value });
-  },
-
-  setShowSecret: (checked) => {
-    set({ showSecret: checked });
   },
 
   savePool: async () => {
@@ -263,7 +268,9 @@ export const createCPASlice: StateCreator<SettingsStore, [], [], CPASlice> = (se
       const result = await startCPAImport(browserPool.id, selectedNames);
       set({
         pools: pools.map((pool) =>
-          pool.id === browserPool.id ? { ...pool, import_job: result.import_job } : pool,
+          pool.id === browserPool.id
+            ? { ...pool, import_job: result.import_job }
+            : pool,
         ),
         browserOpen: false,
       });

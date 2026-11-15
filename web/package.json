@@ -6,7 +6,7 @@
     "scripts": {
         "dev": "vite",
         "build": "tsc -b && vite build && node scripts/web-dist-manifest.mjs write",
-        "test": "node --test --experimental-strip-types tests/*.test.ts",
+        "test": "node --test --experimental-strip-types tests/*.test.ts src/app/settings/settings-overhaul.test.ts src/app/admin/overview/overview-spline-math.test.ts src/app/recharge/recharge-order-logic.test.ts",
         "verify:dist": "node scripts/web-dist-manifest.mjs verify",
         "preview": "vite preview --host 0.0.0.0",
         "lint": "eslint ."

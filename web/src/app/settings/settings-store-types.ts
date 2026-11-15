@@ -21,6 +21,11 @@ export type SettingsLoadOptions = {
   signal?: AbortSignal;
 };
 
+export type LoadTabDataOptions = {
+  force?: boolean;
+  silent?: boolean;
+};
+
 export type SaveConfigReceipt = {
   restartRequired: boolean;
 };
@@ -55,7 +60,6 @@ export type SettingsStore = {
   formName: string;
   formBaseUrl: string;
   formSecretKey: string;
-  showSecret: boolean;
   isSavingPool: boolean;
 
   browserOpen: boolean;
@@ -67,7 +71,10 @@ export type SettingsStore = {
   pageSize: PageSizeOption;
   isStartingImport: boolean;
 
-  loadTabData: (tab: AnySettingsTabKey) => Promise<void>;
+  loadTabData: (
+    tab: AnySettingsTabKey,
+    options?: LoadTabDataOptions
+  ) => Promise<void>;
   loadConfig: (options?: SettingsLoadOptions) => Promise<boolean>;
   saveConfig: () => Promise<boolean>;
   saveConfigSection: (
@@ -132,7 +139,6 @@ export type SettingsStore = {
   setFormName: (value: string) => void;
   setFormBaseUrl: (value: string) => void;
   setFormSecretKey: (value: string) => void;
-  setShowSecret: (checked: boolean) => void;
   savePool: () => Promise<void>;
   deletePool: (pool: CPAPool) => Promise<void>;
 

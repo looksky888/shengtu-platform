@@ -42,9 +42,16 @@ func (a *App) Close() error {
 	if a.media != nil {
 		a.media.Close()
 	}
+	a.mediaMu.Lock()
+	if a.mediaAdminCancel != nil {
+		a.mediaAdminCancel()
+		a.mediaAdminCancel = nil
+	}
 	if a.mediaAdmin != nil {
 		a.mediaAdmin.Close()
+		a.mediaAdmin = nil
 	}
+	a.mediaMu.Unlock()
 	var paymentErr error
 	if a.paymentOrders != nil {
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 60*time.Second)

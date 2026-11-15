@@ -15,6 +15,8 @@ import {
 test("401 redirect policy keeps opt-out and login-page behavior", () => {
   assert.equal(shouldRedirectUnauthorized(401, undefined, "/accounts"), true);
   assert.equal(shouldRedirectUnauthorized(401, false, "/accounts"), false);
+  assert.equal(shouldRedirectUnauthorized(401, true, "/"), false);
+  assert.equal(shouldRedirectUnauthorized(401, undefined, "/"), false);
   assert.equal(shouldRedirectUnauthorized(401, true, "/login"), false);
   assert.equal(shouldRedirectUnauthorized(403, true, "/accounts"), false);
 });

@@ -109,6 +109,18 @@ type JSONDocumentPrefixBackend interface {
 	DeleteJSONDocumentsBatch(names []string) (int, error)
 }
 
+// JSONDocumentBatchLoadBackend optionally loads all decoded JSON documents
+// under a directory prefix in a single query instead of N+1 point reads.
+type JSONDocumentBatchLoadBackend interface {
+	LoadJSONDocumentsByPrefix(prefix string) (map[string]any, error)
+}
+
+// IncrementalVacuumBackend optionally reclaims free database pages bounded by
+// page count (e.g. SQLite PRAGMA incremental_vacuum).
+type IncrementalVacuumBackend interface {
+	IncrementalVacuum(ctx context.Context, maxPages int) error
+}
+
 // MediaAssetBackend stores row-oriented media metadata. Object bytes live in
 // an object store; this interface is the queryable source of truth for access,
 // pagination, migration, and deletion state.

@@ -1,29 +1,34 @@
 import * as React from "react";
 
-export type DirtyRegistryEntry<TTab extends string = string> = {
+import type { SettingsTabKey } from "./settings-tab-types";
+
+export type SettingsDirtyEntry<TTab extends string = SettingsTabKey> = {
   id: string;
   tab: TTab;
   label: string;
   isDirty: boolean;
   /** Optional synchronous or async validator returning true if valid (toast errors inside). */
   validate?: () => boolean | Promise<boolean>;
-  /** Save handler for cards owning local state (e.g. Email SMTP, Risk Settings, Backup). */
+  /** Save handler for cards owning local or section-scoped state. */
   save?: () => Promise<boolean>;
-  /** Discard handler reverting local card state back to server baseline. */
+  /** Discard handler reverting card state back to server baseline. */
   discard?: () => Promise<boolean> | boolean;
 };
 
-export type SettingsDirtyRegistryStore<TTab extends string = string> = {
-  getSnapshot: () => Record<string, DirtyRegistryEntry<TTab>>;
+export type DirtyRegistryEntry<TTab extends string = SettingsTabKey> =
+  SettingsDirtyEntry<TTab>;
+
+export type SettingsDirtyRegistryStore<TTab extends string = SettingsTabKey> = {
+  getSnapshot: () => Record<string, SettingsDirtyEntry<TTab>>;
   subscribe: (listener: () => void) => () => void;
-  upsertEntry: (entry: DirtyRegistryEntry<TTab>) => void;
+  upsertEntry: (entry: SettingsDirtyEntry<TTab>) => void;
   removeEntry: (id: string) => void;
 };
 
 export function createSettingsDirtyRegistryStore<
-  TTab extends string = string,
+  TTab extends string = SettingsTabKey,
 >(): SettingsDirtyRegistryStore<TTab> {
-  let entries: Record<string, DirtyRegistryEntry<TTab>> = {};
+  let entries: Record<string, SettingsDirtyEntry<TTab>> = {};
   const listeners = new Set<() => void>();
 
   const emit = () => {

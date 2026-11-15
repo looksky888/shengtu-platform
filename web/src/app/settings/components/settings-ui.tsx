@@ -344,6 +344,7 @@ export function SettingsUnitInput({
   unit,
   value,
   onChange,
+  onBlur,
   placeholder,
   min,
   max,
@@ -362,6 +363,7 @@ export function SettingsUnitInput({
   unit?: string;
   value: string | number;
   onChange: (value: string) => void;
+  onBlur?: React.FocusEventHandler<HTMLInputElement>;
   placeholder?: string;
   min?: number | string;
   max?: number | string;
@@ -409,6 +411,7 @@ export function SettingsUnitInput({
           placeholder={placeholder}
           aria-invalid={Boolean(error)}
           onChange={(event) => onChange(event.target.value)}
+          onBlur={onBlur}
           className={cn(
             settingsInputClassName,
             "tabular-nums",

@@ -20,6 +20,7 @@ import type { SettingsConfig } from "@/lib/settings-types";
 import { cn } from "@/lib/utils";
 
 import { isConfigKeysDirty } from "../settings-dirty";
+import { useRegisterSettingsDirty } from "../settings-dirty-registry-hooks";
 import { SETTINGS_TAB_REFRESH_EVENT } from "../settings-tabs";
 import { useSettingsStore } from "../store";
 import {
@@ -27,11 +28,12 @@ import {
   SettingsCardSaveFooter,
   SettingsEmptyState,
 } from "./settings-ui";
-import {
-  type UpstreamClearanceMode,
-  UpstreamProxyRuntimeForm,
-} from "./upstream-proxy-runtime-form";
+import { UpstreamProxyRuntimeForm } from "./upstream-proxy-runtime-form";
 import { UpstreamProxyRuntimeStatus } from "./upstream-proxy-runtime-status";
+import {
+  upstreamProxyErrors,
+  type UpstreamClearanceMode,
+} from "./upstream-proxy-validation";
 
 const UPSTREAM_PROXY_KEYS: readonly (keyof SettingsConfig)[] = [
   "proxy",
@@ -63,28 +65,67 @@ export function UpstreamProxyRuntimeCard({
   const [clearanceResult, setClearanceResult] =
     useState<ClearanceTestResult | null>(null);
   const [runtimeStatus, setRuntimeStatus] = useState<ProxyRuntimeStatus | null>(
-    null
+    null,
   );
   const [targetUrl, setTargetUrl] = useState("https://chatgpt.com");
 
   const config = useSettingsStore((state) => state.config);
   const savedConfigSnapshot = useSettingsStore(
-    (state) => state.savedConfigSnapshot
+    (state) => state.savedConfigSnapshot,
   );
   const isLoadingConfig = useSettingsStore((state) => state.isLoadingConfig);
   const isSavingConfig = useSettingsStore((state) => state.isSavingConfig);
   const savingSectionKey = useSettingsStore((state) => state.savingSectionKey);
   const loadConfig = useSettingsStore((state) => state.loadConfig);
   const saveConfigSection = useSettingsStore(
-    (state) => state.saveConfigSection
+    (state) => state.saveConfigSection,
   );
   const resetConfigSection = useSettingsStore(
-    (state) => state.resetConfigSection
+    (state) => state.resetConfigSection,
   );
   const setProxy = useSettingsStore((state) => state.setProxy);
   const setUpstreamClearanceField = useSettingsStore(
-    (state) => state.setUpstreamClearanceField
+    (state) => state.setUpstreamClearanceField,
   );
+
+  const sectionDirty = isConfigKeysDirty(
+    config,
+    savedConfigSnapshot,
+    UPSTREAM_PROXY_KEYS,
+  );
+
+  const validateUpstreamProxy = useCallback(() => {
+    const latest = useSettingsStore.getState().config as
+      | Record<string, unknown>
+      | null
+      | undefined;
+    const errs = upstreamProxyErrors(latest);
+    const firstMsg = Object.values(errs)[0];
+    if (firstMsg) {
+      toast.error(firstMsg);
+      return false;
+    }
+    return true;
+  }, []);
+
+  useRegisterSettingsDirty({
+    id: "proxy:upstream-runtime",
+    tab: "proxy",
+    label: "生图上游代理与 WARP 清障",
+    isDirty: sectionDirty,
+    validate: validateUpstreamProxy,
+    save: async () => {
+      if (!validateUpstreamProxy()) return false;
+      const receipt = await saveConfigSection(UPSTREAM_PROXY_KEYS, {
+        sectionKey: "upstream-proxy",
+      });
+      return receipt !== null;
+    },
+    discard: () => {
+      resetConfigSection(UPSTREAM_PROXY_KEYS);
+      return true;
+    },
+  });
 
   const loadRuntimeStatus = useCallback(async (silent = false) => {
     if (!silent) setIsLoadingStatus(true);
@@ -94,7 +135,7 @@ export function UpstreamProxyRuntimeCard({
     } catch (error) {
       if (!silent) {
         toast.error(
-          error instanceof Error ? error.message : "加载代理运行时状态失败"
+          error instanceof Error ? error.message : "加载代理运行时状态失败",
         );
       }
     } finally {
@@ -131,7 +172,7 @@ export function UpstreamProxyRuntimeCard({
         description="统一管理本地号池出站代理及 FlareSolverr 过盾会话缓存"
       >
         <div className="space-y-3 py-1">
-          <div className="grid grid-cols-2 gap-2.5">
+          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
             <Skeleton className="h-18 w-full" />
             <Skeleton className="h-18 w-full" />
             <Skeleton className="h-18 w-full" />
@@ -180,14 +221,20 @@ export function UpstreamProxyRuntimeCard({
   ) as UpstreamClearanceMode;
   const warmUp = Boolean(config.upstream_clearance_warm_up_on_start);
 
-  const sectionDirty = isConfigKeysDirty(
-    config,
-    savedConfigSnapshot,
-    UPSTREAM_PROXY_KEYS
-  );
+  const hasValidationError =
+    Object.keys(upstreamProxyErrors(config as Record<string, unknown>)).length >
+    0;
+
   const isSavingSection =
     isSavingConfig &&
     (savingSectionKey === "upstream-proxy" || savingSectionKey === "__all__");
+
+  const handleSave = async () => {
+    if (!validateUpstreamProxy()) return;
+    await saveConfigSection(UPSTREAM_PROXY_KEYS, {
+      sectionKey: "upstream-proxy",
+    });
+  };
 
   const handleTestProxy = async () => {
     const candidate = String(config.proxy || "").trim();
@@ -202,7 +249,7 @@ export function UpstreamProxyRuntimeCard({
       setProxyResult(data.result);
       if (data.result.ok) {
         toast.success(
-          `代理连通可用：${data.result.latency_ms} ms，HTTP ${data.result.status}`
+          `代理连通可用：${data.result.latency_ms} ms，HTTP ${data.result.status}`,
         );
       } else {
         toast.error(`代理不可用：${data.result.error ?? "未知错误"}`);
@@ -215,6 +262,7 @@ export function UpstreamProxyRuntimeCard({
   };
 
   const handleTestClearance = async () => {
+    if (!validateUpstreamProxy()) return;
     setIsTestingClearance(true);
     setClearanceResult(null);
     try {
@@ -224,24 +272,25 @@ export function UpstreamProxyRuntimeCard({
           silentToast: true,
         });
         if (!saved) return;
+        toast.info("已同步当前配置并开始测试");
       }
       const data = await testProxyClearance(
-        targetUrl.trim() || "https://chatgpt.com"
+        targetUrl.trim() || "https://chatgpt.com",
       );
       setClearanceResult(data.result);
       if (data.result.ok) {
         toast.success(
-          `Clearance 验证成功（${data.result.latency_ms} ms，${data.result.cookie_count ?? 0} 枚 Cookie）`
+          `Clearance 验证成功（${data.result.latency_ms} ms，${data.result.cookie_count ?? 0} 枚 Cookie）`,
         );
       } else {
         toast.error(
-          `Clearance 验证失败：${data.result.error ?? data.result.status}`
+          `Clearance 验证失败：${data.result.error ?? data.result.status}`,
         );
       }
       await loadRuntimeStatus(true);
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "测试 Clearance 失败"
+        error instanceof Error ? error.message : "测试 Clearance 失败",
       );
     } finally {
       setIsTestingClearance(false);
@@ -249,6 +298,7 @@ export function UpstreamProxyRuntimeCard({
   };
 
   const handleWarmUp = async () => {
+    if (!validateUpstreamProxy()) return;
     setIsWarming(true);
     try {
       if (sectionDirty) {
@@ -257,6 +307,7 @@ export function UpstreamProxyRuntimeCard({
           silentToast: true,
         });
         if (!saved) return;
+        toast.info("已同步当前配置并开始预热");
       }
       const data = await warmUpProxyClearance();
       setRuntimeStatus(data.status || null);
@@ -264,7 +315,7 @@ export function UpstreamProxyRuntimeCard({
         toast.success("上游 Clearance 缓存预热成功");
       } else {
         toast.error(
-          String(data.result?.error || data.result?.status || "预热失败")
+          String(data.result?.error || data.result?.status || "预热失败"),
         );
       }
     } catch (error) {
@@ -286,7 +337,7 @@ export function UpstreamProxyRuntimeCard({
             "h-5 gap-1.5 px-2 text-[11px]",
             enabled && mode !== "none"
               ? "border-status-success/25 bg-status-success-soft font-medium text-status-success"
-              : "border-border/75 bg-surface-subtle text-muted-foreground"
+              : "border-border/75 bg-surface-subtle text-muted-foreground",
           )}
         >
           <span
@@ -294,7 +345,7 @@ export function UpstreamProxyRuntimeCard({
               "size-1.5 rounded-full",
               enabled && mode !== "none"
                 ? "bg-status-success"
-                : "bg-muted-foreground/60"
+                : "bg-muted-foreground/60",
             )}
           />
           {badgeModeText(enabled, mode)}
@@ -321,12 +372,13 @@ export function UpstreamProxyRuntimeCard({
             dirty={sectionDirty}
             saving={isSavingSection}
             disabled={isSavingConfig || isTestingClearance || isWarming}
-            onReset={() => resetConfigSection(UPSTREAM_PROXY_KEYS)}
-            onSave={() =>
-              void saveConfigSection(UPSTREAM_PROXY_KEYS, {
-                sectionKey: "upstream-proxy",
-              })
+            hint={
+              hasValidationError
+                ? "请先修正标红的过盾超时或冷却范围错误后再保存"
+                : undefined
             }
+            onReset={() => resetConfigSection(UPSTREAM_PROXY_KEYS)}
+            onSave={() => void handleSave()}
           />
         )
       }
@@ -341,6 +393,7 @@ export function UpstreamProxyRuntimeCard({
           enabled={enabled}
           mode={mode}
           warmUp={warmUp}
+          sectionDirty={sectionDirty}
           targetUrl={targetUrl}
           isTestingProxy={isTestingProxy}
           isTestingClearance={isTestingClearance}

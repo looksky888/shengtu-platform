@@ -61,7 +61,8 @@ type PaymentOrderAdminPage struct {
 var paymentOrderStatuses = map[string]struct{}{
 	storage.PaymentOrderStatusCreated: {}, storage.PaymentOrderStatusPending: {},
 	storage.PaymentOrderStatusClosing: {}, storage.PaymentOrderStatusSucceeded: {},
-	storage.PaymentOrderStatusClosed: {}, storage.PaymentOrderStatusFailed: {},
+	storage.PaymentOrderStatusClosed: {}, storage.PaymentOrderStatusExpired: {},
+	storage.PaymentOrderStatusFailed:    {},
 	storage.PaymentOrderStatusException: {},
 }
 
@@ -120,12 +121,12 @@ func (s *PaymentService) QueryOrderAsAdmin(ctx context.Context, orderID string) 
 	if err != nil {
 		return PaymentOrderAdminPublic{}, err
 	}
-	if order.Status != storage.PaymentOrderStatusSucceeded && order.Status != storage.PaymentOrderStatusClosed {
+	if order.Status != storage.PaymentOrderStatusSucceeded && order.Status != storage.PaymentOrderStatusFailed {
 		expired, err := paymentOrderExpired(order, s.now().UTC())
 		if err != nil {
 			return PaymentOrderAdminPublic{}, err
 		}
-		if _, err := s.reconcileOrder(ctx, order, expired); err != nil {
+		if _, err := s.reconcileOrderWithOptions(ctx, order, expired, true); err != nil {
 			return PaymentOrderAdminPublic{}, err
 		}
 		order, err = s.backend.LoadPaymentOrderByID(order.ID)

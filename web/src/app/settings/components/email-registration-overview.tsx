@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback } from "react";
 import { ArrowUpRight, Inbox, MailPlus, RefreshCw } from "lucide-react";
 import { Link } from "react-router-dom";
 
@@ -10,6 +11,7 @@ import type { SettingsConfig } from "@/lib/settings-types";
 import { cn } from "@/lib/utils";
 
 import { isConfigKeysDirty } from "../settings-dirty";
+import { useRegisterSettingsDirty } from "../settings-dirty-registry-hooks";
 import { useSettingsStore } from "../store";
 import {
   SettingsCard,
@@ -40,7 +42,7 @@ function StatusPill({
         tone === "warning" &&
           "border-status-warning/25 bg-status-warning-soft text-status-warning",
         tone === "neutral" &&
-          "border-border/75 bg-surface-subtle text-muted-foreground"
+          "border-border/75 bg-surface-subtle text-muted-foreground",
       )}
     >
       <span
@@ -48,7 +50,7 @@ function StatusPill({
           "size-1.5 rounded-full",
           tone === "success" && "bg-status-success",
           tone === "warning" && "bg-status-warning",
-          tone === "neutral" && "bg-muted-foreground/60"
+          tone === "neutral" && "bg-muted-foreground/60",
         )}
       />
       <span>{label}</span>
@@ -67,32 +69,53 @@ export function EmailRegistrationOverview({
 }) {
   const config = useSettingsStore((state) => state.config);
   const savedConfigSnapshot = useSettingsStore(
-    (state) => state.savedConfigSnapshot
+    (state) => state.savedConfigSnapshot,
   );
   const isLoading = useSettingsStore((state) => state.isLoadingConfig);
   const isSaving = useSettingsStore((state) => state.isSavingConfig);
   const savingSectionKey = useSettingsStore((state) => state.savingSectionKey);
   const loadConfig = useSettingsStore((state) => state.loadConfig);
   const saveConfigSection = useSettingsStore(
-    (state) => state.saveConfigSection
+    (state) => state.saveConfigSection,
   );
   const resetConfigSection = useSettingsStore(
-    (state) => state.resetConfigSection
+    (state) => state.resetConfigSection,
   );
   const setRegistrationEnabled = useSettingsStore(
-    (state) => state.setRegistrationEnabled
+    (state) => state.setRegistrationEnabled,
   );
 
   const registrationEnabled = Boolean(config?.registration_enabled);
   const sectionDirty = isConfigKeysDirty(
     config,
     savedConfigSnapshot,
-    REGISTRATION_KEYS
+    REGISTRATION_KEYS,
   );
   const isSavingSection =
     isSaving &&
     (savingSectionKey === "registration-enabled" ||
       savingSectionKey === "__all__");
+
+  const handleSave = useCallback(async () => {
+    const receipt = await saveConfigSection(REGISTRATION_KEYS, {
+      sectionKey: "registration-enabled",
+    });
+    return receipt !== null;
+  }, [saveConfigSection]);
+
+  const handleDiscard = useCallback(() => {
+    resetConfigSection(REGISTRATION_KEYS);
+    return true;
+  }, [resetConfigSection]);
+
+  useRegisterSettingsDirty({
+    id: "email:registration-overview",
+    tab: "email",
+    label: "公开注册准入开关",
+    isDirty: sectionDirty,
+    save: handleSave,
+    discard: handleDiscard,
+  });
 
   const smtpMissingWhileOpen = registrationEnabled && smtpEnabled === false;
 
@@ -146,12 +169,8 @@ export function EmailRegistrationOverview({
             saving={isSavingSection}
             disabled={isSaving}
             saveLabel="保存注册准入状态"
-            onReset={() => resetConfigSection(REGISTRATION_KEYS)}
-            onSave={() =>
-              void saveConfigSection(REGISTRATION_KEYS, {
-                sectionKey: "registration-enabled",
-              })
-            }
+            onReset={handleDiscard}
+            onSave={() => void handleSave()}
           />
         ) : undefined
       }

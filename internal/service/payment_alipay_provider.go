@@ -110,6 +110,8 @@ func (p *alipayProvider) Query(ctx context.Context, outTradeNo, _ string) (Payme
 		if err != nil {
 			return PaymentResult{}, err
 		}
+	} else if state == "SUCCESS" {
+		successTime = p.now().UTC().Format(time.RFC3339Nano)
 	}
 	return PaymentResult{Provider: "alipay", OutTradeNo: response.OutTradeNo, TransactionID: response.TradeNo, AppID: p.appID, MerchantID: p.merchantID, TradeState: state, TradeStateDesc: response.TradeStatus, Currency: "CNY", SuccessTime: successTime, AmountFen: amount}, nil
 }
@@ -120,8 +122,17 @@ func (p *alipayProvider) Close(ctx context.Context, outTradeNo, _ string) error 
 	if err != nil {
 		return err
 	}
-	if err := response.check(); err != nil && !isAlipayTradeNotExist(response.alipayBaseResponse) {
-		return err
+	if err := response.check(); err != nil {
+		if !isAlipayTradeNotExist(response.alipayBaseResponse) {
+			return err
+		}
+		var cancelResponse alipayTradeCancelResponse
+		if _, cancelErr := p.call(ctx, "alipay.trade.cancel", "", map[string]any{"out_trade_no": outTradeNo}, "alipay_trade_cancel_response", &cancelResponse); cancelErr != nil {
+			return cancelErr
+		}
+		if cancelErr := cancelResponse.check(); cancelErr != nil && !isAlipayTradeNotExist(cancelResponse.alipayBaseResponse) {
+			return cancelErr
+		}
 	}
 	return nil
 }
@@ -144,6 +155,13 @@ type alipayTradeResponse struct {
 	TradeStatus string `json:"trade_status"`
 	TotalAmount string `json:"total_amount"`
 	SendPayDate string `json:"send_pay_date"`
+}
+type alipayTradeCancelResponse struct {
+	alipayBaseResponse
+	TradeNo    string `json:"trade_no"`
+	OutTradeNo string `json:"out_trade_no"`
+	RetryFlag  string `json:"retry_flag"`
+	Action     string `json:"action"`
 }
 
 func isAlipayTradeNotExist(response alipayBaseResponse) bool {

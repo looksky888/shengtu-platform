@@ -129,15 +129,19 @@ const (
 )
 
 type ImageTaskDailyStats struct {
-	Date          string `json:"date"`
-	Period        string `json:"period,omitempty"`
-	StartDate     string `json:"start_date,omitempty"`
-	EndDate       string `json:"end_date,omitempty"`
-	SuccessTasks  int    `json:"success_tasks"`
-	FailedTasks   int    `json:"failed_tasks"`
-	SuccessImages int    `json:"success_images"`
-	FailedImages  int    `json:"failed_images"`
-	UpdatedAt     string `json:"updated_at"`
+	Date              string `json:"date"`
+	Period            string `json:"period,omitempty"`
+	StartDate         string `json:"start_date,omitempty"`
+	EndDate           string `json:"end_date,omitempty"`
+	SuccessTasks      int    `json:"success_tasks"`
+	FailedTasks       int    `json:"failed_tasks"`
+	SuccessImages     int    `json:"success_images"`
+	FailedImages      int    `json:"failed_images"`
+	SuccessVideoTasks int    `json:"success_video_tasks"`
+	FailedVideoTasks  int    `json:"failed_video_tasks"`
+	SuccessVideos     int    `json:"success_videos"`
+	FailedVideos      int    `json:"failed_videos"`
+	UpdatedAt         string `json:"updated_at"`
 }
 
 type ImageTaskLimitError struct {

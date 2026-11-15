@@ -22,11 +22,27 @@ const (
 // imageTaskStatsDayBucket is one China calendar day of aggregated image-task stats.
 // Independent from the task list so AdminClearTasks cannot erase historical counts.
 type imageTaskStatsDayBucket struct {
-	Date          string `json:"date"`
-	SuccessTasks  int    `json:"success_tasks"`
-	FailedTasks   int    `json:"failed_tasks"`
-	SuccessImages int    `json:"success_images"`
-	FailedImages  int    `json:"failed_images"`
+	Date              string `json:"date"`
+	SuccessTasks      int    `json:"success_tasks"`
+	FailedTasks       int    `json:"failed_tasks"`
+	SuccessImages     int    `json:"success_images"`
+	FailedImages      int    `json:"failed_images"`
+	SuccessVideoTasks int    `json:"success_video_tasks,omitempty"`
+	FailedVideoTasks  int    `json:"failed_video_tasks,omitempty"`
+	SuccessVideos     int    `json:"success_videos,omitempty"`
+	FailedVideos      int    `json:"failed_videos,omitempty"`
+}
+
+// ClassifyTaskCapability classifies a creation task mode into "image", "video", or "" (e.g. "chat").
+func ClassifyTaskCapability(mode string) string {
+	switch strings.ToLower(util.Clean(mode)) {
+	case "chat":
+		return ""
+	case "video":
+		return "video"
+	default:
+		return "image"
+	}
 }
 
 // imageTaskStatsLedger is the durable stats book.
@@ -73,11 +89,15 @@ func (s *ImageTaskService) loadStatsLedgerLocked() (*imageTaskStatsLedger, bool)
 			continue
 		}
 		ledger.Days[date] = &imageTaskStatsDayBucket{
-			Date:          date,
-			SuccessTasks:  util.ToInt(item["success_tasks"], 0),
-			FailedTasks:   util.ToInt(item["failed_tasks"], 0),
-			SuccessImages: util.ToInt(item["success_images"], 0),
-			FailedImages:  util.ToInt(item["failed_images"], 0),
+			Date:              date,
+			SuccessTasks:      util.ToInt(item["success_tasks"], 0),
+			FailedTasks:       util.ToInt(item["failed_tasks"], 0),
+			SuccessImages:     util.ToInt(item["success_images"], 0),
+			FailedImages:      util.ToInt(item["failed_images"], 0),
+			SuccessVideoTasks: util.ToInt(item["success_video_tasks"], 0),
+			FailedVideoTasks:  util.ToInt(item["failed_video_tasks"], 0),
+			SuccessVideos:     util.ToInt(item["success_videos"], 0),
+			FailedVideos:      util.ToInt(item["failed_videos"], 0),
 		}
 	}
 	// Also accept days as array of objects.
@@ -87,11 +107,15 @@ func (s *ImageTaskService) loadStatsLedgerLocked() (*imageTaskStatsLedger, bool)
 			continue
 		}
 		ledger.Days[date] = &imageTaskStatsDayBucket{
-			Date:          date,
-			SuccessTasks:  util.ToInt(item["success_tasks"], 0),
-			FailedTasks:   util.ToInt(item["failed_tasks"], 0),
-			SuccessImages: util.ToInt(item["success_images"], 0),
-			FailedImages:  util.ToInt(item["failed_images"], 0),
+			Date:              date,
+			SuccessTasks:      util.ToInt(item["success_tasks"], 0),
+			FailedTasks:       util.ToInt(item["failed_tasks"], 0),
+			SuccessImages:     util.ToInt(item["success_images"], 0),
+			FailedImages:      util.ToInt(item["failed_images"], 0),
+			SuccessVideoTasks: util.ToInt(item["success_video_tasks"], 0),
+			FailedVideoTasks:  util.ToInt(item["failed_video_tasks"], 0),
+			SuccessVideos:     util.ToInt(item["success_videos"], 0),
+			FailedVideos:      util.ToInt(item["failed_videos"], 0),
 		}
 	}
 	for key, value := range util.StringMap(root["recorded"]) {
@@ -121,11 +145,15 @@ func (s *ImageTaskService) saveStatsLedgerLocked() error {
 			continue
 		}
 		daysOut[date] = map[string]any{
-			"date":           bucket.Date,
-			"success_tasks":  bucket.SuccessTasks,
-			"failed_tasks":   bucket.FailedTasks,
-			"success_images": bucket.SuccessImages,
-			"failed_images":  bucket.FailedImages,
+			"date":                bucket.Date,
+			"success_tasks":       bucket.SuccessTasks,
+			"failed_tasks":        bucket.FailedTasks,
+			"success_images":      bucket.SuccessImages,
+			"failed_images":       bucket.FailedImages,
+			"success_video_tasks": bucket.SuccessVideoTasks,
+			"failed_video_tasks":  bucket.FailedVideoTasks,
+			"success_videos":      bucket.SuccessVideos,
+			"failed_videos":       bucket.FailedVideos,
 		}
 	}
 	value := map[string]any{
@@ -244,6 +272,9 @@ func (s *ImageTaskService) RecordExternalImageOutcome(outcome ExternalImageOutco
 	if s == nil {
 		return false
 	}
+	if ClassifyTaskCapability(outcome.Mode) != "image" {
+		return false
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.statsLedger == nil {
@@ -254,7 +285,7 @@ func (s *ImageTaskService) RecordExternalImageOutcome(outcome ExternalImageOutco
 	if when.IsZero() {
 		when = time.Now()
 	}
-	if !s.recordStatsOutcomeLocked(key, key != "", outcome.Mode, outcome.Status, outcome.RequestedCount, outcome.SuccessImages, when) {
+	if !s.recordStatsOutcomeLocked(key, key != "", outcome.Mode, outcome.Status, outcome.RequestedCount, outcome.SuccessImages, when, true) {
 		return false
 	}
 	s.notifySubscribersLocked()
@@ -264,6 +295,10 @@ func (s *ImageTaskService) RecordExternalImageOutcome(outcome ExternalImageOutco
 // recordTerminalStatsLocked appends one terminal task into the durable ledger (idempotent).
 // Caller must hold s.mu.
 func (s *ImageTaskService) recordTerminalStatsLocked(task *ImageTask) {
+	s.recordTerminalStatsWithPruneLocked(task, true)
+}
+
+func (s *ImageTaskService) recordTerminalStatsWithPruneLocked(task *ImageTask, allowPrune bool) {
 	if task == nil || s.statsLedger == nil {
 		return
 	}
@@ -276,14 +311,15 @@ func (s *ImageTaskService) recordTerminalStatsLocked(task *ImageTask) {
 	if when.IsZero() {
 		when = time.Now().In(loc)
 	}
-	s.recordStatsOutcomeLocked(key, true, task.Mode, task.Status, task.Count, len(task.Data), when)
+	s.recordStatsOutcomeLocked(key, true, task.Mode, task.Status, task.Count, len(task.Data), when, allowPrune)
 }
 
-func (s *ImageTaskService) recordStatsOutcomeLocked(key string, dedupe bool, mode, rawStatus string, requestedCount, successImages int, when time.Time) bool {
+func (s *ImageTaskService) recordStatsOutcomeLocked(key string, dedupe bool, mode, rawStatus string, requestedCount, successOutputs int, when time.Time, allowPrune bool) bool {
 	if s.statsLedger == nil {
 		return false
 	}
-	if util.Clean(mode) == "video" {
+	capability := ClassifyTaskCapability(mode)
+	if capability == "" {
 		return false
 	}
 	status := util.Clean(rawStatus)
@@ -307,34 +343,60 @@ func (s *ImageTaskService) recordStatsOutcomeLocked(key string, dedupe bool, mod
 	if count < 1 {
 		count = 1
 	}
-	if successImages < 0 {
-		successImages = 0
+	if successOutputs < 0 {
+		successOutputs = 0
 	}
-	switch status {
-	case TaskStatusSuccess:
-		bucket.SuccessTasks++
-		if successImages > 0 {
-			bucket.SuccessImages += successImages
-		} else {
-			bucket.SuccessImages += count
+	if capability == "video" {
+		switch status {
+		case TaskStatusSuccess:
+			bucket.SuccessVideoTasks++
+			if successOutputs > 0 {
+				bucket.SuccessVideos += successOutputs
+			} else {
+				bucket.SuccessVideos += count
+			}
+			if successOutputs > 0 && successOutputs < count {
+				bucket.FailedVideos += count - successOutputs
+			}
+		case TaskStatusError:
+			bucket.FailedVideoTasks++
+			if successOutputs > 0 {
+				bucket.SuccessVideos += successOutputs
+			}
+			failedVideos := count - successOutputs
+			if failedVideos < 0 {
+				failedVideos = 0
+			}
+			bucket.FailedVideos += failedVideos
 		}
-		if successImages > 0 && successImages < count {
-			bucket.FailedImages += count - successImages
+	} else {
+		switch status {
+		case TaskStatusSuccess:
+			bucket.SuccessTasks++
+			if successOutputs > 0 {
+				bucket.SuccessImages += successOutputs
+			} else {
+				bucket.SuccessImages += count
+			}
+			if successOutputs > 0 && successOutputs < count {
+				bucket.FailedImages += count - successOutputs
+			}
+		case TaskStatusError:
+			bucket.FailedTasks++
+			if successOutputs > 0 {
+				bucket.SuccessImages += successOutputs
+			}
+			failedImages := count - successOutputs
+			if failedImages < 0 {
+				failedImages = 0
+			}
+			bucket.FailedImages += failedImages
 		}
-	case TaskStatusError:
-		bucket.FailedTasks++
-		if successImages > 0 {
-			bucket.SuccessImages += successImages
-		}
-		failedImages := count - successImages
-		if failedImages < 0 {
-			failedImages = 0
-		}
-		bucket.FailedImages += failedImages
 	}
 	if dedupe && key != "" {
 		s.statsLedger.Recorded[key] = true
-		if len(s.statsLedger.Recorded) > 4096 {
+		pruneThreshold := max(4096, len(s.tasks)+1024)
+		if allowPrune && len(s.statsLedger.Recorded) > pruneThreshold {
 			s.pruneStatsLedgerRecordedLocked()
 		}
 	}
@@ -350,7 +412,7 @@ func (s *ImageTaskService) backfillStatsLedgerFromTasksLocked() (added int) {
 	}
 	for _, task := range s.tasks {
 		before := len(s.statsLedger.Recorded)
-		s.recordTerminalStatsLocked(task)
+		s.recordTerminalStatsWithPruneLocked(task, false)
 		if len(s.statsLedger.Recorded) > before {
 			added++
 		}

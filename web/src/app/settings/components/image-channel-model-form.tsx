@@ -1,11 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Check, Film, Sparkles } from "lucide-react";
+import { Check, Film } from "lucide-react";
 import { toast } from "sonner";
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type {
   ImageCapability,
@@ -18,7 +16,6 @@ import { cn } from "@/lib/utils";
 import { toImageChannelModelInput } from "./image-channel-model-utils";
 import {
   SettingsNotice,
-  SettingsSwitchRow,
   SettingsUnitInput,
   settingsDialogInputClassName,
 } from "./settings-ui";
@@ -44,6 +41,22 @@ const FORMAT_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
   { value: "gif", label: "GIF" },
 ];
 
+function parsePositiveInt(raw: string): number | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  const num = Number(trimmed);
+  if (!Number.isInteger(num) || num < 1 || num > 1000000) return null;
+  return num;
+}
+
+function parseSortInt(raw: string): number | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  const num = Number(trimmed);
+  if (!Number.isInteger(num) || num < -100000 || num > 100000) return null;
+  return num;
+}
+
 function PillMultiSelect<T extends string>({
   label,
   hint,
@@ -52,6 +65,7 @@ function PillMultiSelect<T extends string>({
   minSelected = 1,
   minWarning,
   onChange,
+  className,
 }: {
   label: string;
   hint?: string;
@@ -60,9 +74,10 @@ function PillMultiSelect<T extends string>({
   minSelected?: number;
   minWarning: string;
   onChange: (values: T[]) => void;
+  className?: string;
 }) {
   return (
-    <div className="space-y-1.5">
+    <div className={cn("space-y-1.5", className)}>
       <div className="flex flex-wrap items-center justify-between gap-1">
         <span className="text-xs font-medium text-foreground sm:text-[13px]">
           {label}
@@ -92,7 +107,7 @@ function PillMultiSelect<T extends string>({
               className={cn(
                 "inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border px-2.5 text-xs font-medium transition-colors",
                 active
-                  ? "border-foreground/85 bg-primary text-primary-foreground shadow-2xs"
+                  ? "border-primary/40 bg-primary/[0.07] text-primary ring-1 ring-primary/20"
                   : "border-border/80 bg-surface text-muted-foreground hover:border-border-strong hover:text-foreground",
               )}
             >
@@ -107,20 +122,27 @@ function PillMultiSelect<T extends string>({
 }
 
 export function ImageChannelModelForm({
+  formId,
   model,
   saving,
+  enabled,
+  onEnabledChange,
+  onVideoKindChange,
   suggestions,
   existingUpstreamModels = [],
   initialUpstreamModel,
-  onCancel,
   onSave,
 }: {
+  formId?: string;
   model: ImageChannelModel | null;
   saving: boolean;
+  enabled?: boolean;
+  onEnabledChange?: (enabled: boolean) => void;
+  onVideoKindChange?: (isVideo: boolean) => void;
   suggestions: string[];
   existingUpstreamModels?: string[];
   initialUpstreamModel?: string;
-  onCancel: () => void;
+  onCancel?: () => void;
   onSave: (input: ImageChannelModelInput) => Promise<void>;
 }) {
   const [input, setInput] = useState<ImageChannelModelInput>(() =>
@@ -128,14 +150,47 @@ export function ImageChannelModelForm({
       upstream_model: model?.upstream_model || initialUpstreamModel || "",
     }),
   );
+  const [costDraft, setCostDraft] = useState<string>(() =>
+    String(model?.credit_cost ?? 1),
+  );
+  const [sortDraft, setSortDraft] = useState<string>(() =>
+    String(model?.sort ?? 0),
+  );
+  const [tierDrafts, setTierDrafts] = useState<Record<string, string>>(() => {
+    const base = toImageChannelModelInput(model);
+    const map: Record<string, string> = {};
+    for (const res of base.resolutions || []) {
+      map[res] = String(base.credit_costs?.[res] ?? base.credit_cost ?? 1);
+    }
+    return map;
+  });
 
   useEffect(() => {
-    setInput(
-      toImageChannelModelInput(model, {
-        upstream_model: model?.upstream_model || initialUpstreamModel || "",
-      }),
-    );
-  }, [initialUpstreamModel, model]);
+    const next = toImageChannelModelInput(model, {
+      upstream_model: model?.upstream_model || initialUpstreamModel || "",
+    });
+    setInput(next);
+    setCostDraft(String(next.credit_cost ?? 1));
+    setSortDraft(String(next.sort ?? 0));
+    const nextTiers: Record<string, string> = {};
+    for (const res of next.resolutions || []) {
+      nextTiers[res] = String(
+        next.credit_costs?.[res] ?? next.credit_cost ?? 1,
+      );
+    }
+    setTierDrafts(nextTiers);
+    onEnabledChange?.(next.enabled);
+  }, [initialUpstreamModel, model, onEnabledChange]);
+
+  const effectiveEnabled = enabled ?? input.enabled;
+
+  const isVideoModel =
+    isVideoChannelModelId(input.upstream_model) &&
+    input.capabilities.length === 0;
+
+  useEffect(() => {
+    onVideoKindChange?.(isVideoModel);
+  }, [isVideoModel, onVideoKindChange]);
 
   const existingSet = useMemo(
     () =>
@@ -152,13 +207,14 @@ export function ImageChannelModelForm({
     value: ImageChannelModelInput[K],
   ) => setInput((current) => ({ ...current, [key]: value }));
 
-  const isVideoModel =
-    isVideoChannelModelId(input.upstream_model) &&
-    input.capabilities.length === 0;
-
   const applySuggestion = (candidate: string) => {
     const trimmed = candidate.trim();
     const isVideoCandidate = isVideoChannelModelId(trimmed);
+    const nextResolutions = isVideoCandidate
+      ? []
+      : (input.resolutions || []).length > 0
+        ? input.resolutions || []
+        : ["1k"];
     setInput((current) => ({
       ...current,
       upstream_model: trimmed,
@@ -167,20 +223,37 @@ export function ImageChannelModelForm({
         : current.capabilities.length > 0
           ? current.capabilities
           : ["generate", "edit"],
-      resolutions: isVideoCandidate
-        ? []
-        : (current.resolutions || []).length > 0
-          ? current.resolutions
-          : ["1k"],
+      resolutions: nextResolutions,
       formats: isVideoCandidate
         ? []
         : (current.formats || []).length > 0
           ? current.formats
           : ["png"],
     }));
+    if (!isVideoCandidate) {
+      setTierDrafts((prev) => {
+        const next = { ...prev };
+        for (const res of nextResolutions) {
+          if (next[res] === undefined) {
+            next[res] = costDraft || String(input.credit_cost || 1);
+          }
+        }
+        return next;
+      });
+    }
   };
 
-  const handleSubmit = () => {
+  const costError =
+    !isVideoModel && parsePositiveInt(costDraft) === null
+      ? "基础单张计费必须为不小于 1 的整数"
+      : undefined;
+  const sortError =
+    parseSortInt(sortDraft) === null ? "请输入整数权重" : undefined;
+
+  const handleSubmit = (event?: React.FormEvent) => {
+    event?.preventDefault();
+    if (saving) return;
+
     if (!input.upstream_model.trim()) {
       toast.error("请填写上游模型 ID");
       return;
@@ -192,53 +265,50 @@ export function ImageChannelModelForm({
       toast.error("请至少保留 1 项支持能力");
       return;
     }
+
+    const parsedSort = parseSortInt(sortDraft);
+    if (parsedSort === null) {
+      toast.error("列表排序权重必须为整数");
+      return;
+    }
+
+    let parsedBaseCost = input.credit_cost || 1;
+    const normalizedTierCosts: Record<string, number> = {
+      ...(input.credit_costs || {}),
+    };
+
+    if (!isVideoModel) {
+      const validCost = parsePositiveInt(costDraft);
+      if (validCost === null) {
+        toast.error("基础单张计费必须为不小于 1 的整数");
+        return;
+      }
+      parsedBaseCost = validCost;
+
+      for (const res of input.resolutions || []) {
+        const rawTier = tierDrafts[res] ?? String(parsedBaseCost);
+        const validTier = parsePositiveInt(rawTier);
+        if (validTier === null) {
+          toast.error(`${res.toUpperCase()} 规格单价必须为不小于 1 的整数`);
+          return;
+        }
+        normalizedTierCosts[res] = validTier;
+      }
+    }
+
     void onSave({
       ...input,
+      enabled: effectiveEnabled,
       upstream_model: input.upstream_model.trim(),
       display_name: input.display_name.trim(),
+      credit_cost: parsedBaseCost,
+      credit_costs: normalizedTierCosts,
+      sort: parsedSort,
     });
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/65 pb-3">
-        <div className="flex items-center gap-2.5">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            disabled={saving}
-            onClick={onCancel}
-            className="-ml-2 h-8 gap-1.5 px-2.5 text-xs text-muted-foreground hover:text-foreground"
-          >
-            <ArrowLeft className="size-3.5" />
-            <span>返回模型列表</span>
-          </Button>
-          <span className="h-4 w-px bg-border/80" />
-          <span className="text-sm font-semibold text-foreground">
-            {model
-              ? `编辑模型 · ${model.display_name || model.upstream_model}`
-              : "新增渠道模型"}
-          </span>
-        </div>
-        <Badge
-          variant="outline"
-          className="gap-1 border-border/75 bg-surface-subtle text-muted-foreground"
-        >
-          {isVideoModel ? (
-            <>
-              <Film className="size-3" />
-              <span>视频模型（按秒计费）</span>
-            </>
-          ) : (
-            <>
-              <Sparkles className="size-3" />
-              <span>图片模型（按张计费）</span>
-            </>
-          )}
-        </Badge>
-      </div>
-
+    <form id={formId} onSubmit={handleSubmit} className="space-y-4">
       {!model && suggestions.length > 0 ? (
         <div className="space-y-2 rounded-xl border border-dashed border-border/80 bg-surface-subtle/50 p-3">
           <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
@@ -257,7 +327,7 @@ export function ImageChannelModelForm({
                   className={cn(
                     "inline-flex h-7 items-center gap-1.5 whitespace-nowrap rounded-lg border px-2.5 font-mono text-xs transition-colors",
                     selected
-                      ? "border-foreground bg-primary text-primary-foreground"
+                      ? "border-primary/40 bg-primary/[0.07] text-primary ring-1 ring-primary/20"
                       : mounted
                         ? "border-border/70 bg-surface-muted/70 text-muted-foreground hover:border-border-strong hover:text-foreground"
                         : "border-border/80 bg-surface text-foreground hover:border-border-strong hover:bg-surface-hover",
@@ -278,21 +348,21 @@ export function ImageChannelModelForm({
 
       {isVideoModel ? (
         <SettingsNotice className="flex items-start gap-2.5 py-2.5">
-          <Film className="mt-0.5 size-4 shrink-0 text-foreground" />
+          <Film className="mt-0.5 size-4 shrink-0 text-primary" />
           <div>
             <strong className="font-semibold text-foreground">
               视频生成模型兼容条目：
             </strong>
             该条目用于管理视频模型（
             <code className="font-mono">{input.upstream_model}</code>
-            ）的显示名称、排序与启停状态，不会混入图片创作台模型列表；视频按秒积分单价统一在「全局回退单价
-            · 视频每秒单价」中配置。
+            ）的显示名称、排序与启停状态，不会混入图片创作台模型列表；视频按秒积分单价统一在「本地号池路由与积分计费
+            · Grok 视频每秒计费」中配置。
           </div>
         </SettingsNotice>
       ) : null}
 
-      <div className="rounded-xl border border-border/75 bg-surface p-4 space-y-4">
-        <div className="grid gap-3.5 sm:grid-cols-2">
+      <div className="space-y-4 rounded-xl border border-border/75 bg-surface p-4">
+        <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
           <div className="space-y-1.5">
             <label
               htmlFor="channel-model-upstream"
@@ -339,10 +409,19 @@ export function ImageChannelModelForm({
               min={1}
               max={1000000}
               rangeHint="≥ 1"
-              value={input.credit_cost}
-              onChange={(value) =>
-                set("credit_cost", Math.max(1, Number(value) || 1))
-              }
+              value={costDraft}
+              error={costError}
+              onChange={setCostDraft}
+              onBlur={() => {
+                const parsed = parsePositiveInt(costDraft);
+                if (parsed !== null) {
+                  setCostDraft(String(parsed));
+                  set("credit_cost", parsed);
+                } else if (!costDraft.trim()) {
+                  const fallback = Math.max(1, input.credit_cost || 1);
+                  setCostDraft(String(fallback));
+                }
+              }}
             />
           ) : null}
 
@@ -350,35 +429,76 @@ export function ImageChannelModelForm({
             id="channel-model-sort"
             label="列表排序权重"
             unit="权重"
-            value={input.sort}
-            onChange={(value) => set("sort", Number(value) || 0)}
+            value={sortDraft}
+            error={sortError}
+            onChange={setSortDraft}
+            onBlur={() => {
+              const parsed = parseSortInt(sortDraft);
+              if (parsed !== null) {
+                setSortDraft(String(parsed));
+                set("sort", parsed);
+              } else if (!sortDraft.trim()) {
+                setSortDraft(String(input.sort ?? 0));
+              }
+            }}
           />
         </div>
 
         {!isVideoModel && (input.resolutions || []).length > 0 ? (
-          <div className="grid gap-3 border-t border-border/60 pt-3.5 sm:grid-cols-3">
-            {(input.resolutions || []).map((resolution) => (
-              <SettingsUnitInput
-                key={resolution}
-                id={`channel-model-cost-${resolution}`}
-                label={`${resolution.toUpperCase()} 规格单价`}
-                unit="积分/张"
-                min={1}
-                max={1000000}
-                value={input.credit_costs?.[resolution] ?? input.credit_cost}
-                onChange={(value) =>
-                  set("credit_costs", {
-                    ...(input.credit_costs || {}),
-                    [resolution]: Math.max(1, Number(value) || 1),
-                  })
-                }
-              />
-            ))}
+          <div className="grid grid-cols-1 gap-3 border-t border-border/60 pt-3.5 sm:grid-cols-3">
+            {(input.resolutions || []).map((resolution) => {
+              const rawVal =
+                tierDrafts[resolution] ??
+                String(
+                  input.credit_costs?.[resolution] ?? input.credit_cost ?? 1,
+                );
+              const tierErr =
+                parsePositiveInt(rawVal) === null ? "需为 ≥ 1 整数" : undefined;
+              return (
+                <SettingsUnitInput
+                  key={resolution}
+                  id={`channel-model-cost-${resolution}`}
+                  label={`${resolution.toUpperCase()} 规格单价`}
+                  unit="积分/张"
+                  min={1}
+                  max={1000000}
+                  value={rawVal}
+                  error={tierErr}
+                  onChange={(value) =>
+                    setTierDrafts((prev) => ({ ...prev, [resolution]: value }))
+                  }
+                  onBlur={() => {
+                    const parsed = parsePositiveInt(rawVal);
+                    if (parsed !== null) {
+                      setTierDrafts((prev) => ({
+                        ...prev,
+                        [resolution]: String(parsed),
+                      }));
+                      set("credit_costs", {
+                        ...(input.credit_costs || {}),
+                        [resolution]: parsed,
+                      });
+                    } else if (!rawVal.trim()) {
+                      const fallback = Math.max(
+                        1,
+                        input.credit_costs?.[resolution] ??
+                          input.credit_cost ??
+                          1,
+                      );
+                      setTierDrafts((prev) => ({
+                        ...prev,
+                        [resolution]: String(fallback),
+                      }));
+                    }
+                  }}
+                />
+              );
+            })}
           </div>
         ) : null}
 
         {!isVideoModel ? (
-          <div className="grid gap-4 border-t border-border/60 pt-3.5 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3.5 border-t border-border/60 pt-3.5 sm:grid-cols-2">
             <PillMultiSelect
               label="支持创作能力"
               hint={
@@ -391,6 +511,7 @@ export function ImageChannelModelForm({
               minSelected={isVideoChannelModelId(input.upstream_model) ? 0 : 1}
               minWarning="图片模型至少需要保留 1 项创作能力"
               onChange={(values) => set("capabilities", values)}
+              className="sm:col-span-2"
             />
             <PillMultiSelect
               label="可选输出分辨率"
@@ -398,7 +519,20 @@ export function ImageChannelModelForm({
               selected={input.resolutions || []}
               minSelected={1}
               minWarning="请至少保留 1 档可选分辨率"
-              onChange={(values) => set("resolutions", values)}
+              onChange={(values) => {
+                set("resolutions", values);
+                setTierDrafts((prev) => {
+                  const next = { ...prev };
+                  for (const res of values) {
+                    if (next[res] === undefined) {
+                      next[res] = String(
+                        input.credit_costs?.[res] ?? input.credit_cost ?? 1,
+                      );
+                    }
+                  }
+                  return next;
+                });
+              }}
             />
             <PillMultiSelect
               label="可选图像格式"
@@ -411,37 +545,6 @@ export function ImageChannelModelForm({
           </div>
         ) : null}
       </div>
-
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/75 bg-surface-subtle/50 p-3.5">
-        <SettingsSwitchRow
-          size="sm"
-          title="启用该模型"
-          description="关闭后前台创作台将暂停展示与调度该模型"
-          checked={input.enabled}
-          onCheckedChange={(checked) => set("enabled", checked)}
-          className="bg-surface"
-        />
-
-        <div className="ml-auto flex items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={saving}
-            onClick={onCancel}
-          >
-            取消
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            loading={saving}
-            onClick={handleSubmit}
-          >
-            {model ? "保存修改" : "确认添加模型"}
-          </Button>
-        </div>
-      </div>
-    </div>
+    </form>
   );
 }

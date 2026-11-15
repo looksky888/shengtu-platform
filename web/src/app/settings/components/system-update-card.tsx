@@ -7,16 +7,13 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import {
-  ArrowUpRight,
-  ExternalLink,
-  LoaderCircle,
-  RefreshCw,
-} from "lucide-react";
+import { ArrowUpRight, ExternalLink, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { formatDateTime } from "@/lib/datetime";
 import { RequestError } from "@/lib/request";
 import {
   checkSystemUpdates,
@@ -29,17 +26,6 @@ import {
 import { SETTINGS_TAB_REFRESH_EVENT } from "../settings-tabs";
 import { HostUpdaterStatusPanel } from "./host-updater-status";
 import { SettingsCard, SettingsNotice } from "./settings-ui";
-
-function formatDate(value?: string) {
-  if (!value) return "—";
-  const date = new Date(value);
-  return Number.isNaN(date.getTime())
-    ? value
-    : new Intl.DateTimeFormat("zh-CN", {
-        dateStyle: "medium",
-        timeStyle: "short",
-      }).format(date);
-}
 
 function formatVersionTag(version?: string) {
   const clean = (version || "").trim();
@@ -94,7 +80,7 @@ function renderReleaseInline(text: string): ReactNode {
           href={href}
           target="_blank"
           rel="noopener noreferrer"
-          className="underline underline-offset-4 hover:text-foreground"
+          className="text-primary underline underline-offset-4 hover:text-primary/80"
         >
           {label}
         </a>
@@ -118,7 +104,7 @@ function parseReleaseNotes(body?: string): ParsedReleaseNotes {
     if (!trimmed) continue;
 
     const changelogMatch = trimmed.match(
-      /^\*{0,2}Full Changelog\*{0,2}\s*:\s*(https?:\/\/\S+)/i
+      /^\*{0,2}Full Changelog\*{0,2}\s*:\s*(https?:\/\/\S+)/i,
     );
     if (changelogMatch) {
       changelogUrl = changelogMatch[1];
@@ -167,7 +153,9 @@ function Detail({
       </div>
       <div
         className={`mt-1.5 min-w-0 text-xs font-semibold text-foreground ${
-          mono ? "font-mono tabular-nums break-all" : "sm:text-[13px] break-keep"
+          mono
+            ? "font-mono tabular-nums break-all"
+            : "sm:text-[13px] break-keep"
         }`}
         title={value || undefined}
       >
@@ -176,7 +164,7 @@ function Detail({
             href={href}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 underline-offset-4 hover:underline"
+            className="inline-flex items-center gap-1 underline-offset-4 hover:text-primary hover:underline"
           >
             <span>{value || "—"}</span>
             <ArrowUpRight className="size-3.5 shrink-0 text-muted-foreground" />
@@ -195,14 +183,14 @@ export function SystemUpdateCard() {
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState("");
   const [hostUpdater, setHostUpdater] = useState<HostUpdaterStatus | null>(
-    null
+    null,
   );
 
   const handleHostUpdaterChange = useCallback(
     (nextStatus: HostUpdaterStatus | null) => {
       setHostUpdater(nextStatus);
     },
-    []
+    [],
   );
 
   const load = useCallback(
@@ -217,13 +205,13 @@ export function SystemUpdateCard() {
         setError(
           requestError instanceof Error
             ? requestError.message
-            : "读取版本信息失败"
+            : "读取版本信息失败",
         );
       } finally {
         if (!signal?.aborted && !silent) setLoading(false);
       }
     },
-    []
+    [],
   );
 
   useEffect(() => {
@@ -235,13 +223,21 @@ export function SystemUpdateCard() {
   useEffect(() => {
     const handleTabRefresh = (event: Event) => {
       const detail = (event as CustomEvent<{ tab?: string }>).detail;
-      if (detail?.tab === "system" || detail?.tab === "system-update") {
+      if (
+        !detail?.tab ||
+        detail.tab === "system" ||
+        detail.tab === "system-update"
+      ) {
         void load({ silent: true });
       }
     };
     window.addEventListener(SETTINGS_TAB_REFRESH_EVENT, handleTabRefresh);
     return () =>
       window.removeEventListener(SETTINGS_TAB_REFRESH_EVENT, handleTabRefresh);
+  }, [load]);
+
+  const handleUpdateSucceeded = useCallback(() => {
+    void load({ silent: true });
   }, [load]);
 
   const check = async () => {
@@ -261,7 +257,7 @@ export function SystemUpdateCard() {
                 deployment: updateStatus.deployment,
               },
               update_status: updateStatus,
-            }
+            },
       );
       setError(updateStatus.warning || "");
       if (updateStatus.warning) {
@@ -270,7 +266,7 @@ export function SystemUpdateCard() {
         toast.success(
           updateStatus.has_update
             ? `发现新版本 ${formatVersionTag(updateStatus.latest_version)}`
-            : "当前已是最新版本"
+            : "当前已是最新版本",
         );
       }
     } catch (requestError) {
@@ -288,7 +284,7 @@ export function SystemUpdateCard() {
   const status: SystemUpdateStatus | undefined = data?.update_status;
   const parsedNotes = useMemo(
     () => parseReleaseNotes(status?.release_info?.body),
-    [status?.release_info?.body]
+    [status?.release_info?.body],
   );
   const repoHref =
     status?.repository && /^[\w.-]+\/[\w.-]+$/.test(status.repository)
@@ -300,7 +296,7 @@ export function SystemUpdateCard() {
       className="md:col-span-2"
       icon={RefreshCw}
       title="系统版本与在线升级"
-      description="核对当前构建标识、GitHub 发行日志与宿主机无缝升级通道状态"
+      description="核对当前构建标识、发行说明与宿主机无缝升级通道状态"
       tone="slate"
       meta={
         status ? (
@@ -324,14 +320,25 @@ export function SystemUpdateCard() {
       }
     >
       {loading ? (
-        <div className="flex min-h-48 items-center justify-center text-sm text-muted-foreground">
-          <LoaderCircle className="mr-2 size-5 animate-spin" />
-          正在读取版本信息…
+        <div className="space-y-4 py-1">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <Skeleton className="h-18 w-full" />
+            <Skeleton className="h-18 w-full" />
+            <Skeleton className="h-18 w-full" />
+            <Skeleton className="h-18 w-full" />
+          </div>
+          <Skeleton className="h-44 w-full" />
+          <Skeleton className="h-28 w-full" />
         </div>
       ) : error && !data ? (
         <div className="flex min-h-48 flex-col items-center justify-center gap-3 text-center">
           <p className="text-sm text-status-danger">{error}</p>
-          <Button type="button" variant="outline" size="sm" onClick={() => void load()}>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => void load()}
+          >
             重新加载
           </Button>
         </div>
@@ -375,7 +382,10 @@ export function SystemUpdateCard() {
                     formatVersionTag(status.latest_version)}
                 </div>
                 <div className="mt-0.5 text-xs tabular-nums text-muted-foreground">
-                  发布时间：{formatDate(status.release_info?.published_at)}
+                  发布时间：
+                  {formatDateTime(status.release_info?.published_at, {
+                    withSeconds: false,
+                  })}
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-2">
@@ -386,7 +396,7 @@ export function SystemUpdateCard() {
                       target="_blank"
                       rel="noopener noreferrer"
                     >
-                      查看完整 GitHub 变更对比
+                      查看完整变更对比
                       <ArrowUpRight className="size-3.5" />
                     </a>
                   </Button>
@@ -398,7 +408,7 @@ export function SystemUpdateCard() {
                       target="_blank"
                       rel="noopener noreferrer"
                     >
-                      查看 Release
+                      查看发行页面
                       <ExternalLink className="size-3.5" />
                     </a>
                   </Button>
@@ -425,7 +435,7 @@ export function SystemUpdateCard() {
                     return (
                       <div key={index} className="flex items-start gap-2">
                         <span
-                          className="mt-2 size-1.5 shrink-0 rounded-full bg-muted-foreground/60"
+                          className="mt-2 size-1.5 shrink-0 rounded-full bg-primary/70"
                           aria-hidden="true"
                         />
                         <span className="min-w-0 break-words">
@@ -452,7 +462,7 @@ export function SystemUpdateCard() {
                   aria-hidden="true"
                 />
                 <span>
-                  已连接宿主机无缝更新守护服务（Host Updater），预检通过后可一键平滑升级。
+                  已连接宿主机无缝更新守护服务，预检通过后可一键平滑升级。
                 </span>
               </div>
             </SettingsNotice>
@@ -474,6 +484,7 @@ export function SystemUpdateCard() {
             currentVersion={status.current_version}
             latestVersion={status.latest_version}
             onStatusChange={handleHostUpdaterChange}
+            onUpdateSucceeded={handleUpdateSucceeded}
           />
         </div>
       ) : null}

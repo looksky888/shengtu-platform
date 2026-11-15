@@ -120,6 +120,7 @@ func paymentSchemaStatements(driver string) []string {
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_payment_orders_user_created ON payment_orders (user_id, created_at)`,
 		`CREATE INDEX IF NOT EXISTS idx_payment_orders_status_expires ON payment_orders (status, expires_at)`,
+		`CREATE INDEX IF NOT EXISTS idx_payment_orders_status_paid_at ON payment_orders (status, paid_at)`,
 		`CREATE INDEX IF NOT EXISTS idx_payment_orders_channel_created ON payment_orders (channel_id, created_at)`,
 		`CREATE TABLE IF NOT EXISTS payment_events (
 			id TEXT PRIMARY KEY NOT NULL,
@@ -284,6 +285,7 @@ func mysqlPaymentSchemaStatements() []string {
 			UNIQUE KEY uk_payment_user_idempotency (user_id, idempotency_key),
 			KEY idx_payment_orders_user_created (user_id, created_at),
 			KEY idx_payment_orders_status_expires (status, expires_at),
+			KEY idx_payment_orders_status_paid_at (status, paid_at),
 			KEY idx_payment_orders_channel_created (channel_id, created_at),
 			CHECK (amount_fen > 0),
 			CHECK (credits_snapshot > 0)

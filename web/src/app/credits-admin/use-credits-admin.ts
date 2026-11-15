@@ -69,21 +69,21 @@ export function useCreditsAdmin(
   const [cardsPage, setCardsPage] = useState(1);
   const [ledgerPage, setLedgerPage] = useState(1);
   const [usersPage, setUsersPage] = useState(1);
-  const [cardsPageSize, setCardsPageSize] = useState<AdminTablePageSize>(10);
-  const [ledgerPageSize, setLedgerPageSize] = useState<AdminTablePageSize>(20);
-  const [usersPageSize, setUsersPageSize] = useState<AdminTablePageSize>(10);
+  const [cardsPageSize, setCardsPageSizeState] = useState<AdminTablePageSize>(10);
+  const [ledgerPageSize, setLedgerPageSizeState] = useState<AdminTablePageSize>(20);
+  const [usersPageSize, setUsersPageSizeState] = useState<AdminTablePageSize>(10);
 
   const [cardsSearch, setCardsSearch] = useState("");
   const [cardsSearchDebounced, setCardsSearchDebounced] = useState("");
-  const [cardsStatus, setCardsStatus] = useState("all");
-  const [cardsTime, setCardsTime] = useState<TimeFilter>("all");
+  const [cardsStatus, setCardsStatusState] = useState("all");
+  const [cardsTime, setCardsTimeState] = useState<TimeFilter>("all");
   const [ledgerSearch, setLedgerSearch] = useState("");
   const [ledgerSearchDebounced, setLedgerSearchDebounced] = useState("");
-  const [ledgerReason, setLedgerReason] = useState("all");
-  const [ledgerTime, setLedgerTime] = useState<TimeFilter>("all");
+  const [ledgerReason, setLedgerReasonState] = useState("all");
+  const [ledgerTime, setLedgerTimeState] = useState<TimeFilter>("all");
   const [usersSearch, setUsersSearch] = useState("");
   const [usersSearchDebounced, setUsersSearchDebounced] = useState("");
-  const [usersTime, setUsersTime] = useState<TimeFilter>("all");
+  const [usersTime, setUsersTimeState] = useState<TimeFilter>("all");
 
   const [isCardsLoading, setIsCardsLoading] = useState(
     () => activeTab === "all" || activeTab === "cards",
@@ -130,27 +130,71 @@ export function useCreditsAdmin(
           : isLedgerLoading;
 
   useEffect(() => {
-    setCardsPage(1);
-  }, [cardsSearchDebounced, cardsStatus, cardsTime, cardsPageSize]);
-  useEffect(() => {
-    setUsersPage(1);
-  }, [usersSearchDebounced, usersTime, usersPageSize]);
-  useEffect(() => {
-    setLedgerPage(1);
-  }, [ledgerReason, ledgerSearchDebounced, ledgerTime, ledgerPageSize]);
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => setCardsSearchDebounced(cardsSearch.trim()), 400);
+    const timer = window.setTimeout(() => {
+      const next = cardsSearch.trim();
+      setCardsSearchDebounced((prev) => {
+        if (prev === next) return prev;
+        setCardsPage(1);
+        return next;
+      });
+    }, 400);
     return () => window.clearTimeout(timer);
   }, [cardsSearch]);
   useEffect(() => {
-    const timer = window.setTimeout(() => setUsersSearchDebounced(usersSearch.trim()), 400);
+    const timer = window.setTimeout(() => {
+      const next = usersSearch.trim();
+      setUsersSearchDebounced((prev) => {
+        if (prev === next) return prev;
+        setUsersPage(1);
+        return next;
+      });
+    }, 400);
     return () => window.clearTimeout(timer);
   }, [usersSearch]);
   useEffect(() => {
-    const timer = window.setTimeout(() => setLedgerSearchDebounced(ledgerSearch.trim()), 400);
+    const timer = window.setTimeout(() => {
+      const next = ledgerSearch.trim();
+      setLedgerSearchDebounced((prev) => {
+        if (prev === next) return prev;
+        setLedgerPage(1);
+        return next;
+      });
+    }, 400);
     return () => window.clearTimeout(timer);
   }, [ledgerSearch]);
+
+  const setCardsStatus = useCallback((value: string) => {
+    setCardsPage(1);
+    setCardsStatusState(value);
+  }, []);
+  const setCardsTime = useCallback((value: TimeFilter) => {
+    setCardsPage(1);
+    setCardsTimeState(value);
+  }, []);
+  const setCardsPageSize = useCallback((value: AdminTablePageSize) => {
+    setCardsPage(1);
+    setCardsPageSizeState(value);
+  }, []);
+  const setUsersTime = useCallback((value: TimeFilter) => {
+    setUsersPage(1);
+    setUsersTimeState(value);
+  }, []);
+  const setUsersPageSize = useCallback((value: AdminTablePageSize) => {
+    setUsersPage(1);
+    setUsersPageSizeState(value);
+  }, []);
+  const setLedgerReason = useCallback((value: string) => {
+    setLedgerPage(1);
+    setLedgerReasonState(value);
+  }, []);
+  const setLedgerTime = useCallback((value: TimeFilter) => {
+    setLedgerPage(1);
+    setLedgerTimeState(value);
+  }, []);
+  const setLedgerPageSize = useCallback((value: AdminTablePageSize) => {
+    setLedgerPage(1);
+    setLedgerPageSizeState(value);
+  }, []);
 
   const loadCards = useCallback(async (summaryOnly = false) => {
     cardsAbortRef.current?.abort();

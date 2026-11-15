@@ -26,10 +26,10 @@ export function useAccountsManagement(session: StoredAuthSession, enabled = true
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [query, setQuery] = useState("");
-  const [typeFilter, setTypeFilter] = useState<AccountType | "all">("all");
-  const [statusFilter, setStatusFilter] = useState<AccountStatus | "all">("all");
+  const [typeFilter, setTypeFilterState] = useState<AccountType | "all">("all");
+  const [statusFilter, setStatusFilterState] = useState<AccountStatus | "all">("all");
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState("10");
+  const [pageSize, setPageSizeState] = useState("10");
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
   const [editType, setEditType] = useState<AccountType>("Free");
   const [editStatus, setEditStatus] = useState<AccountStatus>("正常");
@@ -66,13 +66,39 @@ export function useAccountsManagement(session: StoredAuthSession, enabled = true
   const [serverSummary, setServerSummary] = useState<AccountsPageSummary | null>(null);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setQueryDebounced(query.trim()), 400);
+    const timer = window.setTimeout(() => {
+      const next = query.trim();
+      setQueryDebounced((prev) => {
+        if (prev === next) return prev;
+        setPage(1);
+        return next;
+      });
+    }, 400);
     return () => window.clearTimeout(timer);
   }, [query]);
 
-  useEffect(() => {
+  const setTypeFilter = useCallback((value: AccountType | "all") => {
     setPage(1);
-  }, [queryDebounced, typeFilter, statusFilter, pageSize]);
+    setTypeFilterState(value);
+  }, []);
+
+  const setStatusFilter = useCallback((value: AccountStatus | "all") => {
+    setPage(1);
+    setStatusFilterState(value);
+  }, []);
+
+  const setPageSize = useCallback((value: string) => {
+    setPage(1);
+    setPageSizeState(value);
+  }, []);
+
+  const resetFilters = useCallback(() => {
+    setQuery("");
+    setQueryDebounced("");
+    setTypeFilterState("all");
+    setStatusFilterState("all");
+    setPage(1);
+  }, []);
 
   const loadAccounts = useCallback(async (silent = false) => {
     accountsAbortRef.current?.abort();
@@ -289,9 +315,13 @@ export function useAccountsManagement(session: StoredAuthSession, enabled = true
 
   const handleImported = (_items: Account[]) => {
     setSelectedIds([]);
-    setPage(1);
-    void loadAccounts(true);
-    if (enabled) void loadAccountsSummary();
+    if (page !== 1) {
+      setPage(1);
+      return;
+    }
+    if (enabled) {
+      void loadAccounts(true);
+    }
   };
 
   return {
@@ -300,7 +330,7 @@ export function useAccountsManagement(session: StoredAuthSession, enabled = true
     isLoading, isRefreshing, isDeleting, isUpdating, isExporting, permissions, filteredAccounts, filteredCount, pageCount, safePage,
     startIndex, currentRows, allCurrentSelected, showInitialEmptyState, showFilteredEmptyState, summary,
     selectedAccountIds, abnormalAccountIds, paginationItems, setQuery, setTypeFilter, setStatusFilter, setPage,
-    setPageSize, setSelectedIds, setEditingAccount, setEditType, setEditStatus, setEditQuota,
+    setPageSize, resetFilters, setSelectedIds, setEditingAccount, setEditType, setEditStatus, setEditQuota,
     setEditProxyUrl, setEditProxyTimezone, setClearProxy, loadAccounts, loadAccountsSummary,
     handleDeleteAccounts, handleRefreshAccounts, handleRefreshAllAccounts, handleExportTokens, openEditDialog, handleUpdateAccount,
     toggleSelectAll, handleImported,

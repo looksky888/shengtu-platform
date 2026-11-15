@@ -3,14 +3,14 @@
 import * as React from "react";
 
 import type {
-  ExternalDirtyEntry,
   NormalizedDirtyEntry,
+  SettingsDirtyEntry,
 } from "./settings-dirty-registry";
 import {
   DirtyRegistryStoreContext,
   type SettingsDirtyRegistryStore,
 } from "./settings-dirty-registry-store";
-import { parseSettingsTab, type SettingsTabKey } from "./settings-tab-types";
+import type { SettingsTabKey } from "./settings-tab-types";
 
 const EMPTY_ENTRIES: Record<string, NormalizedDirtyEntry> = {};
 const noopSubscribe = () => () => {};
@@ -40,14 +40,14 @@ export function useSettingsDirtyRegistry() {
 }
 
 /** Register a settings card's local dirty state and/or validator into the global SettingsTabs bar. */
-export function useRegisterSettingsDirty(entry: ExternalDirtyEntry) {
+export function useRegisterSettingsDirty(entry: SettingsDirtyEntry) {
   const store = React.useContext(
     DirtyRegistryStoreContext,
   ) as SettingsDirtyRegistryStore<SettingsTabKey> | null;
   const latestRef = React.useRef(entry);
   latestRef.current = entry;
 
-  const normalizedTab = parseSettingsTab(entry.tab);
+  const normalizedTab: SettingsTabKey = entry.tab;
 
   const stableValidate = React.useCallback(
     () => (latestRef.current.validate ? latestRef.current.validate() : true),

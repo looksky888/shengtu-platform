@@ -74,6 +74,41 @@ export function PaymentSettingsSection({
 
   const save = useCallback(async (): Promise<boolean> => {
     if (!settings) return false;
+    if (!Number.isFinite(settings.credit_unit_price_fen) || settings.credit_unit_price_fen < 1) {
+      toast.error("每积分单价必须为正整数（分）");
+      return false;
+    }
+    if (
+      !Number.isFinite(settings.min_custom_credits) ||
+      settings.min_custom_credits < 1 ||
+      !Number.isFinite(settings.max_custom_credits) ||
+      settings.max_custom_credits < 1
+    ) {
+      toast.error("自定义购买积分上下限必须大于 0");
+      return false;
+    }
+    const minCustomAmountYuan = (settings.min_custom_credits * settings.credit_unit_price_fen) / 100;
+    const maxCustomAmountYuan = (settings.max_custom_credits * settings.credit_unit_price_fen) / 100;
+    if (
+      settings.min_custom_credits > settings.max_custom_credits ||
+      minCustomAmountYuan > maxCustomAmountYuan
+    ) {
+      toast.error("单笔最少购买积分（金额）不能大于单笔最多购买积分（金额）");
+      return false;
+    }
+    const retentionFields = [
+      settings.free_retention_days,
+      settings.vip_grace_days,
+      settings.historical_grace_days,
+    ];
+    if (
+      retentionFields.some(
+        (days) => days !== undefined && (!Number.isFinite(days) || days <= 0),
+      )
+    ) {
+      toast.error("留存天数与宽限天数必须大于 0");
+      return false;
+    }
     setSaving(true);
     try {
       let payload: PaymentSettings = settings;

@@ -115,7 +115,7 @@ export const SETTINGS_TABS = [
       {
         id: "settings-section-media-vip",
         label: "云存储 VIP 留存策略总开关",
-        summary: "管理 cloud_storage_enabled 总开关、免费保留天数（默认 3 天）与双重宽限缓冲期",
+        summary: "管理云存储会员留存总开关、免费保留天数（默认 3 天）与双重宽限缓冲期",
         keywords: ["vip", "cloud_storage_enabled", "留存", "云存储会员", "free_retention_days"],
       },
       {

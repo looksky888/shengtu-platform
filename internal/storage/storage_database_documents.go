@@ -85,6 +85,38 @@ func (b *DatabaseBackend) ListJSONDocumentNamesByPrefix(prefix string) ([]string
 	return out, rows.Err()
 }
 
+func (b *DatabaseBackend) LoadJSONDocumentsByPrefix(prefix string) (map[string]any, error) {
+	trimmed := strings.TrimSuffix(strings.TrimSpace(prefix), "/")
+	rel, err := cleanDocumentName(trimmed)
+	if err != nil {
+		return nil, err
+	}
+	dirPrefix := rel + "/"
+	upperBound := rel + "0"
+	query := "SELECT name, data FROM json_documents WHERE name >= " + b.placeholder(1) + " AND name < " + b.placeholder(2) + " ORDER BY name ASC"
+	rows, err := b.reader().Query(query, dirPrefix, upperBound)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make(map[string]any)
+	for rows.Next() {
+		var name, text string
+		if err := rows.Scan(&name, &text); err != nil {
+			return nil, err
+		}
+		if !strings.HasPrefix(name, dirPrefix) {
+			continue
+		}
+		decoded, decodeErr := decodeJSONString(text)
+		if decodeErr != nil {
+			continue
+		}
+		out[name] = decoded
+	}
+	return out, rows.Err()
+}
+
 func (b *DatabaseBackend) DeleteJSONDocumentsBatch(names []string) (int, error) {
 	if len(names) == 0 {
 		return 0, nil

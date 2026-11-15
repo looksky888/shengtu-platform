@@ -135,6 +135,56 @@ func (s *AccountService) PoolHealthSnapshot() map[string]any {
 	}
 }
 
+type OverviewPoolOpenAISummary struct {
+	Total       int `json:"total"`
+	Available   int `json:"available"`
+	Cooling     int `json:"cooling"`
+	Quarantined int `json:"quarantined"`
+	Disabled    int `json:"disabled"`
+}
+
+func (s *AccountService) OverviewPoolSummary() OverviewPoolOpenAISummary {
+	if s == nil {
+		return OverviewPoolOpenAISummary{}
+	}
+	quarantineCabin, _ := s.QuarantineStats()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	now := time.Now()
+	s.ensureImageReservationsLocked()
+	s.reclaimExpiredLeasesLocked(now)
+	var inPool, available, cooling, invalid, disabled int
+	for _, item := range s.items {
+		token := util.Clean(item.AccessToken)
+		if token == "" {
+			continue
+		}
+		inPool++
+		status := firstNonEmpty(util.Clean(item.Status), "正常")
+		switch status {
+		case "禁用":
+			disabled++
+		case "异常":
+			invalid++
+		case "限流":
+			cooling++
+		default:
+			if s.isImageCooldownActiveLocked(token, now) {
+				cooling++
+			} else if item.isImageAvailable() {
+				available++
+			}
+		}
+	}
+	return OverviewPoolOpenAISummary{
+		Total:       inPool + quarantineCabin,
+		Available:   available,
+		Cooling:     cooling,
+		Quarantined: quarantineCabin + invalid,
+		Disabled:    disabled,
+	}
+}
+
 func (s *AccountService) ListLimitedTokens() []string {
 	s.mu.Lock()
 	defer s.mu.Unlock()

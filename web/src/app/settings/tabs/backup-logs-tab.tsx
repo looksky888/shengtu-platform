@@ -9,9 +9,9 @@ import { LogGovernanceCard } from "../components/log-governance-card";
 export default function BackupLogsTab() {
   return (
     <section className="flex flex-col gap-5">
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-[22px] border border-border/75 bg-card p-5 shadow-2xs">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-[14px] border border-border/80 bg-surface px-5 py-4 shadow-2xs">
         <div className="space-y-0.5">
-          <div className="text-base font-semibold text-foreground">
+          <div className="text-sm font-semibold text-foreground sm:text-[15px]">
             审计日志与创作队列入口
           </div>
           <p className="text-xs text-muted-foreground">
@@ -19,23 +19,27 @@ export default function BackupLogsTab() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button asChild variant="outline" className="rounded-xl">
+          <Button asChild variant="outline" size="sm" className="h-8 rounded-lg text-xs">
             <Link to="/logs">
-              <FileClock className="size-4" />
+              <FileClock className="size-3.5" />
               日志管理
             </Link>
           </Button>
-          <Button asChild variant="outline" className="rounded-xl">
+          <Button asChild variant="outline" size="sm" className="h-8 rounded-lg text-xs">
             <Link to="/task-queue?tab=history">
-              <ListChecks className="size-4" />
+              <ListChecks className="size-3.5" />
               任务历史
             </Link>
           </Button>
         </div>
       </div>
 
-      <BackupSettingsCard />
-      <LogGovernanceCard />
+      <div id="settings-section-backup-policy">
+        <BackupSettingsCard />
+      </div>
+      <div id="settings-section-backup-logs">
+        <LogGovernanceCard />
+      </div>
     </section>
   );
 }

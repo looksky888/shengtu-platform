@@ -20,6 +20,9 @@ const (
 	registrationEmailCooldown     = time.Minute
 	passwordResetEmailRateMax     = 8
 	passwordResetRateMax          = 12
+	redeemCodeRateWindow          = 10 * time.Minute
+	redeemCodeIPRateMax           = 15
+	redeemCodeUserRateMax         = 10
 	authRateKeySep                = "|"
 )
 
@@ -242,6 +245,24 @@ func allowPasswordResetEmailAttempt(r *http.Request) bool {
 func allowPasswordResetAttempt(r *http.Request) bool {
 	ip := authClientIP(r)
 	return globalAuthRateLimiter.allow("password-reset-ip"+authRateKeySep+ip, passwordResetRateMax, loginRateWindow)
+}
+
+func allowCreditRedeemAttempt(r *http.Request, userID string) bool {
+	ip := authClientIP(r)
+	uid := strings.ToLower(strings.TrimSpace(userID))
+	if ip != "" && !globalAuthRateLimiter.canProceed("redeem-ip"+authRateKeySep+ip, redeemCodeIPRateMax, redeemCodeRateWindow) {
+		return false
+	}
+	if uid != "" && !globalAuthRateLimiter.canProceed("redeem-user"+authRateKeySep+uid, redeemCodeUserRateMax, redeemCodeRateWindow) {
+		return false
+	}
+	if ip != "" {
+		globalAuthRateLimiter.recordHit("redeem-ip"+authRateKeySep+ip, redeemCodeRateWindow)
+	}
+	if uid != "" {
+		globalAuthRateLimiter.recordHit("redeem-user"+authRateKeySep+uid, redeemCodeRateWindow)
+	}
+	return true
 }
 
 // resetAuthRateLimiterForTest clears login/register windows so -count=N suite runs stay isolated.

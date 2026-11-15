@@ -42,13 +42,9 @@ func (s *ImageTaskService) ListVideoTasksPage(identity Identity, limit int, curs
 		}
 	}
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.cleanupLocked() {
-		if err := s.saveLocked(); err != nil {
-			return VideoTaskPage{}, &ImageTaskPersistenceError{Operation: "视频列表清理持久化", Err: err}
-		}
-	}
+	s.cleanupIfExpiredForRead()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	tasks := make([]*ImageTask, 0)
 	for _, task := range s.tasks {
 		if task == nil || task.Mode != "video" {
@@ -108,13 +104,9 @@ func (s *ImageTaskService) FindOwnedVideoTask(identity Identity, id string) (Ima
 	if id == "" {
 		return ImageTaskPublic{}, false
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.cleanupLocked() {
-		if err := s.saveLocked(); err != nil {
-			return ImageTaskPublic{}, false
-		}
-	}
+	s.cleanupIfExpiredForRead()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	task := s.tasks[taskKey(ownerID(identity), id)]
 	if task == nil || task.Mode != "video" {
 		return ImageTaskPublic{}, false

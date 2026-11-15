@@ -28,6 +28,7 @@ export const Switch = React.forwardRef<HTMLButtonElement, SwitchProps>(
         ref={ref}
         type="button"
         role="switch"
+        data-slot="switch"
         aria-checked={checked}
         data-state={checked ? "checked" : "unchecked"}
         disabled={disabled}
@@ -41,16 +42,17 @@ export const Switch = React.forwardRef<HTMLButtonElement, SwitchProps>(
           "peer inline-flex shrink-0 cursor-pointer items-center rounded-full border border-transparent transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50",
           checked
             ? "bg-primary"
-            : "bg-surface-active hover:bg-muted-foreground/30",
+            : "bg-surface-active dark:bg-zinc-700 hover:bg-muted-foreground/30 dark:hover:bg-zinc-600",
           size === "sm" ? "h-4.5 w-8" : "h-5.5 w-10",
           className
         )}
         {...props}
       >
         <span
+          data-slot="switch-thumb"
           className={cn(
             "pointer-events-none block rounded-full shadow-xs ring-0 transition-transform duration-150",
-            checked ? "bg-primary-foreground" : "bg-white dark:bg-zinc-200",
+            checked ? "bg-primary-foreground" : "bg-white dark:bg-zinc-100",
             size === "sm"
               ? cn("size-3.5", checked ? "translate-x-4" : "translate-x-0.5")
               : cn("size-4.5", checked ? "translate-x-5" : "translate-x-0.5")

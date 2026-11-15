@@ -157,3 +157,61 @@ func TestPaymentSettingsCloudStoragePolicyStartedAtTransitionSemantics(t *testin
 		t.Fatalf("after second 0->1 transition = %#v, want refreshed started_at=%q", reEnabled, t4)
 	}
 }
+
+func TestPaymentStatsClampsCrossMidnightSuccessRateAndComputesLast30Days(t *testing.T) {
+	backend := openPaymentSchemaTestBackend(t)
+	defer backend.Close()
+	seedPaymentSchemaParents(t, backend.db)
+
+	// Order 1: created yesterday at 23:55+08:00, paid today at 00:02+08:00.
+	crossMidnight := paymentRepositoryTestOrder("stats-cross-1", "stats-cross-trade-1", "stats-cross-idem-1")
+	crossMidnight.Status = PaymentOrderStatusSucceeded
+	crossMidnight.CreatedAt = "2026-08-29T15:55:00Z"
+	crossMidnight.PaidAt = "2026-08-29T16:02:00Z"
+	crossMidnight.UpdatedAt = crossMidnight.PaidAt
+	if _, _, err := backend.CreatePaymentOrder(crossMidnight); err != nil {
+		t.Fatal(err)
+	}
+
+	// Order 2: created today and paid today -> Today has TotalOrders=1, SucceededOrders=2!
+	todayOrder := paymentRepositoryTestOrder("stats-cross-2", "stats-cross-trade-2", "stats-cross-idem-2")
+	todayOrder.Status = PaymentOrderStatusSucceeded
+	todayOrder.CreatedAt = "2026-08-29T17:00:00Z"
+	todayOrder.PaidAt = "2026-08-29T17:05:00Z"
+	todayOrder.UpdatedAt = todayOrder.PaidAt
+	if _, _, err := backend.CreatePaymentOrder(todayOrder); err != nil {
+		t.Fatal(err)
+	}
+
+	// Order 3: 20 days ago -> included in Last30Days and AllTime, excluded from Last7Days.
+	twentyDaysAgo := paymentRepositoryTestOrder("stats-20d", "stats-20d-trade", "stats-20d-idem")
+	twentyDaysAgo.UserID = "user-2"
+	twentyDaysAgo.Status = PaymentOrderStatusSucceeded
+	twentyDaysAgo.CreatedAt = "2026-08-10T10:00:00Z"
+	twentyDaysAgo.PaidAt = "2026-08-10T10:01:00Z"
+	twentyDaysAgo.UpdatedAt = twentyDaysAgo.PaidAt
+	if _, _, err := backend.CreatePaymentOrder(twentyDaysAgo); err != nil {
+		t.Fatal(err)
+	}
+
+	stats, err := backend.LoadPaymentStats("2026-08-30T12:00:00+08:00")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stats.Today.TotalOrders != 1 || stats.Today.SucceededOrders != 2 || stats.Today.SuccessRate != 100 {
+		t.Fatalf("cross-midnight today stats = %#v, want total=1 succeeded=2 rate=100", stats.Today)
+	}
+	if stats.Last7Days.SucceededOrders != 2 || stats.Last7Days.SucceededAmountFen != 200 {
+		t.Fatalf("last_7_days = %#v, want 2 orders / 200 fen", stats.Last7Days)
+	}
+	if stats.Last30Days.SucceededOrders != 3 || stats.Last30Days.SucceededAmountFen != 300 {
+		t.Fatalf("last_30_days = %#v, want 3 orders / 300 fen", stats.Last30Days)
+	}
+	paidUsers, err := backend.CountPaidUsers()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if paidUsers != 2 {
+		t.Fatalf("paidUsers = %d, want 2", paidUsers)
+	}
+}

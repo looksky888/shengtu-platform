@@ -26,14 +26,11 @@ const TASK_QUEUE_TABS = [
 
 export function TaskQueueContent({
   session,
-  embedded = false,
 }: {
   session: StoredAuthSession;
-  embedded?: boolean;
 }) {
   const [searchParams, setSearchParams] = useSearchParams();
-  const paramKey = embedded ? "view" : "tab";
-  const tab = searchParams.get(paramKey) === "history" ? "history" : "live";
+  const tab = searchParams.get("tab") === "history" ? "history" : "live";
   const live = useTaskQueueLive(tab === "live", session);
   const [historyReloadKey, setHistoryReloadKey] = useState(0);
   const [confirmClearScope, setConfirmClearScope] = useState<
@@ -42,8 +39,8 @@ export function TaskQueueContent({
 
   const setTab = (next: "live" | "history") => {
     const params = new URLSearchParams(searchParams);
-    if (next === "history") params.set(paramKey, "history");
-    else params.delete(paramKey);
+    if (next === "history") params.set("tab", "history");
+    else params.delete("tab");
     setSearchParams(params, { replace: true });
   };
 
@@ -58,13 +55,6 @@ export function TaskQueueContent({
 
   const actionControls = (
     <div className="flex flex-wrap items-center gap-2">
-      {embedded && tab === "live" ? (
-        <LiveStatusBadge
-          state="live"
-          label="SSE 实时监听"
-          refreshing={live.isLoading}
-        />
-      ) : null}
       <Button
         type="button"
         variant="outline"
@@ -122,23 +112,21 @@ export function TaskQueueContent({
 
   return (
     <section className="min-w-0 space-y-4">
-      {!embedded ? (
-        <PageHeader
-          eyebrow="资产与任务"
-          title="任务中心"
-          badge={
-            tab === "live" ? (
-              <LiveStatusBadge
-                state="live"
-                label="SSE 实时监听"
-                refreshing={live.isLoading}
-              />
-            ) : undefined
-          }
-          description="实时监控生成队列、Worker 并发负载与异常处置；历史页用于筛选、排错与归档清理。"
-          actions={actionControls}
-        />
-      ) : null}
+      <PageHeader
+        eyebrow="资产与任务"
+        title="任务中心"
+        badge={
+          tab === "live" ? (
+            <LiveStatusBadge
+              state="live"
+              label="SSE 实时监听"
+              refreshing={live.isLoading}
+            />
+          ) : undefined
+        }
+        description="实时监控生成队列、Worker 并发负载与异常处置；历史页用于筛选、排错与归档清理。"
+        actions={actionControls}
+      />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <SubNav
@@ -148,11 +136,13 @@ export function TaskQueueContent({
           onValueChange={setTab}
           layoutId="task-queue-subnav"
         />
-        {embedded ? actionControls : null}
       </div>
 
       {tab === "history" ? (
-        <TaskHistoryPanel embedded reloadKey={historyReloadKey} />
+        <TaskHistoryPanel
+          reloadKey={historyReloadKey}
+          canManageTasks={live.canManageTasks}
+        />
       ) : (
         <TaskQueueLivePanel
           live={live}

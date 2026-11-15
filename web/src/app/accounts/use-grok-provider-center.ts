@@ -134,7 +134,7 @@ export function useGrokProviderCenter(enabled = true) {
   const taskActive = isActiveTaskStatus(task?.status);
 
   useEffect(() => {
-    if (!taskId || !taskActive) return;
+    if (!enabled || !taskId || !taskActive) return;
     let disposed = false;
     let timer: number | undefined;
     let activeController: AbortController | null = null;
@@ -179,7 +179,7 @@ export function useGrokProviderCenter(enabled = true) {
       activeController?.abort();
       if (timer !== undefined) window.clearTimeout(timer);
     };
-  }, [taskActive, taskId]);
+  }, [enabled, taskActive, taskId]);
 
   const selectedAccounts = useMemo(
     () => (data?.items || []).filter((item) => selected.includes(item.id)),

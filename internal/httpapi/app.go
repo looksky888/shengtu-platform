@@ -44,6 +44,7 @@ const (
 
 type App struct {
 	config            *config.Store
+	backend           storage.Backend
 	auth              *service.AuthService
 	accounts          *service.AccountService
 	logs              *service.LogService
@@ -53,6 +54,7 @@ type App struct {
 	images            *service.ImageService
 	media             *service.MediaLibrary
 	mediaAdmin        *service.MediaLibrary
+	mediaAdminCancel  context.CancelFunc
 	mediaKey          string
 	mediaMu           sync.Mutex
 	billingMu         sync.RWMutex
@@ -202,7 +204,7 @@ func NewApp() (*App, error) {
 		return nil, fmt.Errorf("初始化积分退款队列: %w", err)
 	}
 	app := &App{
-		config: cfg, auth: auth, accounts: accounts, logs: logs, logger: logger, proxy: proxy, engine: engine,
+		config: cfg, backend: storageBackend, auth: auth, accounts: accounts, logs: logs, logger: logger, proxy: proxy, engine: engine,
 		images:            images,
 		media:             media,
 		videos:            service.NewVideoAssetService(cfg.DataDir, storageBackend),
@@ -232,6 +234,7 @@ func NewApp() (*App, error) {
 		closeLog:          logger.Close,
 		closeStorage:      closeStorage,
 	}
+	hotApplyUpstreamClearanceEnv(cfg)
 	app.cpaImport = service.NewCPAImportService(app.cpa, accounts, proxy)
 	app.paymentOrders.BindCredits(app.credits)
 	app.paymentOrders.StartRecovery(ctx, time.Minute, 50, func(summary service.PaymentRecoverySummary, err error) {
@@ -305,6 +308,38 @@ func (a *App) runMediaCleanup(ctx context.Context) {
 			a.logger.Info("swept orphaned local image documents", "removed", swept)
 		}
 	}
+	localImagesDue := a.images != nil && a.config.MediaAutoCleanupEnabled()
+	videosDue := a.videos != nil && a.config.VideoAutoCleanupEnabled()
+	if localImagesDue || videosDue {
+		var protectedOwners map[string]storage.PaymentStorageEntitlementSummary
+		skipLocalCleanup := false
+		if a.paymentOrders != nil && a.paymentOrders.Available() {
+			entitlements, entErr := a.paymentOrders.ActiveStorageEntitlements()
+			if entErr != nil {
+				if a.logger != nil {
+					a.logger.Warning("skip local/video media cleanup: load active storage entitlements failed", "error", entErr.Error())
+				}
+				skipLocalCleanup = true
+			} else {
+				protectedOwners = entitlements
+			}
+		}
+		if !skipLocalCleanup {
+			if localImagesDue {
+				if removed := a.images.CleanupOldImages(a.config.ImageRetentionDays(), protectedOwners); removed > 0 && a.logger != nil {
+					a.logger.Info("scheduled image cleanup completed", "removed", removed)
+				}
+			}
+			if videosDue {
+				removed, videoErr := a.videos.CleanupOldVideos(a.config.VideoRetentionDays(), protectedOwners)
+				if videoErr != nil && a.logger != nil {
+					a.logger.Warning("scheduled video cleanup failed", "error", videoErr.Error())
+				} else if removed > 0 && a.logger != nil {
+					a.logger.Info("scheduled video cleanup completed", "removed", removed)
+				}
+			}
+		}
+	}
 	if a.paymentOrders == nil || !a.paymentOrders.Available() {
 		return
 	}
@@ -327,30 +362,21 @@ func (a *App) runMediaCleanup(ctx context.Context) {
 			a.logger.Info("scheduled R2 image cleanup completed", "removed", removed)
 		}
 	}
-	localImagesDue := a.images != nil && a.config.MediaAutoCleanupEnabled()
-	videosDue := a.videos != nil && a.config.VideoAutoCleanupEnabled()
-	if !localImagesDue && !videosDue {
+}
+
+func (a *App) runIncrementalVacuum(ctx context.Context, maxPages int) {
+	if a == nil || a.backend == nil {
 		return
 	}
-	protectedOwners, entErr := a.paymentOrders.ActiveStorageEntitlements()
-	if entErr != nil {
-		if a.logger != nil {
-			a.logger.Warning("skip local/video media cleanup: load active storage entitlements failed", "error", entErr.Error())
-		}
+	vac, ok := a.backend.(storage.IncrementalVacuumBackend)
+	if !ok {
 		return
 	}
-	if localImagesDue {
-		if removed := a.images.CleanupOldImages(a.config.ImageRetentionDays(), protectedOwners); removed > 0 && a.logger != nil {
-			a.logger.Info("scheduled image cleanup completed", "removed", removed)
-		}
+	if ctx == nil {
+		ctx = context.Background()
 	}
-	if videosDue {
-		removed, videoErr := a.videos.CleanupOldVideos(a.config.VideoRetentionDays(), protectedOwners)
-		if videoErr != nil && a.logger != nil {
-			a.logger.Warning("scheduled video cleanup failed", "error", videoErr.Error())
-		} else if removed > 0 && a.logger != nil {
-			a.logger.Info("scheduled video cleanup completed", "removed", removed)
-		}
+	if err := vac.IncrementalVacuum(ctx, maxPages); err != nil && a.logger != nil {
+		a.logger.Warning("database incremental vacuum failed", "error", err.Error())
 	}
 }
 
@@ -377,6 +403,7 @@ func (a *App) startLogCleanup(ctx context.Context, interval time.Duration) {
 		if result.Deleted > 0 && a.logger != nil {
 			a.logger.Info("scheduled log cleanup completed", "deleted", result.Deleted, "retention_days", result.RetentionDays)
 		}
+		a.runIncrementalVacuum(ctx, 2000)
 	}
 	a.cleanupWG.Add(1)
 	go func() {

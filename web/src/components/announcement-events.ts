@@ -4,6 +4,7 @@ import {
   type Announcement,
   type AnnouncementTarget,
 } from "@/lib/api";
+import { AUTH_SESSION_CHANGE_EVENT } from "@/lib/auth-session-events";
 
 const announcementsCache = new Map<
   AnnouncementTarget,
@@ -14,6 +15,17 @@ const announcementsInFlight = new Map<
   Promise<Announcement[]>
 >();
 const ANNOUNCEMENTS_CACHE_TTL_MS = 15_000;
+let announcementsCacheGeneration = 0;
+
+function clearAnnouncementsCache() {
+  announcementsCacheGeneration += 1;
+  announcementsCache.clear();
+  announcementsInFlight.clear();
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener(AUTH_SESSION_CHANGE_EVENT, clearAnnouncementsCache);
+}
 
 type StreamHub = {
   source: EventSource;
@@ -96,10 +108,13 @@ export function loadSharedAnnouncements(
   }
   const existing = announcementsInFlight.get(target);
   if (existing) return existing;
+  const generation = announcementsCacheGeneration;
   const req = fetchVisibleAnnouncements(target)
     .then((data) => {
       const items = Array.isArray(data.items) ? data.items : [];
-      announcementsCache.set(target, { items, fetchedAt: Date.now() });
+      if (generation === announcementsCacheGeneration) {
+        announcementsCache.set(target, { items, fetchedAt: Date.now() });
+      }
       return items;
     })
     .finally(() => {

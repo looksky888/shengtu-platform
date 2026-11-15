@@ -10,7 +10,12 @@ export function shouldRedirectUnauthorized(
   redirectOnUnauthorized: boolean | undefined,
   pathname: string,
 ): boolean {
-  return status === 401 && redirectOnUnauthorized !== false && !pathname.startsWith("/login");
+  return (
+    status === 401 &&
+    redirectOnUnauthorized !== false &&
+    pathname !== "/" &&
+    !pathname.startsWith("/login")
+  );
 }
 
 function hasControlCharacter(value: string): boolean {

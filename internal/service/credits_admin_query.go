@@ -184,6 +184,19 @@ func (s *CreditService) QueryAccounts(query CreditAccountsQuery) (CreditAccounts
 	}, nil
 }
 
+func (s *CreditService) OverviewCreditBalanceTotal() int {
+	if s == nil {
+		return 0
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	totalBalance := 0
+	for _, account := range s.state.Accounts {
+		totalBalance += account.Balance
+	}
+	return totalBalance
+}
+
 func creditCardMatchesKeyword(card CreditCard, keyword string) bool {
 	parts := []string{
 		card.ID,

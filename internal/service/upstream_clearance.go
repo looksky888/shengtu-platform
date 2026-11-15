@@ -7,8 +7,52 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
+
+// UpstreamClearanceRuntimeConfig holds hot-applied runtime clearance settings so
+// HTTP handlers never mutate process environment variables concurrently via os.Setenv.
+type UpstreamClearanceRuntimeConfig struct {
+	Enabled            bool
+	Mode               string
+	FlareSolverrURL    string
+	TimeoutSec         int
+	RefreshIntervalSec int
+	ProxyURL           string
+}
+
+var (
+	upstreamClearanceCfgMu      sync.RWMutex
+	upstreamClearanceRuntimeCfg *UpstreamClearanceRuntimeConfig
+)
+
+// ConfigureUpstreamClearance atomically updates runtime clearance settings.
+func ConfigureUpstreamClearance(cfg UpstreamClearanceRuntimeConfig) {
+	copied := cfg
+	copied.Mode = strings.TrimSpace(strings.ToLower(copied.Mode))
+	copied.FlareSolverrURL = strings.TrimRight(strings.TrimSpace(copied.FlareSolverrURL), "/")
+	copied.ProxyURL = strings.TrimSpace(copied.ProxyURL)
+	upstreamClearanceCfgMu.Lock()
+	upstreamClearanceRuntimeCfg = &copied
+	upstreamClearanceCfgMu.Unlock()
+}
+
+// ResetUpstreamClearanceConfig clears runtime overrides so env fallbacks are used again.
+func ResetUpstreamClearanceConfig() {
+	upstreamClearanceCfgMu.Lock()
+	upstreamClearanceRuntimeCfg = nil
+	upstreamClearanceCfgMu.Unlock()
+}
+
+func currentUpstreamClearanceConfig() (UpstreamClearanceRuntimeConfig, bool) {
+	upstreamClearanceCfgMu.RLock()
+	defer upstreamClearanceCfgMu.RUnlock()
+	if upstreamClearanceRuntimeCfg == nil {
+		return UpstreamClearanceRuntimeConfig{}, false
+	}
+	return *upstreamClearanceRuntimeCfg, true
+}
 
 // UpstreamClearance is a process-wide Cloudflare clearance cache for chatgpt.com
 // (image generation / bootstrap). Inspired by chatgpt2api-1.7.0 proxy_runtime clearance.
@@ -24,6 +68,9 @@ import (
 //
 // UpstreamClearanceEnabled reports whether image/bootstrap should use FlareSolverr clearance.
 func UpstreamClearanceEnabled() bool {
+	if cfg, ok := currentUpstreamClearanceConfig(); ok {
+		return cfg.Enabled
+	}
 	v := strings.TrimSpace(strings.ToLower(os.Getenv("CHATGPT2API_UPSTREAM_CLEARANCE_ENABLED")))
 	if v == "" {
 		return false
@@ -31,7 +78,22 @@ func UpstreamClearanceEnabled() bool {
 	return v == "1" || v == "true" || v == "yes" || v == "on"
 }
 
+// UpstreamClearanceMode reports the effective clearance mode ("flaresolverr", "none", etc.).
+func UpstreamClearanceMode() string {
+	return upstreamClearanceMode()
+}
+
 func upstreamClearanceMode() string {
+	if cfg, ok := currentUpstreamClearanceConfig(); ok {
+		mode := cfg.Mode
+		if mode == "" {
+			if cfg.Enabled {
+				return "flaresolverr"
+			}
+			return "none"
+		}
+		return mode
+	}
 	mode := strings.TrimSpace(strings.ToLower(os.Getenv("CHATGPT2API_UPSTREAM_CLEARANCE_MODE")))
 	if mode == "" {
 		if UpstreamClearanceEnabled() {
@@ -43,11 +105,19 @@ func upstreamClearanceMode() string {
 }
 
 func upstreamFlareSolverrURL() string {
+	if cfg, ok := currentUpstreamClearanceConfig(); ok {
+		return cfg.FlareSolverrURL
+	}
 	return strings.TrimRight(strings.TrimSpace(os.Getenv("CHATGPT2API_FLARESOLVERR_URL")), "/")
 }
 
 func upstreamClearanceTimeout() time.Duration {
-	sec := envIntDefault("CHATGPT2API_UPSTREAM_CLEARANCE_TIMEOUT_SEC", 60)
+	sec := 60
+	if cfg, ok := currentUpstreamClearanceConfig(); ok && cfg.TimeoutSec > 0 {
+		sec = cfg.TimeoutSec
+	} else if !ok {
+		sec = envIntDefault("CHATGPT2API_UPSTREAM_CLEARANCE_TIMEOUT_SEC", 60)
+	}
 	if sec < 10 {
 		sec = 10
 	}
@@ -58,7 +128,12 @@ func upstreamClearanceTimeout() time.Duration {
 }
 
 func upstreamClearanceRefreshInterval() time.Duration {
-	sec := envIntDefault("CHATGPT2API_UPSTREAM_CLEARANCE_REFRESH_INTERVAL", 3600)
+	sec := 3600
+	if cfg, ok := currentUpstreamClearanceConfig(); ok && cfg.RefreshIntervalSec > 0 {
+		sec = cfg.RefreshIntervalSec
+	} else if !ok {
+		sec = envIntDefault("CHATGPT2API_UPSTREAM_CLEARANCE_REFRESH_INTERVAL", 3600)
+	}
 	if sec < 60 {
 		sec = 60
 	}
@@ -78,6 +153,9 @@ func envIntDefault(name string, def int) int {
 }
 
 func upstreamClearanceProxyURL() string {
+	if cfg, ok := currentUpstreamClearanceConfig(); ok && cfg.ProxyURL != "" {
+		return cfg.ProxyURL
+	}
 	// Prefer explicit runtime proxy, else global CHATGPT2API_PROXY.
 	if v := strings.TrimSpace(os.Getenv("CHATGPT2API_PROXY_RUNTIME_PROXY_URL")); v != "" {
 		return v
@@ -310,20 +388,13 @@ func findHeaderCaseInsensitive(headers map[string]string, name string) (string, 
 	return "", ""
 }
 
-// ApplyUpstreamClearanceToHeaders merges Cookie / optional User-Agent from clearance.
+// ApplyUpstreamClearanceToHeaders merges Cookie / User-Agent from clearance.
 func ApplyUpstreamClearanceToHeaders(headers map[string]string, bundle *UpstreamClearanceBundle) map[string]string {
 	if headers == nil {
 		headers = map[string]string{}
 	}
 	if bundle == nil {
 		return headers
-	}
-	// Clearance cookies are bound to the browser fingerprint that obtained them.
-	// Keep the account's existing User-Agent when present (regardless of header key casing);
-	// inject a UA only when the request has none.
-	_, existingUA := findHeaderCaseInsensitive(headers, "User-Agent")
-	if ua := strings.TrimSpace(bundle.UserAgent); ua != "" && strings.TrimSpace(existingUA) == "" {
-		headers["User-Agent"] = ua
 	}
 	parts := make([]string, 0, len(bundle.Cookies))
 	for _, c := range bundle.Cookies {
@@ -334,8 +405,21 @@ func ApplyUpstreamClearanceToHeaders(headers map[string]string, bundle *Upstream
 		}
 		parts = append(parts, name+"="+value)
 	}
+	ua := strings.TrimSpace(bundle.UserAgent)
+	uaKey, existingUA := findHeaderCaseInsensitive(headers, "User-Agent")
 	if len(parts) == 0 {
+		if ua != "" && strings.TrimSpace(existingUA) == "" {
+			headers["User-Agent"] = ua
+		}
 		return headers
+	}
+	// Clearance cookies are cryptographically bound to the browser User-Agent that
+	// solved the challenge; always overwrite User-Agent when clearance cookies are applied.
+	if ua != "" {
+		if uaKey != "" && uaKey != "User-Agent" {
+			delete(headers, uaKey)
+		}
+		headers["User-Agent"] = ua
 	}
 	cookieVal := strings.Join(parts, "; ")
 	cookieKey, existing := findHeaderCaseInsensitive(headers, "Cookie")

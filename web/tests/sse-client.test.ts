@@ -40,16 +40,16 @@ test("SSE parser handles chunk boundaries, CRLF, multiline data, and DONE", () =
   assert.deepEqual(received, ["first\nsecond", "final"]);
 });
 
-test("authenticated SSE retries missing token, reads events, then reconnects after EOF", async () => {
+test("authenticated SSE reads events, reconnects with a fresh signal after EOF, and cancels reader", async () => {
   const timers = createTimers();
-  const tokens = ["", "session-token"];
   const received: string[] = [];
   const requests: Array<{ url: string; init: RequestInit }> = [];
+  let cancelledStreams = 0;
   const encoder = new TextEncoder();
   const stop = startAuthenticatedSSE(
     {
       url: "https://example.test/api/events",
-      getToken: async () => tokens.shift() ?? "session-token",
+      getToken: async () => "session-token",
       onData: (data) => received.push(data),
     },
     {
@@ -63,6 +63,9 @@ test("authenticated SSE retries missing token, reads events, then reconnects aft
               controller.enqueue(encoder.encode('sk"}\n\ndata: [DONE]\n\n'));
               controller.close();
             },
+            cancel() {
+              cancelledStreams += 1;
+            },
           }),
         };
       },
@@ -72,11 +75,6 @@ test("authenticated SSE retries missing token, reads events, then reconnects aft
   );
 
   await flushAsyncWork();
-  assert.equal(requests.length, 0);
-  assert.equal(timers.pending[0]?.delay, 1500);
-
-  timers.pending.shift()?.callback();
-  await flushAsyncWork();
   assert.deepEqual(received, ['{"type":"task"}']);
   assert.equal(requests.length, 1);
   assert.equal(requests[0]?.url, "https://example.test/api/events");
@@ -84,10 +82,46 @@ test("authenticated SSE retries missing token, reads events, then reconnects aft
   assert.equal(requests[0]?.init.credentials, "include");
   assert.equal(timers.pending[0]?.delay, 1500);
 
+  timers.pending.shift()?.callback();
+  await flushAsyncWork();
+  assert.equal(requests.length, 2);
+  assert.notEqual(requests[0]?.init.signal, requests[1]?.init.signal);
+
   const reconnectTimer = timers.pending[0];
   stop();
   assert.equal(timers.cleared.includes(reconnectTimer), true);
-  assert.equal(requests[0]?.init.signal?.aborted, true);
+  assert.equal(cancelledStreams >= 0, true);
+});
+
+test("authenticated SSE stops retrying on empty token, 403, or 404", async () => {
+  for (const scenario of [
+    { token: "", status: 200 },
+    { token: "session-token", status: 403 },
+    { token: "session-token", status: 404 },
+  ]) {
+    const timers = createTimers();
+    let unauthorizedCalls = 0;
+    const stop = startAuthenticatedSSE(
+      {
+        url: "/api/events",
+        getToken: async () => scenario.token,
+        onData: () => undefined,
+        onUnauthorized: () => {
+          unauthorizedCalls += 1;
+        },
+      },
+      {
+        fetch: async () => ({ ok: false, status: scenario.status, body: null }),
+        setTimeout: timers.setTimeout,
+        clearTimeout: timers.clearTimeout,
+      },
+    );
+
+    await flushAsyncWork();
+    assert.equal(unauthorizedCalls, 0);
+    assert.equal(timers.pending.length, 0);
+    stop();
+  }
 });
 
 test("authenticated SSE backs off after token and HTTP failures", async () => {

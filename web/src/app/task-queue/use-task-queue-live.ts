@@ -41,13 +41,27 @@ export function useTaskQueueLive(enabled: boolean, session: StoredAuthSession) {
   const cancelBatchPending = useRef(false);
   const loadRequestSeq = useRef(0);
   const loadAbortRef = useRef<AbortController | null>(null);
+  const isLoadInFlightRef = useRef(false);
+  const pendingSilentRefreshRef = useRef(false);
+  const sseCoalesceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSilentErrorToastAtRef = useRef(0);
   const SILENT_ERROR_TOAST_COOLDOWN_MS = 30_000;
+  const SSE_COALESCE_MS = 450;
 
   const load = useCallback(async (silent = false) => {
+    if (silent && isLoadInFlightRef.current) {
+      pendingSilentRefreshRef.current = true;
+      return;
+    }
+    if (!silent && sseCoalesceTimerRef.current !== null) {
+      clearTimeout(sseCoalesceTimerRef.current);
+      sseCoalesceTimerRef.current = null;
+    }
+    pendingSilentRefreshRef.current = false;
     loadAbortRef.current?.abort();
     const controller = new AbortController();
     loadAbortRef.current = controller;
+    isLoadInFlightRef.current = true;
     const seq = ++loadRequestSeq.current;
     if (!silent) setIsLoading(true);
     try {
@@ -92,24 +106,50 @@ export function useTaskQueueLive(enabled: boolean, session: StoredAuthSession) {
       }
     } finally {
       // Latest request always clears loading so aborting a non-silent load can't stick spinner.
-      if (seq === loadRequestSeq.current) setIsLoading(false);
+      if (seq === loadRequestSeq.current) {
+        isLoadInFlightRef.current = false;
+        setIsLoading(false);
+        if (pendingSilentRefreshRef.current && !controller.signal.aborted) {
+          pendingSilentRefreshRef.current = false;
+          void load(true);
+        }
+      }
     }
   }, []);
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled) {
+      if (sseCoalesceTimerRef.current !== null) {
+        clearTimeout(sseCoalesceTimerRef.current);
+        sseCoalesceTimerRef.current = null;
+      }
+      pendingSilentRefreshRef.current = false;
+      isLoadInFlightRef.current = false;
+      loadAbortRef.current?.abort();
+      return;
+    }
     void load();
   }, [enabled, load]);
 
   useEffect(
     () => () => {
+      if (sseCoalesceTimerRef.current !== null) {
+        clearTimeout(sseCoalesceTimerRef.current);
+        sseCoalesceTimerRef.current = null;
+      }
+      pendingSilentRefreshRef.current = false;
+      isLoadInFlightRef.current = false;
       loadAbortRef.current?.abort();
     },
     [],
   );
 
   const silentRefresh = useCallback(() => {
-    void load(true);
+    if (sseCoalesceTimerRef.current !== null) return;
+    sseCoalesceTimerRef.current = setTimeout(() => {
+      sseCoalesceTimerRef.current = null;
+      void load(true);
+    }, SSE_COALESCE_MS);
   }, [load]);
   useTaskQueueSSE(silentRefresh, enabled);
 

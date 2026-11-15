@@ -4,10 +4,12 @@ import { RefreshCw, Route } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { SettingsConfig } from "@/lib/api";
 
-import { isConfigKeysDirty } from "../settings-dirty";
 import { useSettingsStore } from "../store";
+import {
+  pricingErrors,
+  useChannelRoutingPricingDirty,
+} from "./image-account-pool-pricing";
 import { ImageAccountPoolSettings } from "./image-account-pool-settings";
 import {
   SettingsCard,
@@ -15,51 +17,36 @@ import {
   SettingsEmptyState,
 } from "./settings-ui";
 
-const ROUTING_AND_PRICING_KEYS: readonly (keyof SettingsConfig)[] = [
-  "image_default_model",
-  "image_internal_model_slug",
-  "image_fallback_model_enabled",
-  "image_fallback_model_slugs",
-  "gpt_image_2_credit_cost",
-  "gpt_image_2_5_credit_cost",
-  "gpt_image_2_5_flare_credit_cost",
-  "gpt_image_2_5_sunburst_credit_cost",
-  "gpt_image_2_6_credit_cost",
-  "gpt_image_2_6_flare_credit_cost",
-  "gpt_image_2_6_sunburst_credit_cost",
-  "image_credit_cost_1080p",
-  "image_credit_cost_2k",
-  "image_credit_cost_4k",
-  "grok_image_credit_cost_1k",
-  "grok_image_credit_cost_2k",
-  "video_credit_cost_per_second",
-];
-
-export function ImageAccountPoolRoutingCard() {
+export function ImageAccountPoolRoutingCard({
+  registerDirty = true,
+}: {
+  registerDirty?: boolean;
+} = {}) {
   const config = useSettingsStore((state) => state.config);
-  const savedConfigSnapshot = useSettingsStore(
-    (state) => state.savedConfigSnapshot
-  );
   const loading = useSettingsStore((state) => state.isLoadingConfig);
   const saving = useSettingsStore((state) => state.isSavingConfig);
   const savingSectionKey = useSettingsStore((state) => state.savingSectionKey);
   const loadConfig = useSettingsStore((state) => state.loadConfig);
-  const saveConfigSection = useSettingsStore(
-    (state) => state.saveConfigSection
-  );
-  const resetConfigSection = useSettingsStore(
-    (state) => state.resetConfigSection
-  );
 
-  const sectionDirty = isConfigKeysDirty(
-    config,
-    savedConfigSnapshot,
-    ROUTING_AND_PRICING_KEYS
-  );
+  const {
+    sectionDirty,
+    saveRoutingPricing,
+    resetRoutingPricing,
+  } = useChannelRoutingPricingDirty(registerDirty);
+
   const isSavingSection =
     saving &&
     (savingSectionKey === "image-routing-pricing" ||
       savingSectionKey === "__all__");
+
+  const currentErrors = pricingErrors(
+    config as Record<string, unknown> | null | undefined,
+  );
+  const hasValidationError = Object.keys(currentErrors).length > 0;
+
+  const handleSave = async () => {
+    await saveRoutingPricing();
+  };
 
   return (
     <SettingsCard
@@ -73,12 +60,13 @@ export function ImageAccountPoolRoutingCard() {
             dirty={sectionDirty}
             saving={isSavingSection}
             disabled={saving}
-            onReset={() => resetConfigSection(ROUTING_AND_PRICING_KEYS)}
-            onSave={() =>
-              void saveConfigSection(ROUTING_AND_PRICING_KEYS, {
-                sectionKey: "image-routing-pricing",
-              })
+            hint={
+              hasValidationError
+                ? "请先修正标红的积分单价（需为 ≥ 1 的整数）后再保存"
+                : undefined
             }
+            onReset={resetRoutingPricing}
+            onSave={() => void handleSave()}
           />
         ) : undefined
       }

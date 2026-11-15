@@ -109,6 +109,7 @@ func (a *App) routes() []appRoute {
 		exact(http.MethodGet, "/api/settings/image-proxy/health", a.handleImageProxyHealth),
 		exact(http.MethodGet, "/api/app-meta", a.handleAppMeta),
 		exact(http.MethodGet, "/api/admin/permissions", a.handlePermissionCatalog),
+		exact(http.MethodGet, "/api/admin/overview", a.handleAdminOverview),
 		exact(http.MethodGet, "/api/admin/image-task-logs", a.handleAdminImageTaskLogs),
 		prefix("/api/admin/image-task-logs/", a.handleAdminImageTaskCancel),
 		exact(http.MethodGet, "/api/admin/task-queue/events", a.handleAdminTaskQueueEvents),

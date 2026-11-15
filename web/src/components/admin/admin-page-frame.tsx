@@ -1,60 +1,9 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
-import { ArrowLeft, MoonStar, Sun } from "lucide-react";
+import type { ReactNode } from "react";
+import { ArrowLeft } from "lucide-react";
 
-import {
-  applyColorTheme,
-  getPreferredColorTheme,
-  saveColorTheme,
-  type ColorTheme,
-} from "@/lib/theme";
 import { cn } from "@/lib/utils";
-
-export function AdminThemeButton({ className }: { className?: string }) {
-  const [theme, setTheme] = useState<ColorTheme>(() => getPreferredColorTheme());
-
-  useEffect(() => {
-    if (typeof document === "undefined") return;
-    const sync = () => {
-      setTheme(document.documentElement.classList.contains("light") ? "light" : "dark");
-    };
-    sync();
-    const observer = new MutationObserver(sync);
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["class"],
-    });
-    return () => observer.disconnect();
-  }, []);
-
-  const dark = theme === "dark";
-
-  const handleToggle = (event: React.MouseEvent<HTMLButtonElement>) => {
-    const next: ColorTheme = dark ? "light" : "dark";
-    const rect = event.currentTarget.getBoundingClientRect();
-    setTheme(next);
-    saveColorTheme(next);
-    applyColorTheme(next, {
-      origin: {
-        x: rect.left + rect.width / 2,
-        y: rect.top + rect.height / 2,
-      },
-    });
-  };
-
-  return (
-    <button
-      type="button"
-      onClick={handleToggle}
-      aria-label={dark ? "切换到浅色控制台" : "切换到深色控制台"}
-      title={dark ? "切换到浅色模式" : "切换到深色模式"}
-      className={cn("admin-page-theme-toggle", className)}
-    >
-      {dark ? <Sun className="size-3.5" /> : <MoonStar className="size-3.5" />}
-    </button>
-  );
-}
 
 export function AdminPageFrame({
   section,
@@ -66,7 +15,6 @@ export function AdminPageFrame({
   actions,
   embedded = false,
   scrollable = true,
-  hideThemeToggle = true,
   className,
   children,
 }: {
@@ -82,7 +30,6 @@ export function AdminPageFrame({
   actions?: ReactNode;
   embedded?: boolean;
   scrollable?: boolean;
-  hideThemeToggle?: boolean;
   className?: string;
   children: ReactNode;
 }) {
@@ -161,10 +108,9 @@ export function AdminPageFrame({
             <p className="admin-page-description">{description}</p>
           ) : null}
         </div>
-        {actions || !hideThemeToggle ? (
+        {actions ? (
           <div className="admin-page-actions">
             {actions}
-            {!hideThemeToggle ? <AdminThemeButton /> : null}
           </div>
         ) : null}
       </header>

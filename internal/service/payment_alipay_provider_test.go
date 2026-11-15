@@ -96,19 +96,28 @@ func TestAlipayProviderRejectsGatewayFailureAndEmptyQRCode(t *testing.T) {
 func TestAlipayProviderTreatsMissingTradeAsPendingAndCloseAsIdempotent(t *testing.T) {
 	applicationKey := generateRSAKey(t)
 	platformKey := generateRSAKey(t)
+	var cancelCalled bool
 	gateway := httptest.NewTLSServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		if err := request.ParseForm(); err != nil {
 			t.Fatal(err)
 		}
 		verifyAlipayGatewayRequest(t, request.PostForm, &applicationKey.PublicKey)
 		method := request.PostForm.Get("method")
-		responseKey := "alipay_trade_query_response"
-		if method == "alipay.trade.close" {
-			responseKey = "alipay_trade_close_response"
+		switch method {
+		case "alipay.trade.close":
+			writeSignedAlipayResponse(t, response, platformKey, "alipay_trade_close_response", map[string]any{
+				"code": "40004", "msg": "Business Failed", "sub_code": "ACQ.TRADE_NOT_EXIST", "sub_msg": "交易不存在",
+			})
+		case "alipay.trade.cancel":
+			cancelCalled = true
+			writeSignedAlipayResponse(t, response, platformKey, "alipay_trade_cancel_response", map[string]any{
+				"code": "10000", "msg": "Success", "out_trade_no": "ST-MISSING", "action": "close", "retry_flag": "N",
+			})
+		default:
+			writeSignedAlipayResponse(t, response, platformKey, "alipay_trade_query_response", map[string]any{
+				"code": "40004", "msg": "Business Failed", "sub_code": "ACQ.TRADE_NOT_EXIST", "sub_msg": "交易不存在",
+			})
 		}
-		writeSignedAlipayResponse(t, response, platformKey, responseKey, map[string]any{
-			"code": "40004", "msg": "Business Failed", "sub_code": "ACQ.TRADE_NOT_EXIST", "sub_msg": "交易不存在",
-		})
 	}))
 	defer gateway.Close()
 
@@ -122,6 +131,9 @@ func TestAlipayProviderTreatsMissingTradeAsPendingAndCloseAsIdempotent(t *testin
 	}
 	if err := provider.Close(context.Background(), "ST-MISSING", ""); err != nil {
 		t.Fatalf("idempotent close failed: %v", err)
+	}
+	if !cancelCalled {
+		t.Fatal("expected alipay.trade.cancel fallback when alipay.trade.close returns ACQ.TRADE_NOT_EXIST")
 	}
 }
 

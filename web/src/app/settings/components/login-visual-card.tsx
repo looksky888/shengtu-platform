@@ -90,32 +90,32 @@ export function LoginVisualCard({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const config = useSettingsStore((state) => state.config);
   const savedConfigSnapshot = useSettingsStore(
-    (state) => state.savedConfigSnapshot
+    (state) => state.savedConfigSnapshot,
   );
   const pendingFile = useSettingsStore(
-    (state) => state.pendingLoginImageFile
+    (state) => state.pendingLoginImageFile,
   );
   const pendingPreviewUrl = useSettingsStore(
-    (state) => state.pendingLoginImagePreviewUrl
+    (state) => state.pendingLoginImagePreviewUrl,
   );
   const savingSectionKey = useSettingsStore((state) => state.savingSectionKey);
   const isSavingAll = useSettingsStore(
-    (state) => state.isSavingConfig && state.savingSectionKey === "__all__"
+    (state) => state.isSavingConfig && state.savingSectionKey === "__all__",
   );
   const saveLoginPageVisual = useSettingsStore(
-    (state) => state.saveLoginPageVisual
+    (state) => state.saveLoginPageVisual,
   );
   const stageLoginPageImageFile = useSettingsStore(
-    (state) => state.stageLoginPageImageFile
+    (state) => state.stageLoginPageImageFile,
   );
   const discardPendingLoginPageImage = useSettingsStore(
-    (state) => state.discardPendingLoginPageImage
+    (state) => state.discardPendingLoginPageImage,
   );
   const resetConfigSection = useSettingsStore(
-    (state) => state.resetConfigSection
+    (state) => state.resetConfigSection,
   );
   const setLoginPageVisualField = useSettingsStore(
-    (state) => state.setLoginPageVisualField
+    (state) => state.setLoginPageVisualField,
   );
 
   const imageUrl = String(config?.login_page_image_url || "").trim();
@@ -134,7 +134,7 @@ export function LoginVisualCard({
 
   useRegisterSettingsDirty({
     id: "config:login-visual",
-    tab: "base",
+    tab: "config",
     label: "登录页品牌视觉",
     isDirty,
     save: async () => {
@@ -144,13 +144,14 @@ export function LoginVisualCard({
         isConfigKeysDirty(
           currentState.config,
           currentState.savedConfigSnapshot,
-          LOGIN_VISUAL_KEYS
+          LOGIN_VISUAL_KEYS,
         );
       if (!stillDirty) return true;
       return saveLoginPageVisual({ sectionKey: "login_visual" });
     },
     discard: () => {
       discardPendingLoginPageImage();
+      resetConfigSection(LOGIN_VISUAL_KEYS);
       return true;
     },
   });
@@ -174,6 +175,7 @@ export function LoginVisualCard({
   };
 
   const restoreDefaultGallery = () => {
+    discardPendingLoginPageImage();
     setLoginPageVisualField({
       login_page_image_url: "",
       login_page_image_mode: "contain",
@@ -223,7 +225,10 @@ export function LoginVisualCard({
             dirty={isDirty}
             saving={isSaving}
             hint="保存后自动落盘静态文件并更新登录页右侧品牌舞台视觉，无需重启服务"
-            onReset={() => resetConfigSection(LOGIN_VISUAL_KEYS)}
+            onReset={() => {
+              discardPendingLoginPageImage();
+              resetConfigSection(LOGIN_VISUAL_KEYS);
+            }}
             onSave={() => void handleSave()}
           />
         ) : undefined
@@ -244,6 +249,7 @@ export function LoginVisualCard({
                   if (!preset.url) {
                     restoreDefaultGallery();
                   } else {
+                    discardPendingLoginPageImage();
                     setLoginPageVisualField({
                       login_page_image_url: preset.url,
                       login_page_image_mode: "cover",
@@ -253,7 +259,7 @@ export function LoginVisualCard({
                 }}
                 className={`inline-flex h-7.5 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-medium transition-colors ${
                   selected
-                    ? "border-foreground bg-foreground text-background shadow-2xs"
+                    ? "border-primary/40 bg-primary/[0.07] text-primary ring-1 ring-primary/20"
                     : "border-border/80 bg-surface-subtle/60 text-muted-foreground hover:bg-surface-hover hover:text-foreground"
                 }`}
               >
@@ -361,7 +367,7 @@ export function LoginVisualCard({
                             login_page_image_zoom: Number(event.target.value),
                           })
                         }
-                        className="w-full accent-foreground"
+                        className="w-full accent-primary"
                       />
                     </label>
                     <label className="space-y-1 text-xs">
@@ -380,11 +386,11 @@ export function LoginVisualCard({
                         onChange={(event) =>
                           setLoginPageVisualField({
                             login_page_image_position_x: Number(
-                              event.target.value
+                              event.target.value,
                             ),
                           })
                         }
-                        className="w-full accent-foreground"
+                        className="w-full accent-primary"
                       />
                     </label>
                     <label className="space-y-1 text-xs">
@@ -403,11 +409,11 @@ export function LoginVisualCard({
                         onChange={(event) =>
                           setLoginPageVisualField({
                             login_page_image_position_y: Number(
-                              event.target.value
+                              event.target.value,
                             ),
                           })
                         }
-                        className="w-full accent-foreground"
+                        className="w-full accent-primary"
                       />
                     </label>
                   </div>
@@ -422,7 +428,8 @@ export function LoginVisualCard({
             <div className="flex flex-col justify-between rounded-2xl border border-amber-200/75 bg-surface-subtle/50 p-3 dark:border-amber-900/35">
               <div className="mb-2 flex items-center justify-between text-[11px] text-muted-foreground">
                 <span className="font-mono uppercase tracking-wider">
-                  LOGIN STAGE PREVIEW {effectiveImageUrl ? "(11:9 CARD)" : "(SPHERE)"}
+                  LOGIN STAGE PREVIEW{" "}
+                  {effectiveImageUrl ? "(11:9 CARD)" : "(SPHERE)"}
                 </span>
                 <span>
                   {effectiveImageUrl

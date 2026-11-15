@@ -66,7 +66,7 @@ export function useMediaStorage(config: SettingsConfig | null) {
       } catch (error) {
         if (!signal?.aborted) {
           toast.error(
-            error instanceof Error ? error.message : "加载媒体存储状态失败"
+            error instanceof Error ? error.message : "加载媒体存储状态失败",
           );
         }
       } finally {
@@ -75,7 +75,7 @@ export function useMediaStorage(config: SettingsConfig | null) {
         }
       }
     },
-    []
+    [],
   );
 
   useEffect(() => {
@@ -87,7 +87,11 @@ export function useMediaStorage(config: SettingsConfig | null) {
   useEffect(() => {
     const handleTabRefresh = (event: Event) => {
       const detail = (event as CustomEvent<{ tab?: string }>).detail;
-      if (detail?.tab === "media" || detail?.tab === "storage") {
+      if (
+        !detail?.tab ||
+        detail.tab === "media" ||
+        detail.tab === "storage"
+      ) {
         void reloadOverview({ silent: true });
       }
     };
@@ -134,7 +138,7 @@ export function useMediaStorage(config: SettingsConfig | null) {
           consecutiveErrors += 1;
           if (consecutiveErrors === 1) {
             toast.error(
-              error instanceof Error ? error.message : "刷新媒体任务进度失败"
+              error instanceof Error ? error.message : "刷新媒体任务进度失败",
             );
           }
           if (consecutiveErrors >= 5) {
@@ -144,7 +148,10 @@ export function useMediaStorage(config: SettingsConfig | null) {
         }
       } finally {
         const keepPolling = keepMigration || keepCleanup;
-        const delayMs = consecutiveErrors > 0 ? Math.min(10_000, 1500 * 2 ** (consecutiveErrors - 1)) : 1500;
+        const delayMs =
+          consecutiveErrors > 0
+            ? Math.min(10_000, 1500 * 2 ** (consecutiveErrors - 1))
+            : 1500;
         if (!disposed && !controller.signal.aborted && keepPolling) {
           timer = window.setTimeout(() => {
             void poll();
@@ -168,15 +175,17 @@ export function useMediaStorage(config: SettingsConfig | null) {
     if (!config) return;
     const accountId = String(config.media_r2_account_id || "").trim();
     const accessKeyId = String(config.media_r2_access_key_id || "").trim();
-    const secretAccessKey = String(config.media_r2_secret_access_key || "").trim();
+    const secretAccessKey = String(
+      config.media_r2_secret_access_key || "",
+    ).trim();
     const bucket = String(config.media_r2_bucket || "").trim();
 
     if (!accountId || !accessKeyId || !bucket) {
-      toast.error("请先填写完整的 R2 Account ID、Access Key ID 与 Bucket");
+      toast.error("请先填写完整的 R2 账户 ID、访问密钥 ID 与存储桶名称");
       return;
     }
     if (!secretAccessKey && !config.media_r2_secret_access_key_configured) {
-      toast.error("首次探测连接请先填写 R2 Secret Access Key");
+      toast.error("首次探测连接请先填写 R2 私有访问密钥");
       return;
     }
 
@@ -211,10 +220,12 @@ export function useMediaStorage(config: SettingsConfig | null) {
       toast.success(
         nextMigration.state === "running"
           ? "存量媒体迁移已启动"
-          : "迁移任务已在运行中"
+          : "迁移任务已在运行中",
       );
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "启动存量媒体迁移失败");
+      toast.error(
+        error instanceof Error ? error.message : "启动存量媒体迁移失败",
+      );
     } finally {
       setIsStarting(false);
     }
@@ -225,16 +236,18 @@ export function useMediaStorage(config: SettingsConfig | null) {
     try {
       const data = await triggerMediaLocalCleanup(
         mode,
-        mode === "delete" ? cleanup.confirmation_token || "" : ""
+        mode === "delete" ? cleanup.confirmation_token || "" : "",
       );
       setCleanup(data?.cleanup ?? idleCleanup);
       toast.success(
         mode === "verify"
           ? "R2 对象完整性校验已开始"
-          : "已迁移本地缓存清理已开始"
+          : "已迁移本地缓存清理已开始",
       );
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "启动本地缓存任务失败");
+      toast.error(
+        error instanceof Error ? error.message : "启动本地缓存任务失败",
+      );
     } finally {
       setIsStartingCleanup(false);
     }

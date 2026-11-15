@@ -79,8 +79,7 @@
   gap: 8px;
 }
 
-:is([data-admin-root], [data-admin-embedded]) .admin-icon-button,
-[data-admin-root] .admin-page-theme-toggle {
+:is([data-admin-root], [data-admin-embedded]) .admin-icon-button {
   display: inline-grid;
   width: 32px;
   height: 32px;
@@ -92,14 +91,12 @@
   transition: background-color var(--admin-motion), color var(--admin-motion);
 }
 
-:is([data-admin-root], [data-admin-embedded]) .admin-icon-button:hover,
-[data-admin-root] .admin-page-theme-toggle:hover {
+:is([data-admin-root], [data-admin-embedded]) .admin-icon-button:hover {
   background: var(--admin-surface-2);
   color: var(--admin-text);
 }
 
-:is([data-admin-root], [data-admin-embedded]) .admin-icon-button:focus-visible,
-[data-admin-root] .admin-page-theme-toggle:focus-visible {
+:is([data-admin-root], [data-admin-embedded]) .admin-icon-button:focus-visible {
   outline: 2px solid var(--admin-focus);
   outline-offset: 1px;
 }
@@ -170,7 +167,7 @@
 }
 
 /* Unified Flat Industrial Card Chrome inside standalone admin scope & overlays */
-:is([data-admin-root], body.admin-overlays, .admin-drawer, .admin-modal-root)
+:is([data-admin-root], .admin-drawer)
   :is([data-slot="card"], .card-surface, [data-settings-card]) {
   background: var(--admin-surface) !important;
   border: 1px solid var(--admin-border) !important;
@@ -178,12 +175,12 @@
   box-shadow: none !important;
 }
 
-:is([data-admin-root], body.admin-overlays, .admin-drawer, .admin-modal-root)
+:is([data-admin-root], .admin-drawer)
   [data-slot="card"]:not([data-settings-card]) > [data-slot="card-header"] {
   border-bottom-color: var(--admin-border);
 }
 
-:is([data-admin-root], .admin-drawer, .admin-modal-root) :is(.rounded-2xl, .rounded-3xl) {
+:is([data-admin-root], .admin-drawer) :is(.rounded-2xl, .rounded-3xl) {
   border-radius: 10px;
 }
 
@@ -206,7 +203,7 @@
 }
 
 /* Stat Tiles (88px metric cards) */
-:is([data-admin-root], [data-admin-embedded], body.admin-overlays, .admin-drawer, .admin-modal-root)
+:is([data-admin-root], [data-admin-embedded], .admin-drawer)
   .admin-stat-tile {
   display: flex;
   min-height: 88px;
@@ -224,7 +221,7 @@
   box-shadow: var(--shadow-card);
 }
 
-:is([data-admin-root], [data-admin-embedded], body.admin-overlays, .admin-drawer, .admin-modal-root)
+:is([data-admin-root], [data-admin-embedded], .admin-drawer)
   .admin-stat-tile-label {
   display: flex;
   align-items: center;
@@ -237,7 +234,7 @@
   text-transform: uppercase;
 }
 
-:is([data-admin-root], [data-admin-embedded], body.admin-overlays, .admin-drawer, .admin-modal-root)
+:is([data-admin-root], [data-admin-embedded], .admin-drawer)
   .admin-stat-tile-value {
   margin-top: 6px;
   color: var(--admin-text);
@@ -248,7 +245,7 @@
   line-height: 28px;
 }
 
-:is([data-admin-root], [data-admin-embedded], body.admin-overlays, .admin-drawer, .admin-modal-root)
+:is([data-admin-root], [data-admin-embedded], .admin-drawer)
   .admin-stat-tile-detail {
   margin-top: 4px;
   color: var(--admin-text-muted);
@@ -257,7 +254,7 @@
 }
 
 /* Sticky Command Bar (44px dirty-state bar — sticks cleanly below TopNav + SettingsTabs) */
-:is([data-admin-root], [data-admin-embedded], body.admin-overlays, .admin-drawer, .admin-modal-root)
+:is([data-admin-root], [data-admin-embedded], .admin-drawer)
   .admin-sticky-command-bar {
   position: sticky;
   top: 132px;
@@ -278,13 +275,13 @@
   transition: border-color var(--admin-motion), background-color var(--admin-motion);
 }
 
-:is(.admin-drawer, .admin-modal-root) .admin-sticky-command-bar {
+.admin-drawer .admin-sticky-command-bar {
   top: 0;
   border-radius: 10px;
   box-shadow: none;
 }
 
-:is([data-admin-root], [data-admin-embedded], body.admin-overlays, .admin-drawer, .admin-modal-root)
+:is([data-admin-root], [data-admin-embedded], .admin-drawer)
   .admin-sticky-command-bar.is-dirty {
   border-color: color-mix(in srgb, var(--admin-status-warning) 50%, var(--admin-border));
   border-bottom: 2px solid var(--admin-status-warning);
@@ -292,7 +289,7 @@
 }
 
 /* Status Badges */
-:is([data-admin-root], [data-admin-embedded], body.admin-overlays, .admin-drawer, .admin-modal-root)
+:is([data-admin-root], [data-admin-embedded], .admin-drawer)
   .admin-status-badge {
   display: inline-flex;
   height: 22px;
@@ -309,7 +306,7 @@
   white-space: nowrap;
 }
 
-:is([data-admin-root], [data-admin-embedded], body.admin-overlays, .admin-drawer, .admin-modal-root)
+:is([data-admin-root], [data-admin-embedded], .admin-drawer)
   .admin-status-badge::before {
   width: 6px;
   height: 6px;
@@ -318,58 +315,49 @@
   content: "";
 }
 
-:is([data-admin-root], [data-admin-embedded], body.admin-overlays, .admin-drawer, .admin-modal-root)
+:is([data-admin-root], [data-admin-embedded], .admin-drawer)
   .admin-status-badge.is-success {
   border-color: color-mix(in srgb, var(--admin-status-success) 28%, var(--admin-border));
   color: var(--admin-status-success);
 }
 
-:is([data-admin-root], [data-admin-embedded], body.admin-overlays, .admin-drawer, .admin-modal-root)
+:is([data-admin-root], [data-admin-embedded], .admin-drawer)
   .admin-status-badge.is-warning {
   border-color: color-mix(in srgb, var(--admin-status-warning) 28%, var(--admin-border));
   color: var(--admin-status-warning);
 }
 
-:is([data-admin-root], [data-admin-embedded], body.admin-overlays, .admin-drawer, .admin-modal-root)
+:is([data-admin-root], [data-admin-embedded], .admin-drawer)
   .admin-status-badge.is-error {
   border-color: color-mix(in srgb, var(--admin-status-error) 28%, var(--admin-border));
   color: var(--admin-status-error);
 }
 
-:is([data-admin-root], [data-admin-embedded], body.admin-overlays, .admin-drawer, .admin-modal-root)
+:is([data-admin-root], [data-admin-embedded], .admin-drawer)
   .admin-status-badge.is-info {
   border-color: color-mix(in srgb, var(--admin-status-info) 28%, var(--admin-border));
   color: var(--admin-status-info);
 }
 
 /* Hairline Tables (36px head, 40px rows) */
-:is([data-admin-root], [data-admin-embedded], body.admin-overlays, .admin-drawer, .admin-modal-root)
-  .admin-table-frame {
-  overflow: hidden;
-  border: 1px solid var(--admin-border);
-  border-radius: 10px;
-  background: var(--admin-surface);
-  box-shadow: none;
-}
-
-:is([data-admin-root], [data-admin-embedded], body.admin-overlays, .admin-drawer, .admin-modal-root)
+:is([data-admin-root], [data-admin-embedded], .admin-drawer)
   .admin-table {
   width: 100%;
   border-collapse: collapse;
   text-align: left;
 }
 
-:is([data-admin-root], [data-admin-embedded], body.admin-overlays, .admin-drawer, .admin-modal-root)
+:is([data-admin-root], [data-admin-embedded], .admin-drawer)
   .admin-table thead tr th,
-:is([data-admin-root], [data-admin-embedded], body.admin-overlays, .admin-drawer, .admin-modal-root)
+:is([data-admin-root], [data-admin-embedded], .admin-drawer)
   .admin-table tbody tr td {
   padding-left: 14px;
   padding-right: 14px;
 }
 
-:is([data-admin-root], [data-admin-embedded], body.admin-overlays, .admin-drawer, .admin-modal-root)
+:is([data-admin-root], [data-admin-embedded], .admin-drawer)
   [data-slot="table-header"] tr th,
-:is([data-admin-root], [data-admin-embedded], body.admin-overlays, .admin-drawer, .admin-modal-root)
+:is([data-admin-root], [data-admin-embedded], .admin-drawer)
   .admin-table thead tr th {
   height: var(--admin-head-h);
   padding-top: 0;
@@ -383,9 +371,9 @@
   text-transform: uppercase;
 }
 
-:is([data-admin-root], [data-admin-embedded], body.admin-overlays, .admin-drawer, .admin-modal-root)
+:is([data-admin-root], [data-admin-embedded], .admin-drawer)
   [data-slot="table-body"] tr td,
-:is([data-admin-root], [data-admin-embedded], body.admin-overlays, .admin-drawer, .admin-modal-root)
+:is([data-admin-root], [data-admin-embedded], .admin-drawer)
   .admin-table tbody tr td {
   min-height: var(--admin-row-h);
   height: var(--admin-row-h);
@@ -397,27 +385,27 @@
   font-variant-numeric: tabular-nums;
 }
 
-:is([data-admin-root], [data-admin-embedded], body.admin-overlays, .admin-drawer, .admin-modal-root)
+:is([data-admin-root], [data-admin-embedded], .admin-drawer)
   [data-slot="table-body"] tr:last-child td,
-:is([data-admin-root], [data-admin-embedded], body.admin-overlays, .admin-drawer, .admin-modal-root)
+:is([data-admin-root], [data-admin-embedded], .admin-drawer)
   .admin-table tbody tr:last-child td {
   border-bottom: 0;
 }
 
-:is([data-admin-root], [data-admin-embedded], body.admin-overlays, .admin-drawer, .admin-modal-root)
+:is([data-admin-root], [data-admin-embedded], .admin-drawer)
   [data-slot="table-body"] tr:hover td,
-:is([data-admin-root], [data-admin-embedded], body.admin-overlays, .admin-drawer, .admin-modal-root)
+:is([data-admin-root], [data-admin-embedded], .admin-drawer)
   .admin-table tbody tr:hover td {
   background: var(--admin-row-hover);
 }
 
 /* Switch Checked Override */
-:is([data-admin-root], [data-admin-embedded], body.admin-overlays, .admin-drawer, .admin-modal-root)
+:is([data-admin-root], [data-admin-embedded], .admin-drawer)
   button[role="switch"][data-state="checked"] {
   background-color: var(--admin-switch-on) !important;
 }
 
-:is([data-admin-root], [data-admin-embedded], body.admin-overlays, .admin-drawer, .admin-modal-root)
+:is([data-admin-root], [data-admin-embedded], .admin-drawer)
   button[role="switch"][data-state="checked"] > span {
   background-color: #ffffff !important;
 }
@@ -432,8 +420,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   [data-admin-root] *,
-  [data-admin-embedded] *,
-  body.admin-overlays * {
+  [data-admin-embedded] * {
     transition: none !important;
     animation: none !important;
   }

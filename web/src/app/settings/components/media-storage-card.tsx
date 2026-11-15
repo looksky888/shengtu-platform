@@ -7,17 +7,20 @@ import {
   Cloud,
   Database,
   HardDrive,
-  LoaderCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { SettingsConfig } from "@/lib/settings-types";
 import { cn } from "@/lib/utils";
 
-import { extractSavedConfigSection, isConfigKeysDirty } from "../settings-dirty";
+import {
+  extractSavedConfigSection,
+  isConfigKeysDirty,
+} from "../settings-dirty";
 import { useRegisterSettingsDirty } from "../settings-dirty-registry-hooks";
 import { useSettingsStore } from "../store";
 import { MediaStoragePipelinePanel } from "./media-storage-pipeline-panel";
@@ -44,6 +47,20 @@ const STORAGE_CONFIG_KEYS: readonly (keyof SettingsConfig)[] = [
   "media_r2_prefix",
   "media_r2_presign_ttl_seconds",
 ];
+
+function checkBoundedInt(
+  raw: unknown,
+  min: number,
+  max: number,
+  label: string,
+): string | undefined {
+  const text = raw === undefined || raw === null ? "" : String(raw).trim();
+  const num = text === "" ? Number.NaN : Number(text);
+  if (!Number.isInteger(num) || num < min || num > max) {
+    return `${label}需为 ${min}–${max} 之间的整数`;
+  }
+  return undefined;
+}
 
 export function MediaStorageCard() {
   const config = useSettingsStore((state) => state.config);
@@ -77,41 +94,60 @@ export function MediaStorageCard() {
   );
 
   const validateStorage = useCallback(() => {
-    if (!config) return true;
-    const imgDays = Number(config.image_retention_days);
-    if (!Number.isFinite(imgDays) || !Number.isInteger(imgDays) || imgDays < 1 || imgDays > 3650) {
-      toast.error("图片默认保留天数需为 1 - 3650 之间的整数");
+    const latest = useSettingsStore.getState().config;
+    if (!latest) return true;
+
+    const imgErr = checkBoundedInt(
+      latest.image_retention_days ?? 30,
+      1,
+      3650,
+      "图片默认保留天数",
+    );
+    if (imgErr) {
+      toast.error(imgErr);
       return false;
     }
-    const vidDays = Number(config.video_retention_days);
-    if (!Number.isFinite(vidDays) || !Number.isInteger(vidDays) || vidDays < 1 || vidDays > 3650) {
-      toast.error("视频默认保留天数需为 1 - 3650 之间的整数");
+
+    const vidErr = checkBoundedInt(
+      latest.video_retention_days ?? 30,
+      1,
+      3650,
+      "视频默认保留天数",
+    );
+    if (vidErr) {
+      toast.error(vidErr);
       return false;
     }
+
     const currentProvider =
-      config.media_storage_provider === "r2" ? "r2" : "local";
+      latest.media_storage_provider === "r2" ? "r2" : "local";
     if (currentProvider === "r2") {
-      const accountId = String(config.media_r2_account_id || "").trim();
-      const bucket = String(config.media_r2_bucket || "").trim();
-      const accessKeyId = String(config.media_r2_access_key_id || "").trim();
-      const secretKey = String(config.media_r2_secret_access_key || "").trim();
+      const accountId = String(latest.media_r2_account_id || "").trim();
+      const bucket = String(latest.media_r2_bucket || "").trim();
+      const accessKeyId = String(latest.media_r2_access_key_id || "").trim();
+      const secretKey = String(latest.media_r2_secret_access_key || "").trim();
       const hasSecret = Boolean(
-        secretKey || config.media_r2_secret_access_key_configured,
+        secretKey || latest.media_r2_secret_access_key_configured,
       );
       if (!accountId || !bucket || !accessKeyId || !hasSecret) {
         toast.error(
-          "启用 Cloudflare R2 存储前，请完整填写 Account ID、Bucket、Access Key ID 与 Secret Access Key",
+          "启用 Cloudflare R2 存储前，请完整填写账户 ID、存储桶名称、访问密钥 ID 与私有访问密钥",
         );
         return false;
       }
-      const ttl = Number(config.media_r2_presign_ttl_seconds);
-      if (!Number.isFinite(ttl) || ttl < 60 || ttl > 3600) {
-        toast.error("R2 预签名访问有效期需在 60 - 3600 秒之间");
+      const ttlErr = checkBoundedInt(
+        latest.media_r2_presign_ttl_seconds ?? 300,
+        60,
+        3600,
+        "R2 预签名访问有效期",
+      );
+      if (ttlErr) {
+        toast.error(ttlErr);
         return false;
       }
     }
     return true;
-  }, [config]);
+  }, []);
 
   const handleSave = useCallback(async () => {
     if (!validateStorage()) return false;
@@ -125,29 +161,36 @@ export function MediaStorageCard() {
     return false;
   }, [saveConfigSection, storage, validateStorage]);
 
+  const handleDiscard = useCallback(() => {
+    resetConfigSection(STORAGE_CONFIG_KEYS);
+    return true;
+  }, [resetConfigSection]);
+
   useRegisterSettingsDirty({
     id: "media-storage",
-    tab: "storage",
-    label: "媒体存储",
+    tab: "media",
+    label: "媒体存储后端与清理",
     isDirty,
     validate: validateStorage,
     save: handleSave,
-    discard: () => {
-      resetConfigSection(STORAGE_CONFIG_KEYS);
-      return true;
-    },
+    discard: handleDiscard,
   });
 
   if (isLoadingConfig || !config || storage.isLoading) {
     return (
       <SettingsCard
         icon={Database}
-        title="媒体存储"
+        title="存储后端与 R2 平滑迁移"
         description="管理创作媒体持久化后端、到期回收策略与 Cloudflare R2 平滑迁移流水线"
         className="md:col-span-2"
       >
-        <div className="flex min-h-48 items-center justify-center">
-          <LoaderCircle className="size-5 animate-spin text-muted-foreground" />
+        <div className="grid gap-5 py-1 lg:grid-cols-[1.18fr_0.82fr]">
+          <div className="space-y-3">
+            <Skeleton className="h-24 w-full" />
+            <Skeleton className="h-32 w-full" />
+            <Skeleton className="h-24 w-full" />
+          </div>
+          <Skeleton className="h-80 w-full" />
         </div>
       </SettingsCard>
     );
@@ -193,10 +236,69 @@ export function MediaStorageCard() {
     Number(config.video_retention_days) || 30,
   );
 
+  const imageRetentionError = checkBoundedInt(
+    config.image_retention_days ?? 30,
+    1,
+    3650,
+    "图片默认保留天数",
+  );
+  const videoRetentionError = checkBoundedInt(
+    config.video_retention_days ?? 30,
+    1,
+    3650,
+    "视频默认保留天数",
+  );
+  const r2TtlError =
+    provider === "r2"
+      ? checkBoundedInt(
+          config.media_r2_presign_ttl_seconds ?? 300,
+          60,
+          3600,
+          "预签名访问有效期",
+        )
+      : undefined;
+
+  const normalizeRetentionOnBlur = (
+    key: "image_retention_days" | "video_retention_days",
+    setter: (value: string) => void,
+    fallback: number,
+  ) => {
+    const raw = String(config[key] ?? "").trim();
+    if (!raw) {
+      const restored = Math.max(1, Number(savedBaseline[key]) || fallback);
+      setter(String(restored));
+      return;
+    }
+    if (/^-?\d+$/.test(raw)) {
+      const parsed = Number(raw);
+      if (Number.isSafeInteger(parsed)) {
+        setter(String(parsed));
+      }
+    }
+  };
+
+  const normalizeTtlOnBlur = () => {
+    const raw = String(config.media_r2_presign_ttl_seconds ?? "").trim();
+    if (!raw) {
+      const restored = Math.max(
+        60,
+        Number(savedBaseline.media_r2_presign_ttl_seconds) || 300,
+      );
+      setField({ media_r2_presign_ttl_seconds: restored });
+      return;
+    }
+    if (/^-?\d+$/.test(raw)) {
+      const parsed = Number(raw);
+      if (Number.isSafeInteger(parsed)) {
+        setField({ media_r2_presign_ttl_seconds: parsed });
+      }
+    }
+  };
+
   return (
     <SettingsCard
       icon={Database}
-      title="媒体存储"
+      title="存储后端与 R2 平滑迁移"
       description="配置生成图片与视频的持久化后端、到期自动回收策略及 Cloudflare R2 平滑迁移流水线"
       tone="slate"
       className="md:col-span-2"
@@ -227,7 +329,7 @@ export function MediaStorageCard() {
                 ? "切换存储后端模式在保存后需重启主服务完全生效"
                 : undefined
           }
-          onReset={() => resetConfigSection(STORAGE_CONFIG_KEYS)}
+          onReset={handleDiscard}
           onSave={() => void handleSave()}
         />
       }
@@ -249,17 +351,19 @@ export function MediaStorageCard() {
                 active={provider === "local"}
                 disabled={running || cleanupRunning}
                 icon={HardDrive}
-                title="本地磁盘存储 (local)"
+                title="本地磁盘存储"
                 subtitle="写入宿主机挂载数据卷，零外部依赖、低延迟读取"
-                badge={storage.activeProvider === "local" ? "运行中" : undefined}
+                badge={
+                  storage.activeProvider === "local" ? "运行中" : undefined
+                }
                 onSelect={() => setField({ media_storage_provider: "local" })}
               />
               <StorageModeOption
                 active={provider === "r2"}
                 disabled={running || cleanupRunning}
                 icon={Cloud}
-                title="Cloudflare R2 对象存储 (r2)"
-                subtitle="S3 兼容云端存储，弹性扩容并支持预签名直链访问"
+                title="Cloudflare R2 对象存储"
+                subtitle="兼容 S3 的云端对象存储，弹性扩容并支持预签名访问"
                 badge={storage.activeProvider === "r2" ? "运行中" : undefined}
                 onSelect={() =>
                   setField({
@@ -273,7 +377,7 @@ export function MediaStorageCard() {
 
           <SettingsSection
             title="本地空间回收与默认保留周期"
-            description="配置图片与视频的基础保留天数；仅在开启「到期自动清理」时定时回收本地磁盘文件，启用云存储 VIP 模式时则与 VIP 阶梯留存策略协同生效"
+            description="配置图片与视频的基础保留天数；仅在开启「到期自动清理」时定时回收本地磁盘文件，启用云存储会员模式时则与会员阶梯留存策略协同生效"
           >
             <div className="space-y-3">
               <SettingsSwitchRow
@@ -299,10 +403,18 @@ export function MediaStorageCard() {
                   unit="天"
                   min={1}
                   max={3650}
-                  rangeHint="1 - 3650"
+                  rangeHint="1–3650"
                   value={String(config.image_retention_days ?? 30)}
+                  error={imageRetentionError}
                   disabled={running || cleanupRunning}
                   onChange={setImageRetentionDays}
+                  onBlur={() =>
+                    normalizeRetentionOnBlur(
+                      "image_retention_days",
+                      setImageRetentionDays,
+                      30,
+                    )
+                  }
                 />
                 <SettingsUnitInput
                   id="media-video-retention-days"
@@ -310,13 +422,21 @@ export function MediaStorageCard() {
                   unit="天"
                   min={1}
                   max={3650}
-                  rangeHint="1 - 3650"
+                  rangeHint="1–3650"
                   value={String(config.video_retention_days ?? 30)}
+                  error={videoRetentionError}
                   disabled={running || cleanupRunning}
                   onChange={setVideoRetentionDays}
+                  onBlur={() =>
+                    normalizeRetentionOnBlur(
+                      "video_retention_days",
+                      setVideoRetentionDays,
+                      30,
+                    )
+                  }
                 />
                 <p className="text-[11px] leading-4.5 text-muted-foreground sm:col-span-2">
-                  说明：仅当开启「到期自动清理过期媒体文件」或启用上方「云存储付费会员制（VIP 留存策略）」时，过期回收才会按对应周期执行；关闭自动清理且关闭 VIP 模式时，媒体文件永久留存。
+                  说明：仅当开启「到期自动清理过期媒体文件」或启用上方「云存储付费会员制」时，过期回收才会按对应周期执行；两者均关闭时，媒体文件永久留存。
                 </p>
               </div>
             </div>
@@ -326,7 +446,7 @@ export function MediaStorageCard() {
             title="Cloudflare R2 对象存储凭据"
             description={
               provider === "r2"
-                ? "请提供具备目标 Bucket 对象读写权限的 S3 API 令牌"
+                ? "请提供具备目标存储桶对象读写权限的访问令牌"
                 : "可在保持本地存储期间预配置 R2 凭据，完成连接测试与存量迁移后再平滑切换"
             }
             badge={
@@ -365,7 +485,7 @@ export function MediaStorageCard() {
                     htmlFor="media-r2-account"
                     className="text-xs font-medium text-foreground sm:text-[13px]"
                   >
-                    Account ID
+                    Cloudflare 账户 ID
                   </label>
                   <Input
                     id="media-r2-account"
@@ -387,7 +507,7 @@ export function MediaStorageCard() {
                     htmlFor="media-r2-bucket"
                     className="text-xs font-medium text-foreground sm:text-[13px]"
                   >
-                    Bucket 名称
+                    存储桶名称
                   </label>
                   <Input
                     id="media-r2-bucket"
@@ -409,12 +529,12 @@ export function MediaStorageCard() {
                     htmlFor="media-r2-access"
                     className="text-xs font-medium text-foreground sm:text-[13px]"
                   >
-                    Access Key ID
+                    访问密钥 ID (Access Key ID)
                   </label>
                   <Input
                     id="media-r2-access"
                     value={String(config.media_r2_access_key_id || "")}
-                    placeholder="R2 S3 API Access Key ID"
+                    placeholder="R2 S3 访问密钥 ID"
                     disabled={running || cleanupRunning}
                     onChange={(event) =>
                       setField({ media_r2_access_key_id: event.target.value })
@@ -428,7 +548,7 @@ export function MediaStorageCard() {
 
                 <SettingsSecretInput
                   id="media-r2-secret"
-                  label="Secret Access Key"
+                  label="私有访问密钥 (Secret Access Key)"
                   value={String(config.media_r2_secret_access_key || "")}
                   configured={Boolean(
                     config.media_r2_secret_access_key_configured,
@@ -445,12 +565,12 @@ export function MediaStorageCard() {
                     htmlFor="media-r2-prefix"
                     className="text-xs font-medium text-foreground sm:text-[13px]"
                   >
-                    对象路径前缀 (Prefix)
+                    对象路径前缀
                   </label>
                   <Input
                     id="media-r2-prefix"
-                    value={String(config.media_r2_prefix || "shengtu-media")}
-                    placeholder="shengtu-media"
+                    value={String(config.media_r2_prefix ?? "")}
+                    placeholder="留空默认使用 shengtu-media"
                     disabled={running || cleanupRunning}
                     onChange={(event) =>
                       setField({ media_r2_prefix: event.target.value })
@@ -468,12 +588,14 @@ export function MediaStorageCard() {
                   unit="秒"
                   min={60}
                   max={3600}
-                  rangeHint="60 - 3600"
+                  rangeHint="60–3600"
                   value={String(config.media_r2_presign_ttl_seconds ?? 300)}
+                  error={r2TtlError}
                   disabled={running || cleanupRunning}
                   onChange={(value) =>
                     setField({ media_r2_presign_ttl_seconds: value })
                   }
+                  onBlur={normalizeTtlOnBlur}
                 />
               </div>
             ) : (
@@ -526,7 +648,7 @@ function StorageModeOption({
       className={cn(
         "flex flex-col items-start gap-2 rounded-xl border p-3.5 text-left transition-colors",
         active
-          ? "border-foreground/45 bg-surface shadow-2xs ring-1 ring-foreground/15"
+          ? "border-primary/40 bg-primary/[0.07] text-primary shadow-2xs ring-1 ring-primary/20"
           : "border-border/75 bg-surface-subtle/45 hover:border-border-strong/75 hover:bg-surface-hover/55",
         disabled && "cursor-not-allowed opacity-60",
       )}
@@ -536,7 +658,7 @@ function StorageModeOption({
           className={cn(
             "flex size-7 items-center justify-center rounded-lg ring-1",
             active
-              ? "bg-foreground text-background ring-foreground"
+              ? "bg-primary text-primary-foreground ring-primary"
               : "bg-surface text-muted-foreground ring-border/75",
           )}
         >
@@ -551,13 +673,18 @@ function StorageModeOption({
           <span
             className={cn(
               "size-2 rounded-full",
-              active ? "bg-foreground" : "bg-border-strong",
+              active ? "bg-primary" : "bg-border-strong",
             )}
           />
         </div>
       </div>
       <div className="space-y-0.5">
-        <div className="text-xs font-semibold text-foreground sm:text-[13px]">
+        <div
+          className={cn(
+            "text-xs font-semibold sm:text-[13px]",
+            active ? "text-primary" : "text-foreground",
+          )}
+        >
           {title}
         </div>
         <p className="text-[11px] leading-4.5 text-muted-foreground">

@@ -66,7 +66,7 @@ export function UpstreamProxyRuntimeStatus({
     },
     {
       label: "盾后账号冷却",
-      value: `${config.image_challenge_cooldown_seconds ?? 900} 秒`,
+      value: `${config.image_challenge_cooldown_seconds || 900} 秒`,
       sub: "触发 403 盾挑战后单号隔离时长",
       tone: "neutral" as const,
     },
@@ -74,7 +74,7 @@ export function UpstreamProxyRuntimeStatus({
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
         {summary.map((item) => (
           <div
             key={item.label}
@@ -86,7 +86,7 @@ export function UpstreamProxyRuntimeStatus({
                   "size-1.5 shrink-0 rounded-full",
                   item.tone === "success" && "bg-status-success",
                   item.tone === "warning" && "bg-status-warning",
-                  item.tone === "neutral" && "bg-muted-foreground/55"
+                  item.tone === "neutral" && "bg-muted-foreground/55",
                 )}
               />
               <span>{item.label}</span>

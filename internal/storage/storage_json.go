@@ -262,6 +262,32 @@ func (b *JSONBackend) ListJSONDocumentNamesByPrefix(prefix string) ([]string, er
 	return out, walkErr
 }
 
+func (b *JSONBackend) LoadJSONDocumentsByPrefix(prefix string) (map[string]any, error) {
+	names, err := b.ListJSONDocumentNamesByPrefix(prefix)
+	if err != nil {
+		return nil, err
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	out := make(map[string]any, len(names))
+	for _, name := range names {
+		full, pathErr := b.documentPath(name)
+		if pathErr != nil {
+			continue
+		}
+		data, readErr := os.ReadFile(full)
+		if readErr != nil {
+			continue
+		}
+		decoded, decodeErr := decodeJSONBytes(data)
+		if decodeErr != nil {
+			continue
+		}
+		out[name] = decoded
+	}
+	return out, nil
+}
+
 func (b *JSONBackend) DeleteJSONDocumentsBatch(names []string) (int, error) {
 	if len(names) == 0 {
 		return 0, nil

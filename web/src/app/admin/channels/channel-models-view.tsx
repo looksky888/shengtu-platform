@@ -28,6 +28,7 @@ import {
   AdminStatusBadge,
 } from "@/components/admin";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CopyButton } from "@/components/ui/copy-button";
 import { Input } from "@/components/ui/input";
@@ -47,6 +48,8 @@ import { resetPublicModelChannelCache } from "@/lib/use-public-model-channel";
 import { cn } from "@/lib/utils";
 
 type ModelKindFilter = "all" | "image" | "video";
+
+const MODEL_EDITOR_FORM_ID = "channel-model-editor-form";
 
 function isVideoOnlyModel(model: ImageChannelModel): boolean {
   const caps = model.capabilities ?? [];
@@ -116,9 +119,15 @@ export function ChannelModelsView({
 }) {
   const [models, setModels] = useState<ImageChannelModel[]>([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [editingModel, setEditingModel] = useState<ImageChannelModel | null>(null);
+  const [editingModel, setEditingModel] = useState<ImageChannelModel | null>(
+    null,
+  );
   const [initialUpstreamModel, setInitialUpstreamModel] = useState("");
-  const [deletingModel, setDeletingModel] = useState<ImageChannelModel | null>(null);
+  const [draftEnabled, setDraftEnabled] = useState(true);
+  const [draftIsVideo, setDraftIsVideo] = useState(false);
+  const [deletingModel, setDeletingModel] = useState<ImageChannelModel | null>(
+    null,
+  );
   const [deleting, setDeleting] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -128,17 +137,22 @@ export function ChannelModelsView({
   const [saving, setSaving] = useState(false);
   const [discovering, setDiscovering] = useState(false);
 
-  const loadModels = useCallback(async (silent = false) => {
-    if (!silent) setLoading(true);
-    try {
-      const response = await fetchImageChannelModels(channel.id);
-      setModels(response.models || []);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "加载渠道模型失败");
-    } finally {
-      if (!silent) setLoading(false);
-    }
-  }, [channel.id]);
+  const loadModels = useCallback(
+    async (silent = false) => {
+      if (!silent) setLoading(true);
+      try {
+        const response = await fetchImageChannelModels(channel.id);
+        setModels(response.models || []);
+      } catch (error) {
+        toast.error(
+          error instanceof Error ? error.message : "加载渠道模型失败",
+        );
+      } finally {
+        if (!silent) setLoading(false);
+      }
+    },
+    [channel.id],
+  );
 
   useEffect(() => {
     void loadModels();
@@ -177,12 +191,18 @@ export function ChannelModelsView({
   const openCreateDrawer = (prefillUpstream = "") => {
     setEditingModel(null);
     setInitialUpstreamModel(prefillUpstream);
+    setDraftEnabled(true);
+    setDraftIsVideo(
+      Boolean(prefillUpstream) && isVideoChannelModelId(prefillUpstream),
+    );
     setDrawerOpen(true);
   };
 
   const openEditDrawer = (model: ImageChannelModel) => {
     setEditingModel(model);
     setInitialUpstreamModel("");
+    setDraftEnabled(model.enabled);
+    setDraftIsVideo(isVideoOnlyModel(model));
     setDrawerOpen(true);
   };
 
@@ -191,10 +211,14 @@ export function ChannelModelsView({
     try {
       if (editingModel) {
         await updateImageChannelModel(channel.id, editingModel.id, input);
-        toast.success(`模型「${input.display_name || input.upstream_model}」已更新`);
+        toast.success(
+          `模型「${input.display_name || input.upstream_model}」已更新`,
+        );
       } else {
         await createImageChannelModel(channel.id, input);
-        toast.success(`模型「${input.display_name || input.upstream_model}」已添加`);
+        toast.success(
+          `模型「${input.display_name || input.upstream_model}」已添加`,
+        );
       }
       resetPublicModelChannelCache();
       setDrawerOpen(false);
@@ -207,7 +231,10 @@ export function ChannelModelsView({
     }
   };
 
-  const handleToggleModel = async (model: ImageChannelModel, nextEnabled: boolean) => {
+  const handleToggleModel = async (
+    model: ImageChannelModel,
+    nextEnabled: boolean,
+  ) => {
     setTogglingId(model.id);
     try {
       await updateImageChannelModel(
@@ -216,7 +243,9 @@ export function ChannelModelsView({
         toImageChannelModelInput(model, { enabled: nextEnabled }),
       );
       setModels((prev) =>
-        prev.map((m) => (m.id === model.id ? { ...m, enabled: nextEnabled } : m)),
+        prev.map((m) =>
+          m.id === model.id ? { ...m, enabled: nextEnabled } : m,
+        ),
       );
       resetPublicModelChannelCache();
       await onChanged();
@@ -233,7 +262,9 @@ export function ChannelModelsView({
     setDeleting(true);
     try {
       await deleteImageChannelModel(channel.id, deletingModel.id);
-      toast.success(`模型「${deletingModel.display_name || deletingModel.upstream_model}」已移除`);
+      toast.success(
+        `模型「${deletingModel.display_name || deletingModel.upstream_model}」已移除`,
+      );
       setDeletingModel(null);
       resetPublicModelChannelCache();
       await loadModels(true);
@@ -263,7 +294,8 @@ export function ChannelModelsView({
     [models],
   );
   const unaddedSuggestions = useMemo(
-    () => suggestions.filter((id) => !existingUpstreamSet.has(id.toLowerCase())),
+    () =>
+      suggestions.filter((id) => !existingUpstreamSet.has(id.toLowerCase())),
     [existingUpstreamSet, suggestions],
   );
 
@@ -287,7 +319,9 @@ export function ChannelModelsView({
               disabled={discovering}
               onClick={() => void handleDiscover()}
             >
-              <RefreshCw className={cn("size-3.5", discovering && "animate-spin")} />
+              <RefreshCw
+                className={cn("size-3.5", discovering && "animate-spin")}
+              />
               同步上游模型
             </Button>
           ) : null}
@@ -297,7 +331,7 @@ export function ChannelModelsView({
             onClick={() => openCreateDrawer()}
           >
             <Plus className="size-3.5" />
-            + 新增模型
+            新增模型
           </Button>
         </div>
       }
@@ -325,7 +359,7 @@ export function ChannelModelsView({
         <div className="rounded-[10px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-3">
           <div className="mb-2 flex items-center justify-between gap-2 text-[12px]">
             <span className="inline-flex items-center gap-1.5 font-medium text-[var(--admin-text)]">
-              <Sparkles className="size-3.5 text-[var(--admin-info)]" />
+              <Sparkles className="size-3.5 text-primary" />
               发现 {unaddedSuggestions.length} 个尚未挂载的上游候选模型（点击即可打开右侧抽屉预填新增）
             </span>
             <button
@@ -342,9 +376,9 @@ export function ChannelModelsView({
                 key={candidate}
                 type="button"
                 onClick={() => openCreateDrawer(candidate)}
-                className="inline-flex h-7 items-center gap-1 rounded-md border border-[var(--admin-border)] bg-[var(--admin-surface-2)] px-2 font-mono text-[11.5px] text-[var(--admin-text)] hover:border-[var(--admin-border-strong)]"
+                className="inline-flex h-7 items-center gap-1 rounded-md border border-[var(--admin-border)] bg-[var(--admin-surface-2)] px-2 font-mono text-[11.5px] text-[var(--admin-text)] transition-colors hover:border-primary/40 hover:bg-primary/[0.06] hover:text-primary"
               >
-                <Plus className="size-3 text-[var(--admin-text-muted)]" />
+                <Plus className="size-3 text-primary/80" />
                 {candidate}
               </button>
             ))}
@@ -364,11 +398,14 @@ export function ChannelModelsView({
               className="h-8 pl-8 text-[12.5px]"
             />
           </div>
-          <div className="inline-flex items-center rounded-md border border-[var(--admin-border)] bg-[var(--admin-bg)] p-0.5">
+          <div className="inline-flex items-center rounded-lg border border-[var(--admin-border)] bg-[var(--admin-bg)] p-0.5">
             {(
               [
                 { value: "all", label: `全部 (${models.length})` },
-                { value: "image", label: `生图 (${models.length - videoCount})` },
+                {
+                  value: "image",
+                  label: `生图 (${models.length - videoCount})`,
+                },
                 { value: "video", label: `视频 (${videoCount})` },
               ] as const
             ).map((pill) => (
@@ -377,9 +414,9 @@ export function ChannelModelsView({
                 type="button"
                 onClick={() => setKindFilter(pill.value)}
                 className={cn(
-                  "h-6 rounded-[5px] px-2.5 text-[12px] font-medium transition-colors",
+                  "h-6 rounded-md px-2.5 text-[12px] font-medium transition-colors",
                   kindFilter === pill.value
-                    ? "bg-[var(--admin-accent)] text-[var(--admin-accent-fg)]"
+                    ? "bg-primary/[0.08] text-primary ring-1 ring-primary/20"
                     : "text-[var(--admin-text-muted)] hover:text-[var(--admin-text)]",
                 )}
               >
@@ -417,14 +454,20 @@ export function ChannelModelsView({
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={7} className="py-10 text-center text-[var(--admin-text-muted)]">
+                <td
+                  colSpan={7}
+                  className="py-10 text-center text-[var(--admin-text-muted)]"
+                >
                   <LoaderCircle className="mx-auto size-4 animate-spin" />
                 </td>
               </tr>
             ) : filteredModels.length === 0 ? (
               <tr>
-                <td colSpan={7} className="py-10 text-center text-[var(--admin-text-muted)]">
-                  暂无匹配模型，点击右上角「+ 新增模型」通过右侧抽屉配置
+                <td
+                  colSpan={7}
+                  className="py-10 text-center text-[var(--admin-text-muted)]"
+                >
+                  暂无匹配模型，点击右上角「新增模型」通过右侧抽屉配置
                 </td>
               </tr>
             ) : (
@@ -438,7 +481,10 @@ export function ChannelModelsView({
                     <td>
                       <div className="inline-flex items-center gap-1 font-mono text-[12px] text-[var(--admin-text-muted)]">
                         <span>{model.upstream_model}</span>
-                        <CopyButton value={model.upstream_model} label="复制上游模型 ID" />
+                        <CopyButton
+                          value={model.upstream_model}
+                          label="复制上游模型 ID"
+                        />
                       </div>
                     </td>
                     <td>
@@ -462,7 +508,9 @@ export function ChannelModelsView({
                       <Switch
                         checked={model.enabled}
                         disabled={togglingId === model.id}
-                        onCheckedChange={(checked) => void handleToggleModel(model, checked)}
+                        onCheckedChange={(checked) =>
+                          void handleToggleModel(model, checked)
+                        }
                         aria-label={`切换模型 ${model.display_name || model.upstream_model}`}
                       />
                     </td>
@@ -496,17 +544,78 @@ export function ChannelModelsView({
         </table>
       </div>
 
-      {/* 460px Right Slide Drawer for Model Form (NO centered modal!) */}
+      {/* 600px Right Slide Drawer for Model Form */}
       <AdminSlideDrawer
         open={drawerOpen}
         onOpenChange={setDrawerOpen}
-        title={editingModel ? `编辑模型 · ${editingModel.display_name || editingModel.upstream_model}` : "新增渠道模型"}
+        title={
+          editingModel
+            ? `编辑模型 · ${editingModel.display_name || editingModel.upstream_model}`
+            : "新增渠道模型"
+        }
         description={`${channel.name} · 配置上游模型映射与 1K / 2K / 4K 阶梯积分单价`}
-        widthClassName="w-[min(460px,100vw)]"
+        widthClassName="w-[min(600px,100vw)]"
+        headerExtra={
+          <Badge
+            variant="outline"
+            className="gap-1 border-border/75 bg-surface-subtle text-muted-foreground"
+          >
+            {draftIsVideo ? (
+              <>
+                <Film className="size-3" />
+                <span>视频模型（按秒计费）</span>
+              </>
+            ) : (
+              <>
+                <Sparkles className="size-3" />
+                <span>图片模型（按张计费）</span>
+              </>
+            )}
+          </Badge>
+        }
+        footer={
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <label className="inline-flex cursor-pointer items-center gap-2.5 text-xs font-medium text-foreground">
+              <Switch
+                size="sm"
+                checked={draftEnabled}
+                disabled={saving}
+                onCheckedChange={setDraftEnabled}
+              />
+              <span>启用该模型</span>
+              <span className="hidden text-[11px] font-normal text-muted-foreground sm:inline">
+                关闭后创作台隐藏此模型
+              </span>
+            </label>
+            <div className="ml-auto flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={saving}
+                onClick={() => setDrawerOpen(false)}
+              >
+                取消
+              </Button>
+              <Button
+                type="submit"
+                form={MODEL_EDITOR_FORM_ID}
+                size="sm"
+                loading={saving}
+              >
+                {editingModel ? "保存修改" : "确认添加模型"}
+              </Button>
+            </div>
+          </div>
+        }
       >
         <ImageChannelModelForm
+          formId={MODEL_EDITOR_FORM_ID}
           model={editingModel}
           saving={saving}
+          enabled={draftEnabled}
+          onEnabledChange={setDraftEnabled}
+          onVideoKindChange={setDraftIsVideo}
           suggestions={suggestions}
           existingUpstreamModels={models
             .filter((item) => item.id !== editingModel?.id)

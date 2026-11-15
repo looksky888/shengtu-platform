@@ -21,6 +21,7 @@ import {
   updateEmailSettings,
   type EmailSettings,
 } from "@/lib/api";
+import { cn } from "@/lib/utils";
 
 import { useRegisterSettingsDirty } from "../settings-dirty-registry-hooks";
 import { normalizeEmailSettingsForm } from "../settings-form-normalizers";
@@ -47,17 +48,52 @@ const emptySettings: EmailSettings = {
   has_password: false,
 };
 
-function smtpFieldsSnapshot(value: EmailSettings, includeEnabled = true) {
+const EMAIL_ADDRESS_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function smtpFieldsSnapshot(
+  value: EmailSettings,
+  portText: string,
+  includeEnabled = true,
+) {
   const normalized = normalizeEmailSettingsForm(value);
   return JSON.stringify({
     ...(includeEnabled ? { enabled: Boolean(normalized.enabled) } : {}),
     host: normalized.host,
-    port: Number(normalized.port) || 0,
+    port: portText.trim(),
     username: normalized.username,
     encryption: normalized.encryption,
     from_email: normalized.from_email,
     from_name: normalized.from_name,
   });
+}
+
+function getEmailSmtpErrors(
+  settings: EmailSettings,
+  portDraft: string,
+): Record<string, string> {
+  const errors: Record<string, string> = {};
+  const host = settings.host.trim();
+  const fromEmail = settings.from_email.trim();
+  const portText = portDraft.trim();
+
+  if (settings.enabled && !host) {
+    errors.host = "启用发信服务时请填写 SMTP 主机地址";
+  }
+
+  if (settings.enabled || portText !== "") {
+    const portNum = portText === "" ? Number.NaN : Number(portText);
+    if (!Number.isInteger(portNum) || portNum < 1 || portNum > 65535) {
+      errors.port = "连接端口必须为 1–65535 的整数";
+    }
+  }
+
+  if (settings.enabled && !fromEmail) {
+    errors.from_email = "启用发信服务时请填写发件人邮箱";
+  } else if (fromEmail && !EMAIL_ADDRESS_RE.test(fromEmail)) {
+    errors.from_email = "请填写格式正确的邮箱地址（如 no-reply@example.com）";
+  }
+
+  return errors;
 }
 
 export function EmailSettingsCard({
@@ -69,6 +105,7 @@ export function EmailSettingsCard({
 }) {
   const [settings, setSettings] = useState<EmailSettings>(emptySettings);
   const [baseline, setBaseline] = useState<EmailSettings>(emptySettings);
+  const [portDraft, setPortDraft] = useState<string>(String(emptySettings.port));
   const [recipient, setRecipient] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -87,12 +124,13 @@ export function EmailSettingsCard({
         };
         setSettings(next);
         setBaseline(next);
+        setPortDraft(String(next.port || 587));
         onStatusChange?.(Boolean(next.enabled));
         return true;
       } catch (error) {
         if (!silent) {
           toast.error(
-            error instanceof Error ? error.message : "加载邮件设置失败"
+            error instanceof Error ? error.message : "加载邮件设置失败",
           );
         }
         return false;
@@ -100,7 +138,7 @@ export function EmailSettingsCard({
         if (!silent) setLoading(false);
       }
     },
-    [onStatusChange]
+    [onStatusChange],
   );
 
   useEffect(() => {
@@ -109,37 +147,90 @@ export function EmailSettingsCard({
 
   const update = <K extends keyof EmailSettings>(
     key: K,
-    value: EmailSettings[K]
+    value: EmailSettings[K],
   ) => {
     setSettings((current) => ({ ...current, [key]: value }));
   };
 
+  const handlePortChange = (raw: string) => {
+    setPortDraft(raw);
+    const trimmed = raw.trim();
+    if (/^\d+$/.test(trimmed)) {
+      const parsed = Number(trimmed);
+      if (Number.isSafeInteger(parsed)) {
+        update("port", parsed);
+      }
+    }
+  };
+
+  const handlePortBlur = () => {
+    const trimmed = portDraft.trim();
+    if (!trimmed) {
+      const fallback = baseline.port || 587;
+      setPortDraft(String(fallback));
+      update("port", fallback);
+      return;
+    }
+    if (/^\d+$/.test(trimmed)) {
+      const parsed = Number(trimmed);
+      if (Number.isSafeInteger(parsed)) {
+        setPortDraft(String(parsed));
+        update("port", parsed);
+      }
+    }
+  };
+
+  const baselinePortText = String(baseline.port || 587);
   const hasNewPassword = Boolean(settings.password);
+
   const isDetailFieldsDirty = useMemo(
     () =>
       !loading &&
       (hasNewPassword ||
-        smtpFieldsSnapshot(settings, false) !==
-          smtpFieldsSnapshot(baseline, false)),
-    [baseline, hasNewPassword, loading, settings]
+        smtpFieldsSnapshot(settings, portDraft, false) !==
+          smtpFieldsSnapshot(baseline, baselinePortText, false)),
+    [baseline, baselinePortText, hasNewPassword, loading, portDraft, settings],
   );
 
   const isDirty = useMemo(
     () =>
       !loading &&
       (hasNewPassword ||
-        smtpFieldsSnapshot(settings, true) !==
-          smtpFieldsSnapshot(baseline, true)),
-    [baseline, hasNewPassword, loading, settings]
+        smtpFieldsSnapshot(settings, portDraft, true) !==
+          smtpFieldsSnapshot(baseline, baselinePortText, true)),
+    [baseline, baselinePortText, hasNewPassword, loading, portDraft, settings],
   );
+
+  const errors = useMemo(
+    () => getEmailSmtpErrors(settings, portDraft),
+    [portDraft, settings],
+  );
+  const hasValidationError = Object.keys(errors).length > 0;
+
+  const validateSmtp = useCallback(() => {
+    const currentErrors = getEmailSmtpErrors(settings, portDraft);
+    const firstMsg = Object.values(currentErrors)[0];
+    if (firstMsg) {
+      toast.error(firstMsg);
+      return false;
+    }
+    return true;
+  }, [portDraft, settings]);
 
   const handleSave = useCallback(
     async (options?: { silentToast?: boolean }): Promise<boolean> => {
+      if (!validateSmtp()) return false;
       setSaving(true);
       try {
-        const data = await updateEmailSettings(
-          normalizeEmailSettingsForm(settings)
-        );
+        const trimmedPort = portDraft.trim();
+        const resolvedPort = trimmedPort
+          ? Number(trimmedPort)
+          : baseline.port || 587;
+        const payload = normalizeEmailSettingsForm({
+          ...settings,
+          port: resolvedPort,
+        });
+        const data = await updateEmailSettings(payload);
         const next: EmailSettings = {
           ...emptySettings,
           ...data.settings,
@@ -147,6 +238,7 @@ export function EmailSettingsCard({
         };
         setSettings(next);
         setBaseline(next);
+        setPortDraft(String(next.port || 587));
         onStatusChange?.(Boolean(next.enabled));
         if (!options?.silentToast) {
           toast.success("SMTP 邮件服务设置已保存");
@@ -154,18 +246,19 @@ export function EmailSettingsCard({
         return true;
       } catch (error) {
         toast.error(
-          error instanceof Error ? error.message : "保存邮件设置失败"
+          error instanceof Error ? error.message : "保存邮件设置失败",
         );
         return false;
       } finally {
         setSaving(false);
       }
     },
-    [onStatusChange, settings]
+    [baseline.port, onStatusChange, portDraft, settings, validateSmtp],
   );
 
   const handleDiscard = useCallback(() => {
     setSettings({ ...baseline, password: "" });
+    setPortDraft(String(baseline.port || 587));
     return true;
   }, [baseline]);
 
@@ -174,6 +267,7 @@ export function EmailSettingsCard({
     tab: "email",
     label: "SMTP 邮件服务",
     isDirty,
+    validate: validateSmtp,
     save: () => handleSave(),
     discard: handleDiscard,
   });
@@ -184,19 +278,24 @@ export function EmailSettingsCard({
       toast.error("请输入测试收件邮箱");
       return;
     }
+    if (!EMAIL_ADDRESS_RE.test(targetEmail)) {
+      toast.error("请输入格式正确的测试收件邮箱");
+      return;
+    }
+    const wasDirty = isDirty;
     setTesting(true);
     try {
-      if (isDirty) {
+      if (wasDirty) {
         const saved = await handleSave({ silentToast: true });
         if (!saved) return;
       }
       await testEmailSettings(targetEmail);
       toast.success(
-        isDirty ? "已保存最新 SMTP 配置并发送测试邮件" : "测试邮件已发送"
+        wasDirty ? "已保存最新 SMTP 配置并发送测试邮件" : "测试邮件已发送",
       );
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "测试邮件发送失败"
+        error instanceof Error ? error.message : "测试邮件发送失败",
       );
     } finally {
       setTesting(false);
@@ -205,7 +304,7 @@ export function EmailSettingsCard({
 
   const showDetails = settings.enabled || manualExpanded || isDetailFieldsDirty;
   const preconfiguredSummary = settings.host.trim()
-    ? `${settings.host.trim()}:${settings.port} · ${settings.from_email.trim() || "未填写发件邮箱"}`
+    ? `${settings.host.trim()}:${portDraft || settings.port} · ${settings.from_email.trim() || "未填写发件邮箱"}`
     : "尚未配置 SMTP 发信服务器地址";
 
   return (
@@ -240,6 +339,11 @@ export function EmailSettingsCard({
             dirty={isDirty}
             saving={saving}
             disabled={testing}
+            hint={
+              hasValidationError
+                ? "请先修正标红的 SMTP 主机、端口或发件人邮箱错误后再保存"
+                : undefined
+            }
             onReset={handleDiscard}
             onSave={() => void handleSave()}
           />
@@ -288,10 +392,11 @@ export function EmailSettingsCard({
               </Button>
             </div>
           ) : (
-            <>
+            <div className="space-y-4">
               <SettingsSection
+                layout="split"
                 title="SMTP 连接与发件人信息"
-                description="支持主流企业邮局、Resend、Amazon SES 及自建 Postfix 服务"
+                description="支持主流企业邮局、Resend、Amazon SES 及自建 Postfix 服务。"
                 action={
                   !settings.enabled && !isDetailFieldsDirty ? (
                     <Button
@@ -307,65 +412,72 @@ export function EmailSettingsCard({
                   ) : null
                 }
               >
-                <div className="grid gap-3.5 sm:grid-cols-2">
-                  <EmailField
-                    id="smtp-host"
-                    label="SMTP 主机"
-                    value={settings.host}
-                    onChange={(value) => update("host", value)}
-                    placeholder="smtp.example.com"
-                  />
-                  <SettingsUnitInput
-                    id="smtp-port"
-                    label="连接端口"
-                    unit="Port"
-                    min={1}
-                    max={65535}
-                    rangeHint="1–65535"
-                    placeholder="587"
-                    value={settings.port}
-                    onChange={(value) => update("port", Number(value) || 0)}
-                  />
-                  <EmailField
-                    id="smtp-username"
-                    label="SMTP 用户名"
-                    value={settings.username}
-                    onChange={(value) => update("username", value)}
-                    placeholder="mailer@example.com"
-                  />
-                  <SettingsSecretInput
-                    id="smtp-password"
-                    label="SMTP 密码 / 授权码"
-                    value={settings.password || ""}
-                    onChange={(value) => update("password", value)}
-                    configured={Boolean(settings.has_password)}
-                    configuredLabel="密码已保存"
-                    placeholder={
-                      settings.has_password
-                        ? "密码已加密保存，留空保持不变"
-                        : "输入 SMTP 密码或应用专用授权码"
-                    }
-                    onClear={() => update("password", "")}
-                  />
-                  <EmailField
-                    id="smtp-from-email"
-                    label="发件人邮箱"
-                    type="email"
-                    value={settings.from_email}
-                    onChange={(value) => update("from_email", value)}
-                    placeholder="no-reply@example.com"
-                  />
-                  <EmailField
-                    id="smtp-from-name"
-                    label="发件人显示名称"
-                    value={settings.from_name}
-                    onChange={(value) => update("from_name", value)}
-                    placeholder="生图"
-                  />
-                  <div className="space-y-1.5 sm:col-span-2">
+                <div className="max-w-2xl space-y-3.5">
+                  <div className="grid gap-3.5 sm:grid-cols-2">
+                    <EmailField
+                      id="smtp-host"
+                      label="SMTP 主机"
+                      value={settings.host}
+                      error={errors.host}
+                      onChange={(value) => update("host", value)}
+                      placeholder="smtp.example.com"
+                    />
+                    <SettingsUnitInput
+                      id="smtp-port"
+                      label="连接端口"
+                      unit="Port"
+                      min={1}
+                      max={65535}
+                      rangeHint="1–65535"
+                      placeholder="587"
+                      value={portDraft}
+                      error={errors.port}
+                      onChange={handlePortChange}
+                      onBlur={handlePortBlur}
+                    />
+                    <EmailField
+                      id="smtp-username"
+                      label="SMTP 用户名"
+                      value={settings.username}
+                      onChange={(value) => update("username", value)}
+                      placeholder="mailer@example.com"
+                    />
+                    <SettingsSecretInput
+                      id="smtp-password"
+                      label="SMTP 密码 / 授权码"
+                      value={settings.password || ""}
+                      onChange={(value) => update("password", value)}
+                      configured={Boolean(settings.has_password)}
+                      configuredLabel="密码已保存"
+                      placeholder={
+                        settings.has_password
+                          ? "密码已加密保存，留空保持不变"
+                          : "输入 SMTP 密码或应用专用授权码"
+                      }
+                      onClear={() => update("password", "")}
+                    />
+                    <EmailField
+                      id="smtp-from-email"
+                      label="发件人邮箱"
+                      type="email"
+                      value={settings.from_email}
+                      error={errors.from_email}
+                      onChange={(value) => update("from_email", value)}
+                      placeholder="no-reply@example.com"
+                    />
+                    <EmailField
+                      id="smtp-from-name"
+                      label="发件人显示名称"
+                      value={settings.from_name}
+                      onChange={(value) => update("from_name", value)}
+                      placeholder="生图"
+                    />
+                  </div>
+
+                  <div className="max-w-lg space-y-1.5">
                     <label
                       htmlFor="smtp-encryption"
-                      className="text-xs font-medium text-foreground sm:text-[13px]"
+                      className="block text-xs font-medium text-foreground sm:text-[13px]"
                     >
                       传输加密协议
                     </label>
@@ -374,13 +486,13 @@ export function EmailSettingsCard({
                       onValueChange={(value) =>
                         update(
                           "encryption",
-                          value as EmailSettings["encryption"]
+                          value as EmailSettings["encryption"],
                         )
                       }
                     >
                       <SelectTrigger
                         id="smtp-encryption"
-                        className={settingsInputClassName}
+                        className={cn("w-full", settingsInputClassName)}
                       >
                         <SelectValue />
                       </SelectTrigger>
@@ -401,6 +513,7 @@ export function EmailSettingsCard({
               </SettingsSection>
 
               <SettingsSection
+                layout="split"
                 title="连通性与发信测试"
                 description={
                   isDirty
@@ -408,35 +521,37 @@ export function EmailSettingsCard({
                     : "向指定收件箱投递一封验证码测试邮件，验证握手鉴权与发件人白名单。"
                 }
               >
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                  <Input
-                    type="email"
-                    value={recipient}
-                    onChange={(event) => setRecipient(event.target.value)}
-                    placeholder="输入测试收件邮箱，如 admin@example.com"
-                    className={settingsInputClassName}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    loading={testing}
-                    disabled={saving || !settings.enabled}
-                    onClick={() => void sendTest()}
-                    className="h-9 shrink-0 gap-1.5 px-3.5 text-xs"
-                  >
-                    <Send className="size-3.5" />
-                    <span>
-                      {isDirty ? "保存并发送测试邮件" : "发送测试邮件"}
-                    </span>
-                  </Button>
+                <div className="max-w-xl space-y-2.5">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <Input
+                      type="email"
+                      value={recipient}
+                      onChange={(event) => setRecipient(event.target.value)}
+                      placeholder="输入测试收件邮箱，如 admin@example.com"
+                      className={cn(settingsInputClassName, "min-w-0 flex-1")}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      loading={testing}
+                      disabled={saving || !settings.enabled}
+                      onClick={() => void sendTest()}
+                      className="h-9 shrink-0 gap-1.5 px-3.5 text-xs"
+                    >
+                      <Send className="size-3.5" />
+                      <span>
+                        {isDirty ? "保存并发送测试邮件" : "发送测试邮件"}
+                      </span>
+                    </Button>
+                  </div>
+                  {!settings.enabled ? (
+                    <SettingsNotice>
+                      请先打开上方「启用 SMTP 邮件验证码服务」开关后再执行在线发信测试。
+                    </SettingsNotice>
+                  ) : null}
                 </div>
-                {!settings.enabled ? (
-                  <SettingsNotice className="mt-2.5">
-                    请先打开上方「启用 SMTP 邮件验证码服务」开关后再执行在线发信测试。
-                  </SettingsNotice>
-                ) : null}
               </SettingsSection>
-            </>
+            </div>
           )}
         </div>
       )}
@@ -448,6 +563,7 @@ function EmailField({
   id,
   label,
   value,
+  error,
   onChange,
   placeholder,
   type = "text",
@@ -455,6 +571,7 @@ function EmailField({
   id: string;
   label: string;
   value: string;
+  error?: string;
   onChange: (value: string) => void;
   placeholder: string;
   type?: string;
@@ -470,11 +587,15 @@ function EmailField({
       <Input
         id={id}
         type={type}
+        aria-invalid={Boolean(error)}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
         className={settingsInputClassName}
       />
+      {error ? (
+        <p className="text-xs leading-4 text-status-danger">{error}</p>
+      ) : null}
     </div>
   );
 }

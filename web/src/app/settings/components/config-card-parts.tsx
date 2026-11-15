@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  ArrowUpRight,
-  Gauge,
-  Globe,
-  HardDrive,
-  SlidersHorizontal,
-} from "lucide-react";
+import { ArrowUpRight, Gauge, Globe, Info } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { Badge } from "@/components/ui/badge";
@@ -24,7 +18,7 @@ export function RestartBadge() {
   return (
     <Badge
       variant="outline"
-      className="h-4.5 px-1.5 text-[10px] font-normal text-muted-foreground"
+      className="h-5 rounded-full border-amber-500/30 bg-amber-500/10 px-2 text-[10px] font-medium text-amber-700 dark:text-amber-300"
     >
       需重启生效
     </Badge>
@@ -33,17 +27,21 @@ export function RestartBadge() {
 
 export function ConcurrencyOverviewStrip({
   configuredImageCeiling,
+  imageChannelLimit,
   imageWorkerCount,
   imageQueueCapacity,
   videoWorkerCount,
   videoQueueCapacity,
 }: {
   configuredImageCeiling: number;
+  imageChannelLimit: number;
   imageWorkerCount: number;
   imageQueueCapacity: number;
   videoWorkerCount: number;
   videoQueueCapacity: number;
 }) {
+  const boundedByWorker = imageChannelLimit > imageWorkerCount;
+
   return (
     <div className="rounded-[10px] border border-border/75 bg-surface-subtle/50 p-3.5">
       <div className="flex items-center justify-between gap-2">
@@ -83,6 +81,21 @@ export function ConcurrencyOverviewStrip({
           </div>
         </div>
       </div>
+      {boundedByWorker ? (
+        <div className="mt-2.5 flex items-start gap-2 rounded-lg border border-primary/25 bg-primary/[0.06] px-3 py-2 text-xs leading-5 text-foreground">
+          <Info className="mt-0.5 size-3.5 shrink-0 text-primary" />
+          <span>
+            当前本地号池生图总并发（{imageChannelLimit}）高于{" "}
+            <strong className="font-medium">图片消费协程 (Worker)</strong>{" "}
+            数（{imageWorkerCount}），实际有效并发受 Worker 数量约束（
+            <code className="font-mono text-[11px] text-primary">
+              min(总并发, Worker 数) ={" "}
+              {Math.min(imageChannelLimit, imageWorkerCount)}
+            </code>
+            ）。如需释放更高并发，请同步调高下方图片消费协程并重启生效。
+          </span>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -92,7 +105,7 @@ export function ProxySourceStatusStrip({ proxy }: { proxy: string }) {
   const hasProxy = Boolean(normalized);
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-[10px] border border-border/75 bg-surface-subtle/45 px-3.5 py-2.5">
+    <div className="flex max-w-xl flex-wrap items-center justify-between gap-3 rounded-[10px] border border-border/75 bg-surface-subtle/45 px-3.5 py-2.5">
       <div className="flex min-w-0 items-center gap-2.5">
         <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-surface-muted text-muted-foreground ring-1 ring-border/70">
           <Globe className="size-3.5" />
@@ -135,76 +148,6 @@ export function ProxySourceStatusStrip({ proxy }: { proxy: string }) {
           <ArrowUpRight className="size-3.5" />
         </Link>
       </Button>
-    </div>
-  );
-}
-
-export function CrossPageGovernanceStrips({
-  imageWorkerCount,
-  videoWorkerCount,
-  userConcurrentLimit,
-  userRpmLimit,
-  imageRetentionDays,
-  videoRetentionDays,
-}: {
-  imageWorkerCount: number;
-  videoWorkerCount: number;
-  userConcurrentLimit: number;
-  userRpmLimit: number;
-  imageRetentionDays: number;
-  videoRetentionDays: number;
-}) {
-  return (
-    <div className="space-y-2.5">
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-[10px] border border-border/75 bg-surface-subtle/45 px-3.5 py-2.5">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-surface-muted text-muted-foreground ring-1 ring-border/70">
-            <SlidersHorizontal className="size-3.5" />
-          </span>
-          <div className="min-w-0 space-y-0.5">
-            <div className="text-xs font-medium text-foreground sm:text-[13px]">
-              Worker 协程队列与默认限流配额
-            </div>
-            <div className="truncate text-xs tabular-nums text-muted-foreground">
-              当前图片 / 视频 Worker：{imageWorkerCount} / {videoWorkerCount} ·
-              用户默认限流：
-              {userConcurrentLimit > 0
-                ? `${userConcurrentLimit} 并发`
-                : "不限并发"}{" "}
-              / {userRpmLimit > 0 ? `${userRpmLimit} RPM` : "不限 RPM"}
-            </div>
-          </div>
-        </div>
-        <Button asChild variant="outline" size="sm" className="h-8 gap-1 text-xs">
-          <Link to="/settings?tab=backup">
-            <span>前往「备份与日志」治理日志与保留周期</span>
-            <ArrowUpRight className="size-3.5" />
-          </Link>
-        </Button>
-      </div>
-
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-[10px] border border-border/75 bg-surface-subtle/45 px-3.5 py-2.5">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-surface-muted text-muted-foreground ring-1 ring-border/70">
-            <HardDrive className="size-3.5" />
-          </span>
-          <div className="min-w-0 space-y-0.5">
-            <div className="text-xs font-medium text-foreground sm:text-[13px]">
-              媒体保留周期与云存储 VIP 留存策略
-            </div>
-            <div className="truncate text-xs tabular-nums text-muted-foreground">
-              当前基础资产保留期：图片 {imageRetentionDays} 天 · 视频{" "}
-              {videoRetentionDays} 天
-            </div>
-          </div>
-        </div>
-        <Button asChild variant="outline" size="sm" className="h-8 gap-1 text-xs">
-          <Link to="/settings?tab=media">
-            <span>前往「媒体存储」调整媒体保留天数与 VIP 策略</span>
-            <ArrowUpRight className="size-3.5" />
-          </Link>
-        </Button>
-      </div>
     </div>
   );
 }

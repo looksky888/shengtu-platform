@@ -5,11 +5,17 @@ import {
   loadActiveRechargeOrder,
   syncActiveRechargeOrderStorage,
 } from "@/app/recharge/recharge-order-storage";
-import { cancelPaymentOrder, queryPaymentOrder, type PaymentOrder } from "@/lib/user-payment-api";
 import { dispatchQuotaRefresh } from "@/lib/quota-events";
+import {
+  cancelPaymentOrder,
+  queryPaymentOrder,
+  type PaymentOrder,
+} from "@/lib/user-payment-api";
 
 export function useRechargeOrder(sessionKey: string) {
-  const [order, setOrder] = useState<PaymentOrder | null>(() => loadActiveRechargeOrder(sessionKey));
+  const [order, setOrder] = useState<PaymentOrder | null>(() =>
+    loadActiveRechargeOrder(sessionKey),
+  );
   const [error, setError] = useState("");
   const [querying, setQuerying] = useState(false);
   const [cancelling, setCancelling] = useState(false);
@@ -42,46 +48,62 @@ export function useRechargeOrder(sessionKey: string) {
     [applyOrder],
   );
 
-  const refresh = useCallback((options?: { manual?: boolean }): Promise<void> => {
-    if (!mounted.current || cancelPending.current || !current.current) return Promise.resolve();
-    if (queryRequest.current) return queryRequest.current;
-    const item = current.current;
-    const version = revision.current;
-    const stillCurrent = () => mounted.current && revision.current === version;
-    setQuerying(true);
-    const request = queryPaymentOrder(item.id)
-      .then((result) => {
-        if (!stillCurrent()) return;
-        applyOrder(result.item);
-        setError("");
-        if (options?.manual && result.item.status !== "succeeded") {
-          if (result.item.status === "created" || result.item.status === "pending") {
-            toast.info("尚未检测到付款到账，扫码支付后页面会自动更新");
-          } else {
-            toast.info("订单状态已同步更新");
+  const refresh = useCallback(
+    (options?: { manual?: boolean }): Promise<void> => {
+      if (!mounted.current || cancelPending.current || !current.current) {
+        return Promise.resolve();
+      }
+      if (queryRequest.current) return queryRequest.current;
+      const item = current.current;
+      const version = revision.current;
+      const stillCurrent = () =>
+        mounted.current && revision.current === version;
+      setQuerying(true);
+      const request = queryPaymentOrder(item.id)
+        .then((result) => {
+          if (!stillCurrent()) return;
+          applyOrder(result.item);
+          setError("");
+          if (options?.manual && result.item.status !== "succeeded") {
+            if (
+              result.item.status === "created" ||
+              result.item.status === "pending"
+            ) {
+              toast.info("尚未检测到付款到账，扫码支付后页面会自动更新");
+            } else {
+              toast.info("订单状态已同步更新");
+            }
           }
-        }
-      })
-      .catch((reason: unknown) => {
-        if (stillCurrent()) {
-          const message = reason instanceof Error ? reason.message : "订单状态查询失败";
-          setError(message);
-          if (options?.manual) {
-            toast.error(message);
+        })
+        .catch((reason: unknown) => {
+          if (stillCurrent()) {
+            const message =
+              reason instanceof Error ? reason.message : "订单状态查询失败";
+            setError(message);
+            if (options?.manual) {
+              toast.error(message);
+            }
           }
-        }
-      })
-      .finally(() => {
-        if (queryRequest.current === request) queryRequest.current = null;
-        if (mounted.current) setQuerying(false);
-      });
-    queryRequest.current = request;
-    return request;
-  }, [applyOrder]);
+        })
+        .finally(() => {
+          if (queryRequest.current === request) queryRequest.current = null;
+          if (mounted.current) setQuerying(false);
+        });
+      queryRequest.current = request;
+      return request;
+    },
+    [applyOrder],
+  );
 
   const cancel = useCallback(async () => {
     const item = current.current;
-    if (!item || cancelPending.current || !["created", "pending"].includes(item.status)) return;
+    if (
+      !item ||
+      cancelPending.current ||
+      !["created", "pending"].includes(item.status)
+    ) {
+      return;
+    }
     cancelPending.current = true;
     const version = ++revision.current;
     setCancelling(true);
@@ -91,13 +113,14 @@ export function useRechargeOrder(sessionKey: string) {
       applyOrder(result.item);
       setError("");
       if (result.item.status === "closed" || result.item.status === "failed") {
-        toast.success("支付订单已结束，可以重新选择套餐");
+        toast.success("支付订单已关闭，可以重新选择套餐");
       } else if (result.item.status === "closing") {
         toast.info("关单结果确认中，请稍候");
       }
     } catch (reason: unknown) {
       if (mounted.current && revision.current === version) {
-        const message = reason instanceof Error ? reason.message : "取消支付失败";
+        const message =
+          reason instanceof Error ? reason.message : "取消支付失败";
         setError(message);
         toast.error(message);
       }
@@ -106,12 +129,53 @@ export function useRechargeOrder(sessionKey: string) {
       if (mounted.current) {
         setCancelling(false);
         await queryRequest.current;
-        if (revision.current === version && current.current && ["created", "pending", "closing"].includes(current.current.status)) {
+        if (
+          revision.current === version &&
+          current.current &&
+          ["created", "pending", "closing"].includes(current.current.status)
+        ) {
           await refresh();
         }
       }
     }
   }, [applyOrder, refresh]);
+
+  const cancelAndReset = useCallback(async () => {
+    const item = current.current;
+    if (!item) return;
+    if (!["created", "pending"].includes(item.status)) {
+      replaceOrder(null);
+      return;
+    }
+    if (cancelPending.current) return;
+    cancelPending.current = true;
+    const version = ++revision.current;
+    setCancelling(true);
+    try {
+      const result = await cancelPaymentOrder(item.id);
+      if (!mounted.current || revision.current !== version) return;
+      if (result.item.status === "succeeded") {
+        applyOrder(result.item);
+        setError("");
+        return;
+      }
+      applyOrder(null);
+      setError("");
+      toast.success("已取消当前订单，请重新选择套餐");
+    } catch {
+      if (mounted.current && revision.current === version) {
+        // Even if order already expired on server, let user return to catalog cleanly.
+        applyOrder(null);
+        setError("");
+        toast.info("已返回套餐选择，如刚完成支付可在最近订单中同步状态");
+      }
+    } finally {
+      cancelPending.current = false;
+      if (mounted.current) {
+        setCancelling(false);
+      }
+    }
+  }, [applyOrder, replaceOrder]);
 
   useEffect(() => {
     const restored = loadActiveRechargeOrder(sessionKey);
@@ -124,12 +188,18 @@ export function useRechargeOrder(sessionKey: string) {
 
   useEffect(() => {
     mounted.current = true;
-    if (current.current && ["created", "pending", "closing"].includes(current.current.status)) {
+    if (
+      current.current &&
+      ["created", "pending", "closing"].includes(current.current.status)
+    ) {
       void refresh();
     }
     const onShow = () => {
       if (document.visibilityState === "hidden") return;
-      if (current.current && ["created", "pending", "closing"].includes(current.current.status)) {
+      if (
+        current.current &&
+        ["created", "pending", "closing"].includes(current.current.status)
+      ) {
         void refresh();
       }
     };
@@ -147,7 +217,13 @@ export function useRechargeOrder(sessionKey: string) {
   const pollingID = order?.id;
   const pollingStatus = order?.status;
   useEffect(() => {
-    if (!pollingID || !pollingStatus || !["created", "pending", "closing"].includes(pollingStatus)) return;
+    if (
+      !pollingID ||
+      !pollingStatus ||
+      !["created", "pending", "closing"].includes(pollingStatus)
+    ) {
+      return;
+    }
     const timer = window.setInterval(() => {
       if (document.visibilityState !== "hidden") {
         void refresh();
@@ -159,9 +235,20 @@ export function useRechargeOrder(sessionKey: string) {
   useEffect(() => {
     if (order?.status !== "succeeded" || notified.current === order.id) return;
     notified.current = order.id;
-    toast.success(order.product_type === "cloud_storage" ? "云存储权益已到账" : "积分已到账");
+    toast.success(
+      order.product_type === "cloud_storage" ? "云存储权益已到账" : "积分已到账",
+    );
     dispatchQuotaRefresh();
   }, [order]);
 
-  return { order, error, querying, cancelling, replaceOrder, refresh, cancel };
+  return {
+    order,
+    error,
+    querying,
+    cancelling,
+    replaceOrder,
+    refresh,
+    cancel,
+    cancelAndReset,
+  };
 }

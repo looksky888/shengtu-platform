@@ -21,8 +21,9 @@ type requestIdentityContextKey struct{}
 
 type auditResponseWriter struct {
 	http.ResponseWriter
-	status int
-	body   bytes.Buffer
+	status          int
+	body            bytes.Buffer
+	skipBodyCapture bool
 }
 
 func (w *auditResponseWriter) WriteHeader(status int) {
@@ -37,7 +38,7 @@ func (w *auditResponseWriter) Write(data []byte) (int, error) {
 	if w.status == 0 {
 		w.status = http.StatusOK
 	}
-	if w.body.Len() < maxAuditPayloadBytes {
+	if !w.skipBodyCapture && w.body.Len() < maxAuditPayloadBytes {
 		remaining := maxAuditPayloadBytes - w.body.Len()
 		if len(data) > remaining {
 			_, _ = w.body.Write(data[:remaining])
@@ -75,7 +76,10 @@ func (a *App) serveObservedHTTP(w http.ResponseWriter, r *http.Request, routes [
 	}
 
 	requestArgs := captureAuditRequestArgs(r)
-	recorder := &auditResponseWriter{ResponseWriter: w}
+	recorder := &auditResponseWriter{
+		ResponseWriter:  w,
+		skipBodyCapture: omitAuditResponseBody(r),
+	}
 	defer func() { releaseAPIKeyLimit(r.Context()) }()
 	start := time.Now()
 	a.serveHTTP(recorder, r, routes)
@@ -118,6 +122,13 @@ func skipRoutinePollingAuditLog(r *http.Request, status int) bool {
 	switch path {
 	case "/api/creation-tasks",
 		"/api/image-task-stats/today",
+		"/api/admin/overview",
+		"/api/admin/image-task-stats",
+		"/api/admin/image-task-stats/today",
+		"/api/admin/image-task-logs",
+		"/api/admin/payment/stats",
+		"/api/admin/payment-stats",
+		"/api/logs",
 		"/api/payment/orders",
 		"/api/announcements",
 		"/api/announcements/active",
@@ -171,7 +182,10 @@ func omitAuditResponseBody(r *http.Request) bool {
 	if r == nil || r.URL == nil {
 		return false
 	}
-	return r.Method == http.MethodGet && r.URL.Path == "/api/accounts/tokens" || isICloudPublicMailboxCodeRequest(r)
+	if r.Method == http.MethodGet || r.Method == http.MethodHead {
+		return true
+	}
+	return isICloudPublicMailboxCodeRequest(r)
 }
 
 func withRequestIdentity(ctx context.Context, identity service.Identity) context.Context {

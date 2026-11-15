@@ -123,7 +123,7 @@ export function CreditBalanceBadge({ creditBalance }: { creditBalance: string })
 export function MoreNavMenu({ items, pathname }: { items: NavItem[]; pathname: string }) {
   const [open, setOpen] = useState(false);
   if (items.length === 0) return null;
-  const active = items.some((item) => isActivePath(pathname, item.href));
+  const active = items.some((item) => !item.external && isActivePath(pathname, item.href));
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -143,22 +143,36 @@ export function MoreNavMenu({ items, pathname }: { items: NavItem[]; pathname: s
       </PopoverTrigger>
       <PopoverContent align="center" sideOffset={8} className="w-44 p-1">
         <div className="grid gap-1">
-          {items.map((item) => (
-            <Link
-              key={item.href}
-              to={item.href}
-              onMouseEnter={() => preloadRoute(item.href)}
-              onClick={() => setOpen(false)}
-              className={cn(
-                "rounded-xl px-3 py-2 text-sm font-medium transition hover:bg-accent hover:text-accent-foreground",
-                isActivePath(pathname, item.href)
-                  ? "bg-[#edf4ff] text-[#1456f0] dark:bg-sky-950/30 dark:text-sky-300"
-                  : "text-foreground",
-              )}
-            >
-              {item.label}
-            </Link>
-          ))}
+          {items.map((item) =>
+            item.external ? (
+              <a
+                key={item.href}
+                href={item.href}
+                target="_blank"
+                rel="noreferrer"
+                referrerPolicy="no-referrer"
+                onClick={() => setOpen(false)}
+                className="rounded-xl px-3 py-2 text-sm font-medium text-foreground transition hover:bg-accent hover:text-accent-foreground"
+              >
+                {item.label}
+              </a>
+            ) : (
+              <Link
+                key={item.href}
+                to={item.href}
+                onMouseEnter={() => preloadRoute(item.href)}
+                onClick={() => setOpen(false)}
+                className={cn(
+                  "rounded-xl px-3 py-2 text-sm font-medium transition hover:bg-accent hover:text-accent-foreground",
+                  isActivePath(pathname, item.href)
+                    ? "bg-[#edf4ff] text-[#1456f0] dark:bg-sky-950/30 dark:text-sky-300"
+                    : "text-foreground",
+                )}
+              >
+                {item.label}
+              </Link>
+            ),
+          )}
         </div>
       </PopoverContent>
     </Popover>

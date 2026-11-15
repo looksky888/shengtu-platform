@@ -46,10 +46,51 @@ func (s *ImageTaskService) loadShardedLocked() (map[string]*ImageTask, bool) {
 			log.Printf("image task index corrupt (writes disabled)")
 			return map[string]*ImageTask{}, false
 		}
-		tasks := map[string]*ImageTask{}
+		tasks := make(map[string]*ImageTask, len(entries))
+		if len(entries) == 0 {
+			return tasks, true
+		}
+		var prefetched map[string]any
+		var hasPrefetch bool
+		var legacyEntriesPrefetched bool
+		batchStore, canBatch := s.store.(storage.JSONDocumentBatchLoadBackend)
+		if canBatch {
+			loadedDocs, batchErr := batchStore.LoadJSONDocumentsByPrefix("image_tasks/items")
+			if batchErr != nil {
+				log.Printf("image task batch shard load failed (writes disabled): %v", batchErr)
+				return map[string]*ImageTask{}, false
+			}
+			prefetched = loadedDocs
+			if prefetched == nil {
+				prefetched = map[string]any{}
+			}
+			hasPrefetch = true
+		}
+		lookupDoc := func(docName string) (any, error) {
+			if hasPrefetch {
+				if val, exists := prefetched[docName]; exists {
+					return val, nil
+				}
+				if !legacyEntriesPrefetched {
+					extra, extraErr := batchStore.LoadJSONDocumentsByPrefix("image_tasks/entries")
+					if extraErr != nil {
+						return nil, extraErr
+					}
+					legacyEntriesPrefetched = true
+					for k, v := range extra {
+						prefetched[k] = v
+					}
+					if val, exists := prefetched[docName]; exists {
+						return val, nil
+					}
+				}
+				return nil, nil
+			}
+			return s.store.LoadJSONDocument(docName)
+		}
 		for _, e := range entries {
 			name := taskEntryDocName(e.OwnerID, e.ID)
-			raw, loadErr := s.store.LoadJSONDocument(name)
+			raw, loadErr := lookupDoc(name)
 			if loadErr != nil {
 				log.Printf("image task entry load failed %s: %v (writes disabled)", name, loadErr)
 				return map[string]*ImageTask{}, false
@@ -57,7 +98,7 @@ func (s *ImageTaskService) loadShardedLocked() (map[string]*ImageTask, bool) {
 			legacyName := ""
 			if raw == nil {
 				legacyName = legacyTaskEntryDocName(e.OwnerID, e.ID)
-				raw, loadErr = s.store.LoadJSONDocument(legacyName)
+				raw, loadErr = lookupDoc(legacyName)
 				if loadErr != nil {
 					log.Printf("image task legacy entry load failed %s: %v (writes disabled)", legacyName, loadErr)
 					return map[string]*ImageTask{}, false
@@ -328,6 +369,29 @@ func (s *ImageTaskService) scheduleSaveLocked(keys ...string) {
 	})
 }
 
+func (s *ImageTaskService) scheduleDeferredSaveLocked(delay time.Duration) {
+	s.dirty = true
+	if s.closing || s.saveTimer != nil {
+		return
+	}
+	if delay < 20*time.Millisecond {
+		delay = 20 * time.Millisecond
+	}
+	s.saveTimer = time.AfterFunc(delay, func() {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		s.saveTimer = nil
+		if s.closing {
+			return
+		}
+		if s.dirty {
+			if err := s.saveLocked(); err != nil {
+				log.Printf("image task deferred cleanup save failed: %v", err)
+			}
+		}
+	})
+}
+
 // flushSaveLocked forces a pending dirty write (e.g. before cancel/finish).
 func (s *ImageTaskService) flushSaveLocked() error {
 	if s.saveTimer != nil {
@@ -380,7 +444,7 @@ func (s *ImageTaskService) recoverUnfinishedLocked() []*ImageTask {
 	return interrupted
 }
 
-func (s *ImageTaskService) cleanupLocked() bool {
+func (s *ImageTaskService) retentionCutoff() time.Time {
 	days := 30
 	if s.retentionGetter != nil {
 		days = s.retentionGetter()
@@ -388,14 +452,59 @@ func (s *ImageTaskService) cleanupLocked() bool {
 	if days < 1 {
 		days = 1
 	}
-	cutoff := time.Now().Add(-time.Duration(days) * 24 * time.Hour)
+	return time.Now().Add(-time.Duration(days) * 24 * time.Hour)
+}
+
+func isTaskExpiredAt(task *ImageTask, cutoff time.Time) bool {
+	if task == nil {
+		return false
+	}
+	status := task.Status
+	if status != TaskStatusSuccess && status != TaskStatusError && status != TaskStatusCancelled {
+		return false
+	}
+	ts := firstNonEmpty(task.UpdatedAt, task.FinishedAt, task.CreatedAt)
+	if strings.TrimSpace(ts) == "" {
+		return false
+	}
+	parsed := parseTaskTimeInLocation(ts, imageTaskStatsLocation())
+	if parsed.IsZero() {
+		return false
+	}
+	return parsed.Before(cutoff)
+}
+
+func (s *ImageTaskService) hasExpiredTasksLocked(cutoff time.Time) bool {
+	for _, task := range s.tasks {
+		if isTaskExpiredAt(task, cutoff) {
+			return true
+		}
+	}
+	return false
+}
+
+// cleanupIfExpiredForRead takes an RLock fast path when no task has expired so
+// read-only ListTasks* calls never block on s.mu.Lock() or trigger synchronous disk writes.
+func (s *ImageTaskService) cleanupIfExpiredForRead() {
+	cutoff := s.retentionCutoff()
+	s.mu.RLock()
+	expired := s.hasExpiredTasksLocked(cutoff)
+	s.mu.RUnlock()
+	if !expired {
+		return
+	}
+	s.mu.Lock()
+	if s.cleanupLocked() {
+		s.scheduleDeferredSaveLocked(50 * time.Millisecond)
+	}
+	s.mu.Unlock()
+}
+
+func (s *ImageTaskService) cleanupLocked() bool {
+	cutoff := s.retentionCutoff()
 	removed := false
 	for key, task := range s.tasks {
-		status := task.Status
-		if status != TaskStatusSuccess && status != TaskStatusError && status != TaskStatusCancelled {
-			continue
-		}
-		if parseTaskTime(task.UpdatedAt).Before(cutoff) {
+		if isTaskExpiredAt(task, cutoff) {
 			delete(s.tasks, key)
 			s.markTaskRemovedLocked(key)
 			removed = true

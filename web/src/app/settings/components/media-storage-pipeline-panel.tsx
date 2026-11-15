@@ -46,7 +46,9 @@ export function MediaStoragePipelinePanel({
     storage.migration.total > 0
       ? Math.min(
           100,
-          Math.round((storage.migration.processed / storage.migration.total) * 100),
+          Math.round(
+            (storage.migration.processed / storage.migration.total) * 100,
+          ),
         )
       : storage.migration.state === "succeeded"
         ? 100
@@ -65,7 +67,7 @@ export function MediaStoragePipelinePanel({
   const healthOK = storage.health?.status === "ok";
 
   const step1DisabledReason = !draftHasR2Basics
-    ? "请先在左侧填写完整的 R2 Account ID、Bucket、Access Key ID 与密钥"
+    ? "请先在左侧填写完整的 R2 账户 ID、存储桶名称、访问密钥 ID 与私有密钥"
     : null;
 
   const step2DisabledReason = isDirty
@@ -105,8 +107,11 @@ export function MediaStoragePipelinePanel({
             <h3 className="text-sm font-semibold text-foreground">
               R2 迁移与缓存清理流水线
             </h3>
-            <Badge variant="outline" className="font-mono text-[10px]">
-              4 STEPS
+            <Badge
+              variant="outline"
+              className="border-primary/25 bg-primary/[0.06] font-mono text-[10px] text-primary"
+            >
+              4 步安全迁移
             </Badge>
           </div>
           <p className="text-xs leading-5 text-muted-foreground">
@@ -128,6 +133,7 @@ export function MediaStoragePipelinePanel({
           {/* Step 1 */}
           <PipelineStepCard
             step={1}
+            active={!step1DisabledReason}
             title="连通性探测"
             badge={
               storage.health?.status === "ok" ? (
@@ -156,10 +162,10 @@ export function MediaStoragePipelinePanel({
             {storage.health?.status === "ok" ? (
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] text-status-success">
                 <span>
-                  Bucket：{String(config.media_r2_bucket || "").trim() || "—"}
+                  存储桶：{String(config.media_r2_bucket || "").trim() || "—"}
                 </span>
                 <span>
-                  Prefix：
+                  路径前缀：
                   {String(config.media_r2_prefix || "shengtu-media").trim()}
                 </span>
               </div>
@@ -169,7 +175,7 @@ export function MediaStoragePipelinePanel({
               </p>
             ) : (
               <p className="text-xs text-muted-foreground">
-                验证当前填写的 R2 账户、Bucket 与读写密钥是否可用。
+                验证当前填写的 R2 账户、存储桶与读写密钥是否可用。
               </p>
             )}
           </PipelineStepCard>
@@ -177,6 +183,7 @@ export function MediaStoragePipelinePanel({
           {/* Step 2 */}
           <PipelineStepCard
             step={2}
+            active={!step2DisabledReason}
             title="存量媒体迁移"
             badge={
               running ? (
@@ -216,7 +223,14 @@ export function MediaStoragePipelinePanel({
                 </div>
                 <div className="h-1.5 overflow-hidden rounded-full bg-surface-muted">
                   <div
-                    className="h-full rounded-full bg-foreground transition-[width] duration-300"
+                    className={cn(
+                      "h-full rounded-full transition-[width] duration-300",
+                      storage.migration.state === "failed"
+                        ? "bg-rose-500"
+                        : storage.migration.state === "succeeded"
+                          ? "bg-emerald-500"
+                          : "bg-primary",
+                    )}
                     style={{ width: `${progress}%` }}
                   />
                 </div>
@@ -249,6 +263,7 @@ export function MediaStoragePipelinePanel({
           {/* Step 3 */}
           <PipelineStepCard
             step={3}
+            active={!step3DisabledReason}
             title="完整性校验"
             badge={
               cleanupRunning && storage.cleanup.mode === "verify" ? (
@@ -292,7 +307,14 @@ export function MediaStoragePipelinePanel({
                 </div>
                 <div className="h-1.5 overflow-hidden rounded-full bg-surface-muted">
                   <div
-                    className="h-full rounded-full bg-foreground transition-[width] duration-300"
+                    className={cn(
+                      "h-full rounded-full transition-[width] duration-300",
+                      storage.cleanup.state === "failed"
+                        ? "bg-rose-500"
+                        : storage.cleanup.state === "succeeded"
+                          ? "bg-emerald-500"
+                          : "bg-primary",
+                    )}
                     style={{ width: `${cleanupProgress}%` }}
                   />
                 </div>
@@ -330,6 +352,7 @@ export function MediaStoragePipelinePanel({
           {/* Step 4 */}
           <PipelineStepCard
             step={4}
+            active={!step4DisabledReason}
             title="释放本地缓存"
             badge={
               cleanupRunning && storage.cleanup.mode === "delete" ? (
@@ -411,6 +434,7 @@ export function MediaStoragePipelinePanel({
 
 function PipelineStepCard({
   step,
+  active = false,
   title,
   badge,
   action,
@@ -418,6 +442,7 @@ function PipelineStepCard({
   children,
 }: {
   step: number;
+  active?: boolean;
   title: string;
   badge?: ReactNode;
   action: ReactNode;
@@ -428,7 +453,14 @@ function PipelineStepCard({
     <div className="rounded-xl border border-border/75 bg-surface p-3.5 shadow-2xs">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
-          <span className="flex size-5.5 shrink-0 items-center justify-center rounded-md bg-surface-muted font-mono text-[11px] font-semibold tabular-nums text-foreground ring-1 ring-border/75">
+          <span
+            className={cn(
+              "flex size-5.5 shrink-0 items-center justify-center rounded-md font-mono text-[11px] font-semibold tabular-nums ring-1",
+              active
+                ? "bg-primary/[0.08] text-primary ring-primary/25"
+                : "bg-surface-muted text-muted-foreground ring-border/75",
+            )}
+          >
             {step}
           </span>
           <span className="text-xs font-semibold text-foreground sm:text-[13px]">

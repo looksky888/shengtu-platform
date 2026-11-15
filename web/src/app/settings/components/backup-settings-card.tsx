@@ -7,13 +7,13 @@ import {
   ChevronUp,
   Cloud,
   HardDrive,
-  LoaderCircle,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
 import { BackupStatusPanel } from "./backup-status-panel";
@@ -37,7 +37,7 @@ const INCLUDE_OPTIONS = [
   {
     value: "data",
     label: "数据库与核心状态",
-    hint: "一致性冷快照与 JSON 元数据",
+    hint: "一致性冷快照与业务元数据",
   },
   {
     value: "images",
@@ -49,6 +49,8 @@ const INCLUDE_OPTIONS = [
 export function BackupSettingsCard() {
   const {
     form,
+    savedForm,
+    fieldErrors,
     updateForm,
     state,
     isDirty,
@@ -71,8 +73,13 @@ export function BackupSettingsCard() {
         description="配置自动化归档周期、保留份数上限与 Cloudflare R2 异地容灾快照"
         tone="violet"
       >
-        <div className="flex min-h-48 items-center justify-center">
-          <LoaderCircle className="size-5 animate-spin text-muted-foreground" />
+        <div className="grid gap-5 py-1 lg:grid-cols-[1.2fr_0.8fr]">
+          <div className="space-y-3">
+            <Skeleton className="h-24 w-full" />
+            <Skeleton className="h-36 w-full" />
+            <Skeleton className="h-20 w-full" />
+          </div>
+          <Skeleton className="h-80 w-full" />
         </div>
       </SettingsCard>
     );
@@ -80,11 +87,49 @@ export function BackupSettingsCard() {
 
   const showR2Fields =
     form.provider === "cloudflare_r2" || r2PreconfigExpanded;
-  const parsedHours = Number(form.interval_hours);
-  const intervalHint =
-    Number.isFinite(parsedHours) && parsedHours > 0
-      ? `折合 ${Math.round(parsedHours * 60)} 分钟执行一次定时快照`
-      : "建议设置为 12 或 24 小时";
+  const parsedHours = Number(form.interval_hours.trim());
+  const isUnchangedFractional =
+    form.interval_hours.trim() === savedForm.interval_hours.trim() &&
+    savedForm.raw_interval_minutes > 0 &&
+    savedForm.raw_interval_minutes % 60 !== 0;
+
+  const intervalHint = isUnchangedFractional
+    ? `当前服务端精确周期为每 ${savedForm.raw_interval_minutes} 分钟执行一次`
+    : Number.isFinite(parsedHours) && parsedHours > 0
+      ? `折合每 ${Math.round(parsedHours * 60)} 分钟执行一次定时快照`
+      : "建议设置为 12 或 24 小时整数";
+
+  const hasValidationError = Boolean(
+    fieldErrors.interval_hours || fieldErrors.last_max_files,
+  );
+
+  const normalizeIntervalOnBlur = () => {
+    const trimmed = form.interval_hours.trim();
+    if (!trimmed) {
+      updateForm({ interval_hours: savedForm.interval_hours || "24" });
+      return;
+    }
+    if (/^\d+$/.test(trimmed)) {
+      const parsed = Number(trimmed);
+      if (Number.isSafeInteger(parsed)) {
+        updateForm({ interval_hours: String(parsed) });
+      }
+    }
+  };
+
+  const normalizeMaxFilesOnBlur = () => {
+    const trimmed = form.last_max_files.trim();
+    if (!trimmed) {
+      updateForm({ last_max_files: savedForm.last_max_files || "20" });
+      return;
+    }
+    if (/^\d+$/.test(trimmed)) {
+      const parsed = Number(trimmed);
+      if (Number.isSafeInteger(parsed)) {
+        updateForm({ last_max_files: String(parsed) });
+      }
+    }
+  };
 
   return (
     <SettingsCard
@@ -109,6 +154,11 @@ export function BackupSettingsCard() {
           dirty={isDirty}
           saving={isSaving}
           disabled={isRunning}
+          hint={
+            hasValidationError
+              ? "请先修正标红的备份执行间隔或保留份数错误后再保存"
+              : undefined
+          }
           onReset={discard}
           onSave={() => void save()}
         />
@@ -125,7 +175,7 @@ export function BackupSettingsCard() {
               <SettingsSwitchRow
                 id="backup-auto-enabled"
                 title="启用自动定时备份"
-                description="开启后由后台调度器按设定间隔自动生成 ZIP 快照并轮转旧归档"
+                description="开启后由后台调度器按设定间隔自动生成归档快照并轮转旧备份"
                 checked={form.enabled}
                 disabled={isSaving || isRunning}
                 onCheckedChange={(checked) => updateForm({ enabled: checked })}
@@ -138,11 +188,14 @@ export function BackupSettingsCard() {
                   unit="小时"
                   min={1}
                   max={720}
-                  rangeHint="1 - 720"
+                  step={1}
+                  rangeHint="1–720"
                   value={form.interval_hours}
+                  error={fieldErrors.interval_hours}
                   description={intervalHint}
                   disabled={isSaving || isRunning}
                   onChange={(value) => updateForm({ interval_hours: value })}
+                  onBlur={normalizeIntervalOnBlur}
                 />
 
                 <SettingsUnitInput
@@ -151,11 +204,14 @@ export function BackupSettingsCard() {
                   unit="份"
                   min={1}
                   max={100}
-                  rangeHint="1 - 100"
+                  step={1}
+                  rangeHint="1–100"
                   value={form.last_max_files}
+                  error={fieldErrors.last_max_files}
                   description="超出上限后自动删除最早的本地备份包"
                   disabled={isSaving || isRunning}
                   onChange={(value) => updateForm({ last_max_files: value })}
+                  onBlur={normalizeMaxFilesOnBlur}
                 />
               </div>
             </div>
@@ -176,7 +232,7 @@ export function BackupSettingsCard() {
                   disabled={isSaving || isRunning}
                   icon={HardDrive}
                   title="本地归档"
-                  subtitle="生成校验 ZIP 包并保存在服务器本地目录"
+                  subtitle="生成校验归档包并保存在服务器本地目录"
                   onSelect={() => updateForm({ provider: "local" })}
                 />
                 <BackupProviderOption
@@ -189,7 +245,7 @@ export function BackupSettingsCard() {
                 />
               </div>
 
-              <div className="space-y-1.5">
+              <div className="max-w-lg space-y-1.5">
                 <label
                   htmlFor="backup-local-dir"
                   className="text-xs font-medium text-foreground sm:text-[13px]"
@@ -224,7 +280,7 @@ export function BackupSettingsCard() {
                         className={cn(
                           "flex cursor-pointer items-start gap-2.5 rounded-xl border p-3 transition-colors",
                           checked
-                            ? "border-foreground/35 bg-surface shadow-2xs"
+                            ? "border-primary/40 bg-primary/[0.07] shadow-2xs ring-1 ring-primary/20"
                             : "border-border/75 bg-surface-subtle/45 hover:bg-surface-hover/55",
                           (isSaving || isRunning) &&
                             "pointer-events-none opacity-60",
@@ -239,7 +295,12 @@ export function BackupSettingsCard() {
                           className="mt-0.5"
                         />
                         <div className="min-w-0 space-y-0.5">
-                          <div className="text-xs font-semibold text-foreground">
+                          <div
+                            className={cn(
+                              "text-xs font-semibold",
+                              checked ? "text-primary" : "text-foreground",
+                            )}
+                          >
                             {option.label}
                           </div>
                           <div className="text-[11px] leading-4 text-muted-foreground">
@@ -256,7 +317,7 @@ export function BackupSettingsCard() {
 
           <SettingsSection
             title="Cloudflare R2 容灾凭据"
-            description="建议为备份单独创建独立的 R2 Bucket 与最小权限读写令牌"
+            description="建议为备份单独创建独立的 R2 存储桶与最小权限读写令牌"
             badge={
               form.r2_secret_access_key_configured ? (
                 <Badge variant="success">密钥已保存</Badge>
@@ -294,7 +355,7 @@ export function BackupSettingsCard() {
                       htmlFor="backup-r2-account"
                       className="text-xs font-medium text-foreground sm:text-[13px]"
                     >
-                      R2 Account ID
+                      R2 账户 ID
                     </label>
                     <Input
                       id="backup-r2-account"
@@ -316,7 +377,7 @@ export function BackupSettingsCard() {
                       htmlFor="backup-r2-bucket"
                       className="text-xs font-medium text-foreground sm:text-[13px]"
                     >
-                      R2 Bucket 名称
+                      R2 存储桶名称
                     </label>
                     <Input
                       id="backup-r2-bucket"
@@ -338,13 +399,13 @@ export function BackupSettingsCard() {
                       htmlFor="backup-r2-access"
                       className="text-xs font-medium text-foreground sm:text-[13px]"
                     >
-                      Access Key ID
+                      访问密钥 ID (Access Key ID)
                     </label>
                     <Input
                       id="backup-r2-access"
                       value={form.r2_access_key_id}
                       disabled={isSaving || isRunning}
-                      placeholder="R2 API Access Key ID"
+                      placeholder="R2 API 访问密钥 ID"
                       onChange={(event) =>
                         updateForm({ r2_access_key_id: event.target.value })
                       }
@@ -357,7 +418,7 @@ export function BackupSettingsCard() {
 
                   <SettingsSecretInput
                     id="backup-r2-secret"
-                    label="Secret Access Key"
+                    label="私有访问密钥 (Secret Access Key)"
                     value={form.r2_secret_access_key}
                     configured={Boolean(form.r2_secret_access_key_configured)}
                     disabled={isSaving || isRunning}
@@ -367,12 +428,12 @@ export function BackupSettingsCard() {
                     onClear={() => updateForm({ r2_secret_access_key: "" })}
                   />
 
-                  <div className="space-y-1.5 sm:col-span-2">
+                  <div className="max-w-lg space-y-1.5 sm:col-span-2">
                     <label
                       htmlFor="backup-r2-prefix"
                       className="text-xs font-medium text-foreground sm:text-[13px]"
                     >
-                      远端对象前缀 (Prefix)
+                      远端对象路径前缀
                     </label>
                     <Input
                       id="backup-r2-prefix"
@@ -437,7 +498,7 @@ function BackupProviderOption({
       className={cn(
         "flex items-start gap-3 rounded-xl border p-3 text-left transition-colors",
         active
-          ? "border-foreground/45 bg-surface shadow-2xs ring-1 ring-foreground/15"
+          ? "border-primary/40 bg-primary/[0.07] text-primary shadow-2xs ring-1 ring-primary/20"
           : "border-border/75 bg-surface-subtle/45 hover:border-border-strong/75 hover:bg-surface-hover/55",
         disabled && "cursor-not-allowed opacity-60",
       )}
@@ -446,14 +507,19 @@ function BackupProviderOption({
         className={cn(
           "mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg ring-1",
           active
-            ? "bg-foreground text-background ring-foreground"
+            ? "bg-primary text-primary-foreground ring-primary"
             : "bg-surface text-muted-foreground ring-border/75",
         )}
       >
         <Icon className="size-3.5" />
       </span>
       <div className="min-w-0 space-y-0.5">
-        <div className="text-xs font-semibold text-foreground sm:text-[13px]">
+        <div
+          className={cn(
+            "text-xs font-semibold sm:text-[13px]",
+            active ? "text-primary" : "text-foreground",
+          )}
+        >
           {title}
         </div>
         <p className="text-[11px] leading-4.5 text-muted-foreground">

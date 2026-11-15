@@ -80,6 +80,11 @@ func (a *App) handleProfileCreditRedeem(w http.ResponseWriter, r *http.Request) 
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
+	if !allowCreditRedeemAttempt(r, userID) {
+		w.Header().Set("Retry-After", "60")
+		util.WriteError(w, http.StatusTooManyRequests, "兑换尝试过于频繁，请稍后再试")
+		return
+	}
 	body, err := readJSONMap(r)
 	if err != nil {
 		util.WriteError(w, http.StatusBadRequest, "请求体不是合法 JSON")

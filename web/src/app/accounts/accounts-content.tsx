@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AlertCircle, Bot, CheckCircle2, Download, LoaderCircle, Plus, RefreshCw, Sparkles } from "lucide-react";
+import { AlertCircle, Bot, CheckCircle2, Plus, RefreshCw, Sparkles } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 
 import { AccountEditDialog } from "@/app/accounts/account-edit-dialog";
@@ -8,7 +8,6 @@ import { AccountPageHeader } from "@/app/accounts/account-page-header";
 import { AccountsLoadingCard } from "@/app/accounts/accounts-empty-states";
 import { AccountsListFilters } from "@/app/accounts/accounts-list-filters";
 import { AccountsTable } from "@/app/accounts/accounts-table";
-import { AccountImportDialog } from "@/app/accounts/components/account-import-dialog";
 import { GrokAccountsPanel } from "@/app/accounts/grok-accounts-panel";
 import { GrokProviderTaskProgress } from "@/app/accounts/grok-provider-task-progress";
 import { useAccountsManagement } from "@/app/accounts/use-accounts-management";
@@ -27,10 +26,8 @@ const PLATFORM_ITEMS = [
 
 export function AccountsPageContent({
   session,
-  embedded = false,
 }: {
   session: StoredAuthSession;
-  embedded?: boolean;
 }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const rawPlatform = searchParams.get("platform");
@@ -58,12 +55,7 @@ export function AccountsPageContent({
     canExportTokens,
   } = accounts.permissions;
 
-  const resetGptFilters = () => {
-    accounts.setQuery("");
-    accounts.setTypeFilter("all");
-    accounts.setStatusFilter("all");
-    accounts.setPage(1);
-  };
+  const resetGptFilters = accounts.resetFilters;
 
   const grokToolbarActions = (
     <>
@@ -104,83 +96,26 @@ export function AccountsPageContent({
     </>
   );
 
-  const gptToolbarActions = (
-    <>
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => {
-          void accounts.loadAccounts();
-          void accounts.loadAccountsSummary();
-        }}
-        disabled={accounts.isLoading || accounts.isRefreshing || accounts.isDeleting}
-      >
-        <RefreshCw className={cn("size-3.5", accounts.isLoading ? "animate-spin" : "")} />
-        刷新
-      </Button>
-      {canRefreshAccounts ? (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => void accounts.handleRefreshAllAccounts()}
-          disabled={
-            accounts.isLoading ||
-            accounts.isRefreshing ||
-            accounts.isDeleting ||
-            accounts.accounts.length === 0
-          }
-        >
-          <RefreshCw className={cn("size-3.5", accounts.isRefreshing ? "animate-spin" : "")} />
-          全量刷新额度
-        </Button>
-      ) : null}
-      {canExportTokens ? (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => void accounts.handleExportTokens()}
-          disabled={accounts.accounts.length === 0 || accounts.isExporting}
-        >
-          {accounts.isExporting ? (
-            <LoaderCircle className="size-3.5 animate-spin" />
-          ) : (
-            <Download className="size-3.5" />
-          )}
-          导出 Token
-        </Button>
-      ) : null}
-      {canImportAccounts ? (
-        <AccountImportDialog
-          disabled={accounts.isLoading || accounts.isRefreshing || accounts.isDeleting}
-          onImported={accounts.handleImported}
-        />
-      ) : null}
-    </>
-  );
-
   return (
     <div className="flex flex-col gap-4">
-      {!embedded ? (
-        <AccountPageHeader
-          accounts={accounts.accounts}
-          isLoading={accounts.isLoading}
-          isRefreshing={accounts.isRefreshing}
-          isDeleting={accounts.isDeleting}
-          isExporting={accounts.isExporting}
-          canImportAccounts={canImportAccounts}
-          canRefreshAccounts={canRefreshAccounts}
-          canExportTokens={canExportTokens}
-          platform={platform}
-          grokActions={grokToolbarActions}
-          onLoad={() => {
-            void accounts.loadAccounts();
-            void accounts.loadAccountsSummary();
-          }}
-          onRefreshAll={() => void accounts.handleRefreshAllAccounts()}
-          onExportTokens={() => void accounts.handleExportTokens()}
-          onImported={accounts.handleImported}
-        />
-      ) : null}
+      <AccountPageHeader
+        accounts={accounts.accounts}
+        isLoading={accounts.isLoading}
+        isRefreshing={accounts.isRefreshing}
+        isDeleting={accounts.isDeleting}
+        isExporting={accounts.isExporting}
+        canImportAccounts={canImportAccounts}
+        canRefreshAccounts={canRefreshAccounts}
+        canExportTokens={canExportTokens}
+        platform={platform}
+        grokActions={grokToolbarActions}
+        onLoad={() => {
+          void accounts.loadAccounts();
+        }}
+        onRefreshAll={() => void accounts.handleRefreshAllAccounts()}
+        onExportTokens={() => void accounts.handleExportTokens()}
+        onImported={accounts.handleImported}
+      />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <SubNav
@@ -190,11 +125,6 @@ export function AccountsPageContent({
           onValueChange={handlePlatformChange}
           layoutId="accounts-platform-subnav"
         />
-        {embedded ? (
-          <div className="flex flex-wrap items-center gap-2">
-            {platform === "grok" ? grokToolbarActions : gptToolbarActions}
-          </div>
-        ) : null}
       </div>
 
       {platform === "grok" ? (
@@ -238,18 +168,9 @@ export function AccountsPageContent({
               query={accounts.query}
               typeFilter={accounts.typeFilter}
               statusFilter={accounts.statusFilter}
-              onQueryChange={(value) => {
-                accounts.setQuery(value);
-                accounts.setPage(1);
-              }}
-              onTypeFilterChange={(value) => {
-                accounts.setTypeFilter(value);
-                accounts.setPage(1);
-              }}
-              onStatusFilterChange={(value) => {
-                accounts.setStatusFilter(value);
-                accounts.setPage(1);
-              }}
+              onQueryChange={accounts.setQuery}
+              onTypeFilterChange={accounts.setTypeFilter}
+              onStatusFilterChange={accounts.setStatusFilter}
               onResetFilters={resetGptFilters}
             />
 

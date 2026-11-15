@@ -47,6 +47,26 @@ export function createSSEDataParser(onData: (data: string) => void): SSEDataPars
   };
 }
 
+async function readStream(
+  body: ReadableStream<Uint8Array>,
+  onData: (data: string) => void,
+  shouldStop: () => boolean,
+) {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  const parser = createSSEDataParser(onData);
+  try {
+    while (!shouldStop()) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      parser.push(decoder.decode(value, { stream: true }));
+    }
+    parser.push(decoder.decode());
+  } finally {
+    await reader.cancel().catch(() => {});
+  }
+}
+
 export function startAuthenticatedSSE(
   options: AuthenticatedSSEOptions,
   dependencies: Partial<SSEClientDependencies> = {},
@@ -59,7 +79,7 @@ export function startAuthenticatedSSE(
     ((timer) => globalThis.clearTimeout(timer as ReturnType<typeof globalThis.setTimeout>));
   const reconnectBaseMs = options.reconnectBaseMs ?? DEFAULT_RECONNECT_BASE_MS;
   const reconnectMaxMs = options.reconnectMaxMs ?? DEFAULT_RECONNECT_MAX_MS;
-  const controller = new AbortController();
+  const outerController = new AbortController();
   let closed = false;
   let attempt = 0;
   let reconnectTimer: unknown;
@@ -75,11 +95,19 @@ export function startAuthenticatedSSE(
   };
 
   const connect = async () => {
+    const attemptController = new AbortController();
+    const abortAttempt = () => attemptController.abort();
+    if (outerController.signal.aborted) {
+      attemptController.abort();
+    } else {
+      outerController.signal.addEventListener("abort", abortAttempt, { once: true });
+    }
+
     try {
-      const token = await options.getToken();
+      const token = (await options.getToken()).trim();
       if (closed) return;
       if (!token) {
-        scheduleReconnect();
+        closed = true;
         return;
       }
 
@@ -87,12 +115,16 @@ export function startAuthenticatedSSE(
         method: "GET",
         headers: { Authorization: `Bearer ${token}`, Accept: "text/event-stream" },
         credentials: "include",
-        signal: controller.signal,
+        signal: attemptController.signal,
       });
       if (closed) return;
       if (response.status === 401) {
         closed = true;
         await options.onUnauthorized?.();
+        return;
+      }
+      if (response.status === 403 || response.status === 404) {
+        closed = true;
         return;
       }
       if (!response.ok || !response.body) {
@@ -101,18 +133,16 @@ export function startAuthenticatedSSE(
       }
 
       attempt = 0;
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      const parser = createSSEDataParser(options.onData);
-      while (!closed) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        parser.push(decoder.decode(value, { stream: true }));
-      }
-      parser.push(decoder.decode());
+      await readStream(
+        response.body,
+        options.onData,
+        () => closed || attemptController.signal.aborted,
+      );
       if (!closed) scheduleReconnect();
     } catch {
       if (!closed) scheduleReconnect();
+    } finally {
+      outerController.signal.removeEventListener("abort", abortAttempt);
     }
   };
 
@@ -120,6 +150,6 @@ export function startAuthenticatedSSE(
   return () => {
     closed = true;
     if (reconnectTimer !== undefined) cancelTimeout(reconnectTimer);
-    controller.abort();
+    outerController.abort();
   };
 }

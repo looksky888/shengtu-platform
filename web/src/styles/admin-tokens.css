@@ -4,24 +4,15 @@
  * render seamlessly inside the Classic AppShell. */
 
 :root,
-:is([data-admin-root], body.admin-overlays, .admin-drawer, .admin-modal-root) {
+:is([data-admin-root], .admin-drawer) {
   --admin-font: "DM Sans", "Inter Variable", "Inter", -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
-  --admin-font-mono: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-  --admin-space: 8px;
-  --admin-radius-sm: 6px;
   --admin-radius: 10px;
-  --admin-radius-lg: 14px;
-  --admin-control-h: 34px;
-  --admin-control-h-sm: 28px;
   --admin-row-h: 40px;
   --admin-head-h: 36px;
-  --admin-sidebar-width: 224px;
-  --admin-sidebar-collapsed: 64px;
   --admin-motion: 140ms ease;
   --admin-shadow-overlay: 0 18px 48px rgba(24, 40, 72, 0.14);
 
   --admin-canvas: #f6f8fc;
-  --admin-sidebar: #fbfdff;
   --admin-surface: #fbfdff;
   --admin-surface-2: #f0f4f9;
   --admin-surface-3: #e6eef8;
@@ -31,7 +22,6 @@
   --admin-text-placeholder: #8e8e93;
   --admin-border: #dfe7f1;
   --admin-border-strong: #cbd6e6;
-  --admin-divider: #e6edf6;
   --admin-row-border: #eaf0f7;
   --admin-row-hover: #f3f7fc;
   --admin-nav-hover: rgba(20, 86, 240, 0.06);
@@ -48,26 +38,17 @@
   --admin-chart-primary: #1456f0;
   --admin-chart-secondary: #059669;
   --admin-chart-warning: #d97706;
-  --admin-card-shadow: 0 8px 24px rgba(24, 40, 72, 0.06);
-  --admin-grid-line: rgba(20, 86, 240, 0.04);
 
   /* Compatibility aliases */
   --admin-bg: var(--admin-canvas);
-  --admin-layer-0: var(--admin-canvas);
-  --admin-layer-1: var(--admin-surface);
-  --admin-layer-2: var(--admin-surface-2);
-  --admin-layer-3: var(--admin-surface-3);
-  --admin-text-primary: var(--admin-text);
   --admin-text-subtle: var(--admin-text-placeholder);
   --admin-success: var(--admin-status-success);
   --admin-warning: var(--admin-status-warning);
   --admin-info: var(--admin-status-info);
   --admin-danger: var(--admin-status-error);
-  --admin-control-border: var(--admin-border-strong);
-  --admin-card-border: var(--admin-border);
 }
 
-:is([data-admin-root], body.admin-overlays, .admin-drawer, .admin-modal-root) {
+:is([data-admin-root], .admin-drawer) {
   --background: var(--admin-canvas);
   --stage: var(--admin-canvas);
   --surface: var(--admin-surface);
@@ -106,10 +87,8 @@
 }
 
 .dark,
-.dark :is([data-admin-root], .admin-drawer, .admin-modal-root),
-.dark body.admin-overlays {
+.dark :is([data-admin-root], .admin-drawer) {
   --admin-canvas: oklch(0.145 0 0);
-  --admin-sidebar: oklch(0.205 0 0);
   --admin-surface: oklch(0.205 0 0);
   --admin-surface-2: oklch(0.25 0 0);
   --admin-surface-3: oklch(0.29 0 0);
@@ -119,7 +98,6 @@
   --admin-text-placeholder: oklch(0.556 0 0);
   --admin-border: oklch(1 0 0 / 10%);
   --admin-border-strong: oklch(1 0 0 / 18%);
-  --admin-divider: oklch(1 0 0 / 8%);
   --admin-row-border: oklch(1 0 0 / 7%);
   --admin-row-hover: oklch(0.24 0 0);
   --admin-nav-hover: rgba(59, 130, 246, 0.12);
@@ -137,5 +115,4 @@
   --admin-chart-secondary: #34d399;
   --admin-chart-warning: #fbbf24;
   --admin-shadow-overlay: 0 22px 56px rgba(0, 0, 0, 0.48);
-  --admin-grid-line: rgba(255, 255, 255, 0.03);
 }

@@ -160,6 +160,22 @@ func managedUserLiteMatches(row managedUserLite, provider, status, keyword strin
 	return true
 }
 
+func (s *AuthService) OverviewUserCounts() (totalUsers, activeUsers int) {
+	if s == nil {
+		return 0, 0
+	}
+	s.mu.RLock()
+	lites := listManagedUserLitesLocked(s.items, s.roles, s.accounts)
+	s.mu.RUnlock()
+	totalUsers = len(lites)
+	for _, row := range lites {
+		if row.Enabled {
+			activeUsers++
+		}
+	}
+	return totalUsers, activeUsers
+}
+
 func managedUserLiteMatchesKeyword(row managedUserLite, keyword string) bool {
 	parts := []string{
 		row.ID, row.Username, row.Email, row.Name, AuthRoleUser, row.RoleID, row.RoleName,

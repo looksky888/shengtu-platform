@@ -21,6 +21,7 @@ export type BackupFormState = {
   provider: "local" | "cloudflare_r2";
   local_dir: string;
   interval_hours: string;
+  raw_interval_minutes: number;
   include: string[];
   last_max_files: string;
   r2_account_id: string;
@@ -46,6 +47,7 @@ export function defaultBackupForm(): BackupFormState {
     provider: "local",
     local_dir: "data/backups",
     interval_hours: "24",
+    raw_interval_minutes: 1440,
     include: ["config", "data", "images"],
     last_max_files: "20",
     r2_account_id: "",
@@ -57,18 +59,25 @@ export function defaultBackupForm(): BackupFormState {
   };
 }
 
+export function formatIntervalHoursFromMinutes(minutes: number): string {
+  const safeMinutes = Math.max(1, Math.round(minutes));
+  if (safeMinutes % 60 === 0) {
+    return String(safeMinutes / 60);
+  }
+  return String(Number((safeMinutes / 60).toFixed(2)));
+}
+
 export function formFromBackupConfig(cfg?: BackupConfig | null): BackupFormState {
   const defaults = defaultBackupForm();
   if (!cfg) return defaults;
   const intervalMinutes = Math.max(1, Number(cfg.interval_minutes) || 1440);
-  const intervalHours =
-    intervalMinutes % 60 === 0
-      ? String(intervalMinutes / 60)
-      : String(Math.max(1, Math.round(intervalMinutes / 60)));
+  const intervalHours = formatIntervalHoursFromMinutes(intervalMinutes);
   const maxFiles = Math.min(100, Math.max(1, Number(cfg.last_max_files) || 20));
   const include =
     Array.isArray(cfg.include) && cfg.include.length > 0
-      ? Array.from(new Set(cfg.include.map((v) => String(v).trim()).filter(Boolean)))
+      ? Array.from(
+          new Set(cfg.include.map((v) => String(v).trim()).filter(Boolean)),
+        )
       : defaults.include;
 
   return {
@@ -76,12 +85,15 @@ export function formFromBackupConfig(cfg?: BackupConfig | null): BackupFormState
     provider: cfg.provider === "cloudflare_r2" ? "cloudflare_r2" : "local",
     local_dir: String(cfg.local_dir ?? defaults.local_dir),
     interval_hours: intervalHours,
+    raw_interval_minutes: intervalMinutes,
     include,
     last_max_files: String(maxFiles),
     r2_account_id: String(cfg.r2_account_id ?? ""),
     r2_access_key_id: String(cfg.r2_access_key_id ?? ""),
     r2_secret_access_key: "",
-    r2_secret_access_key_configured: Boolean(cfg.r2_secret_access_key_configured),
+    r2_secret_access_key_configured: Boolean(
+      cfg.r2_secret_access_key_configured,
+    ),
     r2_bucket: String(cfg.r2_bucket ?? ""),
     r2_prefix: String(cfg.r2_prefix ?? defaults.r2_prefix),
   };
@@ -97,10 +109,40 @@ function snapshotBackupForm(form: BackupFormState): string {
     last_max_files: form.last_max_files.trim(),
     r2_account_id: form.r2_account_id.trim(),
     r2_access_key_id: form.r2_access_key_id.trim(),
-    r2_secret_access_key: form.r2_secret_access_key.trim() ? "__provided__" : "",
+    r2_secret_access_key: form.r2_secret_access_key.trim()
+      ? "__provided__"
+      : "",
     r2_bucket: form.r2_bucket.trim(),
     r2_prefix: form.r2_prefix.trim(),
   });
+}
+
+export function getBackupFieldErrors(
+  form: BackupFormState,
+  savedForm: BackupFormState,
+): { interval_hours?: string; last_max_files?: string } {
+  const errors: { interval_hours?: string; last_max_files?: string } = {};
+  const hoursText = form.interval_hours.trim();
+  const isUnchangedFractional =
+    hoursText !== "" &&
+    hoursText === savedForm.interval_hours.trim() &&
+    savedForm.raw_interval_minutes > 0 &&
+    savedForm.raw_interval_minutes % 60 !== 0;
+
+  if (!isUnchangedFractional) {
+    const hours = hoursText === "" ? Number.NaN : Number(hoursText);
+    if (!Number.isInteger(hours) || hours < 1 || hours > 720) {
+      errors.interval_hours = "备份执行间隔需为 1–720 小时之间的整数";
+    }
+  }
+
+  const maxFilesText = form.last_max_files.trim();
+  const maxFiles = maxFilesText === "" ? Number.NaN : Number(maxFilesText);
+  if (!Number.isInteger(maxFiles) || maxFiles < 1 || maxFiles > 100) {
+    errors.last_max_files = "最大保留备份份数需为 1–100 之间的整数";
+  }
+
+  return errors;
 }
 
 const idleState: BackupState = { status: "idle" };
@@ -110,7 +152,8 @@ export function formatBackupSize(value?: number) {
   if (!Number.isFinite(size) || size <= 0) return "—";
   if (size < 1024) return `${size} B`;
   if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
-  if (size < 1024 * 1024 * 1024) return `${(size / 1024 / 1024).toFixed(1)} MB`;
+  if (size < 1024 * 1024 * 1024)
+    return `${(size / 1024 / 1024).toFixed(1)} MB`;
   return `${(size / 1024 / 1024 / 1024).toFixed(2)} GB`;
 }
 
@@ -140,7 +183,8 @@ export function backupStatusText(state: BackupState) {
 
 export function useBackupSettings() {
   const [form, setForm] = useState<BackupFormState>(defaultBackupForm);
-  const [savedForm, setSavedForm] = useState<BackupFormState>(defaultBackupForm);
+  const [savedForm, setSavedForm] =
+    useState<BackupFormState>(defaultBackupForm);
   const [state, setState] = useState<BackupState>(idleState);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -161,7 +205,7 @@ export function useBackupSettings() {
       } catch (error) {
         if (!signal?.aborted) {
           toast.error(
-            error instanceof Error ? error.message : "加载备份配置失败"
+            error instanceof Error ? error.message : "加载备份配置失败",
           );
         }
       } finally {
@@ -170,7 +214,7 @@ export function useBackupSettings() {
         }
       }
     },
-    []
+    [],
   );
 
   useEffect(() => {
@@ -182,13 +226,18 @@ export function useBackupSettings() {
   const isDirty = useMemo(
     () =>
       !isLoading && snapshotBackupForm(form) !== snapshotBackupForm(savedForm),
-    [form, isLoading, savedForm]
+    [form, isLoading, savedForm],
   );
 
   useEffect(() => {
     const handleTabRefresh = (event: Event) => {
       const detail = (event as CustomEvent<{ tab?: string }>).detail;
-      if (detail?.tab === "backup" && !isDirty) {
+      if (
+        (!detail?.tab ||
+          detail.tab === "backup" ||
+          detail.tab === "maintenance") &&
+        !isDirty
+      ) {
         void loadBackupData({ silent: true });
       }
     };
@@ -221,7 +270,7 @@ export function useBackupSettings() {
         if (stopped || controller.signal.aborted) return;
         if (!reportedError) {
           toast.error(
-            error instanceof Error ? error.message : "查询备份运行状态失败"
+            error instanceof Error ? error.message : "查询备份运行状态失败",
           );
           reportedError = true;
         }
@@ -250,20 +299,19 @@ export function useBackupSettings() {
     });
   }, []);
 
+  const fieldErrors = useMemo(
+    () => getBackupFieldErrors(form, savedForm),
+    [form, savedForm],
+  );
+
   const validate = useCallback((): boolean => {
-    const hours = Number(form.interval_hours);
-    if (!Number.isFinite(hours) || hours < 1 || hours > 720) {
-      toast.error("备份执行周期需填写 1 - 720 小时之间的数值");
+    const errs = getBackupFieldErrors(form, savedForm);
+    if (errs.interval_hours) {
+      toast.error(errs.interval_hours);
       return false;
     }
-    const maxFiles = Number(form.last_max_files);
-    if (
-      !Number.isFinite(maxFiles) ||
-      !Number.isInteger(maxFiles) ||
-      maxFiles < 1 ||
-      maxFiles > 100
-    ) {
-      toast.error("最大保留备份份数需为 1 - 100 之间的整数");
+    if (errs.last_max_files) {
+      toast.error(errs.last_max_files);
       return false;
     }
     if (form.include.length === 0) {
@@ -273,7 +321,7 @@ export function useBackupSettings() {
     if (form.provider === "cloudflare_r2") {
       const hasSecret = Boolean(
         form.r2_secret_access_key.trim() ||
-          form.r2_secret_access_key_configured
+          form.r2_secret_access_key_configured,
       );
       if (
         !form.r2_account_id.trim() ||
@@ -282,30 +330,37 @@ export function useBackupSettings() {
         !hasSecret
       ) {
         toast.error(
-          "启用 R2 异地容灾前，请完整填写 R2 Account ID、Bucket、Access Key ID 与 Secret Access Key"
+          "启用 R2 异地容灾前，请完整填写 R2 账户 ID、存储桶名称、访问密钥 ID 与私有密钥",
         );
         return false;
       }
     }
     return true;
-  }, [form]);
+  }, [form, savedForm]);
 
   const save = useCallback(async (): Promise<boolean> => {
     if (!validate()) return false;
     setIsSaving(true);
     try {
+      const trimmedHours = form.interval_hours.trim();
+      const preserveRawMinutes =
+        trimmedHours === savedForm.interval_hours.trim() &&
+        savedForm.raw_interval_minutes > 0 &&
+        savedForm.raw_interval_minutes % 60 !== 0;
+
+      const resolvedMinutes = preserveRawMinutes
+        ? savedForm.raw_interval_minutes
+        : Math.max(60, Math.round(Number(trimmedHours) * 60));
+
       const payload: Partial<BackupConfig> = {
         enabled: form.enabled,
         provider: form.provider,
         local_dir: form.local_dir.trim() || "data/backups",
-        interval_minutes: Math.max(
-          60,
-          Math.round(Number(form.interval_hours) * 60)
-        ),
+        interval_minutes: resolvedMinutes,
         include: form.include,
         last_max_files: Math.min(
           100,
-          Math.max(1, Math.round(Number(form.last_max_files)))
+          Math.max(1, Math.round(Number(form.last_max_files.trim()))),
         ),
         r2_account_id: form.r2_account_id.trim(),
         r2_access_key_id: form.r2_access_key_id.trim(),
@@ -324,13 +379,13 @@ export function useBackupSettings() {
       return true;
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "保存备份配置失败"
+        error instanceof Error ? error.message : "保存备份配置失败",
       );
       return false;
     } finally {
       setIsSaving(false);
     }
-  }, [form, validate]);
+  }, [form, savedForm, validate]);
 
   const discard = useCallback(() => {
     setForm(savedForm);
@@ -349,7 +404,9 @@ export function useBackupSettings() {
       if (data.error) {
         toast.error(data.error);
       } else {
-        toast.info(data.started ? "手动备份任务已启动" : "已有备份任务正在运行");
+        toast.info(
+          data.started ? "手动备份任务已启动" : "已有备份任务正在运行",
+        );
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "启动备份失败");
@@ -371,6 +428,7 @@ export function useBackupSettings() {
   return {
     form,
     savedForm,
+    fieldErrors,
     updateForm,
     state,
     isDirty,

@@ -198,6 +198,7 @@ func (b *DatabaseBackend) init() error {
 			`CREATE INDEX idx_media_assets_public_published ON media_assets (visibility, published_at, path)`,
 			`CREATE INDEX idx_media_assets_status_updated ON media_assets (status, updated_at)`,
 			`CREATE INDEX idx_media_assets_retention ON media_assets (media_type, status, deleted_at, created_at, path)`,
+			`CREATE INDEX idx_payment_orders_status_paid_at ON payment_orders (status, paid_at)`,
 		} {
 			if _, err := b.db.Exec(stmt); err != nil {
 				if isMySQLDuplicateIndexError(err) {

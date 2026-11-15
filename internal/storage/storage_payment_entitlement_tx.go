@@ -32,7 +32,7 @@ func (b *DatabaseBackend) CompletePaymentStorage(input PaymentStorageCompletion)
 		}
 		return order, false, nil
 	}
-	if order.Status == PaymentOrderStatusClosed || order.Status == PaymentOrderStatusFailed {
+	if order.Status == PaymentOrderStatusFailed {
 		return PaymentOrderRecord{}, false, ErrPaymentStateConflict
 	}
 	if order.ProductTypeSnapshot != "cloud_storage" || order.UserID != input.Entitlement.UserID ||
@@ -136,7 +136,8 @@ func (b *DatabaseBackend) CompletePaymentStorage(input PaymentStorageCompletion)
 		return PaymentOrderRecord{}, false, err
 	}
 	order.Status, order.ProviderTradeState, order.ProviderTradeDesc = PaymentOrderStatusSucceeded, input.TradeState, input.TradeStateDesc
-	order.TransactionID, order.PaidAt, order.CreditedAt, order.CodeURL = input.TransactionID, input.PaidAt, input.CreditedAt, ""
+	order.TransactionID, order.PaidAt, order.CreditedAt, order.ClosedAt, order.CodeURL = input.TransactionID, input.PaidAt, input.CreditedAt, "", ""
+	order.LastErrorCode, order.LastErrorMessage = "", ""
 	order.UpdatedAt = input.CreditedAt
 	return order, true, nil
 }
@@ -379,7 +380,7 @@ func (b *DatabaseBackend) ListActiveStorageEntitlements(now string) (map[string]
 }
 
 func (b *DatabaseBackend) markPaymentStorageOrderSucceededTx(tx *sql.Tx, input PaymentStorageCompletion) error {
-	result, err := tx.Exec(`UPDATE payment_orders SET status = `+b.placeholder(1)+`, provider_trade_state = `+b.placeholder(2)+`, provider_trade_desc = `+b.placeholder(3)+`, transaction_id = `+b.placeholder(4)+`, paid_at = `+b.placeholder(5)+`, credited_at = `+b.placeholder(6)+`, code_url = '', last_error_code = '', last_error_message = '', updated_at = `+b.placeholder(7)+` WHERE id = `+b.placeholder(8)+` AND status <> `+b.placeholder(9), PaymentOrderStatusSucceeded, input.TradeState, input.TradeStateDesc, input.TransactionID, input.PaidAt, input.CreditedAt, input.CreditedAt, input.OrderID, PaymentOrderStatusSucceeded)
+	result, err := tx.Exec(`UPDATE payment_orders SET status = `+b.placeholder(1)+`, provider_trade_state = `+b.placeholder(2)+`, provider_trade_desc = `+b.placeholder(3)+`, transaction_id = `+b.placeholder(4)+`, paid_at = `+b.placeholder(5)+`, credited_at = `+b.placeholder(6)+`, closed_at = '', code_url = '', last_error_code = '', last_error_message = '', updated_at = `+b.placeholder(7)+` WHERE id = `+b.placeholder(8)+` AND status <> `+b.placeholder(9), PaymentOrderStatusSucceeded, input.TradeState, input.TradeStateDesc, input.TransactionID, input.PaidAt, input.CreditedAt, input.CreditedAt, input.OrderID, PaymentOrderStatusSucceeded)
 	if err != nil {
 		return err
 	}

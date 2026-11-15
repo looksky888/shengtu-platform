@@ -38,6 +38,20 @@ func TestApplyUpstreamClearancePreservesExistingUserAgent(t *testing.T) {
 	}
 }
 
+func TestApplyUpstreamClearanceOverwritesUserAgentWhenCookiesApplied(t *testing.T) {
+	bundle := &UpstreamClearanceBundle{
+		UserAgent: "FlareSolverrUA/2.0",
+		Cookies:   []UpstreamClearanceCookie{{Name: "cf_clearance", Value: "tok"}},
+	}
+	h := ApplyUpstreamClearanceToHeaders(map[string]string{"user-agent": "AccountUA/1.0"}, bundle)
+	if h["User-Agent"] != "FlareSolverrUA/2.0" {
+		t.Fatalf("expected clearance UA overwrite, got %q", h["User-Agent"])
+	}
+	if _, exists := h["user-agent"]; exists {
+		t.Fatalf("lowercase user-agent key should have been normalized: %#v", h)
+	}
+}
+
 func TestApplyUpstreamClearanceReplacesStaleCookie(t *testing.T) {
 	bundle := &UpstreamClearanceBundle{Cookies: []UpstreamClearanceCookie{{Name: "cf_clearance", Value: "fresh"}}}
 	h := ApplyUpstreamClearanceToHeaders(map[string]string{"Cookie": "session=keep; cf_clearance=stale"}, bundle)

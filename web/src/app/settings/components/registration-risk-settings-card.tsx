@@ -32,6 +32,21 @@ type NumberKey = Exclude<
   "enabled" | "disposable_domains" | "proxy_cidrs"
 >;
 
+const RISK_NUMBER_FIELDS: readonly { key: NumberKey; label: string }[] = [
+  { key: "device_success_limit", label: "单设备成功注册上限" },
+  { key: "device_window_days", label: "单设备统计窗口" },
+  { key: "device_block_hours", label: "单设备封禁时长" },
+  { key: "ip_success_limit", label: "单 IP 成功注册上限" },
+  { key: "ip_distinct_device_limit", label: "单 IP 不同设备上限" },
+  { key: "ip_window_hours", label: "单 IP 统计窗口" },
+  { key: "ip_block_hours", label: "单 IP 封禁时长" },
+  { key: "pair_attempt_limit", label: "组合允许尝试上限" },
+  { key: "pair_attempt_window_minutes", label: "组合统计窗口" },
+  { key: "pair_cooldown_hours", label: "组合触发冷却时长" },
+  { key: "subnet_success_limit", label: "C 段子网注册上限" },
+  { key: "subnet_window_hours", label: "C 段子网统计窗口" },
+];
+
 function safeRiskList(items: string[] | null | undefined): string[] {
   return Array.isArray(items) ? items : [];
 }
@@ -48,28 +63,41 @@ function normalizeRiskSettings(
 
 function riskSnapshot(
   settings: RegistrationRiskSettings,
+  draftNumbers: Partial<Record<NumberKey, string>>,
   domainsText: string,
   cidrsText: string,
-  includeEnabled = true
+  includeEnabled = true,
 ) {
+  const numericEntries: Record<string, string> = {};
+  for (const { key } of RISK_NUMBER_FIELDS) {
+    const raw =
+      key in draftNumbers ? draftNumbers[key] ?? "" : String(settings[key]);
+    numericEntries[key] = raw.trim();
+  }
   return JSON.stringify({
     ...(includeEnabled ? { enabled: Boolean(settings.enabled) } : {}),
-    device_success_limit: Number(settings.device_success_limit) || 0,
-    device_window_days: Number(settings.device_window_days) || 0,
-    device_block_hours: Number(settings.device_block_hours) || 0,
-    ip_success_limit: Number(settings.ip_success_limit) || 0,
-    ip_distinct_device_limit: Number(settings.ip_distinct_device_limit) || 0,
-    ip_window_hours: Number(settings.ip_window_hours) || 0,
-    ip_block_hours: Number(settings.ip_block_hours) || 0,
-    pair_attempt_limit: Number(settings.pair_attempt_limit) || 0,
-    pair_attempt_window_minutes:
-      Number(settings.pair_attempt_window_minutes) || 0,
-    pair_cooldown_hours: Number(settings.pair_cooldown_hours) || 0,
-    subnet_success_limit: Number(settings.subnet_success_limit) || 0,
-    subnet_window_hours: Number(settings.subnet_window_hours) || 0,
+    ...numericEntries,
     disposable_domains: splitSettingsLines(domainsText),
     proxy_cidrs: splitSettingsLines(cidrsText),
   });
+}
+
+function getRiskValidationErrors(
+  settings: RegistrationRiskSettings | null,
+  draftNumbers: Partial<Record<NumberKey, string>>,
+): Partial<Record<NumberKey, string>> {
+  if (!settings) return {};
+  const errors: Partial<Record<NumberKey, string>> = {};
+  for (const { key, label } of RISK_NUMBER_FIELDS) {
+    const raw =
+      key in draftNumbers ? draftNumbers[key] ?? "" : String(settings[key]);
+    const trimmed = raw.trim();
+    const num = trimmed === "" ? Number.NaN : Number(trimmed);
+    if (!Number.isInteger(num) || num < 1) {
+      errors[key] = `${label}必须为不小于 1 的整数`;
+    }
+  }
+  return errors;
 }
 
 export function RegistrationRiskSettingsCard({
@@ -80,11 +108,14 @@ export function RegistrationRiskSettingsCard({
   onStatusChange?: (enabled: boolean) => void;
 }) {
   const [settings, setSettings] = useState<RegistrationRiskSettings | null>(
-    null
+    null,
   );
   const [baseline, setBaseline] = useState<RegistrationRiskSettings | null>(
-    null
+    null,
   );
+  const [draftNumbers, setDraftNumbers] = useState<
+    Partial<Record<NumberKey, string>>
+  >({});
   const [domains, setDomains] = useState("");
   const [cidrs, setCIDRs] = useState("");
   const [loading, setLoading] = useState(true);
@@ -102,6 +133,7 @@ export function RegistrationRiskSettingsCard({
         const value = normalizeRiskSettings(data.settings);
         setSettings(value);
         setBaseline(value);
+        setDraftNumbers({});
         setDomains(value.disposable_domains.join("\n"));
         setCIDRs(value.proxy_cidrs.join("\n"));
         onStatusChange?.(Boolean(value.enabled));
@@ -109,7 +141,7 @@ export function RegistrationRiskSettingsCard({
       } catch (error) {
         if (!silent) {
           toast.error(
-            error instanceof Error ? error.message : "加载注册风控失败"
+            error instanceof Error ? error.message : "加载注册风控失败",
           );
         }
         return false;
@@ -117,51 +149,121 @@ export function RegistrationRiskSettingsCard({
         if (!silent) setLoading(false);
       }
     },
-    [onStatusChange]
+    [onStatusChange],
   );
 
   useEffect(() => {
     void loadRiskSettings(refreshSignal > 0);
   }, [loadRiskSettings, refreshSignal]);
 
-  const updateNumber = (key: NumberKey, value: string) => {
-    setSettings((current) =>
-      current ? { ...current, [key]: Math.max(0, Number(value) || 0) } : current
-    );
+  const updateNumber = (key: NumberKey, raw: string) => {
+    setDraftNumbers((prev) => ({ ...prev, [key]: raw }));
+    const trimmed = raw.trim();
+    if (/^-?\d+$/.test(trimmed)) {
+      const parsed = Number(trimmed);
+      if (Number.isSafeInteger(parsed)) {
+        setSettings((current) =>
+          current ? { ...current, [key]: parsed } : current,
+        );
+      }
+    }
+  };
+
+  const normalizeNumberOnBlur = (key: NumberKey) => {
+    if (!(key in draftNumbers)) return;
+    const raw = (draftNumbers[key] ?? "").trim();
+    if (!raw) {
+      const fallback = Math.max(1, Number(baseline?.[key]) || 1);
+      setSettings((current) =>
+        current ? { ...current, [key]: fallback } : current,
+      );
+      setDraftNumbers((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+      return;
+    }
+    if (/^-?\d+$/.test(raw)) {
+      const parsed = Number(raw);
+      if (Number.isSafeInteger(parsed)) {
+        setSettings((current) =>
+          current ? { ...current, [key]: parsed } : current,
+        );
+        setDraftNumbers((prev) => {
+          const next = { ...prev };
+          delete next[key];
+          return next;
+        });
+      }
+    }
+  };
+
+  const getDisplayNumber = (key: NumberKey): string | number => {
+    if (key in draftNumbers) {
+      return draftNumbers[key] ?? "";
+    }
+    return settings ? settings[key] : "";
   };
 
   const isThresholdDirty = useMemo(() => {
     if (!settings || !baseline) return false;
     return (
-      riskSnapshot(settings, domains, cidrs, false) !==
+      riskSnapshot(settings, draftNumbers, domains, cidrs, false) !==
       riskSnapshot(
         baseline,
+        {},
         safeRiskList(baseline.disposable_domains).join("\n"),
         safeRiskList(baseline.proxy_cidrs).join("\n"),
-        false
+        false,
       )
     );
-  }, [baseline, cidrs, domains, settings]);
+  }, [baseline, cidrs, domains, draftNumbers, settings]);
 
   const isDirty = useMemo(() => {
     if (!settings || !baseline) return false;
     return (
-      riskSnapshot(settings, domains, cidrs, true) !==
+      riskSnapshot(settings, draftNumbers, domains, cidrs, true) !==
       riskSnapshot(
         baseline,
+        {},
         safeRiskList(baseline.disposable_domains).join("\n"),
         safeRiskList(baseline.proxy_cidrs).join("\n"),
-        true
+        true,
       )
     );
-  }, [baseline, cidrs, domains, settings]);
+  }, [baseline, cidrs, domains, draftNumbers, settings]);
+
+  const errors = useMemo(
+    () => getRiskValidationErrors(settings, draftNumbers),
+    [draftNumbers, settings],
+  );
+  const hasValidationError = Object.keys(errors).length > 0;
+
+  const validateRisk = useCallback(() => {
+    const currentErrors = getRiskValidationErrors(settings, draftNumbers);
+    const firstMsg = Object.values(currentErrors)[0];
+    if (firstMsg) {
+      toast.error(firstMsg);
+      return false;
+    }
+    return true;
+  }, [draftNumbers, settings]);
 
   const handleSave = useCallback(async (): Promise<boolean> => {
     if (!settings) return false;
+    if (!validateRisk()) return false;
     setSaving(true);
     try {
+      const resolvedNumbers: Partial<Record<NumberKey, number>> = {};
+      for (const { key } of RISK_NUMBER_FIELDS) {
+        const raw =
+          key in draftNumbers ? draftNumbers[key] ?? "" : String(settings[key]);
+        resolvedNumbers[key] = Number(raw.trim());
+      }
       const payload: RegistrationRiskSettings = {
         ...settings,
+        ...resolvedNumbers,
         disposable_domains: splitSettingsLines(domains),
         proxy_cidrs: splitSettingsLines(cidrs),
       };
@@ -172,6 +274,7 @@ export function RegistrationRiskSettingsCard({
       const nextValue = normalizeRiskSettings(data.settings);
       setSettings(nextValue);
       setBaseline(nextValue);
+      setDraftNumbers({});
       setDomains(nextValue.disposable_domains.join("\n"));
       setCIDRs(nextValue.proxy_cidrs.join("\n"));
       onStatusChange?.(Boolean(nextValue.enabled));
@@ -183,11 +286,12 @@ export function RegistrationRiskSettingsCard({
     } finally {
       setSaving(false);
     }
-  }, [cidrs, domains, onStatusChange, settings]);
+  }, [cidrs, domains, draftNumbers, onStatusChange, settings, validateRisk]);
 
   const handleDiscard = useCallback(() => {
     if (!baseline) return true;
     setSettings(baseline);
+    setDraftNumbers({});
     setDomains(safeRiskList(baseline.disposable_domains).join("\n"));
     setCIDRs(safeRiskList(baseline.proxy_cidrs).join("\n"));
     return true;
@@ -198,18 +302,19 @@ export function RegistrationRiskSettingsCard({
     tab: "email",
     label: "注册风控策略",
     isDirty,
+    validate: validateRisk,
     save: handleSave,
     discard: handleDiscard,
   });
 
   const domainCount = useMemo(
     () => splitSettingsLines(domains).length,
-    [domains]
+    [domains],
   );
   const cidrCount = useMemo(() => splitSettingsLines(cidrs).length, [cidrs]);
 
   const showDetails = Boolean(
-    settings && (settings.enabled || manualExpanded || isThresholdDirty)
+    settings && (settings.enabled || manualExpanded || isThresholdDirty),
   );
 
   return (
@@ -243,6 +348,11 @@ export function RegistrationRiskSettingsCard({
           <SettingsCardSaveFooter
             dirty={isDirty}
             saving={saving}
+            hint={
+              hasValidationError
+                ? "请先修正标红的风控频次或时长阈值错误（均须为 >= 1 的整数）"
+                : undefined
+            }
             onReset={handleDiscard}
             onSave={() => void handleSave()}
           />
@@ -290,7 +400,9 @@ export function RegistrationRiskSettingsCard({
                   风控阈值与黑名单已折叠
                 </div>
                 <p className="text-[11px] text-muted-foreground">
-                  单设备 {settings.device_success_limit} 次/{settings.device_window_days} 天 · 已预置 {domainCount} 个临时邮箱域名、{cidrCount} 条网段规则
+                  单设备 {settings.device_success_limit} 次/
+                  {settings.device_window_days} 天 · 已预置 {domainCount}{" "}
+                  个临时邮箱域名、{cidrCount} 条网段规则
                 </p>
               </div>
               <Button
@@ -308,8 +420,9 @@ export function RegistrationRiskSettingsCard({
             <div className="space-y-4">
               {/* 1. 设备维度限制 */}
               <SettingsSection
+                layout="split"
                 title="设备维度限制"
-                description="同一浏览器/客户端设备指纹在统计窗口内达到注册上限后自动封禁"
+                description="同一浏览器/客户端设备指纹在统计窗口内达到注册上限后自动封禁。"
                 action={
                   !settings.enabled && !isThresholdDirty ? (
                     <Button
@@ -325,147 +438,181 @@ export function RegistrationRiskSettingsCard({
                   ) : null
                 }
               >
-                <div className="grid gap-3 sm:grid-cols-3">
+                <div className="grid max-w-2xl gap-3 sm:grid-cols-3">
                   <SettingsUnitInput
                     label="成功注册上限"
                     unit="次"
                     min={1}
-                    value={settings.device_success_limit}
+                    value={getDisplayNumber("device_success_limit")}
+                    error={errors.device_success_limit}
                     onChange={(value) =>
                       updateNumber("device_success_limit", value)
                     }
+                    onBlur={() => normalizeNumberOnBlur("device_success_limit")}
                   />
                   <SettingsUnitInput
                     label="统计窗口"
                     unit="天"
                     min={1}
-                    value={settings.device_window_days}
+                    value={getDisplayNumber("device_window_days")}
+                    error={errors.device_window_days}
                     onChange={(value) =>
                       updateNumber("device_window_days", value)
                     }
+                    onBlur={() => normalizeNumberOnBlur("device_window_days")}
                   />
                   <SettingsUnitInput
                     label="封禁时长"
                     unit="小时"
                     min={1}
-                    value={settings.device_block_hours}
+                    value={getDisplayNumber("device_block_hours")}
+                    error={errors.device_block_hours}
                     onChange={(value) =>
                       updateNumber("device_block_hours", value)
                     }
+                    onBlur={() => normalizeNumberOnBlur("device_block_hours")}
                   />
                 </div>
               </SettingsSection>
 
               {/* 2. 单 IP 维度限制 */}
               <SettingsSection
+                layout="split"
                 title="单 IP 维度限制"
-                description="仅当成功注册数与关联不同设备数同时达到阈值时触发 IP 封禁（避免误伤企业/校园 NAT）"
+                description="仅当成功注册数与关联不同设备数同时达到阈值时触发 IP 封禁（避免误伤企业/校园 NAT）。"
               >
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid max-w-2xl gap-3 sm:grid-cols-2">
                   <SettingsUnitInput
                     label="成功注册上限"
                     unit="次"
                     min={1}
-                    value={settings.ip_success_limit}
+                    value={getDisplayNumber("ip_success_limit")}
+                    error={errors.ip_success_limit}
                     onChange={(value) =>
                       updateNumber("ip_success_limit", value)
                     }
+                    onBlur={() => normalizeNumberOnBlur("ip_success_limit")}
                   />
                   <SettingsUnitInput
                     label="不同设备上限"
                     unit="次"
                     min={1}
-                    value={settings.ip_distinct_device_limit}
+                    value={getDisplayNumber("ip_distinct_device_limit")}
+                    error={errors.ip_distinct_device_limit}
                     onChange={(value) =>
                       updateNumber("ip_distinct_device_limit", value)
+                    }
+                    onBlur={() =>
+                      normalizeNumberOnBlur("ip_distinct_device_limit")
                     }
                   />
                   <SettingsUnitInput
                     label="统计窗口"
                     unit="小时"
                     min={1}
-                    value={settings.ip_window_hours}
+                    value={getDisplayNumber("ip_window_hours")}
+                    error={errors.ip_window_hours}
                     onChange={(value) => updateNumber("ip_window_hours", value)}
+                    onBlur={() => normalizeNumberOnBlur("ip_window_hours")}
                   />
                   <SettingsUnitInput
                     label="封禁时长"
                     unit="小时"
                     min={1}
-                    value={settings.ip_block_hours}
+                    value={getDisplayNumber("ip_block_hours")}
+                    error={errors.ip_block_hours}
                     onChange={(value) => updateNumber("ip_block_hours", value)}
+                    onBlur={() => normalizeNumberOnBlur("ip_block_hours")}
                   />
                 </div>
               </SettingsSection>
 
               {/* 3. IP + 设备组合冷却 */}
               <SettingsSection
+                layout="split"
                 title="IP + 设备组合冷却"
-                description="限制短时间内高频提交注册尝试（含失败验证码重试）的冷却窗口"
+                description="限制短时间内高频提交注册尝试（含失败验证码重试）的冷却窗口。"
               >
-                <div className="grid gap-3 sm:grid-cols-3">
+                <div className="grid max-w-2xl gap-3 sm:grid-cols-3">
                   <SettingsUnitInput
                     label="允许尝试上限"
                     unit="次"
                     min={1}
-                    value={settings.pair_attempt_limit}
+                    value={getDisplayNumber("pair_attempt_limit")}
+                    error={errors.pair_attempt_limit}
                     onChange={(value) =>
                       updateNumber("pair_attempt_limit", value)
                     }
+                    onBlur={() => normalizeNumberOnBlur("pair_attempt_limit")}
                   />
                   <SettingsUnitInput
                     label="统计窗口"
                     unit="分钟"
                     min={1}
-                    value={settings.pair_attempt_window_minutes}
+                    value={getDisplayNumber("pair_attempt_window_minutes")}
+                    error={errors.pair_attempt_window_minutes}
                     onChange={(value) =>
                       updateNumber("pair_attempt_window_minutes", value)
+                    }
+                    onBlur={() =>
+                      normalizeNumberOnBlur("pair_attempt_window_minutes")
                     }
                   />
                   <SettingsUnitInput
                     label="触发冷却时长"
                     unit="小时"
                     min={1}
-                    value={settings.pair_cooldown_hours}
+                    value={getDisplayNumber("pair_cooldown_hours")}
+                    error={errors.pair_cooldown_hours}
                     onChange={(value) =>
                       updateNumber("pair_cooldown_hours", value)
                     }
+                    onBlur={() => normalizeNumberOnBlur("pair_cooldown_hours")}
                   />
                 </div>
               </SettingsSection>
 
               {/* 4. C 段子网聚合限制 */}
               <SettingsSection
+                layout="split"
                 title="C 段子网聚合限制"
-                description="针对同一 IPv4 /24 子网内轮换代理 IP 批量注册行为实施聚合限流"
+                description="针对同一 IPv4 /24 子网内轮换代理 IP 批量注册行为实施聚合限流。"
               >
-                <div className="grid gap-3 sm:grid-cols-3">
+                <div className="grid max-w-2xl gap-3 sm:grid-cols-2">
                   <SettingsUnitInput
                     label="子网注册上限"
                     unit="次"
                     min={1}
-                    value={settings.subnet_success_limit}
+                    value={getDisplayNumber("subnet_success_limit")}
+                    error={errors.subnet_success_limit}
                     onChange={(value) =>
                       updateNumber("subnet_success_limit", value)
+                    }
+                    onBlur={() =>
+                      normalizeNumberOnBlur("subnet_success_limit")
                     }
                   />
                   <SettingsUnitInput
                     label="统计窗口"
                     unit="小时"
                     min={1}
-                    value={settings.subnet_window_hours}
+                    value={getDisplayNumber("subnet_window_hours")}
+                    error={errors.subnet_window_hours}
                     onChange={(value) =>
                       updateNumber("subnet_window_hours", value)
                     }
+                    onBlur={() => normalizeNumberOnBlur("subnet_window_hours")}
                   />
                 </div>
               </SettingsSection>
 
               {/* 5. 域名与网段特征库 */}
               <SettingsSection
+                layout="split"
                 title="一次性邮箱域名与高危代理网段"
                 description="组合特征拦截：当请求同时命中一次性邮箱域名、代理 CIDR 网段且设备已注册过账号时直接拒绝。"
               >
-                <div className="grid gap-3.5 sm:grid-cols-2">
+                <div className="grid max-w-2xl gap-3.5 sm:grid-cols-2">
                   <RiskListField
                     id="risk-disposable-domains"
                     label="临时邮箱域名"
@@ -527,7 +674,7 @@ function RiskListField({
         placeholder={placeholder}
         className={cn(
           settingsInputClassName,
-          "min-h-28 font-mono text-xs leading-5"
+          "min-h-28 font-mono text-xs leading-5",
         )}
       />
       <p className="text-[11px] text-muted-foreground">

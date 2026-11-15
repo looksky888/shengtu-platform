@@ -257,9 +257,15 @@ async function resolveDownloadSessionToken(getToken?: () => Promise<string> | st
       try {
         const raw = window.sessionStorage?.getItem("chatgpt2api_auth_session") || "";
         if (raw) {
-          const parsed = JSON.parse(raw) as { token?: unknown };
-          if (typeof parsed.token === "string") {
-            return parsed.token.trim();
+          const parsed = JSON.parse(raw) as { key?: unknown; token?: unknown };
+          const token =
+            typeof parsed.key === "string" && parsed.key.trim()
+              ? parsed.key.trim()
+              : typeof parsed.token === "string"
+                ? parsed.token.trim()
+                : "";
+          if (token) {
+            return token;
           }
         }
       } catch {

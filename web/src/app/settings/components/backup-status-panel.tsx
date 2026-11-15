@@ -5,6 +5,7 @@ import { CheckCircle2, Circle, LoaderCircle, Play, XCircle } from "lucide-react"
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { BackupState } from "@/lib/api";
+import { formatDateTime } from "@/lib/datetime";
 import { cn } from "@/lib/utils";
 
 import { SettingsNotice } from "./settings-ui";
@@ -73,7 +74,7 @@ export function BackupStatusPanel({
 
         {isRunning ? (
           <div className="h-1.5 overflow-hidden rounded-full bg-surface-muted">
-            <div className="animate-indeterminate h-full w-1/2 rounded-full bg-foreground" />
+            <div className="animate-indeterminate h-full w-1/2 rounded-full bg-primary" />
           </div>
         ) : null}
 
@@ -104,13 +105,13 @@ export function BackupStatusPanel({
                   className={cn(
                     "flex items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-xs transition-colors",
                     isCurrentRunning
-                      ? "bg-surface-subtle font-medium text-foreground ring-1 ring-border/80"
+                      ? "bg-primary/[0.08] font-medium text-primary ring-1 ring-primary/20"
                       : "text-muted-foreground",
                   )}
                 >
                   <div className="flex min-w-0 items-center gap-2">
                     {isCurrentRunning ? (
-                      <LoaderCircle className="size-3.5 shrink-0 animate-spin text-foreground" />
+                      <LoaderCircle className="size-3.5 shrink-0 animate-spin text-primary" />
                     ) : isFailedHere ? (
                       <XCircle className="size-3.5 shrink-0 text-status-danger" />
                     ) : isCompleted ? (
@@ -160,7 +161,7 @@ export function BackupStatusPanel({
           />
           <SnapshotMetric
             label="最近成功时间"
-            value={formatBackupTimestamp(state.last_success_at)}
+            value={formatDateTime(state.last_success_at, { compact: true })}
           />
         </div>
 
@@ -223,17 +224,4 @@ function SnapshotMetric({ label, value }: { label: string; value: string }) {
       </div>
     </div>
   );
-}
-
-function formatBackupTimestamp(value?: string | null) {
-  if (!value) return "—";
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return value;
-  return new Intl.DateTimeFormat("zh-CN", {
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).format(parsed);
 }

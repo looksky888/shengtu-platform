@@ -98,11 +98,38 @@ class BrowserSession:
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
 
 
+def _consume_task_exception(task: asyncio.Task) -> None:
+    if not task.cancelled():
+        try:
+            task.exception()
+        except Exception:
+            pass
+
+
+async def _close_context_safely(context: object) -> None:
+    if context is None:
+        return
+    close_fn = getattr(context, "close", None)
+    if close_fn is None:
+        return
+    close_task = asyncio.create_task(close_fn())
+    close_task.add_done_callback(_consume_task_exception)
+    try:
+        await asyncio.shield(close_task)
+    except asyncio.CancelledError:
+        # Let close_task finish in the background so timed-out contexts never leak.
+        raise
+    except Exception:
+        pass
+
+
 class BrowserSolver:
     def __init__(self) -> None:
         self.pool_lock = asyncio.Lock()
+        self.browser_lock = asyncio.Lock()
         self.playwright = None
         self.browser = None
+        self._stopped = False
         self.sessions: dict[str, BrowserSession] = {}
         self.context_index: dict[str, str] = {}
         self.opening_locks: dict[str, asyncio.Lock] = {}
@@ -228,6 +255,18 @@ class BrowserSolver:
         }
 
     @classmethod
+    def _flaresolverr_proxy(cls, proxy_url: str) -> dict[str, str] | None:
+        parsed = cls._proxy_options(proxy_url)
+        if parsed is None:
+            return None
+        proxy_cfg: dict[str, str] = {"url": str(parsed["server"])}
+        if "username" in parsed:
+            proxy_cfg["username"] = str(parsed["username"])
+        if "password" in parsed:
+            proxy_cfg["password"] = str(parsed["password"])
+        return proxy_cfg
+
+    @classmethod
     def _fetch_flaresolverr_clearance_sync(
         cls, flaresolverr_url: str, proxy_url: str, timeout_seconds: int
     ) -> ClearanceBundle:
@@ -236,8 +275,9 @@ class BrowserSolver:
             "url": "https://chatgpt.com/",
             "maxTimeout": timeout_seconds * 1000,
         }
-        if proxy_url:
-            payload["proxy"] = {"url": proxy_url}
+        flaresolverr_proxy = cls._flaresolverr_proxy(proxy_url)
+        if flaresolverr_proxy is not None:
+            payload["proxy"] = flaresolverr_proxy
         data = json.dumps(payload).encode("utf-8")
         req = urllib.request.Request(
             flaresolverr_url + "/v1",
@@ -374,8 +414,8 @@ class BrowserSolver:
         host = target.hostname if ":" not in target.hostname else "[" + target.hostname + "]"
         port = ":" + str(target.port) if target.port else ""
         options = {"server": target.scheme.replace("socks5h", "socks5") + "://" + host + port}
-        if target.username is not None:
-            options["username"] = unquote(target.username)
+        if target.username is not None or target.password is not None:
+            options["username"] = unquote(target.username or "")
             options["password"] = unquote(target.password or "")
         return options
 
@@ -383,24 +423,62 @@ class BrowserSolver:
     def _session_key(proxy_url: str, timezone: str) -> str:
         return hashlib.sha256((proxy_url + "\0" + timezone).encode()).hexdigest()
 
+    async def _launch_chromium(self):
+        return await self.playwright.chromium.launch(
+            headless=True,
+            channel="chromium",
+            chromium_sandbox=True,
+            args=["--disable-blink-features=AutomationControlled", "--disable-dev-shm-usage"],
+        )
+
+    async def _ensure_browser(self) -> None:
+        if self._stopped:
+            raise RuntimeError("browser solver stopped")
+        if self.browser is not None and self.browser.is_connected():
+            return
+        async with self.browser_lock:
+            if self._stopped:
+                raise RuntimeError("browser solver stopped")
+            if self.browser is not None and self.browser.is_connected():
+                return
+            dead_browser = self.browser
+            self.browser = None
+            async with self.pool_lock:
+                stale_sessions = list(self.sessions.values())
+                self.sessions.clear()
+                self.context_index.clear()
+            for session in stale_sessions:
+                await _close_context_safely(session.context)
+            if dead_browser is not None:
+                try:
+                    await dead_browser.close()
+                except Exception:
+                    pass
+            started_playwright = False
+            if self.playwright is None:
+                self.playwright = await async_playwright().start()
+                started_playwright = True
+            try:
+                self.browser = await self._launch_chromium()
+            except Exception:
+                if started_playwright and self.playwright is not None:
+                    try:
+                        await self.playwright.stop()
+                    except Exception:
+                        pass
+                    self.playwright = None
+                raise RuntimeError("browser launch failed; check sandbox configuration") from None
+
     async def start(self) -> None:
-        self.playwright = await async_playwright().start()
-        try:
-            self.browser = await self.playwright.chromium.launch(
-                headless=True,
-                channel="chromium",
-                chromium_sandbox=True,
-                args=["--disable-blink-features=AutomationControlled", "--disable-dev-shm-usage"],
-            )
-        except Exception:
-            await self.playwright.stop()
-            raise RuntimeError("browser launch failed; check sandbox configuration") from None
+        self._stopped = False
+        await self._ensure_browser()
         try:
             await self._get_or_create_session(self.default_proxy, self.default_timezone)
         except Exception as exc:
             logging.warning("anonymous_page_not_ready error_type=%s", type(exc).__name__)
 
     async def stop(self) -> None:
+        self._stopped = True
         async with self.pool_lock:
             sessions = list(self.sessions.values())
             self.sessions.clear()
@@ -409,11 +487,20 @@ class BrowserSolver:
             self.clearance_locks.clear()
             self.clearance_waiters.clear()
         for session in sessions:
-            await session.context.close()
-        if self.browser is not None:
-            await self.browser.close()
-        if self.playwright is not None:
-            await self.playwright.stop()
+            await _close_context_safely(session.context)
+        async with self.browser_lock:
+            if self.browser is not None:
+                try:
+                    await self.browser.close()
+                except Exception:
+                    pass
+                self.browser = None
+            if self.playwright is not None:
+                try:
+                    await self.playwright.stop()
+                except Exception:
+                    pass
+                self.playwright = None
 
     async def _route(self, route) -> None:
         target = urlsplit(route.request.url)
@@ -425,6 +512,7 @@ class BrowserSolver:
     async def _open_session_once(
         self, key: str, proxy_url: str, timezone: str, clearance: ClearanceBundle | None
     ) -> BrowserSession:
+        await self._ensure_browser()
         options: dict[str, object] = {
             "locale": "en-US",
             "timezone_id": timezone,
@@ -463,10 +551,7 @@ class BrowserSolver:
             now = time.monotonic()
             return BrowserSession(key, proxy_url, timezone, context, page, uuid.uuid4().hex, now, now)
         except BaseException:
-            try:
-                await context.close()
-            except Exception:
-                pass
+            await _close_context_safely(context)
             raise
 
     async def _open_session(self, key: str, proxy_url: str, timezone: str) -> BrowserSession:
@@ -510,6 +595,8 @@ class BrowserSolver:
         proxy_url = proxy_url.strip() or self.default_proxy
         timezone = self._normalize_timezone(timezone.strip() or self.default_timezone)
         self._proxy_options(proxy_url)
+        if self.browser is None or not self.browser.is_connected():
+            await self._ensure_browser()
         key = self._session_key(proxy_url, timezone)
         stale: list[BrowserSession] = []
         existing: BrowserSession | None = None
@@ -533,7 +620,7 @@ class BrowserSolver:
                 key_lock = self.opening_locks.setdefault(key, asyncio.Lock())
                 self.opening_waiters[key] = self.opening_waiters.get(key, 0) + 1
         for item in stale:
-            await item.context.close()
+            await _close_context_safely(item.context)
         if existing is not None:
             return existing
         assert key_lock is not None
@@ -557,11 +644,11 @@ class BrowserSolver:
                         to_close.append(evicted)
                     if len(self.sessions) + len(self.opening_in_flight) >= self.max_sessions:
                         for item in to_close:
-                            await item.context.close()
+                            await _close_context_safely(item.context)
                         raise RuntimeError("browser context capacity exhausted")
                     self.opening_in_flight.add(key)
                 for item in to_close:
-                    await item.context.close()
+                    await _close_context_safely(item.context)
                 try:
                     session = await self._open_session(key, proxy_url, timezone)
                 except BaseException:
@@ -577,7 +664,7 @@ class BrowserSolver:
                         self.sessions[key] = session
                         self.context_index[session.epoch] = key
                 if abort_close:
-                    await session.context.close()
+                    await _close_context_safely(session.context)
                     raise RuntimeError("browser solver stopped")
                 return session
         finally:
@@ -591,17 +678,30 @@ class BrowserSolver:
 
     async def new_context(self, proxy_url: str = "", timezone: str = "") -> dict:
         session = await self._get_or_create_session(proxy_url, timezone)
-        async with session.lock:
-            profile = await session.page.evaluate(_PROFILE_SCRIPT)
-            profile["context_id"] = session.epoch
-            profile["proxy_hash"] = hashlib.sha256(session.proxy_url.encode()).hexdigest()[:12] if session.proxy_url else ""
-            now = time.monotonic()
-            session.last_used_at = now
-            session.issued = {key: expiry for key, expiry in session.issued.items() if expiry > now}
-            if len(session.issued) >= 256:
-                raise RuntimeError("context budget exhausted")
-            session.issued[hashlib.sha256(profile["p"].encode()).hexdigest()] = now + PROOF_TTL_SECONDS
-            return profile
+        should_invalidate = False
+        try:
+            async with session.lock:
+                profile = await session.page.evaluate(_PROFILE_SCRIPT)
+                profile["context_id"] = session.epoch
+                profile["proxy_hash"] = hashlib.sha256(session.proxy_url.encode()).hexdigest()[:12] if session.proxy_url else ""
+                now = time.monotonic()
+                session.last_used_at = now
+                session.issued = {key: expiry for key, expiry in session.issued.items() if expiry > now}
+                if len(session.issued) >= 256:
+                    raise RuntimeError("context budget exhausted")
+                session.issued[hashlib.sha256(profile["p"].encode()).hexdigest()] = now + PROOF_TTL_SECONDS
+                return profile
+        except (TimeoutError, asyncio.CancelledError):
+            should_invalidate = True
+            raise
+        finally:
+            if should_invalidate:
+                inv_task = asyncio.create_task(self.invalidate(session.epoch))
+                inv_task.add_done_callback(_consume_task_exception)
+                try:
+                    await asyncio.shield(inv_task)
+                except (asyncio.CancelledError, Exception):
+                    pass
 
     async def _turnstile_asset(self, session: BrowserSession) -> str:
         if session.turnstile_asset:
@@ -665,7 +765,7 @@ class BrowserSolver:
                 self.context_index.clear()
         for session in sessions:
             if session is not None:
-                await session.context.close()
+                await _close_context_safely(session.context)
 
     def ready(self) -> bool:
         return bool(self.browser is not None and self.browser.is_connected())

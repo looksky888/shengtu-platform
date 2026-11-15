@@ -262,3 +262,41 @@ func TestRecordExternalImageOutcomeIdempotentAndExcludesVideo(t *testing.T) {
 		svc.statsLedgerSaveTimer.Stop()
 	}
 }
+
+func TestStatsLedgerExcludesChatAndTracksVideoOutcomes(t *testing.T) {
+	store := &imageTaskStatsTestStore{}
+	svc := &ImageTaskService{
+		store:       store,
+		storeReady:  true,
+		tasks:       map[string]*ImageTask{},
+		statsLedger: emptyImageTaskStatsLedger(),
+	}
+	now := utilNowForLedgerTest()
+	ts := now.Format("2006-01-02 15:04:05")
+
+	svc.recordTerminalStatsLocked(&ImageTask{
+		ID: "chat-1", OwnerID: "u1", Mode: "chat", Status: TaskStatusSuccess, Count: 1, FinishedAt: ts,
+	})
+	svc.recordTerminalStatsLocked(&ImageTask{
+		ID: "img-1", OwnerID: "u1", Mode: "generate", Status: TaskStatusSuccess, Count: 2,
+		Data: []map[string]any{{"url": "1"}, {"url": "2"}}, FinishedAt: ts,
+	})
+	svc.recordTerminalStatsLocked(&ImageTask{
+		ID: "vid-1", OwnerID: "u1", Mode: "video", Status: TaskStatusSuccess, Count: 1,
+		Data: []map[string]any{{"url": "v1"}}, FinishedAt: ts,
+	})
+	svc.recordTerminalStatsLocked(&ImageTask{
+		ID: "vid-2", OwnerID: "u1", Mode: "video", Status: TaskStatusError, Count: 1, FinishedAt: ts,
+	})
+
+	stats := svc.TodayStats(now)
+	if stats.SuccessTasks != 1 || stats.SuccessImages != 2 {
+		t.Fatalf("image stats polluted by chat/video: %+v", stats)
+	}
+	if stats.SuccessVideoTasks != 1 || stats.SuccessVideos != 1 || stats.FailedVideoTasks != 1 || stats.FailedVideos != 1 {
+		t.Fatalf("video stats mismatch: %+v", stats)
+	}
+	if svc.statsLedgerSaveTimer != nil {
+		svc.statsLedgerSaveTimer.Stop()
+	}
+}

@@ -1,17 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  Boxes,
-  LoaderCircle,
-  Pencil,
-  Plus,
-  RefreshCw,
-  Trash2,
-} from "lucide-react";
+import { Boxes, LoaderCircle, Pencil, Plus, Trash2 } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
+import { useChannelRoutingPricingDirty } from "@/app/settings/components/image-account-pool-pricing";
 import { ImageAccountPoolRoutingCard } from "@/app/settings/components/image-account-pool-routing-card";
 import { ImageChannelDialog } from "@/app/settings/components/image-channel-dialog";
 import { CHANNEL_TYPE_LABELS } from "@/app/settings/components/image-channel-model-labels";
@@ -35,7 +29,6 @@ import {
 } from "@/lib/image-channel-api";
 import { useAuthGuard } from "@/lib/use-auth-guard";
 import { resetPublicModelChannelCache } from "@/lib/use-public-model-channel";
-import { cn } from "@/lib/utils";
 
 import { ChannelModelsView } from "./channel-models-view";
 
@@ -52,15 +45,22 @@ export default function AdminChannelsPage({
   const activeChannelId = searchParams.get("channel") || "";
 
   const loadConfig = useSettingsStore((state) => state.loadConfig);
-  const configLoaded = useSettingsStore((state) => Boolean(state.loadedAt.config));
+  const configLoaded = useSettingsStore((state) =>
+    Boolean(state.loadedAt.config),
+  );
+  useChannelRoutingPricingDirty(true);
 
   const [channels, setChannels] = useState<ImageChannel[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [togglingId, setTogglingId] = useState("");
   const [channelDialogOpen, setChannelDialogOpen] = useState(false);
-  const [editingChannel, setEditingChannel] = useState<ImageChannel | null>(null);
-  const [deletingChannel, setDeletingChannel] = useState<ImageChannel | null>(null);
+  const [editingChannel, setEditingChannel] = useState<ImageChannel | null>(
+    null,
+  );
+  const [deletingChannel, setDeletingChannel] = useState<ImageChannel | null>(
+    null,
+  );
   const [deleting, setDeleting] = useState(false);
 
   const loadChannels = useCallback(async (silent = false) => {
@@ -70,7 +70,9 @@ export default function AdminChannelsPage({
       setChannels(response.channels || []);
     } catch (error) {
       if (!silent) {
-        toast.error(error instanceof Error ? error.message : "加载系统渠道失败");
+        toast.error(
+          error instanceof Error ? error.message : "加载系统渠道失败",
+        );
       }
     } finally {
       if (!silent) setLoading(false);
@@ -135,7 +137,10 @@ export default function AdminChannelsPage({
     }
   };
 
-  const handleToggleEnabled = async (channel: ImageChannel, nextEnabled: boolean) => {
+  const handleToggleEnabled = async (
+    channel: ImageChannel,
+    nextEnabled: boolean,
+  ) => {
     setTogglingId(channel.id);
     try {
       await updateImageChannel(channel.id, {
@@ -157,7 +162,11 @@ export default function AdminChannelsPage({
         ),
       );
       resetPublicModelChannelCache();
-      toast.success(nextEnabled ? `已启用渠道「${channel.name}」` : `已停用渠道「${channel.name}」`);
+      toast.success(
+        nextEnabled
+          ? `已启用渠道「${channel.name}」`
+          : `已停用渠道「${channel.name}」`,
+      );
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "切换渠道状态失败");
     } finally {
@@ -203,7 +212,10 @@ export default function AdminChannelsPage({
 
   const enabledChannels = channels.filter((c) => c.enabled).length;
   const totalModels = channels.reduce((acc, c) => acc + (c.model_count || 0), 0);
-  const enabledModels = channels.reduce((acc, c) => acc + (c.enabled_models || 0), 0);
+  const enabledModels = channels.reduce(
+    (acc, c) => acc + (c.enabled_models || 0),
+    0,
+  );
   const totalConcurrency = channels
     .filter((c) => c.enabled)
     .reduce((acc, c) => acc + (c.max_concurrency || 0), 0);
@@ -213,21 +225,9 @@ export default function AdminChannelsPage({
       embedded={embedded}
       groupLabel="算力与号池"
       title="系统渠道"
-      description="统一编排内置 ChatGPT / Grok 本地号池与第三方 OpenAI 兼容中转渠道；点击「模型管理」进入全宽阶梯单价工作台。"
+      description="统一编排内置 ChatGPT / Grok 本地号池与第三方 OpenAI 兼容渠道；点击「模型管理」进入全宽阶梯单价工作台。"
       actions={
         <div className="flex flex-wrap items-center gap-2">
-          {!embedded ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={loading}
-              onClick={() => void loadChannels()}
-            >
-              <RefreshCw className={cn("size-3.5", loading && "animate-spin")} />
-              刷新
-            </Button>
-          ) : null}
           <Button
             type="button"
             size="sm"
@@ -237,7 +237,7 @@ export default function AdminChannelsPage({
             }}
           >
             <Plus className="size-3.5" />
-            新增中转渠道
+            新增生图渠道
           </Button>
         </div>
       }
@@ -247,7 +247,7 @@ export default function AdminChannelsPage({
           label="运行中渠道"
           value={`${enabledChannels} / ${channels.length}`}
           tone={enabledChannels > 0 ? "success" : "warning"}
-          hint="内置本地号池 + OpenAI 兼容中转"
+          hint="内置本地号池 + OpenAI 兼容渠道"
         />
         <AdminStatTile
           label="已启用模型 / 总挂载模型"
@@ -279,14 +279,20 @@ export default function AdminChannelsPage({
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={8} className="py-10 text-center text-[var(--admin-text-muted)]">
+                <td
+                  colSpan={8}
+                  className="py-10 text-center text-[var(--admin-text-muted)]"
+                >
                   <LoaderCircle className="mx-auto size-4 animate-spin" />
                 </td>
               </tr>
             ) : channels.length === 0 ? (
               <tr>
-                <td colSpan={8} className="py-10 text-center text-[var(--admin-text-muted)]">
-                  暂无供给渠道配置
+                <td
+                  colSpan={8}
+                  className="py-10 text-center text-[var(--admin-text-muted)]"
+                >
+                  暂无生图渠道配置
                 </td>
               </tr>
             ) : (
@@ -321,9 +327,9 @@ export default function AdminChannelsPage({
                     <button
                       type="button"
                       onClick={() => openChannelModels(channel.id)}
-                      className="inline-flex items-center gap-1.5 font-mono text-[12px] font-medium text-[var(--admin-text)] underline-offset-4 hover:underline"
+                      className="inline-flex items-center gap-1.5 font-mono text-[12px] font-medium text-primary underline-offset-4 hover:underline"
                     >
-                      <Boxes className="size-3.5 text-[var(--admin-text-muted)]" />
+                      <Boxes className="size-3.5 text-primary/80" />
                       {channel.enabled_models} / {channel.model_count} 个模型
                     </button>
                   </td>
@@ -337,7 +343,9 @@ export default function AdminChannelsPage({
                     <Switch
                       checked={channel.enabled}
                       disabled={togglingId === channel.id}
-                      onCheckedChange={(checked) => void handleToggleEnabled(channel, checked)}
+                      onCheckedChange={(checked) =>
+                        void handleToggleEnabled(channel, checked)
+                      }
                       aria-label={`切换渠道 ${channel.name}`}
                     />
                   </td>
@@ -384,7 +392,7 @@ export default function AdminChannelsPage({
       </div>
 
       {/* Built-in Local Account Pool Routing & Fallback Card */}
-      <ImageAccountPoolRoutingCard />
+      <ImageAccountPoolRoutingCard registerDirty={false} />
 
       <ImageChannelDialog
         channel={editingChannel}
@@ -396,7 +404,7 @@ export default function AdminChannelsPage({
 
       <ConfirmDialog
         open={Boolean(deletingChannel)}
-        title="确认删除该中转渠道？"
+        title="确认删除该生图渠道？"
         description={
           deletingChannel
             ? `删除渠道「${deletingChannel.name}」将同时移除其下挂载的 ${deletingChannel.model_count} 个模型配置。`

@@ -95,10 +95,30 @@ func (s *PaymentAdminService) UpdateSettings(input PaymentSettingsInput, actor s
 }
 
 func (s *PaymentAdminService) Stats() (storage.PaymentStatsRecord, error) {
+	return s.StatsAt(time.Time{})
+}
+
+func (s *PaymentAdminService) StatsAt(now time.Time) (storage.PaymentStatsRecord, error) {
 	if !s.Available() {
 		return storage.PaymentStatsRecord{}, errors.New("在线支付需要数据库存储后端")
 	}
-	return s.backend.LoadPaymentStats(s.now().In(util.ChinaLocation()).Format(time.RFC3339Nano))
+	if now.IsZero() {
+		now = s.now()
+	}
+	return s.backend.LoadPaymentStats(now.In(util.ChinaLocation()).Format(time.RFC3339Nano))
+}
+
+func (s *PaymentAdminService) PaidUsersCount() (int, error) {
+	if !s.Available() {
+		return 0, errors.New("在线支付需要数据库存储后端")
+	}
+	counter, ok := s.backend.(interface {
+		CountPaidUsers() (int, error)
+	})
+	if !ok {
+		return 0, nil
+	}
+	return counter.CountPaidUsers()
 }
 
 func publicPaymentSettings(item storage.PaymentSettingsRecord) PaymentSettingsPublic {

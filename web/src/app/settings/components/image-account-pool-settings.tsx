@@ -18,6 +18,7 @@ import { isImeComposing } from "@/lib/keyboard";
 import { cn } from "@/lib/utils";
 
 import { useSettingsStore } from "../store";
+import { pricingErrors } from "./image-account-pool-pricing";
 import {
   SettingsSection,
   SettingsSwitchRow,
@@ -52,46 +53,46 @@ export const INTERNAL_MODEL_OPTIONS = [
 export function ImageAccountPoolSettings() {
   const config = useSettingsStore((state) => state.config);
   const setImageProxyField = useSettingsStore(
-    (state) => state.setImageProxyField
+    (state) => state.setImageProxyField,
   );
   const setGPTImage2CreditCost = useSettingsStore(
-    (state) => state.setGPTImage2CreditCost
+    (state) => state.setGPTImage2CreditCost,
   );
   const setGPTImage25CreditCost = useSettingsStore(
-    (state) => state.setGPTImage25CreditCost
+    (state) => state.setGPTImage25CreditCost,
   );
   const setGPTImage25FlareCreditCost = useSettingsStore(
-    (state) => state.setGPTImage25FlareCreditCost
+    (state) => state.setGPTImage25FlareCreditCost,
   );
   const setGPTImage25SunburstCreditCost = useSettingsStore(
-    (state) => state.setGPTImage25SunburstCreditCost
+    (state) => state.setGPTImage25SunburstCreditCost,
   );
   const setGPTImage26CreditCost = useSettingsStore(
-    (state) => state.setGPTImage26CreditCost
+    (state) => state.setGPTImage26CreditCost,
   );
   const setGPTImage26FlareCreditCost = useSettingsStore(
-    (state) => state.setGPTImage26FlareCreditCost
+    (state) => state.setGPTImage26FlareCreditCost,
   );
   const setGPTImage26SunburstCreditCost = useSettingsStore(
-    (state) => state.setGPTImage26SunburstCreditCost
+    (state) => state.setGPTImage26SunburstCreditCost,
   );
   const setImageCreditCost1080p = useSettingsStore(
-    (state) => state.setImageCreditCost1080p
+    (state) => state.setImageCreditCost1080p,
   );
   const setImageCreditCost2k = useSettingsStore(
-    (state) => state.setImageCreditCost2k
+    (state) => state.setImageCreditCost2k,
   );
   const setImageCreditCost4k = useSettingsStore(
-    (state) => state.setImageCreditCost4k
+    (state) => state.setImageCreditCost4k,
   );
   const setGrokImageCreditCost1k = useSettingsStore(
-    (state) => state.setGrokImageCreditCost1k
+    (state) => state.setGrokImageCreditCost1k,
   );
   const setGrokImageCreditCost2k = useSettingsStore(
-    (state) => state.setGrokImageCreditCost2k
+    (state) => state.setGrokImageCreditCost2k,
   );
   const setVideoCreditCostPerSecond = useSettingsStore(
-    (state) => state.setVideoCreditCostPerSecond
+    (state) => state.setVideoCreditCostPerSecond,
   );
 
   const [customSlug, setCustomSlug] = useState("");
@@ -99,6 +100,24 @@ export function ImageAccountPoolSettings() {
   if (!config) {
     return null;
   }
+
+  const errors = pricingErrors(config as Record<string, unknown>);
+
+  const normalizePricingOnBlur = (
+    raw: unknown,
+    setter: (value: string) => void,
+    fallback: number,
+  ) => {
+    const text = raw === undefined || raw === null ? "" : String(raw).trim();
+    if (text === "") {
+      setter(String(fallback));
+      return;
+    }
+    const num = Number(text);
+    if (Number.isInteger(num) && num >= 1 && num <= 1000000) {
+      setter(String(num));
+    }
+  };
 
   const defaultModel = String(config.image_default_model || DEFAULT_IMAGE_MODEL);
   const primarySlug = String(config.image_internal_model_slug || "gpt-5-3");
@@ -108,7 +127,7 @@ export function ImageAccountPoolSettings() {
     : [];
 
   const candidateOptions = INTERNAL_MODEL_OPTIONS.filter(
-    (item) => item !== primarySlug
+    (item) => item !== primarySlug,
   );
 
   const updateFallbackModels = (next: string[]) => {
@@ -158,11 +177,11 @@ export function ImageAccountPoolSettings() {
     }
     if (
       !INTERNAL_MODEL_OPTIONS.includes(
-        trimmed as (typeof INTERNAL_MODEL_OPTIONS)[number]
+        trimmed as (typeof INTERNAL_MODEL_OPTIONS)[number],
       )
     ) {
       toast.warning(
-        `底层号池仅支持预置会话模型（如 ${INTERNAL_MODEL_OPTIONS.slice(0, 4).join(" / ")}）`
+        `底层号池仅支持预置会话模型（如 ${INTERNAL_MODEL_OPTIONS.slice(0, 4).join(" / ")}）`,
       );
       return;
     }
@@ -234,7 +253,7 @@ export function ImageAccountPoolSettings() {
               value={primarySlug}
               onValueChange={(value) => {
                 const cleanedFallbacks = fallbackModels.filter(
-                  (item) => item !== value
+                  (item) => item !== value,
                 );
                 setImageProxyField({
                   image_internal_model_slug: value,
@@ -360,8 +379,8 @@ export function ImageAccountPoolSettings() {
                       className={cn(
                         "inline-flex h-7 items-center gap-1 rounded-md border px-2.5 font-mono text-xs transition-colors",
                         selected
-                          ? "border-foreground/80 bg-primary text-primary-foreground shadow-2xs"
-                          : "border-border/80 bg-surface text-muted-foreground hover:border-border-strong hover:text-foreground"
+                          ? "border-primary/40 bg-primary/[0.07] text-primary ring-1 ring-primary/20"
+                          : "border-border/80 bg-surface text-muted-foreground hover:border-border-strong hover:text-foreground",
                       )}
                     >
                       <span>{slug}</span>
@@ -380,7 +399,7 @@ export function ImageAccountPoolSettings() {
                 placeholder="输入模型 Slug 后按 Enter 添加（如 gpt-5.5）"
                 className={cn(
                   settingsInputClassName,
-                  "h-8.5 min-w-0 flex-1 font-mono text-xs"
+                  "h-8.5 min-w-0 flex-1 font-mono text-xs",
                 )}
               />
               <datalist id="fallback-slug-options">
@@ -426,63 +445,142 @@ export function ImageAccountPoolSettings() {
                 label="GPT 2.6 Flare"
                 unit="积分/张"
                 min={1}
+                rangeHint="≥ 1"
                 description="gpt-image-2.6-flare"
                 value={config.gpt_image_2_6_flare_credit_cost ?? 5}
+                error={errors.gpt_image_2_6_flare_credit_cost}
                 onChange={setGPTImage26FlareCreditCost}
+                onBlur={() =>
+                  normalizePricingOnBlur(
+                    config.gpt_image_2_6_flare_credit_cost,
+                    setGPTImage26FlareCreditCost,
+                    5,
+                  )
+                }
               />
               <SettingsUnitInput
                 id="pricing-gpt-image-2-6"
                 label="GPT Image 2.6"
                 unit="积分/张"
                 min={1}
+                rangeHint="≥ 1"
                 description="gpt-image-2.6"
                 value={config.gpt_image_2_6_credit_cost ?? 5}
+                error={errors.gpt_image_2_6_credit_cost}
                 onChange={setGPTImage26CreditCost}
+                onBlur={() =>
+                  normalizePricingOnBlur(
+                    config.gpt_image_2_6_credit_cost,
+                    setGPTImage26CreditCost,
+                    5,
+                  )
+                }
               />
               <SettingsUnitInput
                 id="pricing-gpt-image-2-6-sunburst"
                 label="GPT 2.6 Sunburst"
                 unit="积分/张"
                 min={1}
+                rangeHint="≥ 1"
                 description="gpt-image-2.6-sunburst"
                 value={config.gpt_image_2_6_sunburst_credit_cost ?? 5}
+                error={errors.gpt_image_2_6_sunburst_credit_cost}
                 onChange={setGPTImage26SunburstCreditCost}
+                onBlur={() =>
+                  normalizePricingOnBlur(
+                    config.gpt_image_2_6_sunburst_credit_cost,
+                    setGPTImage26SunburstCreditCost,
+                    5,
+                  )
+                }
               />
               <SettingsUnitInput
                 id="pricing-gpt-image-2"
                 label="GPT Image 2"
                 unit="积分/张"
                 min={1}
+                rangeHint="≥ 1"
                 description="gpt-image-2"
-                value={config.gpt_image_2_credit_cost ?? config.image_credit_cost_1080p ?? 1}
+                value={
+                  config.gpt_image_2_credit_cost ??
+                  config.image_credit_cost_1080p ??
+                  1
+                }
+                error={errors.gpt_image_2_credit_cost}
                 onChange={setGPTImage2CreditCost}
+                onBlur={() =>
+                  normalizePricingOnBlur(
+                    config.gpt_image_2_credit_cost,
+                    setGPTImage2CreditCost,
+                    Number(config.image_credit_cost_1080p) || 1,
+                  )
+                }
               />
               <SettingsUnitInput
                 id="pricing-gpt-image-2-5"
                 label="GPT Image 2.5"
                 unit="积分/张"
                 min={1}
+                rangeHint="≥ 1"
                 description="gpt-image-2.5"
-                value={config.gpt_image_2_5_credit_cost ?? config.image_credit_cost_2k ?? 2}
+                value={
+                  config.gpt_image_2_5_credit_cost ??
+                  config.image_credit_cost_2k ??
+                  2
+                }
+                error={errors.gpt_image_2_5_credit_cost}
                 onChange={setGPTImage25CreditCost}
+                onBlur={() =>
+                  normalizePricingOnBlur(
+                    config.gpt_image_2_5_credit_cost,
+                    setGPTImage25CreditCost,
+                    Number(config.image_credit_cost_2k) || 2,
+                  )
+                }
               />
               <SettingsUnitInput
                 id="pricing-gpt-image-2-5-flare"
                 label="GPT 2.5 Flare"
                 unit="积分/张"
                 min={1}
+                rangeHint="≥ 1"
                 description="gpt-image-2.5-flare"
-                value={config.gpt_image_2_5_flare_credit_cost ?? config.image_credit_cost_4k ?? 3}
+                value={
+                  config.gpt_image_2_5_flare_credit_cost ??
+                  config.image_credit_cost_4k ??
+                  3
+                }
+                error={errors.gpt_image_2_5_flare_credit_cost}
                 onChange={setGPTImage25FlareCreditCost}
+                onBlur={() =>
+                  normalizePricingOnBlur(
+                    config.gpt_image_2_5_flare_credit_cost,
+                    setGPTImage25FlareCreditCost,
+                    Number(config.image_credit_cost_4k) || 3,
+                  )
+                }
               />
               <SettingsUnitInput
                 id="pricing-gpt-image-2-5-sunburst"
                 label="GPT 2.5 Sunburst"
                 unit="积分/张"
                 min={1}
+                rangeHint="≥ 1"
                 description="gpt-image-2.5-sunburst"
-                value={config.gpt_image_2_5_sunburst_credit_cost ?? config.image_credit_cost_4k ?? 3}
+                value={
+                  config.gpt_image_2_5_sunburst_credit_cost ??
+                  config.image_credit_cost_4k ??
+                  3
+                }
+                error={errors.gpt_image_2_5_sunburst_credit_cost}
                 onChange={setGPTImage25SunburstCreditCost}
+                onBlur={() =>
+                  normalizePricingOnBlur(
+                    config.gpt_image_2_5_sunburst_credit_cost,
+                    setGPTImage25SunburstCreditCost,
+                    Number(config.image_credit_cost_4k) || 3,
+                  )
+                }
               />
             </div>
           </div>
@@ -497,24 +595,51 @@ export function ImageAccountPoolSettings() {
                 label="标准画质兜底 (1K)"
                 unit="积分/张"
                 min={1}
+                rangeHint="≥ 1"
                 value={config.image_credit_cost_1080p ?? 1}
+                error={errors.image_credit_cost_1080p}
                 onChange={setImageCreditCost1080p}
+                onBlur={() =>
+                  normalizePricingOnBlur(
+                    config.image_credit_cost_1080p,
+                    setImageCreditCost1080p,
+                    1,
+                  )
+                }
               />
               <SettingsUnitInput
                 id="pricing-gpt-2k"
                 label="高清画质兜底 (2K)"
                 unit="积分/张"
                 min={1}
+                rangeHint="≥ 1"
                 value={config.image_credit_cost_2k ?? 2}
+                error={errors.image_credit_cost_2k}
                 onChange={setImageCreditCost2k}
+                onBlur={() =>
+                  normalizePricingOnBlur(
+                    config.image_credit_cost_2k,
+                    setImageCreditCost2k,
+                    2,
+                  )
+                }
               />
               <SettingsUnitInput
                 id="pricing-gpt-4k"
                 label="超清画质兜底 (4K)"
                 unit="积分/张"
                 min={1}
+                rangeHint="≥ 1"
                 value={config.image_credit_cost_4k ?? 3}
+                error={errors.image_credit_cost_4k}
                 onChange={setImageCreditCost4k}
+                onBlur={() =>
+                  normalizePricingOnBlur(
+                    config.image_credit_cost_4k,
+                    setImageCreditCost4k,
+                    3,
+                  )
+                }
               />
             </div>
           </div>
@@ -529,25 +654,52 @@ export function ImageAccountPoolSettings() {
                 label="Grok 标准生图 (1K)"
                 unit="积分/张"
                 min={1}
+                rangeHint="≥ 1"
                 value={config.grok_image_credit_cost_1k ?? 1}
+                error={errors.grok_image_credit_cost_1k}
                 onChange={setGrokImageCreditCost1k}
+                onBlur={() =>
+                  normalizePricingOnBlur(
+                    config.grok_image_credit_cost_1k,
+                    setGrokImageCreditCost1k,
+                    1,
+                  )
+                }
               />
               <SettingsUnitInput
                 id="pricing-grok-2k"
                 label="Grok 高清生图 (2K)"
                 unit="积分/张"
                 min={1}
+                rangeHint="≥ 1"
                 value={config.grok_image_credit_cost_2k ?? 2}
+                error={errors.grok_image_credit_cost_2k}
                 onChange={setGrokImageCreditCost2k}
+                onBlur={() =>
+                  normalizePricingOnBlur(
+                    config.grok_image_credit_cost_2k,
+                    setGrokImageCreditCost2k,
+                    2,
+                  )
+                }
               />
               <SettingsUnitInput
                 id="pricing-grok-video-sec"
                 label="Grok 视频每秒计费"
                 unit="积分/秒"
                 min={1}
+                rangeHint="≥ 1"
                 description="grok-imagine-video 按实际生成时长计费"
                 value={config.video_credit_cost_per_second ?? 1}
+                error={errors.video_credit_cost_per_second}
                 onChange={setVideoCreditCostPerSecond}
+                onBlur={() =>
+                  normalizePricingOnBlur(
+                    config.video_credit_cost_per_second,
+                    setVideoCreditCostPerSecond,
+                    1,
+                  )
+                }
               />
             </div>
           </div>
