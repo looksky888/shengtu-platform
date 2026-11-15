@@ -1,3 +1,4 @@
+import type { ImageVisibility } from "@/lib/api";
 import { formatImageFileSize } from "@/lib/image-size";
 import { isTurnBusy } from "@/lib/image-turn-state";
 import {
@@ -8,6 +9,8 @@ import {
 import type { ImageTurn, ImageTurnStatus, StoredImage } from "@/store/image-conversations";
 import type { DownloadableImage } from "@/app/image/components/image-results-types";
 import { downloadImageFiles, downloadImageSrc, type ImageDownloadResult } from "@/lib/image-download";
+
+export { isTurnBusy };
 
 export function normalizeManagedImageUrl(url: string) {
   if (!url) return "";
@@ -91,6 +94,27 @@ export function getTurnResultSizeLabel(turn: ImageTurn, dimensionsByImageId: Rec
   return isTurnBusy(turn) && turn.size ? `请求 ${turn.size}` : "";
 }
 
+export function imageVisibilityLabel(visibility?: ImageVisibility) {
+  return visibility === "public" ? "已公开" : "私有";
+}
+
+export function imageVisibilityPillClass(visibility?: ImageVisibility) {
+  return visibility === "public"
+    ? "bg-[#e8f2ff] text-[#1456f0] ring-1 ring-[#bfdbfe]"
+    : "bg-[#181e25]/82 text-white ring-1 ring-white/20";
+}
+
+export function imageVisibilityActionClass(visibility?: ImageVisibility) {
+  return visibility === "public" ? "bg-white/95 text-[#1456f0] hover:bg-[#e8f2ff]" : "bg-white/95 text-stone-800 hover:bg-stone-100";
+}
+
+export function blurFocusedElementInContainer(container: HTMLElement) {
+  const activeElement = document.activeElement;
+  if (activeElement instanceof HTMLElement && container.contains(activeElement)) {
+    activeElement.blur();
+  }
+}
+
 function imageExtension(outputFormat?: string) {
   return outputFormat === "jpeg" ? "jpg" : outputFormat || "png";
 }
@@ -170,12 +194,12 @@ export function turnProgressKey(conversationId: string, turnId: string) {
 }
 
 export function getStatusChipClass(status: ImageTurnStatus) {
-  if (status === "queued") return "bg-amber-500/12 text-amber-700 dark:text-amber-300";
-  if (status === "generating") return "bg-[#edf4ff] font-medium text-[#1456f0] dark:bg-sky-950/50 dark:text-sky-300";
-  if (status === "success") return "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300";
-  if (status === "message") return "bg-surface-muted text-muted-foreground";
-  if (status === "cancelled") return "bg-amber-500/12 text-amber-700 dark:text-amber-300";
-  return "bg-rose-500/12 text-rose-700 dark:text-rose-300";
+  if (status === "queued") return "bg-amber-50 text-amber-700";
+  if (status === "generating") return "bg-blue-50 text-[#1456f0]";
+  if (status === "success") return "bg-emerald-50 text-emerald-700";
+  if (status === "message") return "bg-stone-100 text-stone-600";
+  if (status === "cancelled") return "bg-amber-50 text-amber-700";
+  return "bg-rose-50 text-rose-700";
 }
 
 export function getTurnOutcomeLabel(successCount: number, failedCount: number, cancelledCount: number) {

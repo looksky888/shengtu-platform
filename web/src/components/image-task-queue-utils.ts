@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { formatDateTime } from "@/lib/datetime";
+import { formatDateTime, formatElapsedClock } from "@/lib/datetime";
 import { isTurnBusy } from "@/lib/image-turn-state";
 import { AUTH_SESSION_CHANGE_EVENT } from "@/lib/session";
 import {
@@ -11,6 +11,8 @@ import {
   type ImageTurn,
   type ImageTurnStatus,
 } from "@/store/image-conversations";
+
+export { formatElapsedClock, isTurnBusy };
 
 export type TaskQueueItem = {
   conversationId: string;
@@ -55,19 +57,38 @@ export function getStatusLabel(status: ImageTurnStatus) {
 }
 
 export function getStatusClass(status: ImageTurnStatus) {
-  if (status === "queued") return "bg-amber-500/10 text-amber-700 ring-amber-500/20 dark:text-amber-300";
-  if (status === "generating") return "bg-surface-muted text-foreground ring-border";
+  if (status === "queued") {
+    return "bg-amber-50 text-amber-700 ring-amber-100 dark:bg-amber-950/30 dark:text-amber-300 dark:ring-amber-800";
+  }
+  if (status === "generating") {
+    return "bg-sky-50 text-[#1456f0] ring-sky-100 dark:bg-sky-950/30 dark:text-sky-300 dark:ring-sky-800";
+  }
   return "bg-muted text-muted-foreground ring-border";
 }
 
 export function getCompletionTone(status: ImageTurnStatus) {
   if (status === "success" || status === "message") {
-    return { iconClass: "bg-emerald-500/10 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300", badgeClass: "bg-emerald-500/10 text-emerald-700 ring-emerald-500/20 dark:text-emerald-300", barClass: "bg-emerald-500", message: "任务已完成" };
+    return {
+      iconClass: "bg-emerald-50 text-emerald-700 ring-emerald-100 dark:bg-emerald-950/30 dark:text-emerald-300 dark:ring-emerald-800",
+      badgeClass: "bg-emerald-50 text-emerald-700 ring-emerald-100 dark:bg-emerald-950/30 dark:text-emerald-300 dark:ring-emerald-800",
+      barClass: "bg-emerald-500",
+      message: "任务已完成",
+    };
   }
   if (status === "cancelled") {
-    return { iconClass: "bg-amber-500/10 text-amber-700 ring-amber-500/20 dark:text-amber-300", badgeClass: "bg-amber-500/10 text-amber-700 ring-amber-500/20 dark:text-amber-300", barClass: "bg-amber-500", message: "任务已终止" };
+    return {
+      iconClass: "bg-amber-50 text-amber-700 ring-amber-100 dark:bg-amber-950/30 dark:text-amber-300 dark:ring-amber-800",
+      badgeClass: "bg-amber-50 text-amber-700 ring-amber-100 dark:bg-amber-950/30 dark:text-amber-300 dark:ring-amber-800",
+      barClass: "bg-amber-500",
+      message: "任务已终止",
+    };
   }
-  return { iconClass: "bg-rose-500/10 text-rose-700 ring-rose-500/20 dark:text-rose-300", badgeClass: "bg-rose-500/10 text-rose-700 ring-rose-500/20 dark:text-rose-300", barClass: "bg-rose-500", message: "任务失败" };
+  return {
+    iconClass: "bg-rose-50 text-rose-700 ring-rose-100 dark:bg-rose-950/30 dark:text-rose-300 dark:ring-rose-800",
+    badgeClass: "bg-rose-50 text-rose-700 ring-rose-100 dark:bg-rose-950/30 dark:text-rose-300 dark:ring-rose-800",
+    barClass: "bg-rose-500",
+    message: "任务失败",
+  };
 }
 
 export function getQueueItem(conversation: ImageConversation, turn: ImageTurn): TaskQueueItem {
@@ -76,7 +97,16 @@ export function getQueueItem(conversation: ImageConversation, turn: ImageTurn): 
   const cancelledCount = turn.images.filter((image) => image.status === "cancelled").length;
   const loadingCount = turn.images.filter((image) => image.status === "loading").length;
   const totalCount = Math.max(1, turn.mode === "chat" ? 1 : turn.count || turn.images.length || 1);
-  return { conversationId: conversation.id, conversationTitle: conversation.title, turn, totalCount, completedCount, failedCount, cancelledCount, loadingCount };
+  return {
+    conversationId: conversation.id,
+    conversationTitle: conversation.title,
+    turn,
+    totalCount,
+    completedCount,
+    failedCount,
+    cancelledCount,
+    loadingCount,
+  };
 }
 
 export function getTaskQueueItems(conversations: ImageConversation[]) {

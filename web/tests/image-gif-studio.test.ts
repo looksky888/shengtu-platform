@@ -47,31 +47,39 @@ test("GIF turn recall preserves frameCount & frameDurationMs and strips compress
   assert.equal(recalled.referenceImages[0]?.type, "image/gif");
 });
 
-test("Classic 4.3 /image studio layout & GIF QA fixes remain wired", () => {
+test("Classic 4.1 /image studio layout & GIF QA fixes remain wired", () => {
   const layoutHook = readWebSource("app/image/hooks/use-image-page-layout.ts");
   const workflowHook = readWebSource("app/image/hooks/use-image-composer-workflow.ts");
   const workspace = readWebSource("app/image/components/image-page-workspace.tsx");
   const sidebar = readWebSource("app/image/components/image-sidebar.tsx");
   const emptyState = readWebSource("app/image/components/image-results-empty-state.tsx");
   const settingsPopover = readWebSource("app/image/components/composer-settings-popover.tsx");
+  const outputSettings = readWebSource("app/image/components/composer-output-settings.tsx");
   const resultSummary = readWebSource("app/image/components/image-turn-result-summary.tsx");
   const imageApi = readWebSource("lib/image-api.ts");
 
-  assert.match(layoutHook, /useState\(true\)/);
+  assert.match(layoutHook, /composerDockHeight/);
+  assert.doesNotMatch(layoutHook, /isSidebarOpen/);
   assert.doesNotMatch(workflowHook, /setImageOutputFormat\(DEFAULT_IMAGE_OUTPUT_FORMAT\)/);
   assert.match(workspace, /lg:grid-cols-\[240px_minmax\(0,1fr\)\]/);
-  assert.match(sidebar, /#1456f0/);
+  assert.match(workspace, /border-r border-\[#f2f3f5\] pr-3/);
+  assert.match(sidebar, /#181e25/);
   assert.match(sidebar, /新建对话/);
   assert.match(emptyState, /Turn ideas into images/);
-  assert.match(settingsPopover, /帧数 \(可选\)/);
-  assert.match(settingsPopover, /帧间隔 ms \(可选\)/);
+  assert.match(emptyState, /生图预设/);
+  assert.match(settingsPopover, /28rem/);
+  assert.match(settingsPopover, /rounded-\[20px\]/);
+  assert.match(settingsPopover, /<ComposerOutputSettings/);
+  assert.match(outputSettings, /supportsGifOutputModel/);
+  assert.match(outputSettings, /aria-label="GIF 帧数"/);
+  assert.match(outputSettings, /aria-label="GIF 帧间隔毫秒"/);
   assert.match(resultSummary, /turn\.outputFormat !== "gif"/);
   assert.match(imageApi, /frame_count/);
   assert.match(imageApi, /frame_duration_ms/);
 });
 
-test("[FUNC-5 & NAV-2] GIF frame state hygiene, /image-manager links, and dead ImageEditDialog cleanup", () => {
-  const settingsPopover = readWebSource("app/image/components/composer-settings-popover.tsx");
+test("[FUNC-5 & NAV-2] GIF frame state hygiene, /image-manager links, StudioStatsFab, and dead ImageEditDialog cleanup", () => {
+  const outputSettings = readWebSource("app/image/components/composer-output-settings.tsx");
   const composerSettings = readWebSource("app/image/hooks/use-image-composer-settings.tsx");
   const presetAction = readWebSource("app/image/hooks/use-image-prompt-preset-action.ts");
   const sidebar = readWebSource("app/image/components/image-sidebar.tsx");
@@ -80,8 +88,8 @@ test("[FUNC-5 & NAV-2] GIF frame state hygiene, /image-manager links, and dead I
   const pageContentView = readWebSource("app/image/components/image-page-content-view.tsx");
 
   // Leaving GIF format or switching to a non-GIF model or applying a static preset clears GIF frame state
-  assert.match(settingsPopover, /if \(nextFormat !== "gif"\)[\s\S]*?onImageFrameCountChange\(""\)/);
-  assert.match(settingsPopover, /if \(nextFormat !== "gif"\)[\s\S]*?onImageFrameDurationMsChange\(""\)/);
+  assert.match(outputSettings, /if \(nextFormat !== "gif"\)[\s\S]*?onImageFrameCountChange\(""\)/);
+  assert.match(outputSettings, /if \(nextFormat !== "gif"\)[\s\S]*?onImageFrameDurationMsChange\(""\)/);
   assert.match(composerSettings, /setImageFrameCount\(""\)/);
   assert.match(composerSettings, /setImageFrameDurationMs\(""\)/);
   assert.match(presetAction, /setImageOutputFormat\?\.\("png"\)/);
@@ -89,16 +97,17 @@ test("[FUNC-5 & NAV-2] GIF frame state hygiene, /image-manager links, and dead I
   assert.match(presetAction, /setImageFrameCount\?\.\(""\)/);
   assert.match(presetAction, /setImageFrameDurationMs\?\.\(""\)/);
 
-  // Direct /image-manager links instead of legacy /assets redirects
+  // Direct /image-manager links instead of legacy /assets redirects, plus hover local inpaint action
   assert.doesNotMatch(sidebar, /to="\/assets"/);
-  assert.match(sidebar, /to="\/image-manager"/);
   assert.doesNotMatch(successCard, /to="\/assets"/);
   assert.match(successCard, /to="\/image-manager"/);
+  assert.match(successCard, /WandSparkles/);
 
   // R2 proxy=1 helper wired in image-results-utils
   assert.match(resultsUtils, /buildSameOriginImageProxySrc/);
 
-  // Unreachable ImageEditDialog dead code removed cleanly
+  // Floating draggable StudioStatsFab mounted & unreachable ImageEditDialog dead code removed cleanly
+  assert.match(pageContentView, /StudioStatsFab/);
   assert.doesNotMatch(pageContentView, /ImageEditDialog/);
   assert.equal(
     fs.existsSync(path.join(testDir, "..", "src", "app", "image", "components", "edit-dialog")),

@@ -1,10 +1,10 @@
 import { CheckCircle2, Clock3, LoaderCircle } from "lucide-react";
 
-import { formatElapsedClock } from "@/lib/datetime";
 import { cn } from "@/lib/utils";
 import { getImageTurnProgressSnapshot, imageTurnProgressKey } from "@/store/image-turn-progress";
 
 import {
+  formatElapsedClock,
   formatQueueTime,
   getCompletionTone,
   getModeLabel,
@@ -14,55 +14,133 @@ import {
   type TaskQueueItem,
 } from "./image-task-queue-utils";
 
-export function QueueItem({ item, now, onOpenConversation }: { item: TaskQueueItem; now: number; onOpenConversation: (conversationId: string) => void }) {
+export function QueueItem({
+  item,
+  now,
+  onOpenConversation,
+}: {
+  item: TaskQueueItem;
+  now: number;
+  onOpenConversation: (conversationId: string) => void;
+}) {
   const progress = getImageTurnProgressSnapshot()[imageTurnProgressKey(item.conversationId, item.turn.id)];
   const settledCount = item.completedCount + item.failedCount + item.cancelledCount;
-  const progressPercent = settledCount > 0 ? Math.min(100, Math.round((settledCount / item.totalCount) * 100)) : item.turn.status === "generating" ? 8 : 0;
-  const elapsed = progress && Number.isFinite(progress.startedAt) ? formatElapsedClock(Math.floor((now - progress.startedAt) / 1000)) : "";
-  const detailParts = [getModeLabel(item.turn.mode), item.turn.model, item.turn.size, item.turn.quality ? `Quality ${item.turn.quality}` : ""].filter(Boolean);
-  const progressMessage = progress?.message || (item.turn.status === "queued" ? "等待前序任务" : item.turn.mode === "chat" ? "等待对话回复" : "等待生成结果");
-  const progressDetail = progress?.detail || (item.turn.mode === "chat" ? "对话任务处理中" : item.loadingCount > 0 ? `还有 ${item.loadingCount} 张图片处理中` : "");
+  const progressPercent =
+    settledCount > 0
+      ? Math.min(100, Math.round((settledCount / item.totalCount) * 100))
+      : item.turn.status === "generating"
+        ? 8
+        : 0;
+  const elapsed =
+    progress && Number.isFinite(progress.startedAt)
+      ? formatElapsedClock(Math.floor((now - progress.startedAt) / 1000))
+      : "";
+  const detailParts = [
+    getModeLabel(item.turn.mode),
+    item.turn.model,
+    item.turn.size,
+    item.turn.quality ? `Quality ${item.turn.quality}` : "",
+  ].filter(Boolean);
+  const progressMessage =
+    progress?.message ||
+    (item.turn.status === "queued"
+      ? "等待前序任务"
+      : item.turn.mode === "chat"
+        ? "等待对话回复"
+        : "等待生成结果");
+  const progressDetail =
+    progress?.detail ||
+    (item.turn.mode === "chat"
+      ? "对话任务处理中"
+      : item.loadingCount > 0
+        ? `还有 ${item.loadingCount} 张图片处理中`
+        : "");
 
   return (
-    <button type="button" className="w-full rounded-xl border border-border/75 bg-surface p-3 text-left shadow-2xs transition hover:border-foreground/20 hover:bg-surface-hover" onClick={() => onOpenConversation(item.conversationId)}>
+    <button
+      type="button"
+      className="w-full rounded-2xl border border-[#f2f3f5] bg-white p-3 text-left shadow-[0_4px_6px_rgba(0,0,0,0.05)] transition hover:border-[#dbe7ff] hover:bg-[#f8fbff] dark:border-border dark:bg-card dark:hover:bg-accent/40"
+      onClick={() => onOpenConversation(item.conversationId)}
+    >
       <div className="flex items-start gap-3">
-        <span className={cn("mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg ring-1", item.turn.status === "queued" ? "bg-amber-500/10 text-amber-700 ring-amber-500/20 dark:text-amber-300" : "bg-surface-muted text-foreground ring-border")}>
-          {item.turn.status === "queued" ? <Clock3 className="size-4" /> : <LoaderCircle className="size-4 animate-spin" />}
+        <span
+          className={cn(
+            "mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full ring-1",
+            item.turn.status === "queued"
+              ? "bg-amber-50 text-amber-700 ring-amber-100"
+              : "bg-sky-50 text-[#1456f0] ring-sky-100",
+          )}
+        >
+          {item.turn.status === "queued" ? (
+            <Clock3 className="size-4" />
+          ) : (
+            <LoaderCircle className="size-4 animate-spin" />
+          )}
         </span>
         <div className="min-w-0 flex-1">
           <QueueItemHeader item={item} />
-          <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">{item.turn.prompt || "无提示词内容"}</p>
+          <p className="mt-1 line-clamp-2 text-xs leading-5 text-[#45515e] dark:text-muted-foreground">
+            {item.turn.prompt || "无提示词内容"}
+          </p>
           <QueueItemMeta detailParts={detailParts} item={item} />
-          <QueueItemProgress progressMessage={progressMessage} progressDetail={progressDetail} progressPercent={progressPercent} elapsed={elapsed} createdAt={item.turn.createdAt} />
+          <QueueItemProgress
+            progressMessage={progressMessage}
+            progressDetail={progressDetail}
+            progressPercent={progressPercent}
+            elapsed={elapsed}
+            createdAt={item.turn.createdAt}
+          />
         </div>
       </div>
     </button>
   );
 }
 
-export function CompletionItem({ item, onOpenConversation }: { item: RecentQueueCompletion; onOpenConversation: (conversationId: string) => void }) {
+export function CompletionItem({
+  item,
+  onOpenConversation,
+}: {
+  item: RecentQueueCompletion;
+  onOpenConversation: (conversationId: string) => void;
+}) {
   const tone = getCompletionTone(item.finalStatus);
   const settledCount = item.completedCount + item.failedCount + item.cancelledCount;
-  const resultText = item.finalStatus === "success" || item.finalStatus === "message" ? `${settledCount}/${item.totalCount} 张完成` : item.turn.error || getStatusLabel(item.finalStatus);
+  const resultText =
+    item.finalStatus === "success" || item.finalStatus === "message"
+      ? `${settledCount}/${item.totalCount} 张完成`
+      : item.turn.error || getStatusLabel(item.finalStatus);
+
   return (
-    <button type="button" className="animate-in fade-in slide-in-from-top-1 zoom-in-95 w-full rounded-xl border border-emerald-500/25 bg-surface p-3 text-left shadow-xs duration-300 hover:border-emerald-500/40 hover:bg-emerald-500/5" onClick={() => onOpenConversation(item.conversationId)}>
+    <button
+      type="button"
+      className="animate-in fade-in slide-in-from-top-1 zoom-in-95 w-full rounded-2xl border border-emerald-100 bg-white p-3 text-left shadow-[0_12px_24px_-18px_rgba(16,185,129,0.55)] duration-300 hover:border-emerald-200 hover:bg-emerald-50/45 dark:border-emerald-900/50 dark:bg-card dark:hover:bg-emerald-950/20"
+      onClick={() => onOpenConversation(item.conversationId)}
+    >
       <div className="flex items-start gap-3">
-        <span className={cn("relative mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg ring-1", tone.iconClass)}>
-          <span className="absolute inset-0 rounded-lg bg-current opacity-15 animate-ping" />
+        <span className={cn("relative mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full ring-1", tone.iconClass)}>
+          <span className="absolute inset-0 rounded-full bg-current opacity-15 animate-ping" />
           <CheckCircle2 className="relative size-4" />
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-center justify-between gap-2">
-            <p className="truncate text-sm font-semibold text-foreground">{item.conversationTitle || item.turn.prompt || "未命名任务"}</p>
-            <span className={cn("shrink-0 rounded-md px-2 py-0.5 text-[11px] font-medium ring-1", tone.badgeClass)}>{getStatusLabel(item.finalStatus)}</span>
+            <p className="truncate text-sm font-semibold text-[#222222] dark:text-foreground">
+              {item.conversationTitle || item.turn.prompt || "未命名任务"}
+            </p>
+            <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ring-1", tone.badgeClass)}>
+              {getStatusLabel(item.finalStatus)}
+            </span>
           </div>
-          <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">{item.turn.prompt || "无提示词内容"}</p>
+          <p className="mt-1 line-clamp-2 text-xs leading-5 text-[#45515e] dark:text-muted-foreground">
+            {item.turn.prompt || "无提示词内容"}
+          </p>
           <div className="mt-3">
-            <div className="mb-1.5 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
-              <span className="truncate font-medium text-foreground">{tone.message}</span>
+            <div className="mb-1.5 flex items-center justify-between gap-2 text-[11px] text-[#45515e] dark:text-muted-foreground">
+              <span className="truncate font-medium text-[#222222] dark:text-foreground">{tone.message}</span>
               <span className="shrink-0 font-mono tabular-nums">{resultText}</span>
             </div>
-            <div className="h-1.5 overflow-hidden rounded-full bg-surface-muted"><div className={cn("h-full animate-pulse rounded-full", tone.barClass)} style={{ width: "100%" }} /></div>
+            <div className="h-1.5 overflow-hidden rounded-full bg-[#edf2f7] dark:bg-muted">
+              <div className={cn("h-full animate-pulse rounded-full", tone.barClass)} style={{ width: "100%" }} />
+            </div>
           </div>
         </div>
       </div>
@@ -73,32 +151,56 @@ export function CompletionItem({ item, onOpenConversation }: { item: RecentQueue
 function QueueItemHeader({ item }: { item: TaskQueueItem }) {
   return (
     <div className="flex min-w-0 items-center justify-between gap-2">
-      <p className="truncate text-sm font-semibold text-foreground">{item.conversationTitle || item.turn.prompt || "未命名任务"}</p>
-      <span className={cn("shrink-0 rounded-md px-2 py-0.5 text-[11px] font-medium ring-1", getStatusClass(item.turn.status))}>{getStatusLabel(item.turn.status)}</span>
+      <p className="truncate text-sm font-semibold text-[#222222] dark:text-foreground">
+        {item.conversationTitle || item.turn.prompt || "未命名任务"}
+      </p>
+      <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ring-1", getStatusClass(item.turn.status))}>
+        {getStatusLabel(item.turn.status)}
+      </span>
     </div>
   );
 }
 
 function QueueItemMeta({ detailParts, item }: { detailParts: string[]; item: TaskQueueItem }) {
   return (
-    <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
-      {detailParts.map((part, index) => <span key={`${part}-${index}`} className="rounded-md bg-surface-muted px-2 py-0.5">{part}</span>)}
-      <span className="rounded-md bg-surface-muted px-2 py-0.5 font-mono tabular-nums">{item.completedCount + item.failedCount + item.cancelledCount}/{item.totalCount}</span>
+    <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] text-[#45515e] dark:text-muted-foreground">
+      {detailParts.map((part, index) => (
+        <span key={`${part}-${index}`} className="rounded-full bg-[#f0f0f0] px-2 py-0.5 dark:bg-muted">
+          {part}
+        </span>
+      ))}
+      <span className="rounded-full bg-[#f0f0f0] px-2 py-0.5 font-mono tabular-nums dark:bg-muted">
+        {item.completedCount + item.failedCount + item.cancelledCount}/{item.totalCount}
+      </span>
     </div>
   );
 }
 
-function QueueItemProgress({ progressMessage, progressDetail, progressPercent, elapsed, createdAt }: { progressMessage: string; progressDetail: string; progressPercent: number; elapsed: string; createdAt: string }) {
+function QueueItemProgress({
+  progressMessage,
+  progressDetail,
+  progressPercent,
+  elapsed,
+  createdAt,
+}: {
+  progressMessage: string;
+  progressDetail: string;
+  progressPercent: number;
+  elapsed: string;
+  createdAt: string;
+}) {
   return (
     <div className="mt-3">
-      <div className="mb-1.5 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
-        <span className="truncate font-medium text-foreground">{progressMessage}</span>
+      <div className="mb-1.5 flex items-center justify-between gap-2 text-[11px] text-[#45515e] dark:text-muted-foreground">
+        <span className="truncate font-medium text-[#222222] dark:text-foreground">{progressMessage}</span>
         <span className="shrink-0 font-mono tabular-nums">{progressPercent}%</span>
       </div>
-      <div className="h-1.5 overflow-hidden rounded-full bg-surface-muted"><div className="h-full rounded-full bg-foreground transition-[width] duration-300" style={{ width: `${progressPercent}%` }} /></div>
-      <div className="mt-1.5 flex items-center justify-between gap-2 text-[11px] text-muted-foreground/80">
+      <div className="h-1.5 overflow-hidden rounded-full bg-[#edf2f7] dark:bg-muted">
+        <div className="h-full rounded-full bg-[#1456f0] transition-[width] duration-300" style={{ width: `${progressPercent}%` }} />
+      </div>
+      <div className="mt-1.5 flex items-center justify-between gap-2 text-[11px] text-[#8e8e93] dark:text-muted-foreground">
         <span className="truncate">{progressDetail || formatQueueTime(createdAt)}</span>
-        {elapsed ? <span className="shrink-0 font-mono tabular-nums">{"已等待"} {elapsed}</span> : null}
+        {elapsed ? <span className="shrink-0 font-mono tabular-nums">已等待 {elapsed}</span> : null}
       </div>
     </div>
   );

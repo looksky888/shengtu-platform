@@ -69,7 +69,7 @@ test("resolveRoutePageTitle resolves all Classic routes and legacy v6 aliases", 
   assert.equal(resolveRoutePageTitle("/tasks"), "任务中心");
 });
 
-test("canAccessPath grants /video-library via /video and /image-manager via /image, and TopNavSearch expands collapsed nav", async () => {
+test("canAccessPath grants /video-library via /video and /image-manager via /image, and Classic 4.1 TopNav pills are wired cleanly", async () => {
   assert.equal(canAccessPath(buildSession(["/video"]), "/video-library"), true);
   assert.equal(
     canAccessPath(buildSession(["/video-library"]), "/video-library"),
@@ -84,11 +84,13 @@ test("canAccessPath grants /video-library via /video and /image-manager via /ima
     "utf8",
   );
   assert.match(topNavSource, /collapsed=\{navCollapsed\}/);
+  assert.match(topNavSource, /QUOTA_REFRESH_EVENT/);
+  assert.doesNotMatch(topNavSource, /top-nav-search/);
 
-  const topNavSearchSource = await readFile(
-    new URL("../src/components/top-nav-search.tsx", import.meta.url),
+  const topNavControlsSource = await readFile(
+    new URL("../src/components/top-nav-controls.tsx", import.meta.url),
     "utf8",
   );
-  assert.match(topNavSearchSource, /collapsed/);
-  assert.match(topNavSearchSource, /onExpandNav/);
+  assert.match(topNavControlsSource, /bg-black\/\[0\.06\]/);
+  assert.match(topNavControlsSource, /bg-\[#181e25\]/);
 });

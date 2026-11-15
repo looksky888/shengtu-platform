@@ -111,7 +111,7 @@ export function ImageTurnResultsBlock({
   const allDownloadKey = `all:${conversationId}:${turn.id}`;
 
   return (
-    <div data-turn-order={turnIndex + 1} className="flex flex-col gap-3 sm:gap-4">
+    <div className="flex flex-col gap-3 sm:gap-4">
       <ImageTurnPromptCard
         conversationId={conversationId}
         turn={turn}
@@ -157,8 +157,6 @@ export function ImageTurnResultsBlock({
             turnBusy={turnBusy}
             visualImages={visualImages}
             successfulTurnImages={successfulTurnImages}
-            downloadableImages={downloadableImages}
-            downloadingKey={downloadingKey}
             selectedImageIds={selectedImageIds}
             imageDimensions={imageDimensions}
             imageSizeLabels={imageSizeLabels}
@@ -172,7 +170,6 @@ export function ImageTurnResultsBlock({
             onToggleImageSelection={onToggleImageSelection}
             onUpdateImageDimensions={onUpdateImageDimensions}
             onEnsureImageSizeLabel={onEnsureImageSizeLabel}
-            onDownloadItems={onDownloadItems}
           />
         </section>
       </div>

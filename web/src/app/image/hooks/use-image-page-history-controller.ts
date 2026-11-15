@@ -51,24 +51,9 @@ export function useImagePageHistoryController({
     textareaRef.current?.focus();
   }, [resetComposer, setSelectedConversationId, textareaRef]);
 
-  const handleRenameConversation = useCallback(
-    async (conversationId: string, nextTitle: string) => {
-      const trimmed = nextTitle.trim();
-      if (!trimmed) return;
-      const existing = conversationsRef.current?.find((item) => item.id === conversationId);
-      if (!existing || existing.title === trimmed) return;
-      await updateConversation(conversationId, (current) => ({
-        ...(current ?? existing),
-        title: trimmed,
-      }));
-    },
-    [conversationsRef, updateConversation],
-  );
-
   return {
     ...historyActions,
     handleDeleteTurn,
     handleCreateDraft,
-    handleRenameConversation,
   };
 }

@@ -1,7 +1,5 @@
-import { Film, Image as ImageIcon, MessageCircle } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Image as ImageIcon, MessageCircle } from "lucide-react";
 
-import { preloadRoute } from "@/app/route-prefetch";
 import { cn } from "@/lib/utils";
 
 type ComposerModeSwitchProps = {
@@ -14,45 +12,35 @@ export function ComposerModeSwitch({
   onComposerModeChange,
 }: ComposerModeSwitchProps) {
   return (
-    <div className="inline-flex shrink-0 items-center gap-1">
-      <div className="inline-flex h-8 shrink-0 items-center rounded-full bg-[#f2f5fa] p-0.5 text-xs font-medium text-muted-foreground dark:bg-muted/70">
-        {[
-          { value: "image" as const, label: "生图", icon: ImageIcon },
-          { value: "chat" as const, label: "对话", icon: MessageCircle },
-        ].map((option) => {
-          const Icon = option.icon;
-          const active = composerMode === option.value;
-          return (
-            <button
-              key={option.value}
-              type="button"
-              className={cn(
-                "inline-flex h-7 items-center justify-center gap-1 rounded-full px-2.5 transition-all",
-                active
-                  ? "bg-[#edf4ff] font-semibold text-[#1456f0] shadow-2xs ring-1 ring-[#cfe0ff] dark:bg-sky-950/55 dark:text-sky-300 dark:ring-sky-500/30"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-              onClick={() => onComposerModeChange(option.value)}
-              aria-pressed={active}
-              aria-label={option.label}
-              title={option.label}
-            >
-              <Icon className="size-3.5" />
-              <span>{option.label}</span>
-            </button>
-          );
-        })}
-      </div>
-
-      <Link
-        to="/video"
-        onMouseEnter={() => preloadRoute("/video")}
-        title="切换到视频创作工作台"
-        className="hidden h-8 shrink-0 items-center gap-1 rounded-full bg-transparent px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-surface-muted/80 hover:text-foreground sm:inline-flex dark:hover:bg-white/[0.06]"
-      >
-        <Film className="size-3.5" />
-        <span>视频创作</span>
-      </Link>
+    <div className="inline-flex h-9 shrink-0 items-center rounded-full bg-transparent p-0 text-xs font-medium text-[#45515e] dark:text-muted-foreground sm:h-8 sm:bg-[#f0f0f0] sm:p-0.5 sm:dark:bg-muted/70">
+      {[
+        { value: "chat" as const, label: "对话", icon: MessageCircle },
+        { value: "image" as const, label: "作画", icon: ImageIcon },
+      ].map((option) => {
+        const Icon = option.icon;
+        const active = composerMode === option.value;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            className={cn(
+              "inline-flex size-9 items-center justify-center gap-1.5 rounded-full transition sm:h-7 sm:w-auto sm:px-2.5",
+              active && option.value === "chat"
+                ? "bg-[#fff1f7] text-[#ea5ec1] dark:bg-rose-950/30 dark:text-pink-300 sm:bg-white sm:text-[#18181b] sm:shadow-sm sm:dark:bg-background sm:dark:text-foreground"
+                : active
+                  ? "bg-[#eef4ff] text-[#1456f0] dark:bg-sky-950/30 dark:text-sky-300 sm:bg-white sm:text-[#18181b] sm:shadow-sm sm:dark:bg-background sm:dark:text-foreground"
+                  : "text-[#686b73] hover:bg-black/[0.05] hover:text-[#18181b] dark:text-muted-foreground dark:hover:bg-accent/60 dark:hover:text-foreground sm:text-[#45515e] sm:hover:bg-transparent sm:dark:text-muted-foreground sm:dark:hover:bg-transparent",
+            )}
+            onClick={() => onComposerModeChange(option.value)}
+            aria-pressed={active}
+            aria-label={option.label}
+            title={option.label}
+          >
+            <Icon className="size-5 sm:size-3.5" />
+            <span className="hidden sm:inline">{option.label}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }

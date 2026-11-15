@@ -37,7 +37,6 @@ import {
   NavPill,
   ThemeToggleButton,
 } from "./top-nav-controls";
-import { NavSearchMenu } from "./top-nav-search";
 
 export function TopNav() {
   const location = useLocation();
@@ -156,8 +155,7 @@ export function TopNav() {
     session.role === "admin"
       ? "管理员"
       : session.roleName || "普通用户";
-  const canAccessCreationTasks =
-    canAccessPath(session, "/image") || canAccessPath(session, "/video");
+  const canAccessImageTasks = canAccessPath(session, "/image");
   const navToggleLabel = navCollapsed ? "展开导航栏" : "收起导航栏";
 
   return (
@@ -171,7 +169,7 @@ export function TopNav() {
             onToggle={() => setNavCollapsed((collapsed) => !collapsed)}
           />
           <TopNavActions
-            canAccessCreationTasks={canAccessCreationTasks}
+            canAccessImageTasks={canAccessImageTasks}
             creditBalance={creditBalance}
             theme={theme}
             session={session}
@@ -199,16 +197,10 @@ export function TopNav() {
             ))}
           </div>
           <MoreNavMenu items={overflowNavItems} pathname={pathname} />
-          <NavSearchMenu
-            items={visibleNavItems}
-            pathname={pathname}
-            collapsed={navCollapsed}
-            onExpandNav={() => setNavCollapsed(false)}
-          />
         </nav>
 
         <TopNavActions
-          canAccessCreationTasks={canAccessCreationTasks}
+          canAccessImageTasks={canAccessImageTasks}
           creditBalance={creditBalance}
           theme={theme}
           session={session}
@@ -311,7 +303,7 @@ function NavBrandButton({
 }
 
 function TopNavActions({
-  canAccessCreationTasks,
+  canAccessImageTasks,
   creditBalance,
   theme,
   session,
@@ -323,7 +315,7 @@ function TopNavActions({
   showAnnouncements = true,
   compact = false,
 }: {
-  canAccessCreationTasks: boolean;
+  canAccessImageTasks: boolean;
   creditBalance: string;
   theme: ColorTheme;
   session: StoredAuthSession;
@@ -337,7 +329,7 @@ function TopNavActions({
 }) {
   return (
     <div className={className}>
-      {canAccessCreationTasks ? (
+      {canAccessImageTasks ? (
         <ImageTaskQueue className={compact ? "size-8 px-0" : undefined} />
       ) : null}
       <AnnouncementNotifications

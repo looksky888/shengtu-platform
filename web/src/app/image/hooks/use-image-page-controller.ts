@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -114,7 +114,7 @@ export function useImagePageController() {
     cancelPromptApplyRequest,
   });
 
-  const { composerDockHeight, isSidebarOpen, setIsSidebarOpen } = useImagePageLayout({
+  const { composerDockHeight } = useImagePageLayout({
     composerDockRef,
     resultsViewportRef,
     selectedConversationId,
@@ -155,7 +155,6 @@ export function useImagePageController() {
     handleConfirmDelete,
     handleDeleteTurn,
     handleCreateDraft,
-    handleRenameConversation,
   } = useImagePageHistoryController({
     conversations,
     conversationsRef,
@@ -489,29 +488,6 @@ export function useImagePageController() {
     textareaRef,
   ]);
 
-  const handleAppendStyleChip = useCallback(
-    (descriptor: string) => {
-      const normalized = descriptor.trim();
-      if (!normalized) return;
-      if (composerMode === "chat") {
-        setComposerMode("image");
-      }
-      setImagePrompt((prev) => {
-        const base = prev.trim();
-        if (!base) return normalized;
-        if (base.includes(normalized)) return prev;
-        const separator = /[，,。；;、]$/.test(base) ? "" : "，";
-        return `${base}${separator}${normalized}`;
-      });
-      if (typeof window !== "undefined") {
-        window.requestAnimationFrame(() => {
-          textareaRef.current?.focus({ preventScroll: true });
-        });
-      }
-    },
-    [composerMode, setComposerMode, setImagePrompt, textareaRef],
-  );
-
   return {
     isSubmitDispatchingRef, cancelledTurnIdsRef, resultsViewportRef, composerDockRef, textareaRef,
     promptApplyRequestIdRef, imageModelOptions, chatModelOptions, defaultImageModel, defaultTextModel,
@@ -530,10 +506,10 @@ export function useImagePageController() {
     lightboxImages, lightboxOpen, setLightboxOpen, lightboxIndex, setLightboxIndex,
     openLightbox, fileInputRef, referenceImages, setReferenceImages,
     clearReferenceImages, handleReferenceImageChange, handleRemoveReferenceImage, handleContinueEdit,
-    composerDockHeight, isSidebarOpen, setIsSidebarOpen,
+    composerDockHeight,
     clearComposerInputs, resetComposer, handleComposerModeChange,
     isHistoryOpen, setIsHistoryOpen, deleteConfirm, setDeleteConfirm, handleDeleteConversation, handleClearHistory, openDeleteConversationConfirm,
-    openClearHistoryConfirm, openDeleteTurnConfirm, handleConfirmDelete, handleCreateDraft, handleRenameConversation, handleApplyPromptPreset, handleAppendStyleChip, visibilityMutatingImageKey,
+    openClearHistoryConfirm, openDeleteTurnConfirm, handleConfirmDelete, handleCreateDraft, handleApplyPromptPreset, visibilityMutatingImageKey,
     handleImageVisibilityChange, runConversationQueue, handleCancelTurn, handleRetryImage, handleRegenerateTurn,
     handleSubmit, handleComposerModelChange, handleRecallTurn, handleDeleteTurn,
     inpaintSource: activeInpaintSource, handleLocalEdit, handleInpaintSubmit, setInpaintSource: setActiveInpaintSource,

@@ -83,9 +83,9 @@ export function NavPill({
       onFocus={() => preloadRoute(item.href)}
       className={() =>
         cn(
-          "relative isolate shrink-0 whitespace-nowrap rounded-full px-3.5 py-1.5 text-[13px] font-medium transition-colors sm:text-sm",
+          "relative isolate shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors sm:text-sm",
           active
-            ? "text-white dark:text-white"
+            ? "text-[#18181b] dark:text-accent-foreground"
             : "text-[#45515e] hover:bg-black/[0.05] hover:text-[#18181b] dark:text-muted-foreground dark:hover:bg-accent dark:hover:text-accent-foreground",
         )
       }
@@ -93,14 +93,12 @@ export function NavPill({
       {active ? (
         <motion.span
           layoutId={NAV_ACTIVE_LAYOUT_ID}
-          transition={
-            prefersReducedMotion ? reducedNavActiveTransition : navActiveTransition
-          }
-          className="absolute inset-0 -z-10 rounded-full bg-[#1456f0] shadow-[0_6px_16px_-6px_rgba(20,86,240,0.45)]"
+          transition={prefersReducedMotion ? reducedNavActiveTransition : navActiveTransition}
+          className="absolute inset-0 -z-10 rounded-full bg-black/[0.06] shadow-[inset_0_0_0_1px_rgba(20,86,240,0.08)] dark:bg-accent"
         />
       ) : null}
       <motion.span
-        animate={{ scale: active && !prefersReducedMotion ? 1.02 : 1 }}
+        animate={{ scale: active && !prefersReducedMotion ? 1.03 : 1 }}
         transition={
           prefersReducedMotion
             ? reducedNavActiveTransition
@@ -122,13 +120,7 @@ export function CreditBalanceBadge({ creditBalance }: { creditBalance: string })
   );
 }
 
-export function MoreNavMenu({
-  items,
-  pathname,
-}: {
-  items: NavItem[];
-  pathname: string;
-}) {
+export function MoreNavMenu({ items, pathname }: { items: NavItem[]; pathname: string }) {
   const [open, setOpen] = useState(false);
   if (items.length === 0) return null;
   const active = items.some((item) => isActivePath(pathname, item.href));
@@ -142,14 +134,14 @@ export function MoreNavMenu({
           className={cn(
             "h-8 shrink-0 rounded-full px-3 text-[13px] font-medium",
             active
-              ? "bg-[#1456f0] text-white shadow-[0_6px_16px_-6px_rgba(20,86,240,0.45)] hover:bg-[#1048ce] hover:text-white"
-              : "text-[#45515e] hover:bg-black/[0.05] hover:text-[#18181b] dark:text-muted-foreground",
+              ? "bg-black/[0.06] text-[#18181b] dark:bg-accent dark:text-accent-foreground"
+              : "text-[#45515e] hover:bg-black/[0.05] hover:text-[#18181b] dark:text-muted-foreground dark:hover:bg-accent dark:hover:text-accent-foreground",
           )}
         >
           更多 <ChevronDown className="size-3.5" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="center" sideOffset={8} className="w-44 rounded-2xl p-1.5">
+      <PopoverContent align="center" sideOffset={8} className="w-44 p-1">
         <div className="grid gap-1">
           {items.map((item) => (
             <Link
@@ -180,8 +172,6 @@ export function AccountMenu({
   pathname,
   onLogout,
   compact = false,
-  popoverSide,
-  popoverAlign = "end",
 }: {
   session: StoredAuthSession;
   roleLabel: string;
@@ -189,11 +179,6 @@ export function AccountMenu({
   pathname: string;
   onLogout: () => Promise<void>;
   compact?: boolean;
-  canRecharge?: boolean;
-  canAccessAdmin?: boolean;
-  search?: string;
-  popoverSide?: "top" | "right" | "bottom" | "left";
-  popoverAlign?: "start" | "center" | "end";
 }) {
   const [open, setOpen] = useState(false);
   const displayName = session.name || roleLabel;
@@ -215,20 +200,17 @@ export function AccountMenu({
           )}
           aria-label="账号菜单"
         >
-          <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-[#1456f0] text-xs font-semibold text-white">
+          <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-[#181e25] text-xs font-semibold text-white dark:bg-foreground dark:text-background">
             {initial}
           </span>
-          <span className="hidden max-w-[120px] truncate lg:inline">
-            {displayName}
-          </span>
-          <ChevronDown className={compact ? "hidden" : "size-3.5"} />
+          <span className="hidden max-w-[120px] truncate lg:inline">{displayName}</span>
+          <ChevronDown className={compact ? "hidden" : undefined} />
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        side={popoverSide}
-        align={popoverAlign}
+        align="end"
         sideOffset={8}
-        className="w-72 rounded-2xl border-border bg-card p-2 text-card-foreground shadow-[0_20px_60px_-30px_rgba(15,23,42,0.45)] dark:border-border dark:bg-card"
+        className="w-72 border-border bg-card p-2 text-card-foreground shadow-[0_20px_60px_-30px_rgba(15,23,42,0.45)] dark:border-border dark:bg-card"
       >
         <div className="flex flex-col gap-2">
           <AccountSummary
@@ -281,20 +263,17 @@ function AccountSummary({
   initial: string;
   creditBalance: string;
 }) {
-  const subjectText = session.subjectId || session.role || "user";
   return (
     <>
       <div className="rounded-xl bg-muted/50 p-3">
         <div className="flex min-w-0 items-center gap-3">
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#1456f0] text-sm font-semibold text-white">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#181e25] text-sm font-semibold text-white dark:bg-foreground dark:text-background">
             {initial}
           </span>
           <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-semibold text-foreground">
-              {displayName}
-            </div>
+            <div className="truncate text-sm font-semibold text-foreground">{displayName}</div>
             <code className="block truncate font-mono text-xs text-muted-foreground">
-              {subjectText}
+              {session.subjectId || session.role}
             </code>
           </div>
         </div>

@@ -22,7 +22,6 @@ type ImageResultsProps = {
   promptPresets: readonly ImagePromptPreset[];
   onOpenLightbox: (images: ImageLightboxItem[], index: number) => void;
   onApplyPromptPreset: (preset: ImagePromptPreset) => void | Promise<void>;
-  onAppendStyleChip?: (descriptor: string) => void;
   onContinueEdit: (conversationId: string, image: StoredImage | StoredReferenceImage) => void;
   onLocalEdit: (conversationId: string, image: StoredImage) => void;
   onEditTurn: (conversationId: string, turnId: string) => void;
@@ -47,7 +46,6 @@ export function ImageResults({
   promptPresets,
   onOpenLightbox,
   onApplyPromptPreset,
-  onAppendStyleChip,
   onContinueEdit,
   onLocalEdit,
   onEditTurn,
@@ -148,17 +146,11 @@ export function ImageResults({
   };
 
   if (!selectedConversation || selectedConversation.turns.length === 0) {
-    return (
-      <ImageResultsEmptyState
-        promptPresets={promptPresets}
-        onApplyPromptPreset={onApplyPromptPreset}
-        onAppendStyleChip={onAppendStyleChip}
-      />
-    );
+    return <ImageResultsEmptyState promptPresets={promptPresets} onApplyPromptPreset={onApplyPromptPreset} />;
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-[1040px] flex-col gap-5 sm:gap-8">
+    <div className="mx-auto flex w-full max-w-[980px] flex-col gap-5 sm:gap-8">
       {selectedConversation.turns.map((turn, turnIndex) => {
         const progress = progressByTurnKey[turnProgressKey(selectedConversation.id, turn.id)];
 

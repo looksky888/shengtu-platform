@@ -1,9 +1,8 @@
 "use client";
-import { useMemo, type ReactNode } from "react";
+import type { ReactNode } from "react";
 
 import { ComposerPromptPanel } from "@/app/image/components/composer-prompt-panel";
 import { ComposerToolbar } from "@/app/image/components/composer-toolbar";
-import { ImageComposerContext } from "@/app/image/components/image-composer-context";
 import type { ImageComposerProps } from "@/app/image/components/image-composer-types";
 import { ImageReferenceStrip } from "@/app/image/components/image-reference-strip";
 import { useImageComposerInput } from "@/app/image/hooks/use-image-composer-input";
@@ -16,19 +15,50 @@ function ImageComposerDock({ children }: { children: ReactNode }) {
 export function ImageComposer(props: ImageComposerProps) {
   const {
     composerMode,
+    prompt,
+    imageCount,
+    imageModel,
+    imageModelOptionId,
+    imageModelOptions,
+    imageSizeMode,
+    imageAspectRatio,
+    imageResolution,
+    imageCustomRatio,
+    imageCustomWidth,
+    imageCustomHeight,
+    imageQuality,
     imageQualityOptions,
+    imageOutputFormat,
+    imageOutputCompression,
+    imageFrameCount,
+    imageFrameDurationMs,
+    imageOutputHint,
+    estimatedCreditCost,
+    estimatedCreditCostDetail,
     referenceImages,
+    textareaRef,
     fileInputRef,
     onComposerModeChange,
+    onPromptChange,
+    onImageCountChange,
+    onImageModelChange,
+    onImageSizeModeChange,
+    onImageAspectRatioChange,
+    onImageResolutionChange,
+    onImageCustomRatioChange,
+    onImageCustomWidthChange,
+    onImageCustomHeightChange,
+    onImageQualityChange,
+    onImageOutputFormatChange,
+    onImageOutputCompressionChange,
+    onImageFrameCountChange,
+    onImageFrameDurationMsChange,
+    onSubmit,
     onReferenceImageChange,
     onRemoveReferenceImage,
-    onClearReferenceImages,
   } = props;
 
-  const menus = useImageComposerMenus({
-    composerMode,
-    supportsQuality: imageQualityOptions.length > 0,
-  });
+  const menus = useImageComposerMenus({ composerMode, supportsQuality: imageQualityOptions.length > 0 });
   const input = useImageComposerInput({
     composerMode,
     fileInputRef,
@@ -36,38 +66,103 @@ export function ImageComposer(props: ImageComposerProps) {
     onReferenceImageChange,
   });
 
-  const contextValue = useMemo(
-    () => ({ composerProps: props, menus, input }),
-    [props, menus, input],
-  );
-
   return (
-    <ImageComposerContext.Provider value={contextValue}>
-      <ImageComposerDock>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          multiple
-          className="hidden"
-          onChange={input.handleFileInputChange}
+    <ImageComposerDock>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        className="hidden"
+        onChange={input.handleFileInputChange}
+      />
+      <ImageReferenceStrip
+        visible={composerMode === "image"}
+        referenceImages={referenceImages}
+        onRemoveReferenceImage={onRemoveReferenceImage}
+      />
+      <ComposerPromptPanel
+        composerMode={composerMode}
+        prompt={prompt}
+        referenceImageCount={referenceImages.length}
+        promptAreaHeight={input.promptAreaHeight}
+        isPromptAreaResizing={input.isPromptAreaResizing}
+        isReferenceImageDragActive={input.isReferenceImageDragActive}
+        composerPanelRef={input.composerPanelRef}
+        composerToolbarRef={input.composerToolbarRef}
+        textareaRef={textareaRef}
+        onPromptChange={onPromptChange}
+        onSubmit={onSubmit}
+        onTextareaPaste={input.handleTextareaPaste}
+        onReferenceImageDragEnter={input.handleReferenceImageDragEnter}
+        onReferenceImageDragOver={input.handleReferenceImageDragOver}
+        onReferenceImageDragLeave={input.handleReferenceImageDragLeave}
+        onReferenceImageDrop={input.handleReferenceImageDrop}
+        onPromptResizeStart={input.handlePromptResizeStart}
+        onPromptResizeMove={input.handlePromptResizeMove}
+        onPromptResizeEnd={input.handlePromptResizeEnd}
+        onPromptResizeKeyDown={input.handlePromptResizeKeyDown}
+        onPromptResizeLostPointerCapture={input.handlePromptResizeLostPointerCapture}
+      >
+        <ComposerToolbar
+          composerMode={composerMode}
+          prompt={prompt}
+          imageCount={imageCount}
+          imageModel={imageModel}
+          imageModelOptionId={imageModelOptionId}
+          imageModelOptions={imageModelOptions}
+          imageSizeMode={imageSizeMode}
+          imageAspectRatio={imageAspectRatio}
+          imageResolution={imageResolution}
+          imageCustomRatio={imageCustomRatio}
+          imageCustomWidth={imageCustomWidth}
+          imageCustomHeight={imageCustomHeight}
+          imageQuality={imageQuality}
+          imageQualityOptions={imageQualityOptions}
+          imageOutputFormat={imageOutputFormat}
+          imageOutputCompression={imageOutputCompression}
+          imageFrameCount={imageFrameCount}
+          imageFrameDurationMs={imageFrameDurationMs}
+          imageOutputHint={imageOutputHint}
+          estimatedCreditCost={estimatedCreditCost}
+          estimatedCreditCostDetail={estimatedCreditCostDetail}
+          referenceImageCount={referenceImages.length}
+          isModelMenuOpen={menus.isModelMenuOpen}
+          isAspectRatioMenuOpen={menus.isAspectRatioMenuOpen}
+          isResolutionMenuOpen={menus.isResolutionMenuOpen}
+          isQualityMenuOpen={menus.isQualityMenuOpen}
+          isOutputHintOpen={menus.isOutputHintOpen}
+          isImageSettingsOpen={menus.isImageSettingsOpen}
+          modelMenuRef={menus.modelMenuRef}
+          aspectRatioMenuRef={menus.aspectRatioMenuRef}
+          resolutionMenuRef={menus.resolutionMenuRef}
+          qualityMenuRef={menus.qualityMenuRef}
+          onComposerModeChange={onComposerModeChange}
+          onImageCountChange={onImageCountChange}
+          onImageModelChange={onImageModelChange}
+          onImageSizeModeChange={onImageSizeModeChange}
+          onImageAspectRatioChange={onImageAspectRatioChange}
+          onImageResolutionChange={onImageResolutionChange}
+          onImageCustomRatioChange={onImageCustomRatioChange}
+          onImageCustomWidthChange={onImageCustomWidthChange}
+          onImageCustomHeightChange={onImageCustomHeightChange}
+          onImageQualityChange={onImageQualityChange}
+          onImageOutputFormatChange={onImageOutputFormatChange}
+          onImageOutputCompressionChange={onImageOutputCompressionChange}
+          onImageFrameCountChange={onImageFrameCountChange}
+          onImageFrameDurationMsChange={onImageFrameDurationMsChange}
+          onSubmit={onSubmit}
+          onModelMenuOpenChange={menus.setIsModelMenuOpen}
+          onAspectRatioMenuOpenChange={menus.setIsAspectRatioMenuOpen}
+          onResolutionMenuOpenChange={menus.setIsResolutionMenuOpen}
+          onQualityMenuOpenChange={menus.setIsQualityMenuOpen}
+          onOutputHintOpenChange={menus.setIsOutputHintOpen}
+          onImageSettingsOpenChange={menus.handleImageSettingsOpenChange}
+          onCloseParameterMenus={menus.closeParameterMenus}
+          onCloseModelMenu={() => menus.setIsModelMenuOpen(false)}
+          onPickReferenceImage={input.handlePickReferenceImage}
         />
-        <ImageReferenceStrip
-          visible={composerMode === "image" && referenceImages.length > 1}
-          referenceImages={referenceImages}
-          onRemoveReferenceImage={onRemoveReferenceImage}
-          onClearReferenceImages={onClearReferenceImages}
-        />
-        <ComposerPromptPanel
-          onRemoveFirstReference={
-            referenceImages.length > 0
-              ? () => onRemoveReferenceImage(0)
-              : undefined
-          }
-        >
-          <ComposerToolbar />
-        </ComposerPromptPanel>
-      </ImageComposerDock>
-    </ImageComposerContext.Provider>
+      </ComposerPromptPanel>
+    </ImageComposerDock>
   );
 }

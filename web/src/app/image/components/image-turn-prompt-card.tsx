@@ -35,14 +35,19 @@ export function ImageTurnPromptCard({
 }: ImageTurnPromptCardProps) {
   return (
     <div className="flex justify-end">
-      <article className="soft-card-shadow w-full max-w-[min(94%,760px)] rounded-[22px] border border-border bg-[#fbfdff] px-4 py-3.5 text-left text-sm leading-6 text-foreground sm:px-5 sm:py-4 dark:bg-card">
-        <div className="mb-3 flex items-start justify-between gap-3 border-b border-border/60 pb-2.5">
-          <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-[11px] leading-5 text-muted-foreground">
-            <span className="rounded-md bg-surface-muted px-2 py-0.5 font-medium text-foreground/85 tabular-nums">第 {turnIndex + 1} 轮</span>
-            <span className="rounded-md bg-surface-muted px-2 py-0.5 text-foreground/80">{getTurnModeLabel(turn)}</span>
-            <span className="max-w-full truncate rounded-md bg-surface-muted px-2 py-0.5 text-foreground/80" title={turn.modelLabel || turn.model}>{turn.modelLabel || turn.model}</span>
-            <span className="rounded-md bg-surface-muted px-2 py-0.5 text-foreground/80">{getTurnStatusLabel(turn.status)}</span>
-            <span className="px-1 text-muted-foreground tabular-nums">{formatConversationTime(turn.createdAt)}</span>
+      <article className="w-full max-w-[min(94%,760px)] rounded-[24px] border border-[#f2f3f5] bg-white px-4 py-3 text-left text-[14px] leading-6 text-[#222222] shadow-[0_4px_6px_rgba(0,0,0,0.08)] sm:px-5 sm:py-4 sm:text-[15px] sm:leading-7">
+        <div className="mb-3 flex items-start justify-between gap-3 border-b border-[#f2f3f5] pb-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-[11px] leading-5 text-[#45515e]">
+            <span className="rounded-full bg-[#f0f0f0] px-2.5 py-0.5 text-[#45515e]">第 {turnIndex + 1} 轮</span>
+            <span className="rounded-full bg-[#f0f0f0] px-2.5 py-0.5 text-[#45515e]">{getTurnModeLabel(turn)}</span>
+            <span
+              className="max-w-full truncate rounded-full bg-[#f0f0f0] px-2.5 py-0.5 text-[#45515e]"
+              title={turn.modelLabel || turn.model}
+            >
+              {turn.modelLabel || turn.model}
+            </span>
+            <span className="rounded-full bg-[#f0f0f0] px-2.5 py-0.5 text-[#45515e]">{getTurnStatusLabel(turn.status)}</span>
+            <span className="px-1 text-[#8e8e93]">{formatConversationTime(turn.createdAt)}</span>
           </div>
           <div className="flex shrink-0 items-center gap-1">
             {turnBusy ? (
@@ -58,35 +63,35 @@ export function ImageTurnPromptCard({
                   type="button"
                   variant="outline"
                   size="icon"
-                  className="size-7 rounded-md"
+                  className="size-8 rounded-full border-[#e5e7eb] bg-white text-[#45515e] shadow-none hover:bg-black/[0.05]"
                   onClick={() => onEditTurn(conversationId, turn.id)}
                   aria-label="带回创作框编辑"
                   title="带回创作框编辑"
                 >
-                  <PencilLine className="size-3.5" />
+                  <PencilLine className="size-4" />
                 </Button>
                 <Button
                   type="button"
                   variant="outline"
                   size="icon"
-                  className="size-7 rounded-md"
+                  className="size-8 rounded-full border-[#e5e7eb] bg-white text-[#45515e] shadow-none hover:bg-black/[0.05]"
                   disabled={turnBusy || !turn.prompt.trim()}
                   onClick={() => void onRegenerateTurn(conversationId, turn.id)}
                   aria-label="重新生成"
                   title="重新生成"
                 >
-                  <RotateCcw className="size-3.5" />
+                  <RotateCcw className="size-4" />
                 </Button>
                 <Button
                   type="button"
                   variant="outline"
                   size="icon"
-                  className="size-7 rounded-md text-muted-foreground hover:border-rose-500/30 hover:bg-rose-500/10 hover:text-rose-600"
+                  className="size-8 rounded-full border-[#e5e7eb] bg-white text-[#8e8e93] shadow-none hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600"
                   onClick={() => onDeleteTurn(conversationId, turn.id, turn.prompt)}
                   aria-label="删除本轮创作记录"
                   title="删除本轮创作记录"
                 >
-                  <Trash2 className="size-3.5" />
+                  <Trash2 className="size-4" />
                 </Button>
               </>
             )}
@@ -103,12 +108,17 @@ export function ImageTurnPromptCard({
                     return (
                       <div
                         key={`${turn.id}-${image.id || image.name}-${index}`}
-                        className="flex min-h-20 max-w-full flex-col justify-center gap-1 rounded-xl border border-dashed border-border/80 bg-surface-muted/70 px-3 py-2 text-left text-xs text-muted-foreground sm:min-h-24"
+                        className="flex min-h-20 max-w-full flex-col justify-center gap-1 rounded-2xl border border-dashed border-stone-200 bg-stone-50 px-3 py-2 text-left text-xs text-[#45515e] sm:min-h-24"
                       >
-                        <span className="max-w-[220px] truncate font-medium text-foreground/80" title={image.name}>
-                          {image.name || `参考图 ${index + 1}`}
-                        </span>
-                        <span className="text-[11px] leading-4 text-muted-foreground">
+                        <div className="flex items-center gap-1.5">
+                          <span className="shrink-0 rounded-full bg-[#f0f0f0] px-2 py-0.5 text-[10px] font-medium text-[#45515e]">
+                            未缓存
+                          </span>
+                          <span className="max-w-[180px] truncate font-medium text-[#222222]" title={image.name}>
+                            {image.name || `参考图 ${index + 1}`}
+                          </span>
+                        </div>
+                        <span className="text-[11px] leading-4 text-[#8e8e93]">
                           参考图较大未缓存，重试需重新上传
                         </span>
                       </div>
@@ -121,7 +131,7 @@ export function ImageTurnPromptCard({
                       key={`${turn.id}-${image.id || image.name}-${index}`}
                       type="button"
                       onClick={() => onOpenLightbox(referenceLightboxImages, currentPreviewIndex)}
-                      className="group relative size-20 shrink-0 overflow-hidden rounded-xl border border-border/75 bg-surface-muted text-left transition hover:border-foreground/30 sm:size-24"
+                      className="group relative size-20 shrink-0 overflow-hidden rounded-2xl border border-stone-200/80 bg-stone-100/60 text-left transition hover:border-stone-300 sm:size-24"
                       aria-label={`预览参考图 ${image.name || index + 1}`}
                     >
                       <img

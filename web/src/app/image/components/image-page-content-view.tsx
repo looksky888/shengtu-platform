@@ -6,6 +6,7 @@ import type { ImageHistoryDialog } from "@/app/image/components/image-history-di
 import type { ImageInpaintDialog } from "@/app/image/components/image-inpaint-dialog";
 import { ImagePageWorkspace } from "@/app/image/components/image-page-workspace";
 import { ImageResults } from "@/app/image/components/image-results";
+import { StudioStatsFab } from "@/app/image/components/studio-stats-fab";
 import type { ImageLightbox } from "@/components/image-lightbox";
 import { lazyWithRetry } from "@/lib/lazy-with-retry";
 
@@ -72,6 +73,7 @@ export function ImagePageContentView({
         </Suspense>
       ) : null}
       <ImageDeleteConfirmDialog {...deleteConfirmDialogProps} />
+      <StudioStatsFab />
     </>
   );
 }
